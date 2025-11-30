@@ -16,6 +16,14 @@ cd "$SCRIPT_DIR"
 
 echo "Working directory: $PWD"
 
+#Pulling latest code from Git
+echo "Pulling latest code from Git..."
+if command -v git >/dev/null 2>&1; then
+  git pull
+else
+  echo "git not found, skipping git pull."
+fi
+
 #############################################
 # 1) Optional: system packages via apt
 #############################################
