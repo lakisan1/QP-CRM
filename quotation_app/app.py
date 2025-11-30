@@ -5,6 +5,7 @@ import sys
 import io
 import pdfkit
 import requests
+import subprocess
 from datetime import date
 from pathlib import Path
 
@@ -675,6 +676,9 @@ def offer_pdf(offer_id):
             configuration=PDF_CONFIG,
             options=options,
         )
+    except OSError as e:
+        # This catches wkhtmltopdf errors that pdfkit wraps
+        return f"wkhtmltopdf error: {e}", 500        
     finally:
         try:
             os.unlink(header_path)
