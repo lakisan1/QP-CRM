@@ -17,3 +17,6 @@ app_data/product_images/
 # OS noise
 .DS_Store
 Thumbs.db
+
+# GIT 
+git_notes.txt
