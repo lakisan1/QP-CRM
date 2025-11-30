@@ -3,20 +3,27 @@
 <head>
     <meta charset="utf-8">
     <title>{% block title %}Offers{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        nav a { margin-right: 10px; }
-        table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #ccc; padding: 4px 6px; }
-    </style>
+
+    {# Only load main.css for normal UI pages, not for PDF rendering #}
+    {% if pdf_mode is not defined or not pdf_mode %}
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+        <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            nav a { margin-right: 10px; }
+            table { border-collapse: collapse; width: 100%; }
+            th, td { border: 1px solid #ccc; padding: 4px 6px; }
+        </style>
+    {% endif %}
 </head>
 <body>
+{% if pdf_mode is not defined or not pdf_mode %}
 <nav>
     <a href="{{ url_for('list_offers') }}">Offers</a>
     <a href="{{ url_for('new_offer') }}">New Offer</a>
 </nav>
 <hr>
+{% endif %}
+
 {% block content %}{% endblock %}
 </body>
 </html>
