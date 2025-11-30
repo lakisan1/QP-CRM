@@ -657,11 +657,13 @@ def offer_pdf(offer_id):
         "encoding": "UTF-8",
 
         # use file:// URIs instead of plain paths (Linux is picky here)
-        "header-html": header_uri,
+        #"header-html": header_uri,
         "header-spacing": "5",
+        "header-center": "TEST HEADER",
 
-        "footer-html": footer_uri,
+        #"footer-html": footer_uri,
         "footer-spacing": "5",
+        "footer-center": "TEST FOOTER [page] / [topage]",
 
         "enable-local-file-access": "",
         "load-error-handling": "ignore",
