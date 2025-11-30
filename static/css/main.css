@@ -1,0 +1,171 @@
+/* === Generic layout === */
+
+body {
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+}
+
+/* Tables */
+
+.header,
+.footer {
+    width: 100%;
+}
+
+.header-table,
+.footer-table {
+    width: 100%;
+    font-size: 12px;
+}
+
+.items-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+.items-table th,
+.items-table td {
+    border: 1px solid #000;
+    padding: 4px 6px;
+    font-size: 12px;
+}
+
+/* === A4 layout & print === */
+
+@page {
+    size: A4;
+    margin: 15mm;
+}
+
+@media print {
+    nav,
+    .no-print {
+        display: none !important;
+    }
+
+    body {
+        margin: 0;
+        padding: 0;
+        background: #fff;
+    }
+
+    .a4-page {
+        width: 190mm;          /* inside width */
+        min-height: 277mm;     /* inside height */
+        margin: 0;
+        padding: 0;
+        box-shadow: none;
+    }
+
+    .no-break {
+        page-break-inside: avoid;
+    }
+
+        /* Try to keep each item row on a single page */
+    .items-table tr {
+        page-break-inside: avoid;
+    }
+}
+
+@media screen {
+    body {
+        background: #ddd;
+    }
+
+    .a4-page {
+        width: 210mm;
+        min-height: 297mm;
+        margin: 10px auto;
+        background: #fff;
+        padding: 15mm;
+        box-shadow: 0 0 5px rgba(0,0,0,0.3);
+    }
+}
+
+/* Totals table (no borders) */
+
+.totals-table,
+.totals-table td,
+.totals-table th {
+    border: none;
+    border-collapse: collapse;
+}
+
+/* === Offer edit layout === */
+
+.offer-layout {
+    display: flex;
+    gap: 2rem;
+    align-items: flex-start;
+}
+
+.offer-header {
+    flex: 0 0 340px;
+    max-width: 400px;
+    padding-right: 1.5rem;
+    border-right: 1px solid #ccc;
+}
+
+.offer-items {
+    flex: 1;
+    padding-left: 1.5rem;
+}
+
+.offer-header form p {
+    margin: 0 0 0.5rem;
+}
+/* Items table "walls" only in the items area */
+
+.offer-items-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.offer-items-table th,
+.offer-items-table td {
+    border: 1px solid #000;
+    padding: 4px 6px;
+}
+
+/* Big button-style links on edit offer page */
+
+.form-actions {
+    margin-top: 10px;
+}
+
+.btn {
+    display: inline-block;
+    padding: 8px 14px;
+    font-size: 13px;
+    border-radius: 4px;
+    border: 1px solid #555;
+    background: #f0f0f0;
+    color: #000;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.btn:hover {
+    background: #e0e0e0;
+}
+
+.btn-primary {
+    background: #007bff;
+    border-color: #007bff;
+    color: #fff;
+}
+
+.btn + .btn {
+    margin-left: 6px;
+}
+
+.btn-success {
+    background: #28a745;
+    border-color: #28a745;
+    color: #fff;
+}
+
+.btn-success:hover {
+    background: #218838;
+}

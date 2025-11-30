@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Category Defaults{% endblock %}
+{% block content %}
+<h1>Category Defaults</h1>
+
+<h2>Add / edit category defaults</h2>
+<form method="post">
+    <p>
+        <label>Category name:<br>
+            <input type="text" name="category" id="category_input" required>
+        </label>
+    </p>
+    <p>
+        <label>Import %:<br>
+            <input type="number" step="any" name="import_percent">
+        </label>
+    </p>
+    <p>
+        <label>Margin %:<br>
+            <input type="number" step="any" name="margin_percent">
+        </label>
+    </p>
+    <p>
+        <label>Dom. transport:<br>
+            <input type="number" step="any" name="domestic_transport">
+        </label>
+    </p>
+    <p>
+        <label>Extras:<br>
+            <input type="number" step="any" name="default_extras">
+        </label>
+    </p>
+
+    <input type="hidden" name="old_category" id="old_category">
+
+    <p>
+        <button type="submit">Save defaults</button>
+        <button type="button" onclick="clearCategoryForm()">New</button>
+    </p>
+</form>
+
+<h2>Existing defaults</h2>
+<table border="1" cellpadding="4">
+    <tr>
+        <th>Category</th>
+        <th>Import %</th>
+        <th>Margin %</th>
+        <th>Dom. transport</th>
+        <th>Extras</th>
+    </tr>
+    {% for d in defaults %}
+    <tr>
+    <tr>
+        <td>
+            <a href="#"
+               class="cat-link"
+               data-category="{{ d.category }}">
+                {{ d.category }}
+            </a>
+        </td>
+        <td>{{ ((d.import_percent or 0) * 100) | round(2)}}</td>
+        <td>{{ ((d.margin_percent or 0) * 100) | round(2)}}</td>
+        <td>{{ d.domestic_transport }}</td>
+        <td>{{ d.default_extras }}</td>
+    </tr>
+    {% endfor %}
+</table>
+
+<script>
+function clearCategoryForm() {
+    const catInput = document.getElementById("category_input");
+    const oldCatInput = document.getElementById("old_category");
+
+    if (catInput) catInput.value = "";
+    if (oldCatInput) oldCatInput.value = "";
+
+    // Optionally clear the numeric fields too:
+    document.querySelectorAll('input[name="import_percent"], input[name="margin_percent"], input[name="domestic_transport"], input[name="default_extras"]').forEach(function (el) {
+        el.value = "";
+    });
+
+    if (catInput) catInput.focus();
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+    const catInput = document.getElementById("category_input");
+    const oldCatInput = document.getElementById("old_category");
+    if (!catInput || !oldCatInput) return;
+
+    document.querySelectorAll(".cat-link").forEach(function (link) {
+        link.addEventListener("click", function (e) {
+            e.preventDefault();
+            const cat = this.dataset.category || "";
+            catInput.value = cat;
+            oldCatInput.value = cat;  // remember original category for rename
+            catInput.focus();
+        });
+    });
+});
+</script>
+
+{% endblock %}

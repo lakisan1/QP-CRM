@@ -1,0 +1,400 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{% if offer %}Izmeni ponudu{% else %}New offer{% endif %}</h1>
+
+<div class="offer-layout">
+    <!-- LEFT: header form -->
+    <div class="offer-header">
+        <form method="post">
+            <input type="hidden" name="action" value="update_header">
+            <h2>Informacije o ponudi</h2>
+            <p>
+                <label>Broj / ime ponude:<br>
+                    <input type="text" name="offer_number" required
+                           value="{{ offer.offer_number if offer else '' }}">
+                </label>
+            </p>
+            <p>
+                <label>Datum:<br>
+                    <input type="date" name="date"
+                           value="{{ offer.date if offer else today }}">
+                </label>
+            </p>
+            <h2>Informacije o musteriji</h2>
+            <p>
+                <label>Naziv musterije:<br>
+                    <input type="text" name="client_name" required
+                           value="{{ offer.client_name if offer else '' }}">
+                </label>
+            </p>
+            <p>
+                <label>Adresa musterije:<br>
+                    <input type="text" name="client_address"
+                           value="{{ offer.client_address if offer else '' }}">
+                </label>
+            </p>
+            <p>
+                <label>eMail musterije:<br>
+                    <input type="email" name="client_email"
+                           value="{{ offer.client_email if offer else '' }}">
+                </label>
+            </p>
+            <p>
+                <label>Broj telefona musterije:<br>
+                    <input type="text" name="client_phone"
+                           value="{{ offer.client_phone if offer else '' }}">
+                </label>
+            </p>
+            <h2>Informacije o placanju</h2>
+            <p>
+                <label>Valuta:<br>
+                    <select name="currency">
+                        <option value="EUR"
+                            {% if (offer and offer.currency == 'EUR') or not offer %}
+                                selected
+                            {% endif %}>
+                            EUR
+                        </option>
+                        <option value="RSD"
+                            {% if offer and offer.currency == 'RSD' %}
+                                selected
+                            {% endif %}>
+                            RSD
+                        </option>
+                    </select>
+                </label>
+            </p>
+            <p>
+                <label>Srednji kurs (RSD):<br>
+                    <input type="number" step="any" name="exchange_rate"
+                        id="exchange_rate"
+                        value="{{ offer.exchange_rate if offer else '' }}">
+                </label>
+                <button type="button" id="btn_fetch_rate">Preuzmi kurs NBS</button>
+                <br>
+                <small id="rate_status" style="margin-left:8px;"></small>
+            </p>
+            <p>
+                <label>Popust % (globalni):<br>
+                    <input type="number" step="any" name="discount_percent"
+                           value="{% if offer and offer.discount_percent is not none %}{{ (offer.discount_percent * 100) | round(2) }}{% endif %}">
+                </label>
+            </p>
+            <p>
+                <label>PDV % :<br>
+                    <input type="number" step="any" name="vat_percent"
+                           value="{% if offer and offer.vat_percent is not none %}{{ (offer.vat_percent * 100) | round(2) }}{% else %}20{% endif %}">
+                </label>
+            </p>
+            <p>
+                <label>Rok vazenja ponude (dani):<br>
+                    <input type="number" name="validity_days"
+                           value="{{ offer.validity_days if offer else 10 }}">
+                </label>
+            </p>
+            <p>
+                <label>Uslovi plaćanja:<br>
+                    <textarea name="payment_terms" rows="2" cols="50">{{ offer.payment_terms if offer else 'AVANS 100%' }}</textarea>
+                </label>
+            </p>
+            <h2>Informacije o isporuci</h2>
+            <p>
+                <label>Uslovi isporuke:<br>
+                    <textarea name="delivery_terms" rows="2" cols="50">{{ offer.delivery_terms if offer else 'ROK ISPORUKE: do 45 dana po uplati AVANSA' }}</textarea>
+                </label>
+            </p>
+            <p>
+                <label>Dodatni tekst:<br>
+                    <textarea name="notes" rows="8" cols="50">{% if offer and offer.notes %}
+{{ offer.notes }}
+{% else %}
+U cenu uredjaja uracunata je montaza, instruktaza u rukovanju i uputstva za rad na srpskom jeziku.
+Uredjaji poseduju sve potrebne ateste.
+Garantni rok 2 godine.
+Servis i rezervni delovi su obezbedjeni.
+
+ZA ISTOVAR I MONTAŽU OPREME, NEOPHODNO JE OBEZBEDITI VILJUŠKAR.
+Cena je fco KUPAC.
+            {% endif %}</textarea>
+                </label>
+            </p>
+            <p class="form-actions">
+                <button type="submit" class="btn btn-primary">Sacuvaj podatke</button>
+                {% if offer %}
+                    <a href="{{ url_for('view_offer', offer_id=offer.id) }}"
+                    target="_blank"
+                    class="btn">
+                        Provera ponude
+                    </a>
+                    <a href="{{ url_for('offer_pdf', offer_id=offer.id) }}"
+                    class="btn btn-success">
+                        Print PDF
+                    </a>
+                {% endif %}
+            </p>
+        </form>
+    </div>
+
+    {% if offer %}
+    <!-- RIGHT: filters + add item + items table + totals -->
+    <div class="offer-items">
+
+        <h2>Artikli</h2>
+
+        <!-- Filter for products (brand, category, name) -->
+        <form method="get" action="{{ url_for('edit_offer', offer_id=offer.id) }}">
+            <p>
+                <label>Brand:
+                    <select name="brand" onchange="this.form.submit()">
+                        <option value="">-- all brands --</option>
+                        {% for b in brand_options %}
+                            <option value="{{ b }}" {% if brand_filter == b %}selected{% endif %}>
+                                {{ b }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </label>
+                &nbsp;&nbsp;
+                <label>Category:
+                    <select name="category" onchange="this.form.submit()">
+                        <option value="">-- all categories --</option>
+                        {% for c in category_options %}
+                            <option value="{{ c }}" {% if category_filter == c %}selected{% endif %}>
+                                {{ c }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </label>
+                &nbsp;&nbsp;
+                <label>Pretraga po imenu:
+                    <input type="text" name="search" value="{{ search_term or '' }}"
+                        onchange="this.form.submit()">
+                </label>
+                &nbsp;&nbsp;
+                <a href="{{ url_for('edit_offer', offer_id=offer.id) }}">Reset</a>
+            </p>
+        </form>
+
+        <!-- Add item form -->
+        <form method="post">
+            <input type="hidden" name="action" value="add_item">
+            <p>
+                <label>Proizvod:<br>
+                    <select name="product_id" required>
+                        {% for p in products %}
+                            <option value="{{ p.id }}"
+                                    data-name="{{ p.name|e }}"
+                                    data-description="{{ (p.description or '')|e }}"
+                                    data-price="{{ p.latest_price if p.latest_price is not none else '' }}">
+                                {{ p.name }}{% if p.brand %} ({{ p.brand }}){% endif %}
+                                {% if p.category %} [{{ p.category }}]{% endif %}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </label>
+            </p>
+
+            <p>
+                <label>Ime proizvoda (opciona izmena):<br>
+                    <input type="text" name="item_name">
+                </label>
+            </p>
+            <p>
+                <label>Opis (Opciona izmena):<br>
+                    <textarea name="item_description" rows="4" cols="60"></textarea>
+                </label>
+            </p>
+            <p>
+                <label>Kolicina:<br>
+                    <input type="number" step="any" name="quantity" value="1">
+                </label>
+            </p>
+            <p>
+                <label>Cena kom (opciona promena):<br>
+                    <input type="number" step="any" name="unit_price">
+                </label>
+            </p>
+            <p>
+                <button type="submit" class="btn btn-primary">Dodaj proizvod u ponudu</button>
+            </p>
+        </form>
+
+        <!-- Quick new product (TEMP) -->
+        <hr>
+        <h2>Dodavanje novog proizvoda<br>
+        Samo u slucaju da vec ne postoji!</h2>
+        <form method="post" class="no-print" id="new-product-form">
+            <input type="hidden" name="action" value="create_temp_product">
+            <p>
+                <label>Novi proizvod (naziv):<br>
+                    <input type="text" name="new_product_name" id="new_product_name" required>
+                </label>
+            </p>
+            <p>
+                <label>Opis proizvoda (opciono):<br>
+                    <textarea name="new_product_desc" rows="2" cols="60"></textarea>
+                </label>
+            </p>
+            <p>
+                <button type="submit" class="btn">Dodaj proizvod (TEMP)</button>
+            </p>
+        </form>
+
+        <table class="offer-items-table">
+            <tr>
+                <th>#</th>
+                <th>Fotografija</th>
+                <th>Ime proizvoda</th>
+                <th>Opis</th>
+                <th>Kom</th>
+                <th>Cena kom</th>
+                <th>Red zbir</th>
+                <th>Actions</th>
+            </tr>
+            {% for it in items %}
+            <tr>
+                <td>{{ it.line_order }}</td>
+                <td style="text-align: center;">
+                    {% if it.item_photo_path %}
+                        <img src="{{ url_for('product_image', filename=it.item_photo_path) }}"
+                             style="max-width: 60px; max-height: 60px;">
+                    {% endif %}
+                </td>
+                <td>{{ it.item_name }}</td>
+                <td>{{ it.item_description }}</td>
+                <td>{{ it.quantity }}</td>
+                <td>{{ format_amount(it.unit_price)}}</td>
+                <td>{{ format_amount(it.line_net)}}</td>
+                <td>
+                    <form method="post" style="display:inline;"
+                          onsubmit="return confirm('Delete this item?');">
+                        <input type="hidden" name="action" value="delete_item">
+                        <input type="hidden" name="item_id" value="{{ it.id }}">
+                        <button type="submit">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+
+        <h3 style="text-align: right;">Ukupno</h3>
+        <p style="text-align: right;">
+            UKUPNO: {{ format_amount(offer.total_net or 0) }}<br>
+            POPUST: {{ format_amount(offer.total_discount or 0) }}<br>
+            UKUPNO posle popusta: {{ format_amount(offer.total_net_after_discount or 0) }}<br>
+            PDV {{ ((offer.vat_percent or 0) * 100) | round(2) }}%:
+            {{ format_amount(offer.total_vat or 0) }} <br>
+            <strong>UKUPNO ZA UPLATU: {{ format_amount(offer.total_gross or 0) }}</strong>
+        </p>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // --- Auto-fill item fields when selecting product ---
+    const productSelect = document.querySelector('select[name="product_id"]');
+    const nameInput = document.querySelector('input[name="item_name"]');
+    const descTextarea = document.querySelector('textarea[name="item_description"]');
+    const priceInput = document.querySelector('input[name="unit_price"]');
+
+    function fillFromSelection() {
+        if (!productSelect || !nameInput || !descTextarea) return;
+        const opt = productSelect.options[productSelect.selectedIndex];
+        if (!opt) return;
+
+        // from data-* attributes on the <option>
+        nameInput.value = opt.dataset.name || '';
+        descTextarea.value = opt.dataset.description || '';
+
+        if (priceInput) {
+            if (opt.dataset.price) {
+                priceInput.value = opt.dataset.price;
+            } else {
+                priceInput.value = '';
+            }
+        }
+    }
+
+    if (productSelect) {
+        productSelect.addEventListener('change', fillFromSelection);
+        // pre-fill once on load (first product)
+        if (productSelect.value) {
+            fillFromSelection();
+        }
+    }
+
+    // --- New TEMP product: check duplicates + confirm ---
+    const newProdForm = document.getElementById('new-product-form');
+    const newProdNameInput = document.getElementById('new_product_name');
+
+    if (newProdForm && newProdNameInput && productSelect) {
+        newProdForm.addEventListener('submit', function (e) {
+            const name = newProdNameInput.value.trim();
+            if (!name) return;  // required attribute will complain anyway
+
+            const nameLower = name.toLowerCase();
+            let exists = false;
+
+            // Compare against data-name (clean product name) of each option
+            for (let i = 0; i < productSelect.options.length; i++) {
+                const opt = productSelect.options[i];
+                const optName = (opt.dataset.name || opt.text || '')
+                    .trim()
+                    .toLowerCase();
+                if (optName === nameLower) {
+                    exists = true;
+                    break;
+                }
+            }
+
+            if (exists) {
+                alert('Proizvod sa ovim nazivom već postoji u listi.\n' +
+                      'Proverite filtere (brend/kategorija) umesto kreiranja novog proizvoda.');
+                e.preventDefault();
+                return;
+            }
+
+            const ok = confirm('Da li ste sigurni da ovaj proizvod NE postoji i ' +
+                               'želite da ga kreirate kao TEMP proizvod?');
+            if (!ok) {
+                e.preventDefault();
+            }
+        });
+    }
+});
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // --- existing JS code (product auto-fill, TEMP product confirm, etc.) stays here ---
+
+    // --- Fetch NBS middle rate (EUR) and fill exchange_rate field ---
+    const btnFetchRate = document.getElementById('btn_fetch_rate');
+    const exchangeInput = document.getElementById('exchange_rate');
+    const rateStatus = document.getElementById('rate_status');
+    const nbsUrl = "{{ url_for('api_nbs_eur_rate') }}";
+
+    if (btnFetchRate && exchangeInput && rateStatus) {
+        btnFetchRate.addEventListener('click', function () {
+            rateStatus.textContent = "Preuzimam kurs...";
+            fetch(nbsUrl)
+                .then(resp => resp.json())
+                .then(data => {
+                    if (data.success && typeof data.rate === "number") {
+                        exchangeInput.value = data.rate.toFixed(4);
+                        const now = new Date();
+                        const ts = now.toLocaleString('sr-RS');
+                        rateStatus.textContent = `Kurs preuzet sa NBS (${ts}).`;
+                    } else {
+                        rateStatus.textContent = data.message || "Greška pri preuzimanju kursa.";
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    rateStatus.textContent = "Greška pri povezivanju sa NBS.";
+                });
+        });
+    }
+});
+</script>
+{% endblock %}

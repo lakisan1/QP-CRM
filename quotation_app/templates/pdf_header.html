@@ -1,0 +1,42 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 10px;
+            margin: 0;
+            padding: 0;
+            letter-spacing: 0.1em;
+        }
+        .header-wrapper {
+            width: 100%;
+            border-bottom: 1px solid #000;
+            padding-bottom: 3mm;
+        }
+        .header-inner {
+            display: table;
+            width: 100%;
+        }
+        .header-logo,
+        .header-text {
+            display: table-cell;
+            vertical-align: top;
+        }
+        .header-logo img {
+            max-height: 40px;
+        }
+        .header-text {
+            text-align: left;
+            font-size: 10px;
+        }
+    </style>
+</head>
+<body>
+<div class="header-wrapper">
+    {# Reuse the same header as in offer_view, but now with pdf_mode + logo_uri #}
+    {% include "offer_header_inner.html" %}
+</div>
+</body>
+</html>

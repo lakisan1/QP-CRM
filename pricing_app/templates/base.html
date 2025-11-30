@@ -1,0 +1,23 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{% block title %}Pricing App{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        nav a { margin-right: 10px; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ccc; padding: 4px 6px; }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="{{ url_for('list_products') }}">Products</a> |
+        <a href="{{ url_for('category_defaults') }}">Category Defaults</a> |
+        <a href="{{ url_for('brands') }}">Brands</a>
+    </nav>
+    <hr>
+    {% block content %}{% endblock %}
+</body>
+</html>

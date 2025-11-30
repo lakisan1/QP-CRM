@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>{% block title %}Offers{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        nav a { margin-right: 10px; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ccc; padding: 4px 6px; }
+    </style>
+</head>
+<body>
+<nav>
+    <a href="{{ url_for('list_offers') }}">Offers</a>
+    <a href="{{ url_for('new_offer') }}">New Offer</a>
+</nav>
+<hr>
+{% block content %}{% endblock %}
+</body>
+</html>

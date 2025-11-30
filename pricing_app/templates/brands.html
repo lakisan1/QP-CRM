@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Brands{% endblock %}
+
+{% block content %}
+<h1>Brands</h1>
+
+<h2>Add / edit brand</h2>
+<form method="post">
+    <p>
+        <label>Brand name:<br>
+            <input type="text" name="name" id="brand_name" required>
+        </label>
+    </p>
+    <input type="hidden" name="old_name" id="old_name">
+    <p>
+        <button type="submit">Save brand</button>
+        <button type="button" onclick="clearBrandForm()">New</button>
+    </p>
+</form>
+
+<h2>Existing brands</h2>
+<table border="1" cellpadding="4">
+    <tr>
+        <th>Brand</th>
+    </tr>
+    {% for b in brands %}
+    <tr>
+        <td>
+            <a href="#"
+               class="brand-link"
+               data-name="{{ b.name }}">
+                {{ b.name }}
+            </a>
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+
+<script>
+function clearBrandForm() {
+    const nameInput = document.getElementById("brand_name");
+    const oldNameInput = document.getElementById("old_name");
+    if (nameInput) nameInput.value = "";
+    if (oldNameInput) oldNameInput.value = "";
+    if (nameInput) nameInput.focus();
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+    const nameInput = document.getElementById("brand_name");
+    const oldNameInput = document.getElementById("old_name");
+    if (!nameInput || !oldNameInput) return;
+
+    document.querySelectorAll(".brand-link").forEach(function (link) {
+        link.addEventListener("click", function (e) {
+            e.preventDefault();
+            const brand = this.dataset.name || "";
+            nameInput.value = brand;
+            oldNameInput.value = brand;  // remember original
+            nameInput.focus();
+        });
+    });
+});
+</script>
+{% endblock %}

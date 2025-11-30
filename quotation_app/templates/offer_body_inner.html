@@ -1,0 +1,131 @@
+{# offer_body_inner.html #}
+
+<table class="header-table">
+    <tr>
+        <td>
+            <strong>Kupac:</strong><br>
+            {{ offer.client_name }}<br>
+            {{ offer.client_address }}<br>
+            {% if offer.client_email %}E-mail: {{ offer.client_email }}<br>{% endif %}
+            {% if offer.client_phone %}Tel: {{ offer.client_phone }}<br>{% endif %}
+        </td>
+        <td style="text-align:center;">
+            <strong>PONUDA br. {{ offer.offer_number or offer.id }}</strong><br>
+            Datum: {{ offer.date }}<br>
+        </td>
+    </tr>
+</table>
+
+<h3>Stavke ponude</h3>
+<table class="items-table">
+    <tr>
+        <th>Rb.</th>
+        <th>Fotografija</th>
+        <th>Opis</th>
+        <th>Količina</th>
+        <th>Cena/kom</th>
+        <th>Ukupno</th>
+    </tr>
+    {% for it in items %}
+    <tr>
+        <td style="text-align:center;">{{ loop.index }}</td>
+
+        <td style="text-align:center;">
+            {% if it.item_photo_path %}
+                {% if pdf_mode %}
+                    {% if it.item_photo_uri %}
+                        <img src="{{ it.item_photo_uri }}"
+                            style="max-width: 120px; max-height: 120px;">
+                    {% endif %}
+                {% else %}
+                    <img src="{{ url_for('product_image', filename=it.item_photo_path) }}"
+                        style="max-width: 120px; max-height: 120px;">
+                {% endif %}
+            {% endif %}
+        </td>
+
+        <td>
+            <strong>{{ it.item_name }}</strong><br>
+            <small class="multiline">
+                {{ it.item_description }}
+            </small>
+        </td>
+
+        <td style="text-align:center;">{{ it.quantity }}</td>
+
+        <td style="text-align:right;">
+            {{ format_amount(it.unit_price) }}
+        </td>
+
+        <td style="text-align:right;">
+            {{ format_amount(it.line_net) }}
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+
+<div class="no-break-block">
+
+    <br>
+    <table class="totals-table" style="width:100%; font-size:12px;">
+        <tr>
+            <td style="width:70%; text-align:left;">
+                Cene su u {{ offer.currency or 'EUR' }}.<br>
+                {% if offer.currency != 'RSD' and offer.exchange_rate %}
+                    Obračun u RSD vrši se po kursu {{ offer.exchange_rate }} na dan izdavanja predračuna.
+                {% endif %}<br>
+                OPCIJA UPLATE: {{ offer.payment_terms or 'po dogovoru' }}<br>
+                ROK ISPORUKE: {{ offer.delivery_terms or 'po dogovoru' }}<br>
+                ROK VAŽENJA PONUDE: {{ offer.validity_days or 10 }} dana<br>
+            </td>
+            <td style="width:30%; text-align:right;">
+                UKUPNO:
+                {{ format_amount(offer.total_net or 0) }}<br>
+                POPUST:
+                {{ format_amount(offer.total_discount or 0) }}<br>
+
+                <span style="display:block; border-top:1px solid #000; margin:4px 0;"></span>
+
+                UKUPNO posle popusta:
+                {{ format_amount(offer.total_net_after_discount or 0) }}<br>
+                PDV {{ ((offer.vat_percent or 0) * 100) | round(2) }}%:
+                {{ format_amount(offer.total_vat or 0) }}<br>
+
+                <span style="display:block; border-top:1px solid #000; margin:4px 0;"></span>
+
+                <strong>
+                    UKUPNO ZA UPLATU:
+                    {{ format_amount(offer.total_gross or 0) }}
+                </strong>
+            </td>
+        </tr>
+    </table>
+
+    {% if offer.notes %}
+    <p style="font-size:12px; white-space:pre-line;">
+        {{ offer.notes }}
+    </p>
+    {% endif %}
+
+    <br><br>
+    <table class="footer-table">
+        <tr>
+            <td style="text-align:center;">
+                u V. Moštanici, {{ offer.date }}
+            </td>
+            <td style="text-align:center;">
+                Vlada Marinkovic
+                <br>
+                <br>
+                ______________________
+            </td>
+        </tr>
+    </table>
+
+    <p style="text-align:center;">
+        <br>
+        <br>
+        <strong>PONUDA JE VAŽEĆA BEZ PEČATA I POTPISA</strong>
+    </p>
+
+</div>
