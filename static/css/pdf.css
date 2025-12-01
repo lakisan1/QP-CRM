@@ -4,7 +4,7 @@
     size: A4;
 
     /* More room for logo + header, comfortable bottom */
-    margin: 30mm 10mm 25mm 20mm; /* 35 top, 10 right, 25 bottom, 20 left */
+    margin: 30mm 10mm 20mm 20mm; /* 35 top, 10 right, 25 bottom, 20 left */
 
     /* Header: use the running .pdf-header block */
     @top-center {
@@ -32,12 +32,12 @@
 
     /* CENTER: page X of Y */
     @bottom-center {
-        content: "Strana " counter(page) " od " counter(pages) \A
-                 " \A"
-                 " \A"
-                 " \A"
-                 " \A"
-                 " ";
+        content: "Strana " counter(page) " od " counter(pages)
+                 "1 \A"
+                 "1 \A"
+                 "1 \A"
+                 "1 \A"
+                 "1 ";
         font-size: 8pt;
         font-family: Arial, sans-serif;
         border-top: 1.5pt solid #000;
