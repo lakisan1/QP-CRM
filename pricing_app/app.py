@@ -1,8 +1,11 @@
-from flask import Flask, render_template, request, redirect, url_for, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, send_from_directory,send_file
 import sqlite3
 import os
 import sys
 import re
+import csv
+import io
+import zipfile
 from PIL import Image
 from datetime import date
 
@@ -896,3 +899,52 @@ def delete_price(product_id, price_id):
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
+
+# ---------- DB Export to CSV ----------
+@app.route("/export_db_csv")
+def export_db_csv():
+    """
+    Export all non-internal SQLite tables as CSV files
+    inside a single ZIP, and download it.
+    """
+    conn = get_db()
+    cur = conn.cursor()
+
+    # Get list of tables (skip internal sqlite_%)
+    cur.execute("""
+        SELECT name
+        FROM sqlite_master
+        WHERE type='table'
+          AND name NOT LIKE 'sqlite_%'
+        ORDER BY name;
+    """)
+    table_rows = cur.fetchall()
+
+    mem_zip = io.BytesIO()
+
+    with zipfile.ZipFile(mem_zip, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for row in table_rows:
+            table_name = row["name"]
+
+            # Dump table to CSV string
+            cur.execute(f"SELECT * FROM {table_name};")
+            rows = cur.fetchall()
+            cols = [desc[0] for desc in cur.description]
+
+            csv_buf = io.StringIO()
+            writer = csv.writer(csv_buf)
+            writer.writerow(cols)
+            for r in rows:
+                writer.writerow([r[col] for col in cols])
+
+            zf.writestr(f"{table_name}.csv", csv_buf.getvalue())
+
+    conn.close()
+
+    mem_zip.seek(0)
+    return send_file(
+        mem_zip,
+        mimetype="application/zip",
+        as_attachment=True,
+        download_name="pricing_db_export.zip"
+    )

@@ -5,7 +5,6 @@ import sys
 import io
 import pdfkit
 import requests
-import subprocess
 from weasyprint import HTML, CSS
 from datetime import date
 from pathlib import Path
@@ -28,23 +27,6 @@ APP_ASSETS_DIR = os.path.join(BASE_DIR, "app_assets")
 #  common_utils app import
 if BASE_DIR not in sys.path:
     sys.path.append(BASE_DIR)
-
-# --- PDF / wkhtmltopdf configuration ---------------------------------
-
-# Decide default path based on OS
-if os.name == "nt":  # Windows
-    default_wkhtml = r"C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe"
-else:                # Linux (and others – you can refine later if needed)
-    default_wkhtml = "/usr/bin/wkhtmltopdf"
-
-# Allow override via environment variable, but fall back to OS-specific default
-WKHTMLTOPDF_PATH = os.getenv("WKHTMLTOPDF_PATH", default_wkhtml)
-
-if os.path.isfile(WKHTMLTOPDF_PATH):
-    PDF_CONFIG = pdfkit.configuration(wkhtmltopdf=WKHTMLTOPDF_PATH)
-else:
-    PDF_CONFIG = None  # PDF export will show a nice error if not configured
-
 
 from common_utils import format_amount
 

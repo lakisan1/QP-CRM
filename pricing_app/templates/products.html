@@ -5,6 +5,12 @@
 
 <p><a href="{{ url_for('add_product') }}">Dodaj proizvod</a></p>
 
+<p>
+    <a href="{{ url_for('export_db_csv') }}">
+        <button type="button">Export DB (CSV ZIP)</button>
+    </a>
+</p>
+
 <form method="get" action="{{ url_for('list_products') }}">
     <p>
         <label>Brand:
