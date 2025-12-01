@@ -31,14 +31,18 @@ fi
 # If 'apt' exists (Debian/Ubuntu), we can install dependencies.
 # Comment this whole block out if you prefer to do it manually.
 if command -v apt >/dev/null 2>&1; then
-  echo "Updating apt and installing system packages (python3, venv, pip, wkhtmltopdf)..."
-  # If you run as root (common in LXC), you don’t need sudo.
+  echo "Updating apt and installing system packages (python, venv, WeasyPrint deps)..."
+
+  PKGS="python3 python3-venv python3-pip \
+        libcairo2 libpango-1.0-0 libgdk-pixbuf-2.0-0 \
+        libffi-dev shared-mime-info fonts-dejavu-core"
+
   if [ "$(id -u)" -eq 0 ]; then
     apt update
-    apt install -y python3 python3-venv python3-pip wkhtmltopdf fonts-dejavu-core
+    apt install -y $PKGS
   else
     sudo apt update
-    sudo apt install -y python3 python3-venv python3-pip wkhtmltopdf fonts-dejavu-core
+    sudo sudo apt install -y $PKGS
   fi
 else
   echo "apt not found, skipping system package installation."
