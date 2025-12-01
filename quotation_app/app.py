@@ -578,6 +578,8 @@ def view_offer(offer_id):
 import io
 from flask import send_file, request
 
+from pathlib import Path
+
 @app.route("/offers/<int:offer_id>/pdf")
 def offer_pdf(offer_id):
     conn = get_db()
@@ -600,20 +602,37 @@ def offer_pdf(offer_id):
     items = cur.fetchall()
     conn.close()
 
-    # Render the same HTML you use now for PDF (pdf_offer.html)
-    # We pass pdf_mode=True if you use that in the template
+    # ---- Build file:// URIs for product images ----
+    items_for_pdf = []
+    for row in items:
+        d = dict(row)
+        photo_name = d.get("item_photo_path")
+        if photo_name:
+            full_path = os.path.join(IMAGE_DIR, photo_name)
+            if os.path.isfile(full_path):
+                d["item_photo_uri"] = Path(full_path).as_uri()
+            else:
+                d["item_photo_uri"] = None
+        else:
+            d["item_photo_uri"] = None
+        items_for_pdf.append(d)
+
+    # ---- Logo URI ----
+    logo_path = os.path.join(APP_ASSETS_DIR, "logo_company.jpg")
+    logo_uri = Path(logo_path).as_uri()
+
+    # Render HTML (note: we pass items_for_pdf, logo_uri, pdf_mode=True)
     html_string = render_template(
         "pdf_offer.html",
         offer=offer,
-        items=items,
-        pdf_mode=True
+        items=items_for_pdf,
+        pdf_mode=True,
+        logo_uri=logo_uri,
     )
 
-    # Build absolute path for CSS
     pdf_css_path = os.path.join(BASE_DIR, "static", "css", "pdf.css")
 
-    # Generate PDF bytes with WeasyPrint
-    pdf_bytes = HTML(string=html_string, base_url=request.host_url).write_pdf(
+    pdf_bytes = HTML(string=html_string).write_pdf(
         stylesheets=[CSS(filename=pdf_css_path)]
     )
 
