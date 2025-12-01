@@ -896,10 +896,6 @@ def delete_price(product_id, price_id):
     conn.close()
 
     return redirect(url_for("price_history", product_id=product_id))
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
-
 # ---------- DB Export to CSV ----------
 @app.route("/export_db_csv")
 def export_db_csv():
@@ -948,3 +944,7 @@ def export_db_csv():
         as_attachment=True,
         download_name="pricing_db_export.zip"
     )
+
+# ---------- END ----------
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)
