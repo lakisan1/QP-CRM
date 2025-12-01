@@ -4,7 +4,7 @@
     size: A4;
 
     /* More room for logo + header, comfortable bottom */
-    margin: 35mm 10mm 25mm 20mm;
+    margin: 35mm 10mm 20mm 20mm; /* 35 top, 10 right, 25 bottom, 20 left */
 
     /* Header: use the running .pdf-header block */
     @top-center {
@@ -22,9 +22,9 @@
         white-space: pre;           /* respect \A line breaks */
         font-size: 8pt;
         font-family: Arial, sans-serif;
-        border-top: 3.0pt solid #000;
+        border-top: 1.5pt solid #000;
         padding-top: 2mm;
-        width: 20%;
+        width: 40%;
     }
 
     /* CENTER: page X of Y */
@@ -32,9 +32,9 @@
         content: "Strana " counter(page) " od " counter(pages);
         font-size: 8pt;
         font-family: Arial, sans-serif;
-        border-top: 3.0pt solid #000;
+        border-top: 1.5pt solid #000;
         padding-top: 2mm;
-        width: 40%;
+        width: 20%;
     }
 
     /* RIGHT: TR / PIB / Matični broj */
@@ -47,7 +47,7 @@
         font-size: 8pt;
         font-family: Arial, sans-serif;
         text-align: right;
-        border-top: 3.0pt solid #000;
+        border-top: 1.5pt solid #000;
         padding-top: 2mm;
         width: 40%;
     }
@@ -150,19 +150,19 @@ body {
 }
 
 .items-table .col-desc {
-    width: 45%;
+    width: 50%;
 }
 
 .items-table .col-qty {
-    width: 8%;   /* smaller Količina column */
+    width: 6%;   /* smaller Kom column */
 }
 
 .items-table .col-unit {
-    width: 13%;
+    width: 12%;
 }
 
 .items-table .col-total {
-    width: 15%;
+    width: 13%;
 }
 
 /* Multiline product descriptions preserved */
