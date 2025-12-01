@@ -2,7 +2,7 @@
 
 @page {
     size: A4;
-    margin: 20mm 10mm 25mm 20mm;
+    margin: 35mm 10mm 25mm 20mm;
 
     @top-center {
         content: element(doc-header);
@@ -21,17 +21,16 @@
 /* The content for the footer margin box */
 .pdf-footer {
     position: running(doc-footer);
-    font-size: 9pt;
+    font-size: 8pt;
 }
 
 /* === Body & tables ====================================== */
 
 body {
     font-family: Arial, sans-serif;
-    font-size: 12px;
+    font-size: 8px;
     margin: 0;
     padding: 0;
-    letter-spacing: 0.1em;  /* as you had before */
 }
 
 .page-content {
@@ -41,7 +40,7 @@ body {
 .header-table,
 .footer-table {
     width: 100%;
-    font-size: 12px;
+    font-size: 8px;
 }
 
 .items-table {
@@ -54,8 +53,7 @@ body {
 .items-table td {
     border: 1px solid #000;
     padding: 4px 6px;
-    font-size: 12px;
-    letter-spacing: 0.1em;
+    font-size: 8px;
 }
 
 .totals-table,
