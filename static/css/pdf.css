@@ -2,25 +2,25 @@
 
 @page {
     size: A4;
-    /* a bit more room at the top for logo + header lines */
-    margin: 30mm 10mm 20mm 15mm;
+
+    /* More room for logo + header, comfortable bottom */
+    margin: 35mm 10mm 20mm 15mm;
 
     /* Header: use the running .pdf-header block */
     @top-center {
         content: element(doc-header);
-        font-size: 9pt;  /* same as body */
     }
 
-    /* Footer on EVERY page – text only, no HTML partial needed */
+    /* Footer on EVERY page – text only */
     @bottom-left {
         content: "TR: 220-21678-48   TR: 205-241423-21   PIB: SR 101030495   Matični broj: 07775911";
-        font-size: 9pt;  /* same as body */
+        font-size: 8pt;
         font-family: Arial, sans-serif;
     }
 
     @bottom-right {
         content: "Strana " counter(page) " od " counter(pages);
-        font-size: 9pt;  /* same as body */
+        font-size: 8pt;
         font-family: Arial, sans-serif;
     }
 }
@@ -28,7 +28,22 @@
 /* Header content (logo + company info) */
 .pdf-header {
     position: running(doc-header);
-    font-size: 8pt;   /* smaller than before */
+    font-size: 8pt;               /* smaller header text */
+}
+
+/* Ensure header tables look clean */
+.pdf-header table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.pdf-header td {
+    padding: 0 4px;
+}
+
+/* Control logo size in PDF globally */
+.pdf-header img {
+    max-height: 40px;
 }
 
 /* We do NOT use the HTML footer in PDF anymore.
@@ -41,17 +56,16 @@
 
 body {
     font-family: Arial, sans-serif;
-    font-size: 9pt;      /* base font, matches footer now */
+    font-size: 9pt;      /* base font */
     margin: 0;
     padding: 0;
-    letter-spacing: normal;
 }
 
 .page-content {
     padding-top: 0;
 }
 
-/* Header/footer tables inside your header partial */
+/* Header/footer tables used inside body (if any) */
 .header-table,
 .footer-table {
     width: 100%;
@@ -67,7 +81,7 @@ body {
     page-break-inside: auto;
 }
 
-/* If you ever switch to <thead>, this helps repeat it on new pages */
+/* Repeat header row if you switch to <thead> */
 .items-table thead {
     display: table-header-group;
 }
@@ -79,7 +93,7 @@ body {
     font-size: 9pt;
 }
 
-/* Avoid splitting a row across pages as much as possible */
+/* Avoid splitting a row across pages */
 .items-table tr {
     page-break-inside: avoid;
 }

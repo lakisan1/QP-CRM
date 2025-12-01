@@ -3,23 +3,16 @@
 <head>
     <meta charset="utf-8">
     <title>Ponuda {{ offer.offer_number or offer.id }}</title>
-    {# Use external PDF CSS instead of big inline <style> #}
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/pdf.css') }}">
 </head>
 <body>
-    {# This will be used as the running header on every page #}
+    <!-- Running header block for WeasyPrint -->
     <div class="pdf-header">
         {% include "offer_header_inner.html" %}
     </div>
 
-    {# Main content of the offer (items, totals, notes, etc.) #}
+    <!-- Main content -->
     <div class="page-content">
         {% include "offer_body_inner.html" %}
-    </div>
-
-    {# This will be used as the running footer on every page #}
-    <div class="pdf-footer">
-        {% include "offer_footer_inner.html" %}
     </div>
 </body>
 </html>

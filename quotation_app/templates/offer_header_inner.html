@@ -1,9 +1,9 @@
 <table style="width:100%; border-collapse:collapse;">
     <tr>
         <!-- Logo -->
-        <td style="width:20%; vertical-align:center;">
+        <td style="width:20%; vertical-align:middle;">
             {% if pdf_mode %}
-                <img src="{{ logo_uri }}" style="max-height:60px;">
+                <img src="{{ logo_uri }}" style="max-height:40px;">
             {% else %}
                 <img src="{{ url_for('app_asset', filename='logo_company.jpg') }}"
                      style="max-height:50px;">
@@ -11,23 +11,22 @@
         </td>
 
         <!-- Left info block -->
-        <td style="width:40%; vertical-align:center; font-size:12px;">
+        <td style="width:40%; vertical-align:middle;">
             <strong>PIB:</strong> SR 101030495<br>
             <strong>Matični broj:</strong> 07775911<br>
             <strong>PDV broj:</strong> 130505776<br>
             <strong>Šifra delatnosti:</strong> 4690<br>
-            <strong>adresa:</strong> 10. Oktobra 3, 11262,<br>
-            Velika Moštanica, Srbija<br>
         </td>
 
         <!-- Right info block -->
-        <td style="width:40%; vertical-align:center; font-size:12px;">
-            <strong>adresa:</strong> 10. Oktobra 3, 11262,<br>
+        <td style="width:40%; vertical-align:middle;">
+            <strong>Adresa:</strong> 10. Oktobra 3, 11262,<br>
             Velika Moštanica, Srbija<br>
-            <strong>tel:</strong> +381 11 8075 777<br>
-            <strong>mob:</strong> +381 63 242 314<br>
-            <strong>e-mail:</strong> office@hofmann-srbija.com<br>
-            <strong>web site:</strong> www.hofmann-srbija.rs
+            <strong>Tel:</strong> +381 11 8075 777<br>
+            <strong>Mob:</strong> +381 63 242 314<br>
+            <strong>E-mail:</strong> office@hofmann-srbija.com<br>
+            <strong>Web:</strong> www.hofmann-srbija.rs
         </td>
     </tr>
 </table>
+<hr>
