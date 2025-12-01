@@ -2,8 +2,8 @@
 
 @page {
     size: A4;
-    /* a bit more space for content, but still room for header/footer */
-    margin: 22mm 10mm 18mm 16mm;
+    /* similar to browser print: a bit of margin top/bottom for header/footer */
+    margin: 22mm 10mm 20mm 15mm;
 
     @top-center {
         content: element(doc-header);
@@ -14,36 +14,38 @@
     }
 }
 
-/* Header content (company logo + info) */
+/* Header content (logo + company info) */
 .pdf-header {
     position: running(doc-header);
-    font-size: 9pt;   /* was 11pt */
+    font-size: 9pt;      /* close to your HTML header look */
 }
 
-/* Footer content (bank info, note...) */
+/* Footer content (bank info, note…) */
 .pdf-footer {
     position: running(doc-footer);
-    font-size: 8pt;   /* was 9pt */
+    font-size: 8pt;
 }
 
 /* === Body & tables ====================================== */
 
 body {
     font-family: Arial, sans-serif;
-    font-size: 9pt;   /* was 10pt */
+    font-size: 9pt;      /* roughly like 12px in the HTML version */
     margin: 0;
     padding: 0;
+    letter-spacing: normal;   /* override any letter-spacing from HTML */
 }
 
 .page-content {
     padding-top: 0;
 }
 
-/* Header/footer tables inside partials */
+/* Header/footer tables inside the header/footer partials */
 .header-table,
 .footer-table {
     width: 100%;
-    font-size: 9pt;   /* was 10pt */
+    font-size: 9pt;
+    border-collapse: collapse;
 }
 
 /* Items (stavke ponude) */
@@ -51,28 +53,39 @@ body {
     width: 100%;
     border-collapse: collapse;
     margin-top: 8px;
+    page-break-inside: auto;
+}
+
+/* Make sure the header row behaves nicely on page breaks if you ever use <thead> */
+.items-table thead {
+    display: table-header-group;
 }
 
 .items-table th,
 .items-table td {
     border: 1px solid #000;
-    padding: 3px 5px;   /* a bit tighter */
-    font-size: 9pt;     /* was 10pt */
+    padding: 3px 5px;
+    font-size: 9pt;
 }
 
-/* Totals block (no borders, right aligned) */
+/* Do NOT split a row between pages (WeasyPrint respects this in most cases) */
+.items-table tr {
+    page-break-inside: avoid;
+}
+
+/* Totals block (no borders; looks like HTML version) */
 .totals-table,
 .totals-table td {
     border: none;
-    font-size: 9pt;     /* match body */
+    font-size: 9pt;
 }
 
-/* Keep multiline descriptions as before */
+/* Multiline product descriptions preserved */
 .multiline {
     white-space: pre-line;
 }
 
-/* Blocks you never want split between pages */
+/* Blocks you never want split between pages (totals + signature, etc.) */
 .no-break-block {
     page-break-inside: avoid;
 }
