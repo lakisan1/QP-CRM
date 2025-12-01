@@ -2,29 +2,37 @@
 
 @page {
     size: A4;
-    /* similar to browser print: a bit of margin top/bottom for header/footer */
-    margin: 22mm 10mm 20mm 15mm;
+    /* top margin larger for header, bottom margin for footer */
+    margin: 27mm 10mm 20mm 15mm;
 
     @top-center {
         content: element(doc-header);
     }
 
-    @bottom-center {
-        content: element(doc-footer);
+    /* Footer left: static company/bank info on EVERY page */
+    @bottom-left {
+        content: "TR: 220-21678-48   TR: 205-241423-21   PIB: SR 101030495   Matični broj: 07775911";
+        font-size: 8pt;
+    }
+
+    /* Footer right: page X of Y on EVERY page */
+    @bottom-right {
+        content: "Strana " counter(page) " od " counter(pages);
+        font-size: 8pt;
     }
 }
 
-/* Header content (logo + company info) */
+/* PDF header still used as running element */
 .pdf-header {
     position: running(doc-header);
-    font-size: 9pt;      /* close to your HTML header look */
+    font-size: 9pt;
 }
 
-/* Footer content (bank info, note…) */
+/* .pdf-footer can stay for HTML view only, or be minimal */
 .pdf-footer {
-    position: running(doc-footer);
-    font-size: 8pt;
+    font-size: 9pt;   /* used only in HTML view; margin boxes handle PDF */
 }
+
 
 /* === Body & tables ====================================== */
 
