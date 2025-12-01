@@ -1,32 +1,81 @@
+/* === Page & running header/footer ======================= */
+
 @page {
     size: A4;
     margin: 20mm 10mm 25mm 20mm;
 
-    /* Top: running header */
     @top-center {
         content: element(doc-header);
     }
 
-    /* Bottom-left: bank / company info (static text) */
-    @bottom-left {
-        content: "TR: 220-21678-48   TR: 205-241423-21   PIB: SR 101030495   Matični broj: 07775911";
-        font-size: 8pt;
-    }
-
-    /* Bottom-right: page X of Y */
-    @bottom-right {
-        content: "Strana " counter(page) " od " counter(pages);
-        font-size: 8pt;
+    @bottom-center {
+        content: element(doc-footer);
     }
 }
 
-/* Running header block (from pdf_offer.html) */
+/* The content for the header margin box */
 .pdf-header {
     position: running(doc-header);
 }
 
-/* You can still have a .pdf-footer in HTML if you want extra stuff, 
-   but for page numbers we now rely on @bottom-* margin boxes. */
+/* The content for the footer margin box */
 .pdf-footer {
+    position: running(doc-footer);
     font-size: 9pt;
+}
+
+/* === Body & tables ====================================== */
+
+body {
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+    margin: 0;
+    padding: 0;
+    letter-spacing: 0.1em;  /* as you had before */
+}
+
+.page-content {
+    padding-top: 0;
+}
+
+.header-table,
+.footer-table {
+    width: 100%;
+    font-size: 12px;
+}
+
+.items-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+.items-table th,
+.items-table td {
+    border: 1px solid #000;
+    padding: 4px 6px;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+}
+
+.totals-table,
+.totals-table td {
+    border: none;
+}
+
+/* Keep multiline descriptions as before */
+.multiline {
+    white-space: pre-line;
+}
+
+/* Blocks you never want split between pages */
+.no-break-block {
+    page-break-inside: avoid;
+}
+
+.no-break-block table,
+.no-break-block tr,
+.no-break-block td,
+.no-break-block p {
+    page-break-inside: avoid;
 }
