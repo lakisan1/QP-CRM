@@ -35,7 +35,7 @@
                 {% if pdf_mode %}
                     {% if it.item_photo_uri %}
                         <img src="{{ it.item_photo_uri }}"
-                            style="max-width: 120px; max-height: 120px;">
+                            style="max-width: 80px; max-height: 80px;">
                     {% endif %}
                 {% else %}
                     <img src="{{ url_for('product_image', filename=it.item_photo_path) }}"

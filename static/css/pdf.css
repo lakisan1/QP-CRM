@@ -12,16 +12,35 @@
     }
 
     /* Footer on EVERY page – text only */
+
+    /* LEFT: tel / mob / email / web */
     @bottom-left {
-        content: "TR: 220-21678-48   TR: 205-241423-21   PIB: SR 101030495   Matični broj: 07775911";
+        content: "tel: +381 11 8075 777\A"
+                 "mob: +381 63 242 314\A"
+                 "e-mail: office@hofmann-srbija.com\A"
+                 "web site: www.hofmann-srbija.rs";
+        white-space: pre;           /* respect \A line breaks */
         font-size: 8pt;
         font-family: Arial, sans-serif;
     }
 
-    @bottom-right {
+    /* CENTER: page X of Y */
+    @bottom-center {
         content: "Strana " counter(page) " od " counter(pages);
         font-size: 8pt;
         font-family: Arial, sans-serif;
+    }
+
+    /* RIGHT: TR / PIB / Matični broj */
+    @bottom-right {
+        content: "TR: 220-21678-48\A"
+                 "TR: 205-241423-21\A"
+                 "PIB: SR 101030495\A"
+                 "Matični broj: 07775911";
+        white-space: pre;           /* respect \A line breaks */
+        font-size: 8pt;
+        font-family: Arial, sans-serif;
+        text-align: right;
     }
 }
 
