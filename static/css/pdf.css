@@ -2,7 +2,8 @@
 
 @page {
     size: A4;
-    margin: 35mm 10mm 25mm 20mm;
+    /* top margin a bit smaller, enough for logo + header text */
+    margin: 25mm 12mm 22mm 18mm;
 
     @top-center {
         content: element(doc-header);
@@ -13,22 +14,23 @@
     }
 }
 
-/* The content for the header margin box */
+/* Header content (company logo + info) */
 .pdf-header {
     position: running(doc-header);
+    font-size: 11pt;
 }
 
-/* The content for the footer margin box */
+/* Footer content (bank info, note...) */
 .pdf-footer {
     position: running(doc-footer);
-    font-size: 8pt;
+    font-size: 9pt;
 }
 
 /* === Body & tables ====================================== */
 
 body {
     font-family: Arial, sans-serif;
-    font-size: 8px;
+    font-size: 10pt;          /* main text size */
     margin: 0;
     padding: 0;
 }
@@ -37,12 +39,14 @@ body {
     padding-top: 0;
 }
 
+/* Header/footer tables inside the header/footer partials */
 .header-table,
 .footer-table {
     width: 100%;
-    font-size: 8px;
+    font-size: 10pt;
 }
 
+/* Items (stavke ponude) */
 .items-table {
     width: 100%;
     border-collapse: collapse;
@@ -53,12 +57,14 @@ body {
 .items-table td {
     border: 1px solid #000;
     padding: 4px 6px;
-    font-size: 8px;
+    font-size: 10pt;          /* slightly smaller than header, but clean */
 }
 
+/* Totals block (no borders, right aligned in your template) */
 .totals-table,
 .totals-table td {
     border: none;
+    font-size: 10pt;
 }
 
 /* Keep multiline descriptions as before */
