@@ -18,7 +18,9 @@
         content: "tel: +381 11 8075 777\A"
                  "mob: +381 63 242 314\A"
                  "e-mail: office@hofmann-srbija.com\A"
-                 "web site: www.hofmann-srbija.rs\A";
+                 "web site: www.hofmann-srbija.rs\A"
+                 " \A"
+                 " ";
         white-space: pre;           /* respect \A line breaks */
         font-size: 8pt;
         font-family: Arial, sans-serif;
@@ -35,7 +37,6 @@
         border-top: 1.5pt solid #000;
         padding-top: 0mm;
         width: 20%;
-        line-height: 1.1;
     }
 
     /* RIGHT: TR / PIB / Matični broj */
