@@ -179,13 +179,17 @@ Cena je fco KUPAC.
         <form method="post">
             <input type="hidden" name="action" value="add_item">
             <p>
-                <label>Proizvod:<br>
-                    <select name="product_id" required>
+                <label>Product:<br>
+                    <select name="product_id" id="product_select" required>
+                        <option value="">-- free text item --</option>
                         {% for p in products %}
-                            <option value="{{ p.id }}"
-                                    data-name="{{ p.name|e }}"
-                                    data-description="{{ (p.description or '')|e }}"
-                                    data-price="{{ p.latest_price if p.latest_price is not none else '' }}">
+                            <option
+                                value="{{ p.id }}"
+                                data-name="{{ p.name }}"
+                                data-description="{{ p.description or '' }}"
+                                data-price="{% if p.latest_price is not none %}{{ '%.2f' % p.latest_price }}{% endif %}"
+                                {% if selected_product_id and selected_product_id|int == p.id %}selected{% endif %}
+                            >
                                 {{ p.name }}{% if p.brand %} ({{ p.brand }}){% endif %}
                                 {% if p.category %} [{{ p.category }}]{% endif %}
                             </option>

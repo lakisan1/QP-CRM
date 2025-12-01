@@ -440,6 +440,8 @@ def edit_offer(offer_id):
             new_name = (request.form.get("new_product_name") or "").strip()
             new_desc = (request.form.get("new_product_desc") or "").strip()
 
+            new_prod_id = None
+
             if new_name:
                 # Check if product with same name already exists (case-insensitive)
                 cur.execute("""
@@ -449,23 +451,25 @@ def edit_offer(offer_id):
                 """, (new_name,))
                 existing = cur.fetchone()
 
-                if not existing:
+                if existing:
+                    new_prod_id = existing["id"]
+                else:
                     cur.execute("""
                         INSERT INTO products (name, brand, category, description)
                         VALUES (?, ?, ?, ?);
                     """, (new_name, "TEMP", "TEMP", new_desc))
                     conn.commit()
-                # else: do nothing, silently skip duplicate
+                    new_prod_id = cur.lastrowid
 
-        elif action == "delete_item":
-            item_id = int(request.form.get("item_id"))
-            cur.execute("DELETE FROM offer_items WHERE id = ? AND offer_id = ?;", (item_id, offer_id))
-            conn.commit()
-            recalc_totals(offer_id)
+            conn.close()
 
-        # reload offer after changes
-        cur.execute("SELECT * FROM offers WHERE id = ?;", (offer_id,))
-        offer = cur.fetchone()
+            # Redirect so that GET can preselect this product in the dropdown
+            if new_prod_id:
+                return redirect(url_for("edit_offer",
+                                        offer_id=offer_id,
+                                        product_id=new_prod_id))
+            else:
+                return redirect(url_for("edit_offer", offer_id=offer_id))
 
     # GET or after POST: load items
     cur.execute("""
@@ -480,6 +484,8 @@ def edit_offer(offer_id):
     brand_filter = request.args.get("brand")
     category_filter = request.args.get("category")
     search_term = request.args.get("search") or ""
+    # which product should be pre-selected in dropdown (after quick-add)
+    selected_product_id = request.args.get("product_id")
 
     # Build products query with optional filters (and latest price)
     query = """
@@ -552,6 +558,7 @@ def edit_offer(offer_id):
         brand_filter=brand_filter,
         category_filter=category_filter,
         search_term=search_term,
+        selected_product_id=selected_product_id,
         today=date.today().isoformat(),
     )
 
