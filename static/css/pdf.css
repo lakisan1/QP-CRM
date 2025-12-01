@@ -4,7 +4,7 @@
     size: A4;
 
     /* More room for logo + header, comfortable bottom */
-    margin: 30mm 10mm 20mm 20mm; /* 35 top, 10 right, 25 bottom, 20 left */
+    margin: 30mm 10mm 23mm 20mm; /* 35 top, 10 right, 25 bottom, 20 left */
 
     /* Header: use the running .pdf-header block */
     @top-center {
