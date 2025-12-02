@@ -62,9 +62,8 @@
     </p>
     <p>
         <label>Name:<br>
-            <input type="text" name="name" required
-                   value="{% if product %}{{ product.name }}{% endif %}"
-                   required>
+            <input type="text" name="name" required class="long-input"
+                   value="{% if product %}{{ product.name }}{% endif %}">
         </label>
     </p>
     <p>
@@ -73,18 +72,18 @@
         </label>
     </p>
     <p>
-        <label>Photo (JPG, max 800×800):<br>
+        <label>Photo (JPG,PNG ako ima greske konvertujte u jpg i pobajte opet):<br>
             {% if product and product.photo_path %}
                 Trenutna fotografija: {{ product.photo_path }}<br>
                 <img src="{{ url_for('product_image', filename=product.photo_path) }}"
                     style="max-width:120px; max-height:120px;"><br>
             {% endif %}
-            <input type="file" name="photo_file" accept="image/jpeg">
+            <input type="file" name="photo_file" accept="image/jpeg, image/png">
         </label>
     </p>
     <p>
-        <button type="submit">
-            {% if product %}Save changes{% else %}Save{% endif %}
+        <button type="submit" class="btn btn-success">
+            {% if product %}Sacuvaj izmene{% else %}Save{% endif %}
         </button>
     </p>
 </form>

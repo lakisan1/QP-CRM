@@ -10,77 +10,77 @@
 
 <form method="post" id="price-form">
     <p>
-        <label>Date:<br>
+        <label>Datum:<br>
             <input type="date" name="date"
                    value="{% if price %}{{ price.date }}{% else %}{{ today }}{% endif %}">
         </label>
     </p>
     <p>
-        <label>Base price:<br>
-            <input type="number" step="any" name="base_price" id="base_price" required
+        <label>Nabavna cena:<br>
+            <input type="number" step="any" name="base_price" id="base_price" required oninput="calculatePrice()"
                    value="{% if price %}{{ price.base_price }}{% endif %}">
         </label>
     </p>
     <p>
-        <label>Extras:<br>
-            <input type="number" step="any" name="extras" id="extras"
+        <label>Dodatni troskovi:<br>
+            <input type="number" step="any" name="extras" id="extras" oninput="calculatePrice()"
                    value="{% if price %}{{ price.extras }}{% else %}{{ defaults.extras }}{% endif %}">
         </label>
     </p>
     <p>
-        <label>Import %:<br>
-            <input type="number" step="any" name="import_percent" id="import_percent"
+        <label>Uvoz %:<br>
+            <input type="number" step="any" name="import_percent" id="import_percent" oninput="calculatePrice()"
                    value="{% if price %}{{ ((price.import_percent or 0) * 100) | round(2) }}{% else %}{{ defaults.import_percent | round(2) }}{% endif %}">
             <small>(e.g. 7 for 7%)</small>
         </label>
     </p>
     <p>
-        <label>Margin %:<br>
-            <input type="number" step="any" name="margin_percent" id="margin_percent"
+        <label>Zarada %:<br>
+            <input type="number" step="any" name="margin_percent" id="margin_percent" oninput="calculatePrice()"
                    value="{% if price %}{{ ((price.margin_percent or 0) * 100) | round(2) }}{% else %}{{ defaults.margin_percent | round(2) }}{% endif %}">
             <small>(e.g. 40 for 40%)</small>
         </label>
     </p>
     <p>
-        <label>Domestic transport:<br>
-            <input type="number" step="any" name="domestic_transport" id="domestic_transport"
+        <label>Domaci transport:<br>
+            <input type="number" step="any" name="domestic_transport" id="domestic_transport" oninput="calculatePrice()"
                    value="{% if price %}{{ price.domestic_transport }}{% else %}{{ defaults.domestic_transport }}{% endif %}">
         </label>
     </p>
 
     <p>
-        <button type="button" onclick="calculatePrice()">Calculate</button>
+        <button type="button" onclick="calculatePrice()">Izracunaj</button>
     </p>
 
     <p>
-        <strong>Cost total:</strong>
+        <strong>Ukupno kostanje:</strong>
         <span id="cost_total_display">–</span><br>
-        <strong>Calculated price:</strong>
+        <strong>Izracunata cena:</strong>
         <span id="calculated_price_display">–</span><br>
     </p>
 
     <p>
-        <label>Final price (nice rounded):<br>
-            <input type="number" step="any" name="final_price" id="final_price"
+        <label>Konacna cena (lepa okrugla):<br>
+            <input type="number" step="any" name="final_price" id="final_price" oninput="calculatePrice()"
                    value="{% if price %}{{ price.final_price }}{% endif %}">
-            <small>If empty, it will use calculated price.</small>
+            <small>optional, ako se ostavi prazno koristi Izracunatu cenu</small>
         </label>
     </p>
-    <strong>Profit (final price):</strong>
+    <strong>Profit (Konacna cena):</strong>
     <span id="profit_final_display">–</span><br>
 
     <p>
-        <label>Discount % (optional):<br>
-            <input type="number" step="any" name="discount_percent" id="discount_percent"
+        <label>Popust % (optional):<br>
+            <input type="number" step="any" name="discount_percent" id="discount_percent" oninput="calculatePrice()"
                    value="{% if price and price.discount_percent is not none %}{{ (price.discount_percent * 100) | round(2) }}{% endif %}">
             <small>e.g. 10 for 10% off final price</small>
         </label>
     </p>
     <p>
-        <label>Discount price (nice rounded, optional):<br>
-            <input type="number" step="any" name="discount_price" id="discount_price"
+        <label>Cena sa popustom (lepa okrugla, optional):<br>
+            <input type="number" step="any" name="discount_price" id="discount_price" 
                    value="{% if price and price.discount_price is not none %}{{ price.discount_price }}{% endif %}">
-            <small>If set, discount % is just information, not recalculated.</small>
+            <small>optional, ako se ostavi prazno koristi Izracunatu cenu</small>
         </label>
     </p>
     <strong>Discounted price:</strong>
@@ -88,7 +88,7 @@
     <strong>Profit (discount price):</strong>
     <span id="profit_discount_display">–</span>
     <p>
-        <button type="submit">Save price</button>
+        <button type="submit" class="btn btn-success">Sacuvaj cenu</button>
     </p>
 </form>
 

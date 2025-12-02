@@ -23,25 +23,25 @@
             <h2>Informacije o musteriji</h2>
             <p>
                 <label>Naziv musterije:<br>
-                    <input type="text" name="client_name" required
+                    <input type="text" name="client_name" required class="long-input"
                            value="{{ offer.client_name if offer else '' }}">
                 </label>
             </p>
             <p>
                 <label>Adresa musterije:<br>
-                    <input type="text" name="client_address"
+                    <input type="text" name="client_address" class="long-input"
                            value="{{ offer.client_address if offer else '' }}">
                 </label>
             </p>
             <p>
-                <label>eMail musterije:<br>
-                    <input type="email" name="client_email"
+                <label>eMail musterije:<br> 
+                    <input type="email" name="client_email" class="long-input"
                            value="{{ offer.client_email if offer else '' }}">
                 </label>
             </p>
             <p>
                 <label>Broj telefona musterije:<br>
-                    <input type="text" name="client_phone"
+                    <input type="text" name="client_phone" class="long-input"
                            value="{{ offer.client_phone if offer else '' }}">
                 </label>
             </p>
@@ -121,11 +121,6 @@ Cena je fco KUPAC.
             <p class="form-actions">
                 <button type="submit" class="btn btn-primary">Sacuvaj podatke</button>
                 {% if offer %}
-                    <a href="{{ url_for('view_offer', offer_id=offer.id) }}"
-                    target="_blank"
-                    class="btn">
-                        Provera ponude
-                    </a>
                     <a href="{{ url_for('offer_pdf', offer_id=offer.id) }}"
                     class="btn btn-success">
                         Print PDF
@@ -200,7 +195,7 @@ Cena je fco KUPAC.
 
             <p>
                 <label>Ime proizvoda (opciona izmena):<br>
-                    <input type="text" name="item_name">
+                    <input type="text" name="item_name" class="long-input">
                 </label>
             </p>
             <p>
@@ -231,7 +226,7 @@ Cena je fco KUPAC.
             <input type="hidden" name="action" value="create_temp_product">
             <p>
                 <label>Novi proizvod (naziv):<br>
-                    <input type="text" name="new_product_name" id="new_product_name" required>
+                    <input type="text" name="new_product_name" id="new_product_name" required class="long-input">
                 </label>
             </p>
             <p>
@@ -246,30 +241,18 @@ Cena je fco KUPAC.
 
         <table class="offer-items-table">
             <tr>
-                <th>#</th>
+                <th>Actions</th>
+                <th>br.</th>
                 <th>Fotografija</th>
                 <th>Ime proizvoda</th>
                 <th>Opis</th>
                 <th>Kom</th>
                 <th>Cena kom</th>
                 <th>Red zbir</th>
-                <th>Actions</th>
             </tr>
             {% for it in items %}
             <tr>
-                <td>{{ it.line_order }}</td>
-                <td style="text-align: center;">
-                    {% if it.item_photo_path %}
-                        <img src="{{ url_for('product_image', filename=it.item_photo_path) }}"
-                             style="max-width: 60px; max-height: 60px;">
-                    {% endif %}
-                </td>
-                <td>{{ it.item_name }}</td>
-                <td>{{ it.item_description }}</td>
-                <td style="text-align: center;">{{ it.quantity }}</td>
-                <td>{{ format_amount(it.unit_price)}}</td>
-                <td>{{ format_amount(it.line_net)}}</td>
-                <td>
+                <td style="text-align: center; width: 50px;">
                     <form method="post" style="display:inline;"
                           onsubmit="return confirm('Delete this item?');">
                         <input type="hidden" name="action" value="delete_item">
@@ -277,6 +260,18 @@ Cena je fco KUPAC.
                         <button type="submit">Delete</button>
                     </form>
                 </td>
+                <td style="text-align: center; width: 20px;">{{ it.line_order }}</td>
+                <td style="text-align: center; width: 125px;" >
+                    {% if it.item_photo_path %}
+                        <img src="{{ url_for('product_image', filename=it.item_photo_path) }}"
+                             style="max-width: 120px; max-height: 120px;">
+                    {% endif %}
+                </td>
+                <td style="max-width: 300px; min-width: 200px;">{{ it.item_name }}</td>
+                <td style="white-space: pre-wrap;">{{ it.item_description }}</td>
+                <td style="text-align: center; width: 30px;">{{ it.quantity }}</td>
+                <td style="text-align: right; width: 80px;">{{ format_amount(it.unit_price)}}</td>
+                <td style="text-align: right; width: 80px;">{{ format_amount(it.line_net)}}</td>
             </tr>
             {% endfor %}
         </table>

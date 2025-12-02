@@ -143,8 +143,8 @@ def save_product_image(file_storage, product_name):
     # Check extension
     orig_filename = file_storage.filename
     ext = os.path.splitext(orig_filename)[1].lower()
-    if ext not in [".jpg", ".jpeg"]:
-        raise ValueError("Slika mora biti JPG (.jpg ili .jpeg).")
+    if ext not in [".jpg", ".jpeg", ".png"]:
+        raise ValueError("Slika mora biti JPG ili PNG (.jpg, .jpeg, ili .png).")
 
     # Build base name from product_name
     base = (product_name or "").strip().lower()

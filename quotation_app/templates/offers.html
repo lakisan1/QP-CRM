@@ -23,37 +23,38 @@
     </p>
 </form>
 
-<table>
+<table class="larg-table">
     <tr>
-        <th>ID</th>
-        <th>Broj / ime ponude</th>
         <th>Datum</th>
+        <th>Broj / ime ponude</th>
         <th>Naziv musterije</th>
-        <th>Total (gross)</th>
+        <th>Vrednost ponude</th>
         <th>Actions</th>
     </tr>
     {% for o in offers %}
     <tr>
-        <td style="text-align: center;">{{ o.id }}</td>
-        <td>{{ o.offer_number or o.id }}</td>
-        <td style="text-align: center;">{{ o.date }}</td>
-        <td>{{ o.client_name }}</td>
+        <td style="text-align: center; width: 80px;">{{ o.date }}</td>
         <td>
+            <a href="{{ url_for('edit_offer', offer_id=o.id) }}">{{ o.offer_number or o.id }}</a>
+        </td>
+        <td>{{ o.client_name }}</td>
+        <td style="width: 100px;">
             {% if o.total_gross is not none %}
                 {{ format_amount(o.total_gross)}} {{ o.currency or '' }}
             {% endif %}
         </td>
-        <td style="text-align: center;">
-            <a href="{{ url_for('edit_offer', offer_id=o.id) }}">Izmeni</a> |
-            <a href="{{ url_for('view_offer', offer_id=o.id) }}" target="_blank">Provera</a> |
-            <a href="{{ url_for('offer_pdf', offer_id=o.id) }}" target="_blank">PDF Print</a> |
-                <form method="post"
-                    action="{{ url_for('duplicate_offer', offer_id=o.id) }}"
-                    style="display:inline;"
-                    onsubmit="return confirm('Duplirati ovu ponudu?');">
-                    <button type="submit">Duplicate</button>
-                </form>
+        <td style="text-align: center; width: 200px;">
+            <form method="post"
+                action="{{ url_for('duplicate_offer', offer_id=o.id) }}"
+                style="display:inline;"
+                onsubmit="return confirm('Duplirati ovu ponudu?');">
+                <button type="submit">Duplicate</button>
+            </form>
                 |
+            <a href="{{ url_for('offer_pdf', offer_id=o.id) }}"
+            target="_blank">
+                PDF Print
+            </a> |
             <form method="post"
                 action="{{ url_for('delete_offer', offer_id=o.id) }}"
                 style="display:inline;"
