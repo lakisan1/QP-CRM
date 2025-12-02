@@ -293,6 +293,7 @@ def edit_offer(offer_id):
     conn = get_db()
     cur = conn.cursor()
 
+    new_prod_id = None
     # Load offer
     cur.execute("SELECT * FROM offers WHERE id = ?;", (offer_id,))
     offer = cur.fetchone()
@@ -451,12 +452,12 @@ def edit_offer(offer_id):
 
         elif action == "delete_item":
             item_id = int(request.form.get("item_id"))
-            cur.execute(
-                "DELETE FROM offer_items WHERE id = ? AND offer_id = ?;",
-                (item_id, offer_id)
-            )
+            cur.execute("DELETE FROM offer_items WHERE id = ? AND offer_id = ?;", (item_id, offer_id))
             conn.commit()
             recalc_totals(offer_id)
+
+            conn.close()
+            return redirect(url_for("edit_offer", offer_id=offer_id))
 
         # Redirect so that GET can preselect this product in the dropdown
         if new_prod_id:
@@ -555,6 +556,7 @@ def edit_offer(offer_id):
         search_term=search_term,
         selected_product_id=selected_product_id,
         today=date.today().isoformat(),
+        new_prod_id=new_prod_id,
     )
 
 @app.route("/offers/<int:offer_id>/view")
