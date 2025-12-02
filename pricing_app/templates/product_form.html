@@ -17,7 +17,6 @@
     <p>
         {% if brand_options %}
             <label>Brand:<br>
-                <a href="{{ url_for('brands') }}">Dodaj novi brand</a>
                 <select name="brand">
                     <option value="">-- choose brand --</option>
                     {% for b in brand_options %}
@@ -27,6 +26,7 @@
                         </option>
                     {% endfor %}
                 </select>
+                <a href="{{ url_for('brands') }}">Dodaj novi brand</a>
             </label>
         {% else %}
             <label>Brand:<br>
@@ -40,7 +40,6 @@
     <p>
         {% if categories %}
             <label>Category:<br>
-                <a href="{{ url_for('category_defaults') }}">Dodaj novu ketgoriju</a> |
                 <select name="category" required>
                     <option value="">-- choose category --</option>
                     {% for cat in categories %}
@@ -50,6 +49,7 @@
                         </option>
                     {% endfor %}
                 </select>
+                <a href="{{ url_for('category_defaults') }}">Dodaj novu ketgoriju</a>
             </label>
         {% else %}
             <label>Category:<br>

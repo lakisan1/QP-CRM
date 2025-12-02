@@ -28,7 +28,7 @@
     <tr>
         <td>
             <a href="{{ url_for('edit_price', product_id=product.id, price_id=r.id) }}">
-                {{ r.date.strftime('%d-%m-%Y') }}
+                {{r.date}}
             </a>
         </td>
         <td>{{ r.base_price | round(2) }}</td>
