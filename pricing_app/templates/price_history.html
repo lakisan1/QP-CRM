@@ -5,11 +5,11 @@
 
 <p><strong>Category:</strong> {{ product.category }} | <strong>Brand:</strong> {{ product.brand }}</p>
 
-<p><a href="{{ url_for('new_price', product_id=product.id) }}">Add new price</a></p>
+<p><a href="{{ url_for('new_price', product_id=product.id) }}">Dodaj novu cenu</a></p>
 
-<table border="1" cellpadding="4">
+<table border="1" cellpadding="4" class="larg-table" style="text-align: center;">
     <tr>
-        <th>Datum</th>
+        <th style="width: 70px;">Datum</th>
         <th>Cena ka nama</th>
         <th>Dodatni tr.</th>
         <th>Uvoz %</th>
@@ -22,7 +22,7 @@
         <th>Popust %</th>
         <th>Cena sa popustom</th>
         <th>Profit (disc)</th>
-        <th>Actions</th>
+        <th style="width: 60px;">Actions</th>
     </tr>
     {% for r in prices %}
     <tr>
@@ -56,10 +56,6 @@
             {% endif %}
         </td>
             <td>
-        <a href="{{ url_for('edit_price', product_id=product.id, price_id=r.id) }}">
-            Edit
-        </a>
-
         <form method="post"
               action="{{ url_for('delete_price', product_id=product.id, price_id=r.id) }}"
               style="display:inline;"

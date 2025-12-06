@@ -132,6 +132,12 @@ def init_db():
     conn.commit()
     conn.close()
 
+from PIL import Image
+import os
+import re
+
+# ... your other config/imports ...
+
 def save_product_image(file_storage, product_name):
     """
     Save uploaded JPG to IMAGE_DIR, resized to max 800x800.
@@ -148,9 +154,7 @@ def save_product_image(file_storage, product_name):
 
     # Build base name from product_name
     base = (product_name or "").strip().lower()
-    # spaces -> _
     base = re.sub(r"\s+", "_", base)
-    # remove anything that's not a-z, 0-9, _ or -
     base = re.sub(r"[^a-z0-9_-]", "", base)
     if not base:
         base = "product"
@@ -163,15 +167,34 @@ def save_product_image(file_storage, product_name):
     # Open with Pillow
     try:
         img = Image.open(file_storage.stream)
-        # Convert to RGB if needed
-        if img.mode not in ("RGB", "L"):
+
+        # --- FIX FOR PNG TRANSPARENCY (NEW METHOD) ---
+        if 'A' in img.mode:
+            # Ensure it is RGBA (handles Palette modes with transparency)
+            img = img.convert("RGBA")
+            
+            # Create new solid white background image same size
+            bg = Image.new('RGB', img.size, (255, 255, 255))
+            
+            # Paste original image onto white background, using its alpha as the mask
+            # The 3rd argument 'mask=img' tells Pillow to use the alpha channel of 'img'
+            bg.paste(img, mask=img)
+            
+            # Update 'img' variable to point to the new flattened image
+            img = bg
+            
+        elif img.mode != "RGB":
+            # If no alpha, just convert normally
             img = img.convert("RGB")
+        # ---------------------------------------------
 
         # Resize if bigger than 800x800
         max_size = (800, 800)
         img.thumbnail(max_size)  # keeps aspect ratio, modifies in place
 
+        # Save as JPEG
         img.save(dest_path, format="JPEG", quality=85)
+        
     except Exception as e:
         raise ValueError("Greška pri obradi slike: " + str(e))
 

@@ -1,33 +1,33 @@
 {% extends "base.html" %}
 {% block title %}Category Defaults{% endblock %}
 {% block content %}
-<h1>Category Defaults</h1>
+<h1>Kategorije</h1>
 
-<h2>Add / edit category defaults</h2>
+<h2>Dodaj / izmeni kategoriju</h2>
 <form method="post">
     <p>
-        <label>Category name:<br>
+        <label>Naziv kategorije:<br>
             <input type="text" name="category" id="category_input" required>
         </label>
     </p>
     <p>
+        <label>Dodaci:<br>
+            <input type="number" step="any" name="default_extras" value="0">
+        </label>
+    </p>
+    <p>
         <label>Import %:<br>
-            <input type="number" step="any" name="import_percent">
+            <input type="number" step="any" name="import_percent" value="7">
         </label>
     </p>
     <p>
         <label>Margin %:<br>
-            <input type="number" step="any" name="margin_percent">
+            <input type="number" step="any" name="margin_percent" value="40">
         </label>
     </p>
     <p>
         <label>Dom. transport:<br>
-            <input type="number" step="any" name="domestic_transport">
-        </label>
-    </p>
-    <p>
-        <label>Extras:<br>
-            <input type="number" step="any" name="default_extras">
+            <input type="number" step="any" name="domestic_transport" value="0">
         </label>
     </p>
 
@@ -40,13 +40,13 @@
 </form>
 
 <h2>Existing defaults</h2>
-<table border="1" cellpadding="4">
+<table border="1" cellpadding="4" style="width: 700px;">
     <tr>
-        <th>Category</th>
-        <th>Import %</th>
-        <th>Margin %</th>
+        <th style="width: 300px;" text-align="center;">Category</th>
+        <th style="width: 70px;">Extras</th>
+        <th style="width: 70px;">Import %</th>
+        <th style="width: 70px;">Margin %</th>
         <th>Dom. transport</th>
-        <th>Extras</th>
     </tr>
     {% for d in defaults %}
     <tr>
@@ -59,9 +59,9 @@
             </a>
         </td>
         <td>{{ ((d.import_percent or 0) * 100) | round(2)}}</td>
+        <td>{{ d.default_extras }}</td>
         <td>{{ ((d.margin_percent or 0) * 100) | round(2)}}</td>
         <td>{{ d.domestic_transport }}</td>
-        <td>{{ d.default_extras }}</td>
     </tr>
     {% endfor %}
 </table>
