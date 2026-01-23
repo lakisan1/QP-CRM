@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, send_from_directory, send_file, jsonify
+from flask import Flask, render_template, request, redirect, url_for, send_from_directory, send_file, jsonify, session
 import sqlite3
 import os
 import sys
@@ -30,6 +30,7 @@ app = Flask(
     static_folder=STATIC_DIR,
     static_url_path="/static"
 )
+app.secret_key = "crm_quotation_secret_key_change_me"
 
 # get_db is now imported from shared.db
 
@@ -143,9 +144,31 @@ def index():
 
 @app.route("/offers")
 def list_offers():
-    search_term = (request.args.get("search") or "").strip()
-    date_from = request.args.get("date_from") or ""
-    date_to = request.args.get("date_to") or ""
+    # Check if we should clear filters
+    if request.args.get("clear"):
+        session.pop("offers_filter_search", None)
+        session.pop("offers_filter_date_from", None)
+        session.pop("offers_filter_date_to", None)
+        return redirect(url_for("list_offers"))
+
+    # Load from request or fallback to session
+    search_term = request.args.get("search")
+    if search_term is None:
+        search_term = session.get("offers_filter_search", "")
+    else:
+        session["offers_filter_search"] = search_term
+
+    date_from = request.args.get("date_from")
+    if date_from is None:
+        date_from = session.get("offers_filter_date_from", "")
+    else:
+        session["offers_filter_date_from"] = date_from
+
+    date_to = request.args.get("date_to")
+    if date_to is None:
+        date_to = session.get("offers_filter_date_to", "")
+    else:
+        session["offers_filter_date_to"] = date_to
 
     conn = get_db()
     cur = conn.cursor()
@@ -298,6 +321,13 @@ def edit_offer(offer_id):
     if offer is None:
         conn.close()
         return "Offer not found", 404
+
+    # Check if we should clear item filters
+    if request.args.get("clear"):
+        session.pop("offer_edit_filter_brand", None)
+        session.pop("offer_edit_filter_category", None)
+        session.pop("offer_edit_filter_search", None)
+        return redirect(url_for("edit_offer", offer_id=offer_id))
 
     if request.method == "POST":
         action = request.form.get("action")
@@ -476,9 +506,25 @@ def edit_offer(offer_id):
     items = cur.fetchall()
 
     # --- Product filters for dropdown (brand, category, search name) ---
+    # Load from request or fallback to session
     brand_filter = request.args.get("brand")
+    if brand_filter is None:
+        brand_filter = session.get("offer_edit_filter_brand", "")
+    else:
+        session["offer_edit_filter_brand"] = brand_filter
+
     category_filter = request.args.get("category")
-    search_term = request.args.get("search") or ""
+    if category_filter is None:
+        category_filter = session.get("offer_edit_filter_category", "")
+    else:
+        session["offer_edit_filter_category"] = category_filter
+
+    search_term = request.args.get("search")
+    if search_term is None:
+        search_term = session.get("offer_edit_filter_search", "")
+    else:
+        session["offer_edit_filter_search"] = search_term
+
     # which product should be pre-selected in dropdown (after quick-add)
     selected_product_id = request.args.get("product_id")
 
@@ -669,6 +715,31 @@ def delete_offer(offer_id):
     conn.close()
     return redirect(url_for("list_offers"))
 
+@app.route("/offers/<int:offer_id>/reorder", methods=["POST"])
+def update_item_order(offer_id):
+    data = request.json
+    item_ids = data.get("item_ids", [])
+    if not item_ids:
+        return jsonify({"success": False, "message": "No item IDs provided"}), 400
+
+    conn = get_db()
+    cur = conn.cursor()
+    try:
+        for idx, item_id in enumerate(item_ids, start=1):
+            cur.execute("""
+                UPDATE offer_items
+                SET line_order = ?
+                WHERE id = ? AND offer_id = ?;
+            """, (idx, item_id, offer_id))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"success": False, "message": str(e)}), 500
+    finally:
+        conn.close()
+
+    return jsonify({"success": True})
+
 @app.route("/offers/<int:offer_id>/duplicate", methods=["POST"])
 def duplicate_offer(offer_id):
     conn = get_db()
@@ -750,6 +821,10 @@ def duplicate_offer(offer_id):
 
     # Go straight to edit screen of the new offer
     return redirect(url_for("edit_offer", offer_id=new_offer_id))
+
+@app.route("/settings")
+def settings():
+    return render_template("settings.html")
 
 if __name__ == "__main__":
     init_db()

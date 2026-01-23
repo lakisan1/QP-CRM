@@ -69,13 +69,16 @@
         </label>
     </p>
     <p>
-        <label>Photo (JPG,PNG ako ima greske konvertujte u jpg i pobajte opet):<br>
+        <label>Photo (JPG,PNG):<br>
             {% if product and product.photo_path %}
             Trenutna fotografija: {{ product.photo_path }}<br>
             <img src="{{ url_for('product_image', filename=product.photo_path) }}"
                 style="max-width:120px; max-height:120px;"><br>
             {% endif %}
             <input type="file" name="photo_file" accept="image/jpeg, image/png">
+            <br>
+            <small>ILI unesite URL slike:</small><br>
+            <input type="url" name="photo_url" placeholder="http://example.com/image.jpg" class="long-input">
         </label>
     </p>
     <p>

@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, send_from_directory,send_file
+from flask import Flask, render_template, request, redirect, url_for, send_from_directory, send_file, session
 import sqlite3
 import os
 import sys
@@ -32,6 +32,7 @@ app = Flask(
     static_folder=STATIC_DIR,
     static_url_path="/static"
 )
+app.secret_key = "crm_pricing_secret_key_change_me"
 
 # get_db is now imported from shared.db
 
@@ -239,16 +240,15 @@ def apply_rounding(val):
     import math
     return math.ceil(val / step) * step
 
-def save_product_image(file_storage, product_name):
+def save_product_image(image_stream, orig_filename, product_name):
     """
-    Save uploaded JPG to IMAGE_DIR, resized to max 800x800.
-    Returns the filename (e.g. 'my_product.jpg') or raises ValueError on bad input.
+    Process and save an image (from stream) to IMAGE_DIR, resized to max 800x800.
+    Returns the filename (e.g. 'my_product.jpg') or raises ValueError.
     """
-    if not file_storage or not file_storage.filename:
+    if not image_stream or not orig_filename:
         return None
 
     # Check extension
-    orig_filename = file_storage.filename
     ext = os.path.splitext(orig_filename)[1].lower()
     if ext not in [".jpg", ".jpeg", ".png"]:
         raise ValueError("Slika mora biti JPG ili PNG (.jpg, .jpeg, ili .png).")
@@ -265,33 +265,21 @@ def save_product_image(file_storage, product_name):
     os.makedirs(IMAGE_DIR, exist_ok=True)
     dest_path = os.path.join(IMAGE_DIR, filename)
 
-    # Open with Pillow
     try:
-        img = Image.open(file_storage.stream)
+        img = Image.open(image_stream)
 
-        # --- FIX FOR PNG TRANSPARENCY (NEW METHOD) ---
+        # PNG Transparency handling
         if 'A' in img.mode:
-            # Ensure it is RGBA (handles Palette modes with transparency)
             img = img.convert("RGBA")
-            
-            # Create new solid white background image same size
             bg = Image.new('RGB', img.size, (255, 255, 255))
-            
-            # Paste original image onto white background, using its alpha as the mask
-            # The 3rd argument 'mask=img' tells Pillow to use the alpha channel of 'img'
             bg.paste(img, mask=img)
-            
-            # Update 'img' variable to point to the new flattened image
             img = bg
-            
         elif img.mode != "RGB":
-            # If no alpha, just convert normally
             img = img.convert("RGB")
-        # ---------------------------------------------
 
-        # Resize if bigger than 800x800
+        # Resize
         max_size = (800, 800)
-        img.thumbnail(max_size)  # keeps aspect ratio, modifies in place
+        img.thumbnail(max_size)
 
         # Save as JPEG
         img.save(dest_path, format="JPEG", quality=85)
@@ -300,6 +288,33 @@ def save_product_image(file_storage, product_name):
         raise ValueError("Greška pri obradi slike: " + str(e))
 
     return filename
+
+import requests
+
+def download_image_from_url(url):
+    """
+    Download image from URL, validate it's an image.
+    Returns (stream, filename) or raises ValueError.
+    """
+    try:
+        resp = requests.get(url, timeout=10, stream=True)
+        resp.raise_for_status()
+        
+        content_type = resp.headers.get('Content-Type', '').lower()
+        if 'image/jpeg' not in content_type and 'image/png' not in content_type:
+            raise ValueError("URL ne vodi do JPG ili PNG slike.")
+
+        # Get original filename from URL or default to url_image.jpg
+        orig_filename = url.split("/")[-1].split("?")[0] or "url_image.jpg"
+        if not any(orig_filename.lower().endswith(ex) for ex in ['.jpg', '.jpeg', '.png']):
+            # force extension based on content-type if missing
+            if 'png' in content_type: orig_filename += '.png'
+            else: orig_filename += '.jpg'
+
+        return io.BytesIO(resp.content), orig_filename
+
+    except requests.exceptions.RequestException as e:
+        raise ValueError(f"Greška pri preuzimanju slike sa URL-a: {str(e)}")
 
 
 @app.route("/")
@@ -310,6 +325,10 @@ def index():
 def product_image(filename):
     return send_from_directory(IMAGE_DIR, filename)
 
+@app.route("/settings")
+def settings():
+    return render_template("settings.html")
+
 @app.context_processor
 def inject_helpers():
     return dict(format_amount=format_amount)
@@ -318,9 +337,31 @@ def inject_helpers():
 
 @app.route("/products")
 def list_products():
+    # Check if we should clear filters
+    if request.args.get("clear"):
+        session.pop("products_filter_brand", None)
+        session.pop("products_filter_category", None)
+        session.pop("products_filter_search", None)
+        return redirect(url_for("list_products"))
+
+    # Load from request or fallback to session
     brand_filter = request.args.get("brand")
+    if brand_filter is None:
+        brand_filter = session.get("products_filter_brand", "")
+    else:
+        session["products_filter_brand"] = brand_filter
+
     category_filter = request.args.get("category")
-    search_term = request.args.get("search") or ""  # name search
+    if category_filter is None:
+        category_filter = session.get("products_filter_category", "")
+    else:
+        session["products_filter_category"] = category_filter
+
+    search_term = request.args.get("search")
+    if search_term is None:
+        search_term = session.get("products_filter_search", "")
+    else:
+        session["products_filter_search"] = search_term
 
     conn = get_db()
     cur = conn.cursor()
@@ -428,21 +469,28 @@ def add_product():
                 error="Proizvod sa ovim imenom već postoji."
             )
 
-        # 2) handle photo upload
+        # 2) handle photo upload (file or URL)
         photo_file = request.files.get("photo_file")
+        photo_url = (request.form.get("photo_url") or "").strip()
         photo_path = None
-        if photo_file and photo_file.filename:
-            try:
-                photo_path = save_product_image(photo_file, name)
-            except ValueError as e:
-                conn.close()
-                return render_template(
-                    "product_form.html",
-                    categories=categories,
-                    brand_options=brand_options,
-                    product=None,
-                    error=str(e)
-                )
+        
+        try:
+            if photo_file and photo_file.filename:
+                # Priority 1: Manual file upload
+                photo_path = save_product_image(photo_file.stream, photo_file.filename, name)
+            elif photo_url:
+                # Priority 2: Download from URL
+                stream, orig_filename = download_image_from_url(photo_url)
+                photo_path = save_product_image(stream, orig_filename, name)
+        except ValueError as e:
+            conn.close()
+            return render_template(
+                "product_form.html",
+                categories=categories,
+                brand_options=brand_options,
+                product=None,
+                error=str(e)
+            )
 
         cur.execute("""
             INSERT INTO products (name, description, category, brand, photo_path)
@@ -523,23 +571,26 @@ def edit_product(product_id):
                 error="Drugi proizvod sa ovim imenom već postoji."
             )
 
-        # handle photo upload
+        # handle photo upload (file or URL)
         photo_file = request.files.get("photo_file")
-        if photo_file and photo_file.filename:
-            try:
-                photo_path = save_product_image(photo_file, name)
-            except ValueError as e:
-                conn.close()
-                return render_template(
-                    "product_form.html",
-                    categories=categories,
-                    brand_options=brand_options,
-                    product=product,
-                    error=str(e)
-                )
-        else:
-            # keep existing photo
-            photo_path = product["photo_path"]
+        photo_url = (request.form.get("photo_url") or "").strip()
+        photo_path = product["photo_path"] # default to existing
+        
+        try:
+            if photo_file and photo_file.filename:
+                photo_path = save_product_image(photo_file.stream, photo_file.filename, name)
+            elif photo_url:
+                stream, orig_filename = download_image_from_url(photo_url)
+                photo_path = save_product_image(stream, orig_filename, name)
+        except ValueError as e:
+            conn.close()
+            return render_template(
+                "product_form.html",
+                categories=categories,
+                brand_options=brand_options,
+                product=product,
+                error=str(e)
+            )
 
         cur.execute("""
             UPDATE products

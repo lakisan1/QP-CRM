@@ -1,23 +1,60 @@
 <!doctype html>
 <html>
+
 <head>
     <meta charset="utf-8">
     <title>{% block title %}Pricing App{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <!-- Tom Select (searchable dropdowns) -->
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        nav a { margin-right: 10px; }
-        table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #ccc; padding: 4px 6px; }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        nav a {
+            margin-right: 10px;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        th,
+        td {
+            border: 1px solid #ccc;
+            padding: 4px 6px;
+        }
     </style>
 </head>
+
 <body>
     <nav>
         <a href="{{ url_for('list_products') }}">Spisak proizvoda</a> |
         <a href="{{ url_for('category_defaults') }}">Spisak kategorija</a> |
-        <a href="{{ url_for('brands') }}">Brand</a>
+        <a href="{{ url_for('brands') }}">Brand</a> |
+        <a href="{{ url_for('settings') }}">Settings</a>
     </nav>
     <hr>
     {% block content %}{% endblock %}
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            // Initialize Tom Select on elements with .searchable-select class
+            document.querySelectorAll('.searchable-select').forEach((el) => {
+                new TomSelect(el, {
+                    create: false,
+                    sortField: {
+                        field: "text",
+                        direction: "asc"
+                    }
+                });
+            });
+        });
+    </script>
 </body>
+
 </html>

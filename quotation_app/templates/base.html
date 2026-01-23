@@ -1,29 +1,69 @@
 <!doctype html>
 <html lang="en">
+
 <head>
     <meta charset="utf-8">
     <title>{% block title %}Offers{% endblock %}</title>
 
     {# Only load main.css for normal UI pages, not for PDF rendering #}
     {% if pdf_mode is not defined or not pdf_mode %}
-        <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
-        <style>
-            body { font-family: Arial, sans-serif; margin: 20px; }
-            nav a { margin-right: 10px; }
-            table { border-collapse: collapse; width: 100%; }
-            th, td { border: 1px solid #ccc; padding: 4px 6px; }
-        </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+    <!-- SortableJS (drag and drop) -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        nav a {
+            margin-right: 10px;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        th,
+        td {
+            border: 1px solid #ccc;
+            padding: 4px 6px;
+        }
+    </style>
     {% endif %}
 </head>
-<body>
-{% if pdf_mode is not defined or not pdf_mode %}
-<nav>
-    <a href="{{ url_for('list_offers') }}">Pregled ponuda</a>
-    <a href="{{ url_for('new_offer') }}">Kreiraj novu ponudu</a>
-</nav>
-<hr>
-{% endif %}
 
-{% block content %}{% endblock %}
+<body>
+    {% if pdf_mode is not defined or not pdf_mode %}
+    <nav>
+        <a href="{{ url_for('list_offers') }}">Pregled ponuda</a>
+        <a href="{{ url_for('new_offer') }}">Kreiraj novu ponudu</a>
+        <a href="{{ url_for('settings') }}">Settings</a>
+    </nav>
+    <hr>
+    {% endif %}
+
+    {% block content %}{% endblock %}
+
+    {% if pdf_mode is not defined or not pdf_mode %}
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            // Initialize Tom Select on elements with .searchable-select class
+            document.querySelectorAll('.searchable-select').forEach((el) => {
+                new TomSelect(el, {
+                    create: false,
+                    sortField: {
+                        field: "text",
+                        direction: "asc"
+                    }
+                });
+            });
+        });
+    </script>
+    {% endif %}
 </body>
+
 </html>

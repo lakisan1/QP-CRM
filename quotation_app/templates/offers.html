@@ -7,19 +7,19 @@
 <form method="get" action="{{ url_for('list_offers') }}">
     <p>
         <label>Od datuma:
-            <input type="date" name="date_from" value="{{ date_from or '' }}">
+            <input type="date" name="date_from" value="{{ date_from or '' }}" onchange="this.form.submit()">
         </label>
         &nbsp;&nbsp;
         <label>Do datuma:
-            <input type="date" name="date_to" value="{{ date_to or '' }}">
+            <input type="date" name="date_to" value="{{ date_to or '' }}" onchange="this.form.submit()">
         </label>
     </p>
     <p>
         <label>Pretraga (ime musterije ili broj / ime ponude):<br>
-            <input type="text" name="search" value="{{ search_term or '' }}">
+            <input type="text" name="search" value="{{ search_term or '' }}" onchange="this.form.submit()">
         </label>
         <button type="submit">Pretraga</button>
-        <a href="{{ url_for('list_offers') }}">Reset pretrage</a>
+        <a href="{{ url_for('list_offers', clear=1) }}">Reset pretrage</a>
     </p>
 </form>
 
@@ -40,24 +40,19 @@
         <td>{{ o.client_name }}</td>
         <td style="width: 100px;">
             {% if o.total_gross is not none %}
-                {{ format_amount(o.total_gross)}} {{ o.currency or '' }}
+            {{ format_amount(o.total_gross)}} {{ o.currency or '' }}
             {% endif %}
         </td>
         <td style="text-align: center; width: 200px;">
-            <form method="post"
-                action="{{ url_for('duplicate_offer', offer_id=o.id) }}"
-                style="display:inline;"
+            <form method="post" action="{{ url_for('duplicate_offer', offer_id=o.id) }}" style="display:inline;"
                 onsubmit="return confirm('Duplirati ovu ponudu?');">
                 <button type="submit">Duplicate</button>
             </form>
-                |
-            <a href="{{ url_for('offer_pdf', offer_id=o.id) }}"
-            target="_blank">
+            |
+            <a href="{{ url_for('offer_pdf', offer_id=o.id) }}" target="_blank">
                 PDF Print
             </a> |
-            <form method="post"
-                action="{{ url_for('delete_offer', offer_id=o.id) }}"
-                style="display:inline;"
+            <form method="post" action="{{ url_for('delete_offer', offer_id=o.id) }}" style="display:inline;"
                 onsubmit="return confirm('BRISANJE ponude!!! NIJE moguce vracanje nakon BRISANJA!!!.');">
                 <button type="submit">Delete</button>
             </form>
