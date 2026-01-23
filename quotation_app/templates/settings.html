@@ -4,6 +4,26 @@
 
 {% block content %}
 <h1>Settings</h1>
-<p>Ovo je stranica za podešavanja aplikacije. Trenutno nema aktivnih opcija, ali ovde će u budućnosti biti podešavanja
-    za formate datuma, vremena i slično.</p>
+<form method="post">
+    <p>
+        <label>Format datuma:<br>
+            <select name="date_format">
+                <option value="YYYY-MM-DD" {% if current_date_format=='YYYY-MM-DD' %}selected{% endif %}>YYYY-MM-DD
+                    (Standard)</option>
+                <option value="DD/MM/YYYY" {% if current_date_format=='DD/MM/YYYY' %}selected{% endif %}>DD/MM/YYYY
+                </option>
+                <option value="DD.MM.YYYY" {% if current_date_format=='DD.MM.YYYY' %}selected{% endif %}>DD.MM.YYYY
+                </option>
+                <option value="MM/DD/YYYY" {% if current_date_format=='MM/DD/YYYY' %}selected{% endif %}>MM/DD/YYYY
+                </option>
+            </select>
+        </label>
+    </p>
+    <button type="submit" class="btn btn-success"
+        style="padding: 10px 20px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Sačuvaj
+        podešavanja</button>
+</form>
+<hr>
+<p>Ovde će u budućnosti biti dodata i druga podešavanja aplikacije.</p>
+
 {% endblock %}

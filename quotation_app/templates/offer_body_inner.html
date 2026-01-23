@@ -11,7 +11,7 @@
         </td>
         <td style="text-align:center;">
             <strong>PONUDA br. {{ offer.offer_number or offer.id }}</strong><br>
-            Datum: {{ offer.date }}<br>
+            Datum: {{ offer.date | format_date }}<br>
         </td>
     </tr>
 </table>
@@ -114,7 +114,7 @@
     <table class="footer-table">
         <tr>
             <td style="text-align:left;">
-                u V. Moštanici, {{ offer.date }}
+                u V. Moštanici, {{ offer.date | format_date }}
             </td>
             <td style="text-align:right;">
                 {# Signature removed #}

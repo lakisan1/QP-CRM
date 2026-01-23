@@ -23,7 +23,7 @@ from shared.db import get_db
 
 #  common_utils app import
 # it's in PARENT_DIR which is already in sys.path
-from common_utils import format_amount
+from common_utils import format_amount, format_date
 
 app = Flask(
     __name__,
@@ -119,6 +119,11 @@ def get_nbs_eur_middle_rate():
         return None
 
 
+@app.template_filter('format_date')
+def _format_date_filter(date_str):
+    fmt = get_date_format()
+    return format_date(date_str, fmt)
+
 @app.context_processor
 def inject_helpers():
     return dict(format_amount=format_amount)
@@ -141,6 +146,15 @@ def app_asset(filename):
 @app.route("/")
 def index():
     return redirect(url_for("list_offers"))
+
+def get_date_format():
+    """Fetch the date_format setting from global_settings table."""
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT value FROM global_settings WHERE key = 'date_format';")
+    row = cur.fetchone()
+    conn.close()
+    return row["value"] if row else "YYYY-MM-DD"
 
 @app.route("/offers")
 def list_offers():
@@ -822,9 +836,29 @@ def duplicate_offer(offer_id):
     # Go straight to edit screen of the new offer
     return redirect(url_for("edit_offer", offer_id=new_offer_id))
 
-@app.route("/settings")
+@app.route("/settings", methods=["GET", "POST"])
 def settings():
-    return render_template("settings.html")
+    conn = get_db()
+    if request.method == "POST":
+        date_fmt = request.form.get("date_format")
+        cur = conn.cursor()
+        cur.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES ('date_format', ?);", (date_fmt,))
+        conn.commit()
+    
+    cur = conn.cursor()
+    cur.execute("SELECT value FROM global_settings WHERE key = 'date_format';")
+    row = cur.fetchone()
+    current_fmt = row["value"] if row else "YYYY-MM-DD"
+    conn.close()
+    return render_template("settings.html", current_date_format=current_fmt)
+
+@app.context_processor
+def inject_helpers():
+    fmt = get_date_format()
+    return dict(
+        format_amount=format_amount,
+        format_date=lambda d: format_date(d, fmt)
+    )
 
 if __name__ == "__main__":
     init_db()

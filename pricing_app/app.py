@@ -25,7 +25,7 @@ from shared.db import get_db
 
 # import common_utils (it's in PARENT_DIR)
 # we already added PARENT_DIR to sys.path above
-from common_utils import format_amount
+from common_utils import format_amount, format_date
 
 app = Flask(
     __name__,
@@ -75,6 +75,16 @@ def init_db():
             name TEXT PRIMARY KEY
         );
     """)
+
+    # Global Settings table
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS global_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        );
+    """)
+    # Set default date format if not exists
+    cur.execute("INSERT OR IGNORE INTO global_settings (key, value) VALUES ('date_format', 'YYYY-MM-DD');")
 
     # Prices table (base definition)
     cur.execute("""
@@ -289,6 +299,15 @@ def save_product_image(image_stream, orig_filename, product_name):
 
     return filename
 
+def get_date_format():
+    """Fetch the date_format setting from global_settings table."""
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT value FROM global_settings WHERE key = 'date_format';")
+    row = cur.fetchone()
+    conn.close()
+    return row["value"] if row else "YYYY-MM-DD"
+
 import requests
 
 def download_image_from_url(url):
@@ -325,13 +344,32 @@ def index():
 def product_image(filename):
     return send_from_directory(IMAGE_DIR, filename)
 
-@app.route("/settings")
+@app.route("/settings", methods=["GET", "POST"])
 def settings():
-    return render_template("settings.html")
+    conn = get_db()
+    if request.method == "POST":
+        date_fmt = request.form.get("date_format")
+        cur = conn.cursor()
+        cur.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES ('date_format', ?);", (date_fmt,))
+        conn.commit()
+    
+    cur = conn.cursor()
+    cur.execute("SELECT value FROM global_settings WHERE key = 'date_format';")
+    row = cur.fetchone()
+    current_fmt = row["value"] if row else "YYYY-MM-DD"
+    conn.close()
+    return render_template("settings.html", current_date_format=current_fmt)
+
+@app.template_filter('format_date')
+def _format_date_filter(date_str):
+    fmt = get_date_format()
+    return format_date(date_str, fmt)
 
 @app.context_processor
 def inject_helpers():
-    return dict(format_amount=format_amount)
+    return dict(
+        format_amount=format_amount
+    )
 
 # ---------- PRODUCTS ----------
 
