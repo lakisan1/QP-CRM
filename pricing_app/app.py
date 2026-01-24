@@ -33,6 +33,7 @@ app = Flask(
     static_url_path="/static"
 )
 app.secret_key = "crm_pricing_secret_key_change_me"
+app.config['SESSION_COOKIE_NAME'] = 'pricing_session'
 
 REQUIRED_PASSWORD = "Price1!"
 
@@ -317,6 +318,15 @@ def get_date_format():
     conn.close()
     return row["value"] if row else "YYYY-MM-DD"
 
+def get_theme():
+    """Fetch the theme setting from global_settings table."""
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT value FROM global_settings WHERE key = 'theme';")
+    row = cur.fetchone()
+    conn.close()
+    return row["value"] if row else "dark"
+
 import requests
 
 def download_image_from_url(url):
@@ -373,17 +383,29 @@ def product_image(filename):
 def settings():
     conn = get_db()
     if request.method == "POST":
-        date_fmt = request.form.get("date_format")
-        cur = conn.cursor()
-        cur.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES ('date_format', ?);", (date_fmt,))
-        conn.commit()
+        if "date_format" in request.form:
+            date_fmt = request.form.get("date_format")
+            cur = conn.cursor()
+            cur.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES ('date_format', ?);", (date_fmt,))
+            conn.commit()
+        
+        if "theme" in request.form:
+            theme = request.form.get("theme")
+            cur = conn.cursor()
+            cur.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES ('theme', ?);", (theme,))
+            conn.commit()
     
     cur = conn.cursor()
     cur.execute("SELECT value FROM global_settings WHERE key = 'date_format';")
     row = cur.fetchone()
     current_fmt = row["value"] if row else "YYYY-MM-DD"
+
+    cur.execute("SELECT value FROM global_settings WHERE key = 'theme';")
+    row = cur.fetchone()
+    current_theme = row["value"] if row else "dark"
+
     conn.close()
-    return render_template("settings.html", current_date_format=current_fmt)
+    return render_template("settings.html", current_date_format=current_fmt, current_theme=current_theme)
 
 @app.template_filter('format_date')
 def _format_date_filter(date_str):
@@ -393,7 +415,8 @@ def _format_date_filter(date_str):
 @app.context_processor
 def inject_helpers():
     return dict(
-        format_amount=format_amount
+        format_amount=format_amount,
+        theme=get_theme()
     )
 
 # ---------- PRODUCTS ----------

@@ -4,34 +4,41 @@
 
 {% block content %}
 <h1>Settings</h1>
-<form method="post">
-    <p>
-        <label>Format datuma:<br>
-            <select name="date_format">
-                <option value="YYYY-MM-DD" {% if current_date_format=='YYYY-MM-DD' %}selected{% endif %}>YYYY-MM-DD
-                    (Standard)</option>
-                <option value="DD/MM/YYYY" {% if current_date_format=='DD/MM/YYYY' %}selected{% endif %}>DD/MM/YYYY
-                </option>
-                <option value="DD.MM.YYYY" {% if current_date_format=='DD.MM.YYYY' %}selected{% endif %}>DD.MM.YYYY
-                </option>
-                <option value="MM/DD/YYYY" {% if current_date_format=='MM/DD/YYYY' %}selected{% endif %}>MM/DD/YYYY
-                </option>
-            </select>
-        </label>
-    </p>
-    <button type="submit" class="btn btn-success"
-        style="padding: 10px 20px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Sačuvaj
-        podešavanja</button>
-</form>
-
-<div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee;">
-    <a href="{{ url_for('logout') }}"
-        style="display: inline-block; padding: 10px 20px; background-color: #dc3545; color: white; text-decoration: none; border-radius: 4px; font-weight: bold; transition: background-color 0.2s;">
-        Odjavi se
-    </a>
+<div class="card">
+    <form method="post">
+        <p>
+            <label>Format datuma:<br>
+                <select name="date_format">
+                    <option value="YYYY-MM-DD" {% if current_date_format=='YYYY-MM-DD' %}selected{% endif %}>YYYY-MM-DD
+                        (Standard)</option>
+                    <option value="DD/MM/YYYY" {% if current_date_format=='DD/MM/YYYY' %}selected{% endif %}>DD/MM/YYYY
+                    </option>
+                    <option value="DD.MM.YYYY" {% if current_date_format=='DD.MM.YYYY' %}selected{% endif %}>DD.MM.YYYY
+                    </option>
+                    <option value="MM/DD/YYYY" {% if current_date_format=='MM/DD/YYYY' %}selected{% endif %}>MM/DD/YYYY
+                    </option>
+                </select>
+            </label>
+        </p>
+        <p>
+            <label>Tema aplikacije:<br>
+                <select name="theme">
+                    <option value="dark" {% if current_theme=='dark' %}selected{% endif %}>Tamna (Dark)</option>
+                    <option value="light" {% if current_theme=='light' %}selected{% endif %}>Svetla (Light)</option>
+                </select>
+            </label>
+        </p>
+        <button type="submit" class="btn btn-success">Sačuvaj podešavanja</button>
+    </form>
 </div>
 
-<hr>
-<p>Ovde će u budućnosti biti dodata i druga podešavanja aplikacije.</p>
+<div class="card">
+    <div style="display: flex; justify-content: flex-end;">
+        <a href="{{ url_for('logout') }}"
+            style="display: inline-block; padding: 10px 20px; background-color: #dc3545; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; transition: background-color 0.2s;">
+            Odjavi se
+        </a>
+    </div>
+</div>
 
 {% endblock %}

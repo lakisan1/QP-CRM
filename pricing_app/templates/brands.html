@@ -11,44 +11,61 @@
 {% endif %}
 
 <h2>Add / edit brand</h2>
-<form method="post">
-    <p>
-        <label>Brand name:<br>
-            <input type="text" name="name" id="brand_name" required>
-        </label>
-    </p>
-    <input type="hidden" name="old_name" id="old_name">
-    <p>
-        <button type="submit">Save brand</button>
-        <button type="button" onclick="clearBrandForm()">New</button>
-    </p>
-</form>
+<div class="split-layout">
+    <div class="form-section card">
+        <form method="post" class="compact-form">
+            <p>
+                <label>Brand name:<br>
+                    <input type="text" name="name" id="brand_name" required>
+                </label>
+            </p>
+            <input type="hidden" name="old_name" id="old_name">
+            <p>
+            <div style="display: flex; gap: 10px;">
+                <button type="submit" class="btn btn-success" style="flex: 1;">Save brand</button>
+                <button type="button" class="btn" style="background-color: #6c757d; color: white;"
+                    onclick="clearBrandForm()">New</button>
+            </div>
+            </p>
+        </form>
+    </div>
 
-<h2>Existing brands</h2>
-<table border="1" cellpadding="4">
-    <tr>
-        <th>Brand</th>
-        <th>Action</th>
-    </tr>
-    {% for b in brands %}
-    <tr>
-        <td>
-            <a href="#" class="brand-link" data-name="{{ b.name }}">
-                {{ b.name }}
-            </a>
-        </td>
-        <td>
-            <form action="{{ url_for('delete_brand') }}" method="post"
-                onsubmit="return confirm('Are you sure you want to delete brand \'{{ b.name }}\'?');"
-                style="display:inline;">
-                <input type="hidden" name="brand_to_delete" value="{{ b.name }}">
-                <button type="submit"
-                    style="color:red; background:none; border:none; cursor:pointer; text-decoration:underline;">Delete</button>
-            </form>
-        </td>
-    </tr>
-    {% endfor %}
-</table>
+    <div class="table-section card">
+        <div style="margin-bottom: 20px;">
+            <input type="text" id="brandSearch" placeholder="Pretraži brendove..." onkeyup="filterBrands()"
+                style="max-width: 300px; margin-bottom: 0;">
+        </div>
+
+        <h2>Existing brands</h2>
+        <table id="brandTable">
+            <thead>
+                <tr>
+                    <th>Brand</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for b in brands %}
+                <tr>
+                    <td>
+                        <a href="#" class="brand-link" data-name="{{ b.name }}">
+                            {{ b.name }}
+                        </a>
+                    </td>
+                    <td style="text-align: center;">
+                        <form action="{{ url_for('delete_brand') }}" method="post"
+                            onsubmit="return confirm('Are you sure you want to delete brand \'{{ b.name }}\'?');"
+                            style="display:inline;">
+                            <input type="hidden" name="brand_to_delete" value="{{ b.name }}">
+                            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
 
 <script>
     function clearBrandForm() {
@@ -57,6 +74,25 @@
         if (nameInput) nameInput.value = "";
         if (oldNameInput) oldNameInput.value = "";
         if (nameInput) nameInput.focus();
+    }
+
+    function filterBrands() {
+        var input, filter, table, tr, td, i, txtValue;
+        input = document.getElementById("brandSearch");
+        filter = input.value.toUpperCase();
+        table = document.getElementById("brandTable");
+        tr = table.getElementsByTagName("tr");
+        for (i = 0; i < tr.length; i++) {
+            td = tr[i].getElementsByTagName("td")[0];
+            if (td) {
+                txtValue = td.textContent || td.innerText;
+                if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                    tr[i].style.display = "";
+                } else {
+                    tr[i].style.display = "none";
+                }
+            }
+        }
     }
 
     document.addEventListener("DOMContentLoaded", function () {

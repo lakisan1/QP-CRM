@@ -10,111 +10,127 @@
 {% endif %}
 
 <h2>Dodaj / izmeni kategoriju</h2>
-<form method="post">
-    <p>
-        <label>Naziv kategorije:<br>
-            <input type="text" name="category" id="category_input" required>
-        </label>
-    </p>
-    <p>
-        <label>Dodaci:<br>
-            <input type="number" step="any" name="default_extras" value="0">
-        </label>
-    </p>
-    <p>
-        <label>Import %:<br>
-            <input type="number" step="any" name="import_percent" value="7">
-        </label>
-    </p>
-    <p>
-        <label>Margin %:<br>
-            <input type="number" step="any" name="margin_percent" value="40">
-        </label>
-    </p>
-    <p>
-        <label>Dom. transport:<br>
-            <input type="number" step="any" name="domestic_transport" value="0">
-        </label>
-    </p>
-    <p>
-        <label>Garancija %:<br>
-            <input type="number" step="any" name="warranty_percent" value="0">
-        </label>
-    </p>
-    <p>
-        <label>Servis %:<br>
-            <input type="number" step="any" name="service_percent" value="0">
-        </label>
-    </p>
-    <p>
-        <label>Instalacija:<br>
-            <input type="number" step="any" name="instalation" value="0">
-        </label>
-    </p>
-    <p>
-        <label>Obuka:<br>
-            <input type="number" step="any" name="traning" value="0">
-        </label>
-    </p>
-    <p>
-        <label>Ostalo:<br>
-            <input type="number" step="any" name="other" value="0">
-        </label>
-    </p>
+<div class="split-layout" style="grid-template-columns: 280px 1fr;">
+    <div class="form-section card">
+        <form method="post" class="compact-form">
+            <p>
+                <label>Naziv kategorije:<br>
+                    <input type="text" name="category" id="category_input" required>
+                </label>
+            </p>
+            <p>
+                <label>Zarada %:<br>
+                    <input type="number" step="any" name="margin_percent" value="40">
+                </label>
+            </p>
 
-    <input type="hidden" name="old_category" id="old_category">
+            <h3 style="margin: 15px 0 10px 0; color: #e74c3c;">Troskovi</h3>
 
-    <p>
-        <button type="submit">Save defaults</button>
-        <button type="button" onclick="clearCategoryForm()">New</button>
-    </p>
-</form>
+            <p>
+                <label>Dodatni troskovi:<br>
+                    <input type="number" step="any" name="default_extras" value="0">
+                </label>
+            </p>
+            <p>
+                <label>Uvoz %:<br>
+                    <input type="number" step="any" name="import_percent" value="7">
+                </label>
+            </p>
+            <p>
+                <label>Domaci transport:<br>
+                    <input type="number" step="any" name="domestic_transport" value="0">
+                </label>
+            </p>
+            <p>
+                <label>Garancija %:<br>
+                    <input type="number" step="any" name="warranty_percent" value="0">
+                </label>
+            </p>
+            <p>
+                <label>Servis %:<br>
+                    <input type="number" step="any" name="service_percent" value="0">
+                </label>
+            </p>
+            <p>
+                <label>Instalacija:<br>
+                    <input type="number" step="any" name="instalation" value="0">
+                </label>
+            </p>
+            <p>
+                <label>Obuka:<br>
+                    <input type="number" step="any" name="traning" value="0">
+                </label>
+            </p>
+            <p>
+                <label>Ostalo:<br>
+                    <input type="number" step="any" name="other" value="0">
+                </label>
+            </p>
 
-<h2>Existing defaults</h2>
-<table border="1" cellpadding="4" style="width: 700px;">
-    <tr>
-        <th style="width: 300px;" text-align="center;">Category</th>
-        <th style="width: 70px;">Extras</th>
-        <th style="width: 70px;">Import %</th>
-        <th style="width: 70px;">Margin %</th>
-        <th>Dom. transport</th>
-        <th>Garancija %</th>
-        <th>Servis %</th>
-        <th>Instalacija</th>
-        <th>Obuka</th>
-        <th>Ostalo</th>
-        <th>Action</th>
-    </tr>
-    {% for d in defaults %}
-    <tr>
-    <tr>
-    <tr>
-        <td>
-            <a href="#" class="cat-link" data-category="{{ d.category }}">
-                {{ d.category }}
-            </a>
-        </td>
-        <td>{{ ((d.import_percent or 0) * 100) | round(2)}}</td>
-        <td>{{ d.default_extras }}</td>
-        <td>{{ ((d.margin_percent or 0) * 100) | round(2)}}</td>
-        <td>{{ d.domestic_transport }}</td>
-        <td>{{ ((d.warranty_percent or 0) * 100) | round(2)}}</td>
-        <td>{{ ((d.service_percent or 0) * 100) | round(2)}}</td>
-        <td>{{ d.instalation }}</td>
-        <td>{{ d.traning }}</td>
-        <td>{{ d.other }}</td>
-        <td>
-            <form action="{{ url_for('delete_category_default') }}" method="post"
-                onsubmit="return confirm('Are you sure you want to delete category \'{{ d.category }}\'?');"
-                style="display:inline;">
-                <input type="hidden" name="category_to_delete" value="{{ d.category }}">
-                <button type="submit"
-                    style="color:red; background:none; border:none; cursor:pointer; text-decoration:underline;">Delete</button>
-            </form>
-        </td>
-    </tr>
-    {% endfor %}
-</table>
+            <input type="hidden" name="old_category" id="old_category">
+
+            <p>
+            <div style="display: flex; gap: 10px;">
+                <button type="submit" class="btn btn-success" style="flex: 1;">Save defaults</button>
+                <button type="button" class="btn" style="background-color: #6c757d; color: white;"
+                    onclick="clearCategoryForm()">New</button>
+            </div>
+            </p>
+        </form>
+    </div>
+
+    <div class="table-section card">
+        <div style="margin-bottom: 20px;">
+            <input type="text" id="catSearch" placeholder="Pretraži kategorije..." onkeyup="filterTable()"
+                style="max-width: 300px; margin-bottom: 0;">
+        </div>
+        <table id="catTable">
+            <thead>
+                <tr>
+                    <th style="width: 200px; text-align: center;">Category</th>
+                    <th style="width: 70px;">Zarada %</th>
+                    <th style="width: 70px;">Dodatni tr.</th>
+                    <th style="width: 70px;">Uvoz %</th>
+                    <th>Dom. tr.</th>
+                    <th>Gar. %</th>
+                    <th>Ser. %</th>
+                    <th>Inst.</th>
+                    <th>Obuka</th>
+                    <th>Ost.</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in defaults %}
+                <tr>
+                    <td>
+                        <a href="#" class="cat-link" data-category="{{ d.category }}">
+                            {{ d.category }}
+                        </a>
+                    </td>
+                    <td>{{ ((d.margin_percent or 0) * 100) | round(2)}}</td>
+                    <td>{{ d.default_extras }}</td>
+                    <td>{{ ((d.import_percent or 0) * 100) | round(2)}}</td>
+                    <td>{{ d.domestic_transport }}</td>
+                    <td>{{ ((d.warranty_percent or 0) * 100) | round(2)}}</td>
+                    <td>{{ ((d.service_percent or 0) * 100) | round(2)}}</td>
+                    <td>{{ d.instalation }}</td>
+                    <td>{{ d.traning }}</td>
+                    <td>{{ d.other }}</td>
+                    <td style="text-align: center;">
+                        <form action="{{ url_for('delete_category_default') }}" method="post"
+                            onsubmit="return confirm('Are you sure you want to delete category \'{{ d.category }}\'?');"
+                            style="display:inline;">
+                            <input type="hidden" name="category_to_delete" value="{{ d.category }}">
+                            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
 
 <script>
     function clearCategoryForm() {
@@ -132,18 +148,43 @@
         if (catInput) catInput.focus();
     }
 
+    function filterTable() {
+        var input, filter, table, tr, td, i, txtValue;
+        input = document.getElementById("catSearch");
+        filter = input.value.toUpperCase();
+        table = document.getElementById("catTable");
+        tr = table.getElementsByTagName("tr");
+        for (i = 0; i < tr.length; i++) {
+            td = tr[i].getElementsByTagName("td")[0]; // Category name column
+            if (td) {
+                txtValue = td.textContent || td.innerText;
+                if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                    tr[i].style.display = "";
+                } else {
+                    tr[i].style.display = "none";
+                }
+            }
+        }
+    }
+
     document.addEventListener("DOMContentLoaded", function () {
         const catInput = document.getElementById("category_input");
         const oldCatInput = document.getElementById("old_category");
         if (!catInput || !oldCatInput) return;
 
-        document.querySelectorAll(".cat-link").forEach(function (link) {
+        // Use standard for loop or event delegation if elements are dynamic, 
+        // but here querySelectorAll is fine.
+        const links = document.querySelectorAll(".cat-link");
+        links.forEach(function (link) {
             link.addEventListener("click", function (e) {
                 e.preventDefault();
                 const cat = this.dataset.category || "";
                 catInput.value = cat;
                 oldCatInput.value = cat;  // remember original category for rename
                 catInput.focus();
+
+                // Optional: scroll form into view on mobile
+                catInput.scrollIntoView({ behavior: "smooth", block: "center" });
             });
         });
     });

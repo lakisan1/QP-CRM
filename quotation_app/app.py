@@ -31,6 +31,7 @@ app = Flask(
     static_url_path="/static"
 )
 app.secret_key = "crm_quotation_secret_key_change_me"
+app.config['SESSION_COOKIE_NAME'] = 'quotation_session'
 
 REQUIRED_PASSWORD = "Ponude1!"
 
@@ -135,7 +136,10 @@ def _format_date_filter(date_str):
 
 @app.context_processor
 def inject_helpers():
-    return dict(format_amount=format_amount)
+    return dict(
+        format_amount=format_amount,
+        theme=get_theme()
+    )
 
 @app.route("/api/nbs_eur_rate")
 def api_nbs_eur_rate():
@@ -180,6 +184,15 @@ def get_date_format():
     row = cur.fetchone()
     conn.close()
     return row["value"] if row else "YYYY-MM-DD"
+
+def get_theme():
+    """Fetch the theme setting from global_settings table."""
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT value FROM global_settings WHERE key = 'theme';")
+    row = cur.fetchone()
+    conn.close()
+    return row["value"] if row else "dark"
 
 @app.route("/offers")
 def list_offers():
@@ -865,17 +878,29 @@ def duplicate_offer(offer_id):
 def settings():
     conn = get_db()
     if request.method == "POST":
-        date_fmt = request.form.get("date_format")
-        cur = conn.cursor()
-        cur.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES ('date_format', ?);", (date_fmt,))
-        conn.commit()
+        if "date_format" in request.form:
+            date_fmt = request.form.get("date_format")
+            cur = conn.cursor()
+            cur.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES ('date_format', ?);", (date_fmt,))
+            conn.commit()
+
+        if "theme" in request.form:
+            theme = request.form.get("theme")
+            cur = conn.cursor()
+            cur.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES ('theme', ?);", (theme,))
+            conn.commit()
     
     cur = conn.cursor()
     cur.execute("SELECT value FROM global_settings WHERE key = 'date_format';")
     row = cur.fetchone()
     current_fmt = row["value"] if row else "YYYY-MM-DD"
+
+    cur.execute("SELECT value FROM global_settings WHERE key = 'theme';")
+    row = cur.fetchone()
+    current_theme = row["value"] if row else "dark"
+
     conn.close()
-    return render_template("settings.html", current_date_format=current_fmt)
+    return render_template("settings.html", current_date_format=current_fmt, current_theme=current_theme)
 
 @app.context_processor
 def inject_helpers():

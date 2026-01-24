@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="{{ theme|default('dark') }}">
 
 <head>
     <meta charset="utf-8">
@@ -12,36 +12,23 @@
     <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
     <!-- SortableJS (drag and drop) -->
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-
-        nav a {
-            margin-right: 10px;
-        }
-
-        table {
-            border-collapse: collapse;
-            width: 100%;
-        }
-
-        th,
-        td {
-            border: 1px solid #ccc;
-            padding: 4px 6px;
-        }
-    </style>
     {% endif %}
 </head>
 
 <body>
     {% if pdf_mode is not defined or not pdf_mode %}
     <nav>
-        <a href="{{ url_for('list_offers') }}">Pregled ponuda</a>
-        <a href="{{ url_for('new_offer') }}">Kreiraj novu ponudu</a>
-        <a href="{{ url_for('settings') }}">Settings</a>
+        <div class="nav-links">
+            <a href="{{ url_for('list_offers') }}" {% if request.endpoint=='list_offers' %}class="active" {% endif
+                %}>Pregled ponuda</a>
+            <a href="{{ url_for('new_offer') }}" {% if request.endpoint=='new_offer' %}class="active" {% endif
+                %}>Kreiraj novu ponudu</a>
+            <a href="{{ url_for('settings') }}" {% if request.endpoint=='settings' %}class="active" {% endif
+                %}>Settings</a>
+        </div>
+        <div class="nav-logo-container">
+            <img src="{{ url_for('static', filename='img/logo_company.jpg') }}" alt="CustomCRM Logo" class="nav-logo">
+        </div>
     </nav>
     <hr>
     {% endif %}
