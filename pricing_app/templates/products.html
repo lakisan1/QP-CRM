@@ -78,7 +78,7 @@
             </td>
             <td style="text-align: center; width: 180px;">
                 <a href="{{ url_for('price_history', product_id=p.id) }}" class="btn btn-primary btn-sm"
-                    style="text-decoration: none;">History</a>
+                    style="text-decoration: none;">Istorija cena</a>
 
                 <form method="post" action="{{ url_for('delete_product', product_id=p.id) }}" style="display:inline;"
                     onsubmit="return confirm('OBRISATI proizvod i SVE njegove cene?\nOvo se NE može poništiti.');">
