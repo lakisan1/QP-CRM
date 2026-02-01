@@ -1,6 +1,10 @@
 # CustomCRM 🚀
 
-A CRM system for **Product Pricing** and **Quotation Management**. Built for small teams and individuals. Easy to use and customize. 70% vibe code, 30% real code. I am a beginner so security is non-existent. **Only use in local network!**
+A CRM system for **Product Pricing** and **Quotation Management**.
+Built for small teams and individuals.\
+Easy to use and customize.\
+70% vibe code, 30% real code.\
+I am a beginner so security is non-existent. **Only use in local network!**
 
 App is in extra early development!\
 Please open issues for any bugs or suggestions!
