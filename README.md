@@ -115,7 +115,7 @@ Use these passwords to log in for the first time:
 App is in extra early development!\
 Please open issues for any bugs or suggestions!
 
-Updates come based on **Timeline**.
+Updates come based on [Timeline](https://github.com/users/lakisan1/projects/1).
 
 2 big milestones will be:
 - 🌍 **Multi-language Support**: Translation to multiple languages is coming soon.
