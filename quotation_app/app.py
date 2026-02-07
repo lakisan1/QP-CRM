@@ -104,11 +104,17 @@ def init_db():
             item_photo_path TEXT,
             quantity REAL NOT NULL,
             unit_price REAL NOT NULL,
+            discount_percent REAL DEFAULT 0.0,
             line_net REAL NOT NULL,
             FOREIGN KEY (offer_id) REFERENCES offers(id),
             FOREIGN KEY (product_id) REFERENCES products(id)
         );
     """)
+
+    try:
+        cur.execute("ALTER TABLE offer_items ADD COLUMN discount_percent REAL DEFAULT 0.0;")
+    except sqlite3.OperationalError:
+        pass
 
     conn.commit()
     conn.close()
@@ -619,7 +625,10 @@ def edit_offer(offer_id):
                 # No product selected – free text line
                 unit_price = float(unit_price_input or 0)
 
-            line_net = quantity * unit_price
+            discount_percent_input = float(request.form.get("discount_percent") or 0)
+            discount_percent = discount_percent_input / 100.0 if discount_percent_input else 0.0
+
+            line_net = quantity * unit_price * (1 - discount_percent)
 
             # Determine line_order
             cur.execute("""
@@ -634,15 +643,15 @@ def edit_offer(offer_id):
                 INSERT INTO offer_items (
                     offer_id, product_id, line_order,
                     item_name, item_description, item_photo_path,
-                    quantity, unit_price, line_net
+                    quantity, unit_price, discount_percent, line_net
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
             """, (
                 offer_id,
                 int(product_id) if product_id else None,
                 next_order,
                 item_name, item_description, item_photo_path,
-                quantity, unit_price, line_net
+                quantity, unit_price, discount_percent, line_net
             ))
             conn.commit()
 
@@ -1006,13 +1015,13 @@ def duplicate_offer(offer_id):
             INSERT INTO offer_items (
                 offer_id, product_id, line_order,
                 item_name, item_description, item_photo_path,
-                quantity, unit_price, line_net
+                quantity, unit_price, discount_percent, line_net
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """, (
             new_offer_id, item["product_id"], item["line_order"],
             item["item_name"], item["item_description"], item["item_photo_path"],
-            item["quantity"], item["unit_price"], item["line_net"]
+            item["quantity"], item["unit_price"], item["discount_percent"], item["line_net"]
         ))
 
     conn.commit()

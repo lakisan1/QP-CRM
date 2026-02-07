@@ -247,7 +247,7 @@
                         <textarea name="item_description" rows="5"></textarea>
                     </label>
                 </p>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
                     <p>
                         <label>Kolicina:<br>
                             <input type="number" step="any" name="quantity" value="1">
@@ -256,6 +256,11 @@
                     <p>
                         <label>Cena kom:<br>
                             <input type="number" step="any" name="unit_price">
+                        </label>
+                    </p>
+                    <p>
+                        <label>Popust %:<br>
+                            <input type="number" step="any" name="discount_percent" value="0">
                         </label>
                     </p>
                 </div>
@@ -300,6 +305,7 @@
                     <th>Ime proizvoda / Opis</th>
                     <th>Kom</th>
                     <th>Cena kom</th>
+                    <th>Popust %</th>
                     <th>Red zbir</th>
                 </tr>
             </thead>
@@ -328,6 +334,9 @@
                     </td>
                     <td style="text-align: center;">{{ it.quantity }}</td>
                     <td style="text-align: right; color: #2ecc71;">{{ format_amount(it.unit_price)}}</td>
+                    <td style="text-align: center; color: #3498db;">
+                        {% if it.discount_percent %}{{ (it.discount_percent * 100) | round(2) }}%{% else %}0%{% endif %}
+                    </td>
                     <td style="text-align: right; color: #2ecc71; font-weight: bold;">{{ format_amount(it.line_net)}}
                     </td>
                 </tr>

@@ -25,6 +25,7 @@
             <th class="col-desc">Description</th>
             <th class="col-qty">Qty</th>
             <th class="col-unit">Unit Price</th>
+            <th class="col-disc">Disc %</th>
             <th class="col-total">Total</th>
         </tr>
     </thead>
@@ -56,6 +57,10 @@
 
         <td style="text-align:right;">
             {{ format_amount(it.unit_price) }}
+        </td>
+
+        <td style="text-align:center;">
+            {% if it.discount_percent %}{{ (it.discount_percent * 100) | round(1) }}%{% else %}0%{% endif %}
         </td>
 
         <td style="text-align:right;">

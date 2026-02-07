@@ -182,12 +182,12 @@ h3 {
 }
 
 .col-photo {
-    width: 14%;
+    width: 12%;
     text-align: center;
 }
 
 .col-desc {
-    width: 45%;
+    width: 39%;
 }
 
 .col-qty {
@@ -198,6 +198,11 @@ h3 {
 .col-unit {
     width: 14%;
     text-align: right;
+}
+
+.col-disc {
+    width: 8%;
+    text-align: center;
 }
 
 .col-total {
