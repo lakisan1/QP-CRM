@@ -175,6 +175,10 @@ def index():
     cur.execute("SELECT value FROM global_settings WHERE key = 'allow_duplicate_names';")
     row = cur.fetchone()
     allow_duplicate_names = row["value"] if row else "false"
+
+    cur.execute("SELECT value FROM global_settings WHERE key = 'language';")
+    row = cur.fetchone()
+    current_language = row["value"] if row else "en"
     
     # Fetch all presets and group by category
     cur.execute("SELECT * FROM text_presets ORDER BY name ASC;")
@@ -191,6 +195,7 @@ def index():
         current_date_format=current_date_format,
         current_theme=current_theme,
         allow_duplicate_names=allow_duplicate_names,
+        current_language=current_language,
         presets_by_cat=presets_by_cat,
         timestamp=int(time.time()),
         theme=current_theme
@@ -355,6 +360,10 @@ def update_settings():
     # Checkbox: if present = "true", if missing = "false"
     allow_dup_val = "true" if allow_dup == "true" else "false"
     cur.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES ('allow_duplicate_names', ?);", (allow_dup_val,))
+
+    lang = request.form.get("language")
+    if lang:
+        cur.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES ('language', ?);", (lang,))
         
     conn.commit()
     conn.close()

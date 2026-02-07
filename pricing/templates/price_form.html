@@ -283,22 +283,32 @@
         return isNaN(num) ? 0 : num;
     }
 
-    function applyRounding(val) {
+    const roundingRules = {{ rounding_rules | tojson | safe }};
+
+    function applyRounding(val, target = 'price') {
         if (val <= 0) return 0;
 
-        let step = 0;
-        if (val <= 1000) {
-            step = 50;
-        } else if (val <= 10000) {
-            step = 100;
-        } else if (val <= 30000) {
-            step = 500;
-        } else {
-            step = 1000;
+        const rules = roundingRules[target] || [];
+        // Find the rule: smallest limit >= val
+        let rule = rules.find(r => r.limit >= val);
+
+        // If no rule found, use the last one (largest limit)
+        if (!rule && rules.length > 0) {
+            rule = rules[rules.length - 1];
         }
 
-        // Round UP to nearest step
-        // e.g. 1230 -> 1300 (step 100)
+        if (!rule) return val;
+
+        const step = rule.step;
+        const method = rule.method || 'UP';
+
+        if (method === 'UP') {
+            return Math.ceil(val / step) * step;
+        } else if (method === 'DOWN') {
+            return Math.floor(val / step) * step;
+        } else if (method === 'NEAREST') {
+            return Math.round(val / step) * step;
+        }
         return Math.ceil(val / step) * step;
     }
 
@@ -332,48 +342,34 @@
 
         const baseTotal = basePrice + extras;
 
-        // New Formula: 
-        // cost_total = (base + extras) * (1 + import + warranty + service) + domestic + install + training + other
         const costTotal = baseTotal * (1 + importPercent + warrantyPercent + servicePercent) + domTransport + instalation + traning + other;
-
-        // Calculated price: cost_total * (1 + margin)
         const calculatedPrice = costTotal * (1 + marginPercent);
 
-        // Final price logic:
         const finalPriceField = document.getElementById("final_price");
         let finalPrice = parseNumber(finalPriceField.value);
 
-        // Only auto-update finalPrice if common cost fields change. 
-        // DO NOT update if source is discount_percent or discount_price.
         const costFields = ["base_price", "extras", "import_percent", "margin_percent", "warranty_percent", "service_percent", "instalation", "traning", "other", "domestic_transport"];
 
         if (source && (costFields.includes(source.id) || source.id === "price-form")) {
-            // Price-form check is for initial load or manual calls
-            finalPrice = applyRounding(calculatedPrice);
+            finalPrice = applyRounding(calculatedPrice, 'price');
             finalPriceField.value = finalPrice.toFixed(2);
         } else if (!finalPrice && calculatedPrice > 0) {
-            // Initial fallback
-            finalPrice = applyRounding(calculatedPrice);
+            finalPrice = applyRounding(calculatedPrice, 'price');
             finalPriceField.value = finalPrice.toFixed(2);
         }
 
-        // Profit at final price
         const profitFinal = finalPrice - costTotal;
 
-        // Discount logic – automatic like Final Price
         const rawDiscountPrice = finalPrice * (1 - discountPercent);
         document.getElementById("calculated_discount_display").textContent = rawDiscountPrice.toFixed(2);
 
         let finalDiscountPrice = 0;
         if (source === discountPriceInput) {
-            // User is typing discount price manually
             finalDiscountPrice = discountPriceVal;
         } else if (discountPercent > 0) {
-            // Auto calc and ROUND UP TO 50 as requested
-            finalDiscountPrice = Math.ceil(rawDiscountPrice / 50) * 50;
+            finalDiscountPrice = applyRounding(rawDiscountPrice, 'discount');
             discountPriceInput.value = finalDiscountPrice.toFixed(2);
         } else {
-            // Fallback to value in field
             finalDiscountPrice = discountPriceVal;
         }
 
@@ -382,12 +378,9 @@
             profitDiscount = finalDiscountPrice - costTotal;
         }
 
-        // Update display
         document.getElementById("cost_total_display").textContent = costTotal.toFixed(2);
         document.getElementById("calculated_price_display").textContent = calculatedPrice.toFixed(2);
         document.getElementById("profit_final_display").textContent = profitFinal.toFixed(2);
-
-        // Update Summary Footer
         document.getElementById("summary_final_price").textContent = finalPrice.toFixed(2);
 
         if (finalDiscountPrice > 0) {

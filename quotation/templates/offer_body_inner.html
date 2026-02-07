@@ -3,29 +3,30 @@
 <table class="header-table">
     <tr>
         <td>
-            <strong>Kupac:</strong><br>
+            <strong>{{ _('Customer') }}:</strong><br>
             {{ offer.client_name }}<br>
             {{ offer.client_address }}<br>
             {% if offer.client_email %}E-mail: {{ offer.client_email }}<br>{% endif %}
             {% if offer.client_phone %}Tel: {{ offer.client_phone }}<br>{% endif %}
         </td>
         <td style="text-align:center;">
-            <strong>PONUDA br. {{ offer.offer_number or offer.id }}</strong><br>
-            Datum: {{ offer.date | format_date }}<br>
+            <strong>{{ _('OFFER No.') }} {{ offer.offer_number or offer.id }}</strong><br>
+            {{ _('Date') }}: {{ offer.date | format_date(current_date_format) }}<br>
         </td>
     </tr>
 </table>
 
-<h3>Stavke ponude</h3>
+<h3>{{ _('Offer Items') }}</h3>
 <table class="items-table">
     <thead>
         <tr>
-            <th class="col-rb">Rb.</th>
-            <th class="col-photo">Slika</th>
-            <th class="col-desc">Opis</th>
-            <th class="col-qty">Kom</th>
-            <th class="col-unit">Cena/kom</th>
-            <th class="col-total">Ukupno</th>
+            <th class="col-rb">{{ _('No.') }}</th>
+            <th class="col-photo">{{ _('Image') }}</th>
+            <th class="col-desc">{{ _('Description') }}</th>
+            <th class="col-qty">{{ _('Qty') }}</th>
+            <th class="col-unit">{{ _('Unit Price') }}</th>
+            <th class="col-disc">{{ _('Disc %') }}</th>
+            <th class="col-total">{{ _('Total') }}</th>
         </tr>
     </thead>
     {% for it in items %}
@@ -58,6 +59,10 @@
             {{ format_amount(it.unit_price) }}
         </td>
 
+        <td style="text-align:center;">
+            {% if it.discount_percent %}{{ (it.discount_percent * 100) | round(1) }}%{% else %}0%{% endif %}
+        </td>
+
         <td style="text-align:right;">
             {{ format_amount(it.line_net) }}
         </td>
@@ -70,41 +75,45 @@
     <br>
     <table class="totals-table">
         <tr>
-            <td style="width:65%; text-align:left; color: var(--text-muted); font-size: 8.5pt;">
-                Cene su u {{ offer.currency or 'EUR' }}.<br>
+            <td style="width:60%; text-align:left; color: var(--text-muted); font-size: 8.5pt;">
+                Prices are in {{ offer.currency or 'EUR' }}.<br>
                 {% if offer.currency != 'RSD' and offer.exchange_rate %}
-                Obračun u RSD vrši se po kursu <strong>{{ offer.exchange_rate }}</strong> na dan izdavanja predračuna.
+                Calculated in RSD according to the exchange rate <strong>{{ offer.exchange_rate }}</strong> on the day
+                of issuing the offer.
                 {% endif %}<br>
-                OPCIJA UPLATE: {{ offer.payment_terms or 'po dogovoru' }}<br>
-                ROK ISPORUKE: {{ offer.delivery_terms or 'po dogovoru' }}<br>
-                ROK VAŽENJA PONUDE: {{ offer.validity_days or 10 }} dana<br>
+                {{ _('PAYMENT TERMS') }}: {{ offer.payment_terms or 'as agreed' }}<br>
+                {{ _('DELIVERY TERMS') }}: {{ offer.delivery_terms or 'as agreed' }}<br>
+                {{ _('OFFER VALIDITY') }}: {{ offer.validity_days or 10 }} {{ _('days') }}<br>
                 <br>
                 {% if offer.napomena %}
-                <strong>NAPOMENA:</strong> {{ offer.napomena }}<br>
+                <strong>{{ _('NOTE') }}:</strong> {{ offer.napomena }}<br>
                 {% endif %}
             </td>
-            <td style="width:35%; text-align:right;">
+            <td style="width:40%; text-align:right;">
                 <table class="summary-box">
                     <tr>
-                        <td style="text-align:right; color: var(--text-muted);">SUMA:</td>
+                        <td style="text-align:right; color: var(--text-muted);">{{ _('SUBTOTAL') }}:</td>
                         <td style="text-align:right; width: 100px;">{{ format_amount(offer.total_net or 0) }}</td>
                     </tr>
                     <tr>
-                        <td style="text-align:right; color: var(--text-muted);">POPUST {{ ((offer.discount_percent or 0)
+                        <td style="text-align:right; color: var(--text-muted);">{{ _('DISCOUNT') }} {{
+                            ((offer.discount_percent or
+                            0)
                             * 100) | round(2) }}%:</td>
                         <td style="text-align:right;">{{ format_amount(offer.total_discount or 0) }}</td>
                     </tr>
                     <tr class="total-row">
-                        <td style="text-align:right;">UKUPNO:</td>
+                        <td style="text-align:right;">{{ _('Total') }}:</td>
                         <td style="text-align:right;">{{ format_amount(offer.total_net_after_discount or 0) }}</td>
                     </tr>
                     <tr>
-                        <td style="text-align:right; color: var(--text-muted);">PDV {{ ((offer.vat_percent or 0) * 100)
+                        <td style="text-align:right; color: var(--text-muted);">{{ _('VAT') }} {{ ((offer.vat_percent or
+                            0) * 100)
                             | round(2) }}%:</td>
                         <td style="text-align:right;">{{ format_amount(offer.total_vat or 0) }}</td>
                     </tr>
                     <tr class="final-total">
-                        <td style="text-align:right; font-weight: bold;">UKUPNO ZA UPLATU:
+                        <td style="text-align:right; font-weight: bold;">{{ _('AMOUNT DUE') }}:
                         </td>
                         <td style="text-align:right; font-weight: bold;">{{
                             format_amount(offer.total_gross or 0) }}</td>
@@ -124,7 +133,7 @@
     <table class="footer-table">
         <tr>
             <td style="text-align:left;">
-                u V. Moštanici, {{ offer.date | format_date }}
+                {{ _('Date') }}: {{ offer.date | format_date(current_date_format) }}
             </td>
             <td style="text-align:right;">
                 {# Signature removed #}
@@ -134,7 +143,7 @@
 
     <p style="text-align:left;">
         <br>
-        <strong>PONUDA JE VAŽEĆA BEZ PEČATA I POTPISA</strong>
+        <strong>{{ _('THE OFFER IS VALID WITHOUT STAMP AND SIGNATURE') }}</strong>
     </p>
 
 </div>

@@ -25,3 +25,11 @@ git_notes.txt
 pricing.log
 quotation.log
 *.log
+
+# Workspace
+*.code-workspace
+.vscode/
+
+# Temp
+*.tmp
+temp/

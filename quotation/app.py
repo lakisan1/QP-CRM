@@ -24,7 +24,7 @@ from shared.auth import check_password
 
 #  common_utils app import
 # it's in PARENT_DIR which is already in sys.path
-from common_utils import format_amount, format_date
+from shared.utils import format_amount, format_date
 
 app = Flask(
     __name__,

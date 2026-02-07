@@ -6,6 +6,20 @@
     <form method="post">
         <input type="hidden" name="action" value="update_header">
 
+        {% if error %}
+        <div class="alert alert-error"
+            style="background: #e74c3c; color: white; padding: 10px; border-radius: 4px; margin-bottom: 20px;">
+            {{ error }}
+        </div>
+        {% endif %}
+
+        {% if session.get('error_message') %}
+        <div class="alert alert-error"
+            style="background: #e74c3c; color: white; padding: 10px; border-radius: 4px; margin-bottom: 20px;">
+            {{ session.pop('error_message') }}
+        </div>
+        {% endif %}
+
         <div class="grid-3-col">
             <!-- Col 1: Offer Info & Client Info -->
             <div class="offer-section">
@@ -19,6 +33,13 @@
                 <p>
                     <label>Datum:<br>
                         <input type="date" name="date" value="{{ offer.date if offer else today }}">
+                    </label>
+                </p>
+                <p>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-top: 10px;">
+                        <input type="checkbox" name="is_template" value="1" {% if offer and offer.is_template
+                            %}checked{% endif %} style="width: auto; margin: 0;">
+                        <span style="font-weight: bold; color: var(--accent-primary);">Sačuvaj kao šablon</span>
                     </label>
                 </p>
 
@@ -103,24 +124,41 @@
                 <h2>Informacije o isporuci</h2>
                 <p>
                     <label>Uslovi isporuke:<br>
-                        <textarea name="delivery_terms"
-                            rows="4">{{ offer.delivery_terms if offer else 'ROK ISPORUKE: do 45 dana po uplati AVANSA' }}</textarea>
+                        <select class="preset-select" data-target="delivery_terms"
+                            style="margin-bottom: 5px; font-size: 0.8rem; padding: 4px;">
+                            <option value="">-- primeni preset --</option>
+                            {% for p in presets_by_cat['delivery'] %}
+                            <option value="{{ p.content }}">{{ p.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <textarea name="delivery_terms" id="delivery_terms"
+                            rows="4">{% if offer %}{{ offer.delivery_terms }}{% else %}{{ default_delivery }}{% endif %}</textarea>
                     </label>
                 </p>
                 <p>
                     <label>Napomena:<br>
-                        <textarea name="napomena" rows="4">{{ offer.napomena if offer else '' }}</textarea>
+                        <select class="preset-select" data-target="napomena"
+                            style="margin-bottom: 5px; font-size: 0.8rem; padding: 4px;">
+                            <option value="">-- primeni preset --</option>
+                            {% for p in presets_by_cat['note'] %}
+                            <option value="{{ p.content }}">{{ p.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <textarea name="napomena" id="napomena"
+                            rows="4">{% if offer %}{{ offer.napomena or '' }}{% else %}{{ default_napomena }}{% endif %}</textarea>
                     </label>
                 </p>
                 <p>
                     <label>Dodatni tekst:<br>
-                        <textarea name="notes" rows="10">{% if offer and offer.notes %}{{ offer.notes }}{% else %}U cenu uredjaja uracunata je montaza, instruktaza u rukovanju i uputstva za rad na srpskom jeziku.
-Uredjaji poseduju sve potrebne ateste.
-Garantni rok 2 godine.
-Servis i rezervni delovi su obezbedjeni.
-
-ZA ISTOVAR I MONTAŽU OPREME, NEOPHODNO JE OBEZBEDITI VILJUŠKAR.
-Cena je fco KUPAC.{% endif %}</textarea>
+                        <select class="preset-select" data-target="notes"
+                            style="margin-bottom: 5px; font-size: 0.8rem; padding: 4px;">
+                            <option value="">-- primeni preset --</option>
+                            {% for p in presets_by_cat['extra'] %}
+                            <option value="{{ p.content }}">{{ p.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <textarea name="notes" id="notes"
+                            rows="10">{% if offer %}{{ offer.notes or '' }}{% else %}{{ default_extra }}{% endif %}</textarea>
                     </label>
                 </p>
             </div>
@@ -209,7 +247,7 @@ Cena je fco KUPAC.{% endif %}</textarea>
                         <textarea name="item_description" rows="5"></textarea>
                     </label>
                 </p>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
                     <p>
                         <label>Kolicina:<br>
                             <input type="number" step="any" name="quantity" value="1">
@@ -218,6 +256,11 @@ Cena je fco KUPAC.{% endif %}</textarea>
                     <p>
                         <label>Cena kom:<br>
                             <input type="number" step="any" name="unit_price">
+                        </label>
+                    </p>
+                    <p>
+                        <label>Popust %:<br>
+                            <input type="number" step="any" name="discount_percent" value="0">
                         </label>
                     </p>
                 </div>
@@ -262,6 +305,7 @@ Cena je fco KUPAC.{% endif %}</textarea>
                     <th>Ime proizvoda / Opis</th>
                     <th>Kom</th>
                     <th>Cena kom</th>
+                    <th>Popust %</th>
                     <th>Red zbir</th>
                 </tr>
             </thead>
@@ -290,6 +334,9 @@ Cena je fco KUPAC.{% endif %}</textarea>
                     </td>
                     <td style="text-align: center;">{{ it.quantity }}</td>
                     <td style="text-align: right; color: #2ecc71;">{{ format_amount(it.unit_price)}}</td>
+                    <td style="text-align: center; color: #3498db;">
+                        {% if it.discount_percent %}{{ (it.discount_percent * 100) | round(2) }}%{% else %}0%{% endif %}
+                    </td>
                     <td style="text-align: right; color: #2ecc71; font-weight: bold;">{{ format_amount(it.line_net)}}
                     </td>
                 </tr>
@@ -482,6 +529,25 @@ Cena je fco KUPAC.{% endif %}</textarea>
                 }
             });
         }
+
+        // --- Text Presets dropdown logic ---
+        document.querySelectorAll('.preset-select').forEach(sel => {
+            sel.addEventListener('change', function () {
+                const targetId = this.dataset.target;
+                const content = this.value;
+                if (!content) return;
+
+                const textarea = document.getElementById(targetId);
+                if (textarea) {
+                    if (textarea.value.trim() !== "" && !confirm("Ovo će pregaziti trenutni sadržaj. Da li ste sigurni?")) {
+                        this.value = "";
+                        return;
+                    }
+                    textarea.value = content;
+                    this.value = ""; // Reset dropdown
+                }
+            });
+        });
     });
 </script>
 {% endblock %}

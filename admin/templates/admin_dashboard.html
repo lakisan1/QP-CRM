@@ -175,7 +175,7 @@
         <div class="card">
             <h3>Default Settings</h3>
             <form action="{{ url_for('update_settings') }}" method="POST">
-                <div class="grid-2-col-asymmetric" style="grid-template-columns: 1fr 1fr;">
+                <div class="grid-2-col-asymmetric" style="grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
                     <div>
                         <label>Date Format</label>
                         <select name="date_format">
@@ -193,6 +193,14 @@
                             <option value="dark" {% if current_theme=='dark' %}selected{% endif %}>Dark (Default)
                             </option>
                             <option value="light" {% if current_theme=='light' %}selected{% endif %}>Light</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Language</label>
+                        <select name="language">
+                            <option value="en" {% if current_language=='en' %}selected{% endif %}>English</option>
+                            <option value="sr" {% if current_language=='sr' %}selected{% endif %}>Serbian (Srpski)
+                            </option>
                         </select>
                     </div>
                 </div>

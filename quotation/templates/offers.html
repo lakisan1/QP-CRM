@@ -2,9 +2,53 @@
 {% block title %}Offers{% endblock %}
 
 {% block content %}
+<style>
+    .tabs-container {
+        display: flex;
+        background: var(--card-bg);
+        border-radius: 8px;
+        padding: 5px;
+        border: 1px solid var(--border-color);
+    }
+
+    .tab-item {
+        padding: 8px 16px;
+        text-decoration: none;
+        border-radius: 6px;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+
+    .tab-item.active {
+        color: white;
+        background: var(--accent-primary);
+    }
+
+    .tab-item:not(.active) {
+        color: var(--text-muted);
+    }
+
+    .tab-item:not(.active):hover {
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--text-main);
+    }
+</style>
 <h1>Pregled ponuda</h1>
 
-<p><a href="{{ url_for('new_offer') }}" class="btn btn-success">Kreiraj novu ponudu</a></p>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <p style="margin: 0;"><a href="{{ url_for('new_offer') }}" class="btn btn-success">Kreiraj novu ponudu</a></p>
+
+    <div class="tabs-container">
+        <a href="{{ url_for('list_offers', view='offers') }}"
+            class="tab-item {% if current_view == 'offers' %}active{% endif %}">
+            Sve Ponude
+        </a>
+        <a href="{{ url_for('list_offers', view='templates') }}"
+            class="tab-item {% if current_view == 'templates' %}active{% endif %}">
+            Šabloni
+        </a>
+    </div>
+</div>
 
 <div class="card">
     <form method="get" action="{{ url_for('list_offers') }}">

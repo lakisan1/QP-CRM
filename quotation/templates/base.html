@@ -19,10 +19,12 @@
     {% if pdf_mode is not defined or not pdf_mode %}
     <nav>
         <div class="nav-links">
-            <a href="{{ url_for('list_offers') }}" {% if request.endpoint=='list_offers' %}class="active" {% endif
-                %}>Pregled ponuda</a>
-            <a href="{{ url_for('settings') }}" {% if request.endpoint=='settings' %}class="active" {% endif
-                %}>Settings</a>
+            <a href="{{ url_for('list_offers') }}" {% if request.endpoint=='list_offers' %}class="active" {% endif %}>{{
+                _('Offers') }}</a>
+            <a href="{{ url_for('compare_offers') }}" {% if request.endpoint=='compare_offers' %}class="active" {% endif
+                %}>{{ _('Compare Offers') }}</a>
+            <a href="{{ url_for('settings') }}" {% if request.endpoint=='settings' %}class="active" {% endif %}>{{
+                _('Settings') }}</a>
         </div>
         <div class="nav-logo-container">
             <img src="{{ url_for('static', filename='img/logo_company.jpg') }}" alt="CustomCRM Logo" class="nav-logo">

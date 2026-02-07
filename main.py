@@ -12,9 +12,9 @@ from werkzeug.middleware.dispatcher import DispatcherMiddleware
 # Import the existing apps
 # Note: These imports might trigger some initialization code, which is fine.
 # We assume they have `if __name__ == "__main__":` blocks to prevent running servers.
-from pricing_app.app import app as pricing_app, init_db as pricing_init_db, migrate_schema as pricing_migrate_schema
-from quotation_app.app import app as quotation_app, init_db as quotation_init_db
-from admin_app.app import app as admin_app
+from pricing.app import app as pricing_app, init_db as pricing_init_db, migrate_schema as pricing_migrate_schema
+from quotation.app import app as quotation_app, init_db as quotation_init_db
+from admin.app import app as admin_app
 from shared.config import STATIC_DIR
 
 # Initialize the main landing app
@@ -26,11 +26,17 @@ app = Flask(__name__, template_folder='templates', static_folder=STATIC_DIR, sta
 def index():
     return render_template("landing.html")
 
+from shared.utils import _, get_current_language
+
+# Inject translation helpers into all apps
+def inject_i18n():
+    lang = get_current_language()
+    return dict(_=lambda text: _(text, lang), current_lang=lang)
+
+for sub_app in [pricing_app, quotation_app, admin_app, app]:
+    sub_app.context_processor(inject_i18n)
+
 # Merge the applications using DispatcherMiddleware
-# Requests to /pricing/* go to pricing_app
-# Requests to /quotation/* go to quotation_app
-# Requests to /admin/* go to admin_app
-# Everything else goes to app (landing page)
 application = DispatcherMiddleware(app, {
     '/pricing': pricing_app,
     '/quotation': quotation_app,

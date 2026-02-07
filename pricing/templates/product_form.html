@@ -4,6 +4,7 @@
 {% if product %}Edit Product{% else %}Add Product{% endif %}
 {% endblock %}
 
+
 {% block content %}
 <h1>
     {% if product %}Edit Product{% else %}Add Product{% endif %}
@@ -119,4 +120,24 @@
         </p>
     </form>
 </div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const fileInput = document.querySelector('input[type="file"][name="photo_file"]');
+        if (fileInput) {
+            fileInput.addEventListener('change', function (e) {
+                const fileName = e.target.files[0]?.name;
+                const wrapper = e.target.closest('.file-upload-wrapper');
+                const textSpan = wrapper.querySelector('.file-upload-text');
+
+                if (fileName && textSpan) {
+                    textSpan.textContent = "Izabrano: " + fileName;
+                    textSpan.style.color = "var(--accent-success)";
+                    textSpan.style.fontWeight = "600";
+                    wrapper.style.borderColor = "var(--accent-success)";
+                }
+            });
+        }
+    });
+</script>
 {% endblock %}

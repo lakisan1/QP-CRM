@@ -72,12 +72,35 @@ TRANSLATIONS = {
         'Price History': 'Istorija cena',
         'Current Price': 'Trenutna cena',
         'Discount Price': 'Akcijska cena',
-        'Settings': 'Podešavanja'
+        'Settings': 'Podešavanja',
+        'Product List': 'Spisak proizvoda',
+        'Category List': 'Spisak kategorija',
+        'Quick Update': 'Brzo Ažuriranje',
+        'Offers': 'Ponude',
+        'Compare Offers': 'Uporedi ponude',
+        'Logout': 'Odjavi se',
+        'View Landing Page': 'Početna strana',
+        'PDF Templates': 'PDF Šabloni',
+        'Rounding Rules': 'Pravila zaokruživanja'
     },
     'en': {
         # Defaults are mostly English in the code
     }
 }
+
+from shared.db import get_db
+
+def get_current_language():
+    """Fetch the current language from global_settings."""
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("SELECT value FROM global_settings WHERE key = 'language';")
+        row = cur.fetchone()
+        conn.close()
+        return row["value"] if row else "en"
+    except Exception:
+        return "en"
 
 def translate(text, lang='en'):
     if lang == 'en':
