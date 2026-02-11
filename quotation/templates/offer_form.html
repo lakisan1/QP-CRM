@@ -103,18 +103,26 @@
                 <p>
                     <label>PDV % :<br>
                         <input type="number" step="any" name="vat_percent"
-                            value="{% if offer and offer.vat_percent is not none %}{{ (offer.vat_percent * 100) | round(2) }}{% else %}20{% endif %}">
+                            value="{% if offer and offer.vat_percent is not none %}{{ (offer.vat_percent * 100) | round(2) }}{% else %}{{ default_vat_percent }}{% endif %}">
                     </label>
                 </p>
                 <p>
                     <label>Rok vazenja ponude (dani):<br>
-                        <input type="number" name="validity_days" value="{{ offer.validity_days if offer else 10 }}">
+                        <input type="number" name="validity_days"
+                            value="{{ offer.validity_days if offer else default_validity_days }}">
                     </label>
                 </p>
                 <p>
                     <label>Uslovi plaćanja:<br>
-                        <textarea name="payment_terms"
-                            rows="2">{{ offer.payment_terms if offer else 'AVANS 100%' }}</textarea>
+                        <select class="preset-select" data-target="payment_terms"
+                            style="margin-bottom: 5px; font-size: 0.8rem; padding: 4px;">
+                            <option value="">-- primeni preset --</option>
+                            {% for p in presets_by_cat['payment'] %}
+                            <option value="{{ p.content }}">{{ p.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <textarea name="payment_terms" id="payment_terms"
+                            rows="2">{% if offer %}{{ offer.payment_terms }}{% else %}{{ default_payment }}{% endif %}</textarea>
                     </label>
                 </p>
             </div>
@@ -168,7 +176,8 @@
             style="margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 20px; display: flex; gap: 15px;">
             <button type="submit" class="btn btn-success">Sacuvaj podatke</button>
             {% if offer %}
-            <a href="{{ url_for('offer_pdf', offer_id=offer.id) }}" class="btn btn-primary" target="_blank">Print
+            <a href="{{ url_for('offer_pdf', offer_id=offer.id) }}" id="btn-print-pdf" class="btn btn-primary"
+                target="_blank">Print
                 PDF</a>
             {% endif %}
         </div>
@@ -376,6 +385,46 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        // --- Unsaved Changes Tracking ---
+        let hasUnsavedChanges = false;
+        const form = document.querySelector('form[action="update_header"]') || document.querySelector('form'); // Fallback to first form if action not explicit
+        // Changed selector to use ID
+        const pdfButton = document.getElementById('btn-print-pdf');
+
+        // Function to mark changes
+        function markAsChanged(e) {
+            hasUnsavedChanges = true;
+        }
+
+        // 1. Monitor all inputs in the main form
+        if (form) {
+            form.querySelectorAll('input, select, textarea').forEach(el => {
+                // Exclude hidden inputs if necessary, but usually we want them too if they affect data
+                // We use 'input' for text/number fields and 'change' for selects/checkboxes/radios
+                el.addEventListener('input', markAsChanged);
+                el.addEventListener('change', markAsChanged);
+            });
+
+            // If the form is submitted (saved), reset the flag
+            form.addEventListener('submit', function () {
+                hasUnsavedChanges = false;
+            });
+        }
+
+        // 2. Intercept PDF Button Click
+        if (pdfButton) {
+            pdfButton.addEventListener('click', function (e) {
+                if (hasUnsavedChanges) {
+                    const confirmed = confirm("Imate nesačuvane izmene. Da li želite da nastavite sa štampanjem (izmene neće biti vidljive)?");
+                    if (!confirmed) {
+                        e.preventDefault(); // Stop navigation
+                    }
+                    // If confirmed, we let the link proceed (opening PDF in new tab)
+                    // Note: The page remains dirty.
+                }
+            });
+        }
+
         // --- Scroll Position Persistence ---
         const scrollKey = "offer_form_scroll_" + "{{ offer.id }}";
         if (sessionStorage.getItem(scrollKey)) {
@@ -484,6 +533,7 @@
                     .then(data => {
                         if (data.success && typeof data.rate === "number") {
                             exchangeInput.value = data.rate.toFixed(4);
+                            markAsChanged(); // Mark as changed when rate is updated
                             const now = new Date();
                             const ts = now.toLocaleString('sr-RS');
                             rateStatus.textContent = `Kurs preuzet sa NBS (${ts}).`;
@@ -545,6 +595,7 @@
                     }
                     textarea.value = content;
                     this.value = ""; // Reset dropdown
+                    markAsChanged(); // Mark as changed when preset is applied
                 }
             });
         });

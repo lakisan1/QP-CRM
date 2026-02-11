@@ -432,24 +432,29 @@ def new_offer():
     # Fetch all presets for dropdowns
     cur.execute("SELECT * FROM text_presets ORDER BY name ASC;")
     all_presets = cur.fetchall()
-    presets_by_cat = {'delivery': [], 'note': [], 'extra': []}
+    presets_by_cat = {'delivery': [], 'payment': [], 'note': [], 'extra': []}
     for p in all_presets:
         if p['category'] in presets_by_cat:
             presets_by_cat[p['category']].append(p)
+
+    # Fetch default VAT and Validity from global_settings
+    cur.execute("SELECT value FROM global_settings WHERE key = 'default_vat_percent';")
+    row = cur.fetchone()
+    default_vat_percent = float(row["value"]) if row else 20.0
+
+    cur.execute("SELECT value FROM global_settings WHERE key = 'default_validity_days';")
+    row = cur.fetchone()
+    default_validity_days = int(row["value"]) if row else 10
+
     conn.close()
 
     defaults = {r['category']: r['content'] for r in default_rows}
     
     # These are the default values if no preset is set to default
-    default_delivery = defaults.get('delivery', 'ROK ISPORUKE: do 45 dana po uplati AVANSA')
+    default_delivery = defaults.get('delivery', '')
     default_napomena = defaults.get('note', '')
-    default_extra = defaults.get('extra', """U cenu uredjaja uracunata je montaza, instruktaza u rukovanju i uputstva za rad na srpskom jeziku.
-Uredjaji poseduju sve potrebne ateste.
-Garantni rok 2 godine.
-Servis i rezervni delovi su obezbedjeni.
-
-ZA ISTOVAR I MONTAŽU OPREME, NEOPHODNO JE OBEZBEDITI VILJUŠKAR.
-Cena je fco KUPAC.""")
+    default_extra = defaults.get('extra', '')
+    default_payment = defaults.get('payment', '')
 
     return render_template("offer_form.html", 
                            offer=None, 
@@ -457,6 +462,9 @@ Cena je fco KUPAC.""")
                            default_delivery=default_delivery,
                            default_napomena=default_napomena,
                            default_extra=default_extra,
+                           default_payment=default_payment,
+                           default_vat_percent=default_vat_percent,
+                           default_validity_days=default_validity_days,
                            presets_by_cat=presets_by_cat)
 
 

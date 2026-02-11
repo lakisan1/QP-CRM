@@ -179,11 +179,19 @@ def index():
     cur.execute("SELECT value FROM global_settings WHERE key = 'language';")
     row = cur.fetchone()
     current_language = row["value"] if row else "en"
+
+    cur.execute("SELECT value FROM global_settings WHERE key = 'default_vat_percent';")
+    row = cur.fetchone()
+    default_vat_percent = row["value"] if row else "20"
+
+    cur.execute("SELECT value FROM global_settings WHERE key = 'default_validity_days';")
+    row = cur.fetchone()
+    default_validity_days = row["value"] if row else "10"
     
     # Fetch all presets and group by category
     cur.execute("SELECT * FROM text_presets ORDER BY name ASC;")
     all_presets = cur.fetchall()
-    presets_by_cat = {'delivery': [], 'note': [], 'extra': []}
+    presets_by_cat = {'delivery': [], 'payment': [], 'note': [], 'extra': []}
     for p in all_presets:
         if p['category'] in presets_by_cat:
             presets_by_cat[p['category']].append(p)
@@ -196,6 +204,8 @@ def index():
         current_theme=current_theme,
         allow_duplicate_names=allow_duplicate_names,
         current_language=current_language,
+        default_vat_percent=default_vat_percent,
+        default_validity_days=default_validity_days,
         presets_by_cat=presets_by_cat,
         timestamp=int(time.time()),
         theme=current_theme
@@ -364,6 +374,14 @@ def update_settings():
     lang = request.form.get("language")
     if lang:
         cur.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES ('language', ?);", (lang,))
+
+    vat = request.form.get("default_vat_percent")
+    if vat:
+        cur.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES ('default_vat_percent', ?);", (vat,))
+
+    validity = request.form.get("default_validity_days")
+    if validity:
+        cur.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES ('default_validity_days', ?);", (validity,))
         
     conn.commit()
     conn.close()
