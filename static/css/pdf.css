@@ -77,7 +77,7 @@ h3 {
 .multiline {
     white-space: pre-line;
     color: var(--text-muted);
-    font-size: 8.5pt;
+    font-size: 7.5pt;
 }
 
 /* === Tables ============================================== */
@@ -106,7 +106,7 @@ h3 {
     background-color: var(--brand-blue);
     color: white;
     padding: 10px 6px;
-    font-size: 8.5pt;
+    font-size: 8pt;
     text-align: center;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -123,6 +123,7 @@ h3 {
     border-right: 1px solid var(--border-light);
     /* Vertical lines */
     vertical-align: middle;
+    font-size: 8pt;
 }
 
 .items-table tr:last-child td {
@@ -177,36 +178,36 @@ h3 {
 
 /* === Column Widths ====================================== */
 .col-rb {
-    width: 5%;
+    width: 4%;
     text-align: center;
 }
 
 .col-photo {
-    width: 12%;
+    width: 10%;
     text-align: center;
 }
 
 .col-desc {
-    width: 39%;
+    width: 70%;
 }
 
 .col-qty {
-    width: 8%;
+    width: 3%;
     text-align: center;
 }
 
 .col-unit {
-    width: 14%;
+    width: 10%;
     text-align: right;
 }
 
 .col-disc {
-    width: 8%;
+    width: 3%;
     text-align: center;
 }
 
 .col-total {
-    width: 14%;
+    width: 10%;
     text-align: right;
 }
 

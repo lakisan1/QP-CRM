@@ -30,7 +30,7 @@
             <th class="col-desc">{{ _('Description') }}</th>
             <th class="col-qty">{{ _('Qty') }}</th>
             <th class="col-unit">{{ _('Unit Price') }}</th>
-            <th class="col-disc">{{ _('Disc %') }}</th>
+            <th class="col-disc">Item disc.</th>
             <th class="col-total">{{ _('Total') }}</th>
         </tr>
     </thead>
@@ -58,7 +58,9 @@
             </small>
         </td>
 
-        <td style="text-align:center;">{{ it.quantity }}</td>
+        <td style="text-align:center;">
+            {% if it.quantity % 1 == 0 %}{{ it.quantity | int }}{% else %}{{ it.quantity }}{% endif %}
+        </td>
 
         <td style="text-align:right;">
             {{ format_amount(it.unit_price) }}
