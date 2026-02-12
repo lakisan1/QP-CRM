@@ -435,17 +435,70 @@
             });
         }
 
+        // Helper to download PDF with "Save As" prompt
+        async function downloadPdfWithPrompt(url, assignedFilename) {
+            try {
+                // 1. Fetch the PDF blob
+                const resp = await fetch(url);
+                if (!resp.ok) throw new Error('Network response was not ok');
+                const blob = await resp.blob();
+
+                // 2. Try using the File System Access API (active "Save As")
+                if (window.showSaveFilePicker) {
+                    try {
+                        const handle = await window.showSaveFilePicker({
+                            suggestedName: assignedFilename,
+                            types: [{
+                                description: 'PDF Document',
+                                accept: { 'application/pdf': ['.pdf'] },
+                            }],
+                        });
+                        const writable = await handle.createWritable();
+                        await writable.write(blob);
+                        await writable.close();
+                        return true; // Success
+                    } catch (err) {
+                        if (err.name === 'AbortError') {
+                            return false; // User cancelled
+                        }
+                        // If other error, fall back
+                        console.warn("File System Access API failed, falling back", err);
+                    }
+                }
+
+                // 3. Fallback: classic download
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = assignedFilename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(a.href);
+                return true;
+
+            } catch (error) {
+                console.error('Download failed:', error);
+                alert("Greška pri preuzimanju PDF-a.");
+                return false;
+            }
+        }
+
         // 2. Intercept PDF Button Click
         if (pdfButton) {
             pdfButton.addEventListener('click', function (e) {
+                e.preventDefault(); // Stop default navigation
+
                 if (hasUnsavedChanges) {
                     const confirmed = confirm("Imate nesačuvane izmene. Da li želite da nastavite sa štampanjem (izmene neće biti vidljive)?");
-                    if (!confirmed) {
-                        e.preventDefault(); // Stop navigation
-                    }
-                    // If confirmed, we let the link proceed (opening PDF in new tab)
-                    // Note: The page remains dirty.
+                    if (!confirmed) return;
                 }
+
+                // Construct filename
+                const offerNumberInput = document.querySelector('input[name="offer_number"]');
+                const offerNumber = offerNumberInput ? offerNumberInput.value : "Preview";
+                const filename = `Ponuda_${offerNumber}.pdf`;
+
+                downloadPdfWithPrompt(this.href, filename);
             });
         }
 
@@ -627,7 +680,12 @@
         // --- Print and Send logic ---
         const btnPrintSend = document.getElementById('btn-print-send');
         if (btnPrintSend) {
-            btnPrintSend.addEventListener('click', function () {
+            btnPrintSend.addEventListener('click', async function () {
+                if (hasUnsavedChanges) {
+                    const confirmed = confirm("Imate nesačuvane izmene. Da li želite da nastavite sa štampanjem (izmene neće biti vidljive)?");
+                    if (!confirmed) return;
+                }
+
                 // 1. Get client email
                 const emailInput = document.querySelector('input[name="client_email"]');
                 const clientEmail = emailInput ? emailInput.value.trim() : "";
@@ -643,6 +701,7 @@
                 // 3. Get offer data for replacement
                 const offerNumberInput = document.querySelector('input[name="offer_number"]');
                 const offerNumber = offerNumberInput ? offerNumberInput.value : "";
+                const filename = `Ponuda_${offerNumber}.pdf`;
 
                 const clientNameInput = document.querySelector('input[name="client_name"]');
                 const clientName = clientNameInput ? clientNameInput.value : "";
@@ -664,17 +723,20 @@
                 // 5. Construct mailto link
                 const mailtoLink = `mailto:${clientEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
-                // 6. Open PDF in new tab FIRST
+                // 6. Download PDF with Prompt FIRST
+                // We use the same URL from the pdf button if it exists, or likely current offer URL
+                // The pdfButton has the href to the pdf generation route
                 const pdfBtn = document.getElementById('btn-print-pdf');
                 if (pdfBtn) {
-                    window.open(pdfBtn.href, '_blank');
+                    await downloadPdfWithPrompt(pdfBtn.href, filename);
                 }
 
                 // 7. Navigate to mailto (opens default email client)
-                // 7. Navigate to mailto (opens default email client)
+                // We do this AFTER the download dialog handling
+                // Using a small timeout to let the UI fetch breath if needed, but awaiting above should be enough
                 setTimeout(() => {
-                    window.open(mailtoLink, '_blank');
-                }, 1000);
+                    window.location.href = mailtoLink;
+                }, 500);
             });
         }
 
