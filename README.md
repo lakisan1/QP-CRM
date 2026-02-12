@@ -22,6 +22,10 @@ Manage your product catalog with precision. Calculate margins, track base costs,
 - **Dynamic Calculation**: Automatic rounding and margin-based pricing.
 - **Price History**: Keep track of every price change over time.
 - **Quick Price Update**: Update prices for multiple products on one page.
+- **Bulk Import/Export**: Import and Export your database with ease.
+- **Price Comparison**: Compare prices of products or different quotations.
+- **Filters**: Advanced filtering for products and quotations.
+- **Date Format**: Customizable date format settings.
 
 #### ➕ Add and edit Products and Prices
 Seamlessly add products.
@@ -41,9 +45,14 @@ Quickly update prices by just typing the new input price and additional costs. S
 
 ### 📄 Quotation App
 Transform prices into professional PDF offers for your clients in seconds.
-- **Photo Integration**: Include product images directly in your offers.
+- **Photo Integration**: Include product images directly in your offers from URL or file.
 - **NBS Exchange Rates**: Automatic real-time fetching of official rates.
 - **Professional PDFs**: Clean, template ready for you and easy to edit in app.
+- **Email Integration**: Send offers directly to clients from the app.
+- **Per-line Discount**: Apply discounts to individual items in the quotation.
+- **Quotation Presets**: Save and load quotation templates for faster creation.
+- **Customizable Fields**: Configure mandatory fields and default values.
+- **Item Reordering**: Easily rearrange items in your quotation.
 
 ![Quotation List](README_Images/QuotationApp/Quotation1.png)
 
@@ -66,6 +75,9 @@ Full control over your system's global settings and security.
 - **Security Management**: Fast and easy password updates for all modules.
 - **Branding**: Customize your company logo and PDF templates.
 - **Default settings**: Set default settings for all modules like currency, date format, theme, etc.
+- **Text Presets**: Manage default text for delivery terms, notes, and more.
+- **Unified UI**: Consistent and modern user interface across all apps.
+- **Database Management**: Import and export your database for backup or migration.
 
 ![Admin Panel](README_Images/Admin/Admin1.png)
 
