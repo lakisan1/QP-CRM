@@ -6,7 +6,11 @@
 <div class="card">
     <p><strong>Category:</strong> {{ product.category }} | <strong>Brand:</strong> {{ product.brand }}</p>
 
-    <p><a href="{{ url_for('new_price', product_id=product.id) }}" class="btn btn-primary">Dodaj novu cenu</a></p>
+    <p>
+        <a href="{{ url_for('new_price', product_id=product.id) }}" class="btn btn-primary">Dodaj novu cenu</a>
+        <a href="{{ url_for('edit_product', product_id=product.id) }}" class="btn btn-secondary"
+            style="margin-left: 10px;">Izmeni proizvod</a>
+    </p>
 
     <table class="larg-table" style="text-align: center;">
         <tr>
