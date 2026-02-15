@@ -539,6 +539,12 @@ def list_products():
     else:
         session["products_filter_search"] = search_term
 
+    sort_option = request.args.get("sort")
+    if sort_option is None:
+        sort_option = session.get("products_sort_option", "name_asc") # Default sort
+    else:
+        session["products_sort_option"] = sort_option
+
     conn = get_db()
     cur = conn.cursor()
 
@@ -570,8 +576,18 @@ def list_products():
     if where_clauses:
         query += " WHERE " + " AND ".join(where_clauses)
 
-    # Fixed sort by name (and category as secondary)
-    query += " ORDER BY p.name, p.category;"
+    # Sorting Logic
+    if sort_option == "name_asc":
+        query += " ORDER BY p.name ASC;"
+    elif sort_option == "name_desc":
+        query += " ORDER BY p.name DESC;"
+    elif sort_option == "price_asc":
+        query += " ORDER BY COALESCE(pr.final_price, 0) ASC;"
+    elif sort_option == "price_desc":
+        query += " ORDER BY COALESCE(pr.final_price, 0) DESC;"
+    else:
+        # Fallback
+        query += " ORDER BY p.name ASC;"
 
     cur.execute(query, params)
     products = cur.fetchall()
@@ -605,6 +621,7 @@ def list_products():
         brand_options=brand_options,
         category_options=category_options,
         search_term=search_term,
+        sort_option=sort_option,
     )
 @app.route("/products/quick_update")
 def quick_update_products():

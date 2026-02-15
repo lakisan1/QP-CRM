@@ -7,41 +7,61 @@
 
 <div class="card">
     <form method="get" action="{{ url_for('list_products') }}">
-        <p style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end;">
-            <label style="display: flex; flex-direction: column;">
-                <span style="margin-bottom: 8px; font-weight: 500; font-size: 14px;">Brand:</span>
-                <select name="brand" class="searchable-select" onchange="this.form.submit()" style="margin-bottom: 0;">
-                    <option value="">-- all brands --</option>
-                    {% for b in brand_options %}
-                    <option value="{{ b }}" {% if brand_filter==b %}selected{% endif %}>
-                        {{ b }}
-                    </option>
-                    {% endfor %}
-                </select>
+        <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end;">
+            <label style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
+                <span style="font-weight: 500; font-size: 14px; white-space: nowrap;">Brand:</span>
+                <div style="width: 200px;">
+                    <select name="brand" class="searchable-select" onchange="this.form.submit()"
+                        style="margin-bottom: 0;">
+                        <option value="">-- all brands --</option>
+                        {% for b in brand_options %}
+                        <option value="{{ b }}" {% if brand_filter==b %}selected{% endif %}>
+                            {{ b }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
             </label>
-            <label style="display: flex; flex-direction: column;">
-                <span style="margin-bottom: 8px; font-weight: 500; font-size: 14px;">Category:</span>
-                <select name="category" class="searchable-select" onchange="this.form.submit()"
-                    style="margin-bottom: 0;">
-                    <option value="">-- all categories --</option>
-                    {% for c in category_options %}
-                    <option value="{{ c }}" {% if category_filter==c %}selected{% endif %}>
-                        {{ c }}
-                    </option>
-                    {% endfor %}
-                </select>
+            <label style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
+                <span style="font-weight: 500; font-size: 14px; white-space: nowrap;">Category:</span>
+                <div style="width: 200px;">
+                    <select name="category" class="searchable-select" onchange="this.form.submit()"
+                        style="margin-bottom: 0;">
+                        <option value="">-- all categories --</option>
+                        {% for c in category_options %}
+                        <option value="{{ c }}" {% if category_filter==c %}selected{% endif %}>
+                            {{ c }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
             </label>
-            <label style="display: flex; flex-direction: column;">
-                <span style="margin-bottom: 8px; font-weight: 500; font-size: 14px;">Pretraga po imenu:</span>
+            <label style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
+                <span style="font-weight: 500; font-size: 14px; white-space: nowrap;">Pretraga po imenu:</span>
                 <input type="text" name="search" value="{{ search_term or '' }}" onchange="this.form.submit()"
-                    style="margin-bottom: 0;">
+                    style="margin-bottom: 0; width: 200px;">
             </label>
-        <div style="display: flex; flex-direction: column;">
-            <span style="margin-bottom: 8px; font-weight: 500; font-size: 14px; visibility: hidden;">.</span>
-            <a href="{{ url_for('list_products', clear=1) }}" class="btn btn-secondary"
-                style="margin-bottom: 0; padding: 12px 24px; font-size: 15px;">Clear</a>
+            <label style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
+                <span style="font-weight: 500; font-size: 14px; white-space: nowrap;">Sortiraj po:</span>
+                <div style="width: 200px;">
+                    <select name="sort" class="searchable-select" onchange="this.form.submit()"
+                        style="margin-bottom: 0;">
+                        <option value="name_asc" {% if sort_option=='name_asc' %}selected{% endif %}>Name (A-Z)</option>
+                        <option value="name_desc" {% if sort_option=='name_desc' %}selected{% endif %}>Name (Z-A)
+                        </option>
+                        <option value="price_asc" {% if sort_option=='price_asc' %}selected{% endif %}>Price (Low to
+                            High)</option>
+                        <option value="price_desc" {% if sort_option=='price_desc' %}selected{% endif %}>Price (High to
+                            Low)</option>
+                    </select>
+                </div>
+            </label>
+            <div style="display: flex; flex-direction: column;">
+                <span style="margin-bottom: 8px; font-weight: 500; font-size: 14px; visibility: hidden;">.</span>
+                <a href="{{ url_for('list_products', clear=1) }}" class="btn btn-secondary"
+                    style="margin-bottom: 0; padding: 12px 24px; font-size: 15px;">Clear</a>
+            </div>
         </div>
-        </p>
     </form>
 </div>
 
