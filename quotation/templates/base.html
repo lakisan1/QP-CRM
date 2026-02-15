@@ -24,13 +24,16 @@
                 _('Offers') }}</a>
             <a href="{{ url_for('compare_offers') }}" {% if request.endpoint=='compare_offers' %}class="active" {% endif
                 %}>{{ _('Compare Offers') }}</a>
+        </div>
+        <div class="nav-right">
             <a href="{{ url_for('settings') }}" {% if request.endpoint=='settings' %}class="active" {% endif %}>{{
                 _('Settings') }}</a>
             <a href="/" {% if request.endpoint=='index' and not request.path.startswith('/quotation') %}class="active"
                 {% endif %}>{{ _('Landing Page') }}</a>
-        </div>
-        <div class="nav-logo-container">
-            <img src="{{ url_for('static', filename='img/logo_company.jpg') }}" alt="CustomCRM Logo" class="nav-logo">
+            <div class="nav-logo-container">
+                <img src="{{ url_for('static', filename='img/logo_company.jpg') }}" alt="CustomCRM Logo"
+                    class="nav-logo">
+            </div>
         </div>
     </nav>
     <hr>
