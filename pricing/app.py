@@ -892,12 +892,21 @@ def add_product():
                 stream, orig_filename = download_image_from_url(photo_url)
                 photo_path = save_product_image(stream, orig_filename, name)
         except ValueError as e:
+            # Create a temporary product object to preserve form data
+            temp_product = {
+                "name": name,
+                "description": description,
+                "category": category,
+                "brand": brand,
+                "photo_url": photo_url,
+                "id": None
+            }
             conn.close()
             return render_template(
                 "product_form.html",
                 categories=categories,
                 brand_options=brand_options,
-                product=None,
+                product=temp_product,
                 error=str(e)
             )
 
@@ -972,11 +981,18 @@ def edit_product(product_id):
 
         if existing:
             conn.close()
+            # Convert row to dict to safely modify/pass back
+            product_dict = dict(product)
+            product_dict["name"] = name
+            product_dict["description"] = description
+            product_dict["category"] = category
+            product_dict["brand"] = brand
+            
             return render_template(
                 "product_form.html",
                 categories=categories,
                 brand_options=brand_options,
-                product=product,
+                product=product_dict,
                 error="Drugi proizvod sa ovim imenom već postoji."
             )
 
@@ -992,6 +1008,15 @@ def edit_product(product_id):
                 stream, orig_filename = download_image_from_url(photo_url)
                 photo_path = save_product_image(stream, orig_filename, name)
         except ValueError as e:
+            # Create a temporary product object to preserve form data, keeping original ID/path
+            # Convert to dict to allow assignment (sqlite3.Row is immutable)
+            product = dict(product)
+            product["name"] = name
+            product["description"] = description
+            product["category"] = category
+            product["brand"] = brand
+            product["photo_url"] = photo_url # Carry over the failed URL so user can see/fix it
+            
             conn.close()
             return render_template(
                 "product_form.html",

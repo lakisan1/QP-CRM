@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 
 {% block title %}
-{% if product %}Edit Product{% else %}Add Product{% endif %}
+{% if product and product.id %}Edit Product{% else %}Add Product{% endif %}
 {% endblock %}
 
 
 {% block content %}
 <h1>
-    {% if product %}Edit Product{% else %}Add Product{% endif %}
+    {% if product and product.id %}Edit Product{% else %}Add Product{% endif %}
 </h1>
 {% if error %}
 <p style="color:red; font-weight:bold;">
@@ -94,15 +94,16 @@
                     style="margin-top: 15px; padding: 15px; border: 1px solid var(--border-color); border-radius: 8px; background-color: var(--bg-card); box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);">
                     <label style="margin-bottom: 10px; color: var(--text-main); font-size: 14px;">ILI unesite URL
                         slike:</label>
-                    <input type="url" name="photo_url" placeholder="https://example.com/image.jpg">
+                    <input type="url" name="photo_url" placeholder="https://example.com/image.jpg"
+                        value="{% if product and product.photo_url %}{{ product.photo_url }}{% endif %}">
                 </div>
             </label>
         </p>
         <p>
             <button type="submit" class="btn btn-success" name="action" value="save">
-                {% if product %}Sacuvaj izmene{% else %}Sacuvaj{% endif %}
+                {% if product and product.id %}Sacuvaj izmene{% else %}Sacuvaj{% endif %}
             </button>
-            {% if not product %}
+            {% if not product or not product.id %}
             <button type="submit" class="btn btn-primary" name="action" value="save_add_price"
                 style="margin-left: 10px;">
                 Sacuvaj i dodaj cenu
