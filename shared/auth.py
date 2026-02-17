@@ -2,7 +2,7 @@ from .db import get_db
 
 DEFAULT_PASSWORDS = {
     "admin": "admin",
-    "pricing": "Price1!",
+    "pricing": "Price1",
     "quotation": "Quotation1"
 }
 
