@@ -124,7 +124,7 @@ To get the latest version with new features and fixes:
 
 Use these passwords to log in for the first time:
 
-- **Admin Panel**: `admin` (change all passwords from admin panel)
+- **Admin Panel**: `admin1` (change all passwords from admin panel)
 - **Pricing App**: `Price1`
 - **Quotation App**: `Quotation1`
 
