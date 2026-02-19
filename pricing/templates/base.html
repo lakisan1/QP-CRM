@@ -17,9 +17,9 @@
             <a href="{{ url_for('list_products') }}" {% if request.endpoint=='list_products' %}class="active" {% endif
                 %}>{{ _('Product List') }}</a>
             <a href="{{ url_for('category_defaults') }}" {% if request.endpoint=='category_defaults' %}class="active" {%
-                endif %}>{{ _('Category List') }}</a>
+                endif %}>{{ _('Categories') }}</a>
             <a href="{{ url_for('brands') }}" {% if request.endpoint=='brands' %}class="active" {% endif %}>{{
-                _('Brand') }}</a>
+                _('Brands') }}</a>
             <a href="{{ url_for('quick_update_products') }}"
                 class="nav-btn-special {% if request.endpoint=='quick_update_products' %}active{% endif %}">{{ _('Quick
                 Update') }}</a>

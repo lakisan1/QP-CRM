@@ -20,7 +20,7 @@
             </p>
             <p>
                 <label>Zarada %:<br>
-                    <input type="number" step="any" name="margin_percent" value="40">
+                    <input type="number" step="any" name="margin_percent" value="0">
                 </label>
             </p>
 
@@ -33,7 +33,7 @@
             </p>
             <p>
                 <label>Uvoz %:<br>
-                    <input type="number" step="any" name="import_percent" value="7">
+                    <input type="number" step="any" name="import_percent" value="0">
                 </label>
             </p>
             <p>
@@ -71,8 +71,8 @@
 
             <p>
             <div style="display: flex; gap: 10px;">
-                <button type="submit" class="btn btn-success" style="flex: 1;">Save defaults</button>
-                <button type="button" class="btn btn-secondary" onclick="clearCategoryForm()">New</button>
+                <button type="submit" class="btn btn-success" style="flex: 1;" id="saveCatBtn">Save defaults</button>
+                <button type="button" class="btn btn-secondary" onclick="clearCategoryForm()">Clear</button>
             </div>
             </p>
         </form>
@@ -103,7 +103,15 @@
                 {% for d in defaults %}
                 <tr>
                     <td>
-                        <a href="#" class="cat-link" data-category="{{ d.category }}">
+                        <a href="#" class="cat-link" data-category="{{ d.category }}"
+                            data-margin-percent="{{ ((d.margin_percent or 0) * 100) | round(2) }}"
+                            data-default-extras="{{ d.default_extras }}"
+                            data-import-percent="{{ ((d.import_percent or 0) * 100) | round(2) }}"
+                            data-domestic-transport="{{ d.domestic_transport }}"
+                            data-warranty-percent="{{ ((d.warranty_percent or 0) * 100) | round(2) }}"
+                            data-service-percent="{{ ((d.service_percent or 0) * 100) | round(2) }}"
+                            data-instalation="{{ d.instalation }}" data-traning="{{ d.traning }}"
+                            data-other="{{ d.other }}">
                             {{ d.category }}
                         </a>
                     </td>
@@ -135,14 +143,36 @@
     function clearCategoryForm() {
         const catInput = document.getElementById("category_input");
         const oldCatInput = document.getElementById("old_category");
+        const saveBtn = document.getElementById("saveCatBtn");
 
         if (catInput) catInput.value = "";
         if (oldCatInput) oldCatInput.value = "";
+        if (saveBtn) saveBtn.innerText = "Save defaults";
 
-        // Optionally clear the numeric fields too:
-        document.querySelectorAll('input[name="import_percent"], input[name="margin_percent"], input[name="domestic_transport"], input[name="default_extras"], input[name="warranty_percent"], input[name="service_percent"], input[name="instalation"], input[name="traning"], input[name="other"]').forEach(function (el) {
-            el.value = "";
+        // Effectively clear numeric fields
+        const fields = [
+            'margin_percent', 'default_extras', 'import_percent',
+            'domestic_transport', 'warranty_percent', 'service_percent',
+            'instalation', 'traning', 'other'
+        ];
+
+        fields.forEach(name => {
+            const el = document.querySelector(`input[name="${name}"]`);
+            if (el) el.value = "";
+            // Note: If you want to reset to default values (like 40 for margin), 
+            // you'd need to hardcode them or read from data attributes. 
+            // The prompt asked for "Clear", which usually means empty or default state.
+            // Given the original code had values hardcoded in HTML (value="40"), 
+            // resetting to empty string might be unexpected if "Clear" implies "New Record Defaults".
+            // However, the request says "shuld be clear", implying empty or reset.
+            // I will stick to empty string as per previous logic, but let's check if 
+            // we should reset to the *initial* values from the HTML. 
+            // The previous logic was: el.value = ""; so I will keep it that way.
         });
+
+        // Re-apply defaults if they were present in HTML?? 
+        // Actually, the previous code cleared them to "".
+        // Let's stick to that.
 
         if (catInput) catInput.focus();
     }
@@ -175,11 +205,30 @@
         // but here querySelectorAll is fine.
         const links = document.querySelectorAll(".cat-link");
         links.forEach(function (link) {
-            link.addEventListener("click", function (e) {
+            link.addEventListener('click', function (e) {
                 e.preventDefault();
-                const cat = this.dataset.category || "";
-                catInput.value = cat;
-                oldCatInput.value = cat;  // remember original category for rename
+
+                function setVal(name, dataKey) {
+                    const el = document.querySelector(`input[name="${name}"]`);
+                    if (el) el.value = link.dataset[dataKey] || '';
+                }
+
+                if (catInput) catInput.value = link.dataset.category || '';
+                if (oldCatInput) oldCatInput.value = link.dataset.category || '';
+
+                setVal('margin_percent', 'marginPercent');
+                setVal('default_extras', 'defaultExtras');
+                setVal('import_percent', 'importPercent');
+                setVal('domestic_transport', 'domesticTransport');
+                setVal('warranty_percent', 'warrantyPercent');
+                setVal('service_percent', 'servicePercent');
+                setVal('instalation', 'instalation');
+                setVal('traning', 'traning');
+                setVal('other', 'other');
+
+                const saveBtn = document.getElementById("saveCatBtn");
+                if (saveBtn) saveBtn.innerText = "Save Changes";
+
                 catInput.focus();
 
                 // Optional: scroll form into view on mobile

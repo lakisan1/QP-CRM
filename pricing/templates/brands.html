@@ -22,8 +22,8 @@
             <input type="hidden" name="old_name" id="old_name">
             <p>
             <div style="display: flex; gap: 10px;">
-                <button type="submit" class="btn btn-success" style="flex: 1;">Save brand</button>
-                <button type="button" class="btn btn-secondary" onclick="clearBrandForm()">New</button>
+                <button type="submit" class="btn btn-success" style="flex: 1;" id="saveBrandBtn">Save brand</button>
+                <button type="button" class="btn btn-secondary" onclick="clearBrandForm()">Clear</button>
             </div>
             </p>
         </form>
@@ -70,8 +70,11 @@
     function clearBrandForm() {
         const nameInput = document.getElementById("brand_name");
         const oldNameInput = document.getElementById("old_name");
+        const saveBtn = document.getElementById("saveBrandBtn");
+
         if (nameInput) nameInput.value = "";
         if (oldNameInput) oldNameInput.value = "";
+        if (saveBtn) saveBtn.innerText = "Save brand";
         if (nameInput) nameInput.focus();
     }
 
@@ -103,6 +106,10 @@
             link.addEventListener("click", function (e) {
                 e.preventDefault();
                 const brand = this.dataset.name || "";
+
+                const saveBtn = document.getElementById("saveBrandBtn");
+                if (saveBtn) saveBtn.innerText = "Save changes";
+
                 nameInput.value = brand;
                 oldNameInput.value = brand;  // remember original
                 nameInput.focus();
