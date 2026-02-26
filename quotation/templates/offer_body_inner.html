@@ -16,7 +16,19 @@
         </td>
         <td style="width: 50%; vertical-align: top; text-align: right;">
             {% if offer.client_address %}<strong>{{ _('Address') }}:</strong> {{ offer.client_address }}<br>{% endif %}
-            {% if offer.client_email %}<strong>E-mail:</strong> {{ offer.client_email }}<br>{% endif %}
+            {% if offer.client_email %}
+            <strong>E-mail:</strong>
+            {% set emails = offer.client_email.replace(';', ',').replace(' ', ',').split(',') %}
+            {% set ns_email = namespace(first=true) %}
+            {% for email in emails %}
+            {% if email.strip() %}
+            {% if not ns_email.first %}<br>{% endif %}
+            {{ email.strip() }}
+            {% set ns_email.first = false %}
+            {% endif %}
+            {% endfor %}
+            <br>
+            {% endif %}
             {% if offer.client_phone %}<strong>{{ _('Tel') }}:</strong> {{ offer.client_phone }}<br>{% endif %}
         </td>
     </tr>

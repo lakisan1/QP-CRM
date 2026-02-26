@@ -61,9 +61,9 @@
                 <p>
                     <label>eMail musterije:{% if mandatory_fields.req_client_email %} <span style="color:red">*</span>{%
                         endif %}<br>
-                        <input type="email" name="client_email" class="long-input"
+                        <input type="text" name="client_email" class="long-input"
                             value="{{ offer.client_email if offer else '' }}" {% if mandatory_fields.req_client_email
-                            %}required{% endif %}>
+                            %}required{% endif %} placeholder="email1@test.com; email2@test.com">
                     </label>
                 </p>
                 <p>
@@ -688,7 +688,10 @@
 
                 // 1. Get client email
                 const emailInput = document.querySelector('input[name="client_email"]');
-                const clientEmail = emailInput ? emailInput.value.trim() : "";
+                let clientEmail = emailInput ? emailInput.value.trim() : "";
+                
+                // Format multiple emails for mailto (replace spaces, semicolons, and existing commas with a single comma)
+                clientEmail = clientEmail.replace(/[\s;,]+/g, ',');
 
                 // 2. Get templates from server-side variables (passed to JS)
                 // Use default if variable is empty or undefined
