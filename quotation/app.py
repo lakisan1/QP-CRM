@@ -288,7 +288,7 @@ def list_offers():
     # Fetch default items per page
     cur.execute("SELECT value FROM global_settings WHERE key = 'default_items_per_page';")
     row = cur.fetchone()
-    items_per_page = int(row["value"]) if row else 50
+    items_per_page = int(row["value"]) if row else 25
     offset = (page - 1) * items_per_page
 
     # Fetch all countries for the dropdown dynamically

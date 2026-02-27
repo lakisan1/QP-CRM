@@ -209,7 +209,7 @@ def index():
 
     cur.execute("SELECT value FROM global_settings WHERE key = 'default_items_per_page';")
     row = cur.fetchone()
-    default_items_per_page = row["value"] if row else "50"
+    default_items_per_page = row["value"] if row else "25"
 
     
     # Fetch all presets and group by category

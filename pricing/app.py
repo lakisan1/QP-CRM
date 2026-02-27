@@ -553,7 +553,7 @@ def list_products():
     # Fetch default items per page
     cur.execute("SELECT value FROM global_settings WHERE key = 'default_items_per_page';")
     row = cur.fetchone()
-    items_per_page = int(row["value"]) if row else 50
+    items_per_page = int(row["value"]) if row else 25
     offset = (page - 1) * items_per_page
 
     # Base query: count total
@@ -681,7 +681,7 @@ def quick_update_products():
     # Fetch default items per page
     cur.execute("SELECT value FROM global_settings WHERE key = 'default_items_per_page';")
     row = cur.fetchone()
-    items_per_page = int(row["value"]) if row else 50
+    items_per_page = int(row["value"]) if row else 25
     offset = (page - 1) * items_per_page
 
     count_query = "SELECT COUNT(*) AS total_count FROM products p"
