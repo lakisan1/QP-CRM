@@ -19,7 +19,21 @@ echo "Working directory: $PWD"
 # Pulling latest code from Git
 echo "Pulling latest code from Git..."
 if command -v git >/dev/null 2>&1; then
+  # Automatically stash local modified images so git pull doesn't fail
+  if git status --porcelain | grep -E '\.(jpg|png)$' > /dev/null; then
+    echo "Stashing local image changes..."
+    git stash push -m "Auto-stashing logo images before pull" -- "*.jpg" "*.png"
+    HAS_STASHED=1
+  else
+    HAS_STASHED=0
+  fi
+
   git pull
+
+  if [ "$HAS_STASHED" -eq 1 ]; then
+    echo "Restoring local image changes..."
+    git stash pop || true
+  fi
 else
   echo "git not found, skipping git pull."
 fi
