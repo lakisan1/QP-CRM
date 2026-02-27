@@ -645,7 +645,8 @@ def list_products():
         search_term=search_term,
         sort_option=sort_option,
         current_page=page,
-        total_pages=total_pages
+        total_pages=total_pages,
+        total_count=total_count
     )
 @app.route("/products/quick_update")
 def quick_update_products():
@@ -674,6 +675,8 @@ def quick_update_products():
         search_term = session.get("products_filter_search", "")
     else:
         session["products_filter_search"] = search_term
+
+    page = request.args.get("page", 1, type=int)
 
     conn = get_db()
     cur = conn.cursor()
@@ -760,7 +763,8 @@ def quick_update_products():
         category_options=category_options,
         search_term=search_term,
         current_page=page,
-        total_pages=total_pages
+        total_pages=total_pages,
+        total_count=total_count
     )
 
 @app.route("/products/<int:product_id>/quick_update_save", methods=["POST"])

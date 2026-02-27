@@ -418,7 +418,8 @@ def list_offers():
         current_view=view,
         current_language=current_language,
         current_page=page,
-        total_pages=total_pages
+        total_pages=total_pages,
+        total_count=total_count
     )
 
 

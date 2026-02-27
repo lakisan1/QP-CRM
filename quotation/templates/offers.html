@@ -96,9 +96,15 @@
             </label>
         <div style="display: flex; flex-direction: column;">
             <span style="margin-bottom: 8px; font-weight: 500; font-size: 14px; visibility: hidden;">.</span>
-            <a href="{{ url_for('list_offers', clear=1) }}" class="btn btn-secondary"
-                style="margin-bottom: 0; padding: 12px 24px; font-size: 15px;">Reset
-                pretrage</a>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <a href="{{ url_for('list_offers', clear=1) }}" class="btn btn-secondary"
+                    style="margin-bottom: 0; padding: 12px 24px; font-size: 15px;">Reset
+                    pretrage</a>
+                <span
+                    style="background: var(--accent-primary, #3498db); color: white; padding: 4px 12px; border-radius: 20px; font-weight: bold; font-size: 14px;">
+                    {{ total_count }} {{ _('offers') }}
+                </span>
+            </div>
         </div>
         </p>
     </form>

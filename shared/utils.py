@@ -87,7 +87,9 @@ TRANSLATIONS = {
         'Landing Page': 'Početna strana',
         'Address': 'Adresa',
         'Phone': 'Telefon',
-        'Tel': 'Tel'
+        'Tel': 'Tel',
+        'products': 'proizvoda',
+        'offers': 'ponuda'
     },
     'en': {
         # Defaults are mostly English in the code
