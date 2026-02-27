@@ -5,6 +5,7 @@ import time
 import zipfile
 import io
 import pathlib
+import shutil
 
 # Ensure we can import 'shared' from parent dir
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -666,12 +667,7 @@ def restore_db():
         flash("No file selected.", "error")
 
     return redirect(url_for("index"))
-
-@app.route("/backup_full")
-def backup_full():
-    if not session.get('admin_authenticated'):
-        return redirect(url_for('login'))
-        
+def generate_full_backup_zip():
     # Ensure DB is flushed
     conn = get_db()
     conn.commit()
@@ -705,6 +701,15 @@ def backup_full():
                     zf.write(abs_path, arcname=rel_path)
                     
     memory_file.seek(0)
+    return memory_file
+
+@app.route("/backup_full")
+def backup_full():
+    if not session.get('admin_authenticated'):
+        return redirect(url_for('login'))
+        
+    memory_file = generate_full_backup_zip()
+    
     date_str = time.strftime("%Y-%m-%d")
     return send_file(
         memory_file,
@@ -791,6 +796,128 @@ def restore_full():
         print(f"Restore Error: {e}")
         
     return redirect(url_for("index"))
+
+@app.route("/factory_reset", methods=["POST"])
+def factory_reset():
+    current_admin_pass = request.form.get("current_admin_password")
+    
+    if not check_password("admin", current_admin_pass):
+        flash("Invalid current Admin password. Factory reset aborted.", "error")
+        return redirect(url_for("index"))
+        
+    # 1. Create FULL Backup in memory using the helper
+    try:
+        memory_file = generate_full_backup_zip()
+    except Exception as e:
+        flash(f"Error creating backup before reset: {e}", "error")
+        return redirect(url_for("index"))
+
+    # 2. Reset Database
+    try:
+        # Re-open or use existing? Better re-open to be sure.
+        conn = get_db()
+        cur = conn.cursor()
+        
+        # Disable Foreign Keys for deletion
+        cur.execute("PRAGMA foreign_keys = OFF;")
+        
+        # Truncate tables
+        tables_to_clear = [
+            "products", "prices", "offers", "offer_items", "brands", 
+            "category_pricing_defaults", "text_presets", "price_rounding_rules"
+        ]
+        for table in tables_to_clear:
+            cur.execute(f"DELETE FROM {table};")
+        
+        # Reset PDF Templates (keep only 'System Default' and make it read-only)
+        cur.execute("DELETE FROM pdf_templates WHERE name != 'System Default';")
+        cur.execute("UPDATE pdf_templates SET is_readonly = 1 WHERE name = 'System Default';")
+        
+        # Reset Global Settings to Defaults
+        defaults = {
+            'date_format': 'YYYY-MM-DD',
+            'theme': 'dark',
+            'allow_duplicate_names': 'false',
+            'enable_product_discount': 'true',
+            'language': 'en',
+            'default_vat_percent': '20',
+            'default_validity_days': '10',
+            'default_country': 'Srbija',
+            'email_offer_subject': 'Ponuda br. {offer_number}',
+            'email_offer_body': 'Postovani,\n\nU prilogu vam saljemo ponudu br. {offer_number}.\n\nSrdacan pozdrav,\nVas Tim',
+            'default_items_per_page': '25',
+            'admin_password': 'Admin1',
+            'pricing_password': 'Price1',
+            'quotation_password': 'Quotation1',
+            'active_pdf_template_id': '0'
+        }
+        
+        for key, value in defaults.items():
+            cur.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?);", (key, value))
+            
+        # Re-enable Foreign Keys
+        cur.execute("PRAGMA foreign_keys = ON;")
+        
+        conn.commit()
+    except Exception as e:
+        flash(f"Error resetting database: {e}", "error")
+        # conn.rollback()? Sqlite usually doesn't need it if we used commit/close carefully but safer.
+    finally:
+        if conn: conn.close()
+
+    # 3. Clear Product Images
+    try:
+        if os.path.exists(IMAGE_DIR):
+            for filename in os.listdir(IMAGE_DIR):
+                file_path = os.path.join(IMAGE_DIR, filename)
+                try:
+                    if os.path.isfile(file_path) or os.path.islink(file_path):
+                        os.unlink(file_path)
+                    elif os.path.isdir(file_path):
+                        shutil.rmtree(file_path)
+                except Exception as e:
+                    print(f'Failed to delete {file_path}. Reason: {e}')
+    except Exception as e:
+        flash(f"Warning: Database reset but error clearing images: {e}", "warning")
+
+    # 4. Reset Branding Images
+    try:
+        defaults_dir = os.path.join(APP_ASSETS_DIR, "defaults")
+        if os.path.exists(defaults_dir):
+            # 1. Restore Logo to static/img/
+            logo_src = os.path.join(defaults_dir, "logo_company.jpg")
+            logo_dst_static = os.path.join(STATIC_DIR, "img", "logo_company.jpg")
+            logo_dst_assets = os.path.join(APP_ASSETS_DIR, "logo_company.jpg")
+            
+            if os.path.exists(logo_src):
+                os.makedirs(os.path.dirname(logo_dst_static), exist_ok=True)
+                shutil.copy2(logo_src, logo_dst_static)
+                shutil.copy2(logo_src, logo_dst_assets)
+            
+            # 2. Restore Favicon
+            favicon_src = os.path.join(defaults_dir, "favicon.png")
+            favicon_dst = os.path.join(APP_ASSETS_DIR, "favicon.png")
+            if os.path.exists(favicon_src):
+                shutil.copy2(favicon_src, favicon_dst)
+                
+            # 3. Restore Footer Image
+            footer_src = os.path.join(defaults_dir, "pdf_footer_image.png")
+            footer_dst = os.path.join(APP_ASSETS_DIR, "pdf_footer_image.png")
+            if os.path.exists(footer_src):
+                shutil.copy2(footer_src, footer_dst)
+    except Exception as e:
+        flash(f"Warning: Database reset but error restoring branding: {e}", "warning")
+
+    # 5. Return the backup ZIP as download
+    memory_file.seek(0)
+    date_str = time.strftime("%Y-%m-%d_%H%M%S")
+    
+    return send_file(
+        memory_file,
+        as_attachment=True,
+        download_name=f"FACTORY_RESET_BACKUP_{date_str}.zip",
+        mimetype="application/zip"
+    )
 
 @app.route("/rounding_rules")
 def list_rounding_rules():
