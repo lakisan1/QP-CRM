@@ -51,6 +51,21 @@
                     </label>
                 </p>
                 <p>
+                    <label>Država:<br>
+                        <select name="country" required class="long-input">
+                            <option value="">-- {% if current_language == 'en' %}Choose a country{% else %}Izaberite
+                                državu{% endif %} --</option>
+                            {% for c in countries %}
+                            <option value="{{ c.name }}" {% if (offer and offer.country==c.name) or (not offer and
+                                default_country==c.name) %}selected{% endif %}>
+                                {% if current_language == 'en' %}{{ c.name_en }}{% else %}{{ c.name }}{% endif %} ({{
+                                c.code }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                </p>
+                <p>
                     <label>Adresa musterije:{% if mandatory_fields.req_client_address %} <span
                             style="color:red">*</span>{% endif %}<br>
                         <input type="text" name="client_address" class="long-input"

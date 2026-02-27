@@ -21,6 +21,7 @@ if PARENT_DIR not in sys.path:
 from shared.config import BASE_DIR, APP_DATA_DIR, DATABASE, IMAGE_DIR, APP_ASSETS_DIR, STATIC_DIR
 from shared.db import get_db
 from shared.auth import check_password
+from shared.countries import get_country_list
 
 #  common_utils app import
 # it's in PARENT_DIR which is already in sys.path
@@ -57,6 +58,7 @@ def init_db():
             client_address TEXT,
             client_email TEXT,
             client_phone TEXT,
+            country TEXT,
 
             currency TEXT,
             exchange_rate REAL,
@@ -100,6 +102,12 @@ def init_db():
 
     try:
         cur.execute("ALTER TABLE offers ADD COLUMN client_mb TEXT;")
+    except sqlite3.OperationalError:
+        # Already exists
+        pass
+
+    try:
+        cur.execute("ALTER TABLE offers ADD COLUMN country TEXT DEFAULT 'Srbija';")
     except sqlite3.OperationalError:
         # Already exists
         pass
@@ -233,6 +241,7 @@ def list_offers():
         session.pop("offers_filter_date_to", None)
         session.pop("offers_filter_item", None)
         session.pop("offers_filter_view", None)
+        session.pop("offers_filter_country", None)
         return redirect(url_for("list_offers"))
 
     # Load from request or fallback to session
@@ -265,8 +274,17 @@ def list_offers():
     else:
         session["offers_filter_item"] = item_filter
 
+    country_filter = request.args.get("country")
+    if country_filter is None:
+        country_filter = session.get("offers_filter_country", "")
+    else:
+        session["offers_filter_country"] = country_filter
+
     conn = get_db()
     cur = conn.cursor()
+
+    # Fetch all countries for the dropdown dynamically
+    countries = get_country_list()
 
     # Fetch all products for the dropdown
     cur.execute("""
@@ -304,6 +322,10 @@ def list_offers():
             clauses.append("o.date <= ?")
             params.append(date_to)
 
+        if country_filter:
+            clauses.append("o.country = ?")
+            params.append(country_filter)
+
         if clauses:
             query += " WHERE " + " AND ".join(clauses)
 
@@ -335,6 +357,10 @@ def list_offers():
             clauses.append("date <= ?")
             params.append(date_to)
 
+        if country_filter:
+            clauses.append("country = ?")
+            params.append(country_filter)
+
         if clauses:
             query += " WHERE " + " AND ".join(clauses)
 
@@ -342,6 +368,11 @@ def list_offers():
 
     cur.execute(query, params)
     offers = cur.fetchall()
+
+    cur.execute("SELECT value FROM global_settings WHERE key = 'language';")
+    row = cur.fetchone()
+    current_language = row["value"] if row else "en"
+
     conn.close()
 
     return render_template(
@@ -351,8 +382,11 @@ def list_offers():
         date_from=date_from,
         date_to=date_to,
         item_filter=item_filter,
+        country_filter=country_filter,
         products=products,
-        current_view=view
+        countries=countries,
+        current_view=view,
+        current_language=current_language
     )
 
 
@@ -368,6 +402,7 @@ def new_offer():
         client_phone = (request.form.get("client_phone") or "").strip()
         client_pib = (request.form.get("client_pib") or "").strip()
         client_mb = (request.form.get("client_mb") or "").strip()
+        country = (request.form.get("country") or "").strip()
 
         currency = (request.form.get("currency") or "EUR").strip()
         exchange_rate = float(request.form.get("exchange_rate") or 0)
@@ -433,19 +468,22 @@ def new_offer():
                 "client_phone": client_phone,
                 "client_pib": client_pib,
                 "client_mb": client_mb,
-                "currency": currency,
-                "exchange_rate": exchange_rate,
-                "discount_percent": discount_percent_input / 100.0 if discount_percent_input else None, 
-                "vat_percent": vat_percent_input / 100.0 if vat_percent_input else None,
-                "payment_terms": payment_terms,
-                "delivery_terms": delivery_terms,
-                "validity_days": validity_days,
-                "notes": notes,
-                "napomena": napomena
-            }
+            "currency": currency,
+            "exchange_rate": exchange_rate,
+            "discount_percent": discount_percent_input / 100.0 if discount_percent_input else None, 
+            "vat_percent": vat_percent_input / 100.0 if vat_percent_input else None,
+            "payment_terms": payment_terms,
+            "delivery_terms": delivery_terms,
+            "validity_days": validity_days,
+            "notes": notes,
+            "napomena": napomena,
+            "country": country
+        }
             return render_template("offer_form.html", offer=preserved_offer, today=date.today().isoformat(), 
                                    error=" ".join(errors), mandatory_fields=mandatory, presets_by_cat=presets_by_cat,
-                                   email_offer_subject=email_offer_subject, email_offer_body=email_offer_body)
+                                   countries=get_country_list(),
+                                   email_offer_subject=email_offer_subject, email_offer_body=email_offer_body,
+                                   current_language=current_language)
 
         conn = get_db()
         cur = conn.cursor()
@@ -477,19 +515,21 @@ def new_offer():
                     "client_phone": client_phone,
                     "client_pib": client_pib,
                     "client_mb": client_mb,
-                    "currency": currency,
-                    "exchange_rate": exchange_rate,
-                    "discount_percent": discount_percent_input / 100.0 if discount_percent_input else None, 
-                    "vat_percent": vat_percent_input / 100.0 if vat_percent_input else None,
-                    "payment_terms": payment_terms,
-                    "delivery_terms": delivery_terms,
-                    "validity_days": validity_days,
-                    "notes": notes,
-                    "napomena": napomena
-                }
+            "currency": currency,
+            "exchange_rate": exchange_rate,
+            "discount_percent": discount_percent_input / 100.0 if discount_percent_input else None, 
+            "vat_percent": vat_percent_input / 100.0 if vat_percent_input else None,
+            "payment_terms": payment_terms,
+            "delivery_terms": delivery_terms,
+            "validity_days": validity_days,
+            "notes": notes,
+            "napomena": napomena,
+            "country": country
+        }
                 return render_template("offer_form.html", offer=preserved_offer, today=date.today().isoformat(), 
-                                       error="Offer number already exists (Duplicates disabled in Admin).",
-                                       email_offer_subject=email_offer_subject, email_offer_body=email_offer_body)
+                                       email_offer_subject=email_offer_subject, email_offer_body=email_offer_body,
+                                       countries=get_country_list(),
+                                       current_language=current_language)
 
         cur.execute("""
             INSERT INTO offers (
@@ -499,15 +539,15 @@ def new_offer():
                 discount_percent, vat_percent,
                 total_net, total_discount, total_net_after_discount,
                 total_vat, total_gross,
-                payment_terms, delivery_terms, validity_days, notes, napomena, is_template
+                payment_terms, delivery_terms, validity_days, notes, napomena, is_template, country
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, ?);
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, ?, ?);
         """, (
             offer_number, date_str,
             client_name, client_address, client_email, client_phone, client_pib, client_mb,
             currency, exchange_rate,
             discount_percent, vat_percent,
-            payment_terms, delivery_terms, validity_days, notes, napomena, is_template
+            payment_terms, delivery_terms, validity_days, notes, napomena, is_template, country
         ))
         offer_id = cur.lastrowid
         conn.commit()
@@ -539,6 +579,10 @@ def new_offer():
     row = cur.fetchone()
     default_validity_days = int(row["value"]) if row else 10
 
+    cur.execute("SELECT value FROM global_settings WHERE key = 'default_country';")
+    row = cur.fetchone()
+    default_country = row["value"] if row else "Srbija"
+
     # Fetch email templates
     cur.execute("SELECT value FROM global_settings WHERE key = 'email_offer_subject';")
     row = cur.fetchone()
@@ -547,6 +591,10 @@ def new_offer():
     cur.execute("SELECT value FROM global_settings WHERE key = 'email_offer_body';")
     row = cur.fetchone()
     email_offer_body = row["value"] if row else "Postovani,\n\nU prilogu vam saljemo ponudu br. {offer_number}.\n\nSrdacan pozdrav,\nVas Tim"
+
+    cur.execute("SELECT value FROM global_settings WHERE key = 'language';")
+    row = cur.fetchone()
+    current_language = row["value"] if row else "en"
 
     conn.close()
 
@@ -567,10 +615,13 @@ def new_offer():
                            default_payment=default_payment,
                            default_vat_percent=default_vat_percent,
                            default_validity_days=default_validity_days,
+                           default_country=default_country,
+                           countries=get_country_list(),
                            presets_by_cat=presets_by_cat,
                            mandatory_fields=get_mandatory_fields(),
                            email_offer_subject=email_offer_subject,
-                           email_offer_body=email_offer_body)
+                           email_offer_body=email_offer_body,
+                           current_language=current_language)
 
 
 def recalc_totals(offer_id):
@@ -647,6 +698,7 @@ def edit_offer(offer_id):
             client_phone = (request.form.get("client_phone") or "").strip()
             client_pib = (request.form.get("client_pib") or "").strip()
             client_mb = (request.form.get("client_mb") or "").strip()
+            country = (request.form.get("country") or "").strip()
 
             currency = (request.form.get("currency") or "EUR").strip()
             exchange_rate = float(request.form.get("exchange_rate") or 0)
@@ -702,14 +754,14 @@ def edit_offer(offer_id):
                     client_name = ?, client_address = ?, client_email = ?, client_phone = ?, client_pib = ?, client_mb = ?,
                     currency = ?, exchange_rate = ?,
                     discount_percent = ?, vat_percent = ?,
-                    payment_terms = ?, delivery_terms = ?, validity_days = ?, notes = ?, napomena = ?, is_template = ?
+                    payment_terms = ?, delivery_terms = ?, validity_days = ?, notes = ?, napomena = ?, is_template = ?, country = ?
                 WHERE id = ?;
             """, (
                 offer_number, date_str,
                 client_name, client_address, client_email, client_phone, client_pib, client_mb,
                 currency, exchange_rate,
                 discount_percent, vat_percent,
-                payment_terms, delivery_terms, validity_days, notes, napomena, is_template,
+                payment_terms, delivery_terms, validity_days, notes, napomena, is_template, country,
                 offer_id
             ))
             conn.commit()
@@ -949,6 +1001,10 @@ def edit_offer(offer_id):
     row = cur.fetchone()
     email_offer_body = row["value"] if row else "Postovani,\n\nU prilogu vam saljemo ponudu br. {offer_number}.\n\nSrdacan pozdrav,\nVas Tim"
 
+    cur.execute("SELECT value FROM global_settings WHERE key = 'language';")
+    row = cur.fetchone()
+    current_language = row["value"] if row else "en"
+
     conn.close()
     return render_template(
         "offer_form.html",
@@ -966,7 +1022,9 @@ def edit_offer(offer_id):
         presets_by_cat=presets_by_cat,
         mandatory_fields=get_mandatory_fields(),
         email_offer_subject=email_offer_subject,
-        email_offer_body=email_offer_body
+        email_offer_body=email_offer_body,
+        countries=get_country_list(),
+        current_language=current_language
     )
 
 
@@ -987,8 +1045,18 @@ def view_offer(offer_id):
         ORDER BY line_order, id;
     """, (offer_id,))
     items = cur.fetchall()
+    cur.execute("SELECT value FROM global_settings WHERE key = 'language';")
+    row = cur.fetchone()
+    current_language = row["value"] if row else "en"
+
     conn.close()
-    return render_template("offer_view.html", offer=offer, items=items)
+    return render_template(
+        "offer_view.html", 
+        offer=offer, 
+        items=items,
+        countries=get_country_list(),
+        current_language=current_language
+    )
 
 import io
 from flask import send_file, request
@@ -1048,6 +1116,10 @@ def offer_pdf(offer_id):
         cur.execute("SELECT * FROM pdf_templates WHERE id = ?;", (active_tpl_id,))
         custom_tpl = cur.fetchone()
 
+    cur.execute("SELECT value FROM global_settings WHERE key = 'language';")
+    row = cur.fetchone()
+    current_language = row["value"] if row else "en"
+
     conn.close()
 
     # ---- Logo URI ----
@@ -1058,7 +1130,6 @@ def offer_pdf(offer_id):
     rig_path = os.path.join(APP_ASSETS_DIR, "RIG.png")
     rig_uri = Path(rig_path).as_uri()
 
-    # Context for rendering
     ctx = {
         "offer": offer,
         "items": items_for_pdf,
@@ -1066,7 +1137,9 @@ def offer_pdf(offer_id):
         "logo_uri": logo_uri,
         "rig_uri": rig_uri,
         "format_amount": globals().get('format_amount'), # Make sure these are available
-        "format_date": globals().get('format_date')
+        "format_date": globals().get('format_date'),
+        "countries": get_country_list(),
+        "current_language": current_language
     }
     # Actually these are already in app.jinja_env.globals if registered
     # but for render_template_string we might need to be explicit or it uses the current app context.
@@ -1145,9 +1218,9 @@ def duplicate_offer(offer_id):
             discount_percent, vat_percent,
             total_net, total_discount, total_net_after_discount,
             total_vat, total_gross,
-            payment_terms, delivery_terms, validity_days, notes, napomena, is_template
+            payment_terms, delivery_terms, validity_days, notes, napomena, is_template, country
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0);
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?);
     """, (
         "", today,
         offer["client_name"], offer["client_address"], offer["client_email"], offer["client_phone"], offer["client_pib"], offer["client_mb"],
@@ -1155,7 +1228,7 @@ def duplicate_offer(offer_id):
         offer["discount_percent"], offer["vat_percent"],
         offer["total_net"], offer["total_discount"], offer["total_net_after_discount"],
         offer["total_vat"], offer["total_gross"],
-        offer["payment_terms"], offer["delivery_terms"], offer["validity_days"], offer["notes"], offer["napomena"]
+        offer["payment_terms"], offer["delivery_terms"], offer["validity_days"], offer["notes"], offer["napomena"], offer["country"]
     ))
     new_offer_id = cur.lastrowid
 

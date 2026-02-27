@@ -15,6 +15,7 @@ if PARENT_DIR not in sys.path:
 from shared.config import STATIC_DIR, DATABASE, APP_ASSETS_DIR, IMAGE_DIR
 from shared.db import get_db
 from shared.auth import check_password, set_password, get_password
+from shared.countries import get_country_list
 
 app = Flask(
     __name__,
@@ -194,6 +195,10 @@ def index():
     row = cur.fetchone()
     default_validity_days = row["value"] if row else "10"
 
+    cur.execute("SELECT value FROM global_settings WHERE key = 'default_country';")
+    row = cur.fetchone()
+    default_country = row["value"] if row else "Srbija"
+
     cur.execute("SELECT value FROM global_settings WHERE key = 'email_offer_subject';")
     row = cur.fetchone()
     email_offer_subject = row["value"] if row else "Ponuda br. {offer_number}"
@@ -229,6 +234,8 @@ def index():
         current_language=current_language,
         default_vat_percent=default_vat_percent,
         default_validity_days=default_validity_days,
+        default_country=default_country,
+        countries=get_country_list(),
         presets_by_cat=presets_by_cat,
         mandatory_fields=mandatory_fields,
         email_offer_subject=email_offer_subject,
@@ -412,6 +419,10 @@ def update_settings():
     validity = request.form.get("default_validity_days")
     if validity:
         cur.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES ('default_validity_days', ?);", (validity,))
+        
+    country = request.form.get("default_country")
+    if country:
+        cur.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES ('default_country', ?);", (country,))
         
     email_subject = request.form.get("email_offer_subject")
     if email_subject:

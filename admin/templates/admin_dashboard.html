@@ -206,7 +206,8 @@
                     </div>
                 </div>
 
-                <div class="grid-2-col-asymmetric" style="grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px;">
+                <div class="grid-2-col-asymmetric"
+                    style="grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-top: 15px;">
                     <div>
                         <label>Default VAT % (PDV)</label>
                         <input type="number" name="default_vat_percent" step="0.1" value="{{ default_vat_percent }}"
@@ -216,6 +217,19 @@
                         <label>Default Offer Validity (Days)</label>
                         <input type="number" name="default_validity_days" step="1" value="{{ default_validity_days }}"
                             placeholder="10">
+                    </div>
+                    <div>
+                        <label>Default Country (Podrazumevana država)</label>
+                        <select name="default_country" required style="width: 100%;">
+                            <option value="">-- {% if current_language == 'en' %}Choose a country{% else %}Izaberite
+                                državu{% endif %} --</option>
+                            {% for c in countries %}
+                            <option value="{{ c.name }}" {% if default_country==c.name %}selected{% endif %}>
+                                {% if current_language == 'en' %}{{ c.name_en }}{% else %}{{ c.name }}{% endif %} ({{
+                                c.code }})
+                            </option>
+                            {% endfor %}
+                        </select>
                     </div>
                 </div>
 

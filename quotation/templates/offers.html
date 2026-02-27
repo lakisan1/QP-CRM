@@ -70,6 +70,19 @@
                     style="margin-bottom: 0;">
             </label>
             <label style="display: flex; flex-direction: column;">
+                <span style="margin-bottom: 8px; font-weight: 500; font-size: 14px;">Država:</span>
+                <select name="country" class="searchable-select" onchange="this.form.submit()"
+                    style="margin-bottom: 0;">
+                    <option value="">-- {% if current_language == 'en' %}all countries{% else %}sve države{% endif %} --
+                    </option>
+                    {% for c in countries %}
+                    <option value="{{ c.name }}" {% if country_filter==c.name %}selected{% endif %}>
+                        {% if current_language == 'en' %}{{ c.name_en }}{% else %}{{ c.name }}{% endif %} ({{ c.code }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label style="display: flex; flex-direction: column;">
                 <span style="margin-bottom: 8px; font-weight: 500; font-size: 14px;">Artikal:</span>
                 <select name="item" class="searchable-select" onchange="this.form.submit()" style="margin-bottom: 0;">
                     <option value="">-- svi artikli --</option>
@@ -96,6 +109,7 @@
         <tr>
             <th>Datum</th>
             <th>Broj / ime ponude</th>
+            <th>Država (Country)</th>
             <th>Naziv musterije</th>
             <th>Vrednost ponude</th>
             <th>Actions</th>
@@ -106,6 +120,7 @@
             <td>
                 <a href="{{ url_for('edit_offer', offer_id=o.id) }}">{{ o.offer_number or o.id }}</a>
             </td>
+            <td>{{ o.country }}</td>
             <td>{{ o.client_name }}</td>
             <td style="width: 100px;">
                 {% if o.total_gross is not none %}
