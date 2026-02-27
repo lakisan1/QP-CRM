@@ -57,7 +57,7 @@ def init_pdf_templates_table():
     """)
     
     # Try to read current filesystem templates
-    templates_dir = os.path.join(PARENT_DIR, "quotation", "templates")
+    templates_dir = os.path.join(PARENT_DIR, "offer", "templates")
     css_path = os.path.join(PARENT_DIR, "static", "css", "pdf.css")
     
     header_html, body_html, footer_html, pdf_css = "", "", "", ""
@@ -328,7 +328,7 @@ def update_passwords():
     changes = [
         ("admin", request.form.get("new_admin_password"), request.form.get("new_admin_password_confirm")),
         ("pricing", request.form.get("new_pricing_password"), request.form.get("new_pricing_password_confirm")),
-        ("quotation", request.form.get("new_quotation_password"), request.form.get("new_quotation_password_confirm")),
+        ("offer", request.form.get("new_offer_password"), request.form.get("new_offer_password_confirm")),
     ]
 
     updated_count = 0
@@ -596,7 +596,7 @@ def edit_pdf_template(template_id):
     cur.execute("SELECT * FROM pdf_templates WHERE id = ?;", (template_id,))
     template = cur.fetchone()
     
-    # For preview testing: get all quotations
+    # For preview testing: get all offers
     cur.execute("SELECT id, client_name, offer_number FROM offers ORDER BY date DESC, id DESC;")
     offers = cur.fetchall()
     
@@ -848,7 +848,7 @@ def factory_reset():
             'default_items_per_page': '25',
             'admin_password': 'Admin1',
             'pricing_password': 'Price1',
-            'quotation_password': 'Quotation1',
+            'offer_password': 'Offer1',
             'active_pdf_template_id': '0'
         }
         

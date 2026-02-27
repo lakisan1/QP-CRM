@@ -32,8 +32,8 @@ app = Flask(
     static_folder=STATIC_DIR,
     static_url_path="/static"
 )
-app.secret_key = "crm_quotation_secret_key_change_me"
-app.config['SESSION_COOKIE_NAME'] = 'quotation_session'
+app.secret_key = "crm_offer_secret_key_change_me"
+app.config['SESSION_COOKIE_NAME'] = 'offer_session'
 
 @app.before_request
 def check_auth():
@@ -180,7 +180,7 @@ def index():
 def login():
     error = None
     if request.method == "POST":
-        if check_password("quotation", request.form.get("password")):
+        if check_password("offer", request.form.get("password")):
             session['authenticated'] = True
             return redirect(url_for('index'))
         else:

@@ -1121,7 +1121,7 @@ def delete_product(product_id):
             WHERE product_id = ?;
         """, (product_id,))
     except sqlite3.OperationalError:
-        # If quotation tables don't exist yet, just ignore
+        # If offer tables don't exist yet, just ignore
         pass
 
     # 2) Delete all prices for this product

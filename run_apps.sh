@@ -85,7 +85,7 @@ pip install Werkzeug
 
 echo "Stopping any old instances (if running)..."
 pkill -f "pricing/app.py" || true
-pkill -f "quotation/app.py" || true
+pkill -f "offer/app.py" || true
 pkill -f "main.py" || true
 
 echo "Starting merged app on port 5000..."

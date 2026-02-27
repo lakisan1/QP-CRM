@@ -3,13 +3,13 @@ from .db import get_db
 DEFAULT_PASSWORDS = {
     "admin": "Admin1",
     "pricing": "Price1",
-    "quotation": "Quotation1"
+    "offer": "Offer1"
 }
 
 def get_password(app_name):
     """
     Get the current password for the given app_name from global_settings.
-    app_name can be 'admin', 'pricing', 'quotation'.
+    app_name can be 'admin', 'pricing', 'offer'.
     """
     key = f"{app_name}_password"
     conn = get_db()

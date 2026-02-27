@@ -125,10 +125,9 @@
                     </div>
 
                     <div>
-                        <label>New Quotation App Password</label>
-                        <input type="password" name="new_quotation_password"
-                            placeholder="Leave blank to keep unchanged">
-                        <input type="password" name="new_quotation_password_confirm" placeholder="Confirm new password"
+                        <label>New Offer App Password</label>
+                        <input type="password" name="new_offer_password" placeholder="Leave blank to keep unchanged">
+                        <input type="password" name="new_offer_password_confirm" placeholder="Confirm new password"
                             style="margin-top: -10px;">
                     </div>
                 </div>
@@ -296,7 +295,7 @@
                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                         <input type="checkbox" name="allow_duplicate_names" value="true" {% if
                             allow_duplicate_names=='true' %}checked{% endif %}>
-                        Allow Duplicate Quotation Numbers
+                        Allow Duplicate Offer Numbers
                     </label>
                     <small style="color: var(--text-muted); display: block; margin-top: 4px;">
                         If unchecked (default), you cannot create offers with the same number/name.
@@ -316,7 +315,7 @@
 
                 <div style="margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 15px;">
                     <label style="font-weight: 600; margin-bottom: 10px; display: block;">Mandatory Fields in
-                        Quotation</label>
+                        Offer</label>
                     <div class="grid-2-col-asymmetric"
                         style="grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px;">
                         <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
@@ -482,7 +481,7 @@
         <div class="card">
             <h3>Text Presets</h3>
             <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px;">
-                Manage preset text for Quotation fields. Set defaults to auto-fill new offers.
+                Manage preset text for Offer fields. Set defaults to auto-fill new offers.
             </p>
 
             <div class="tabs">

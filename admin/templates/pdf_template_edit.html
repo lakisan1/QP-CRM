@@ -119,12 +119,12 @@
                 <div class="card" style="position: sticky; top: 20px;">
                     <h3>Preview / Test</h3>
                     <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px;">
-                        Select a quotation to see how it looks with this template.
+                        Select an offer to see how it looks with this template.
                         <br><strong>Note:</strong> You must save changes before previewing.
                     </p>
 
                     <form id="preview-form" target="_blank">
-                        <label>Select Quotation</label>
+                        <label>Select Offer</label>
                         <select name="offer_id" id="offer-id" required>
                             <option value="">-- Choose --</option>
                             {% for o in offers %}
@@ -142,11 +142,11 @@
                         function runPreview() {
                             const offerId = document.getElementById('offer-id').value;
                             if (!offerId) {
-                                alert('Please select a quotation first.');
+                                alert('Please select an offer first.');
                                 return;
                             }
-                            // Redirect to quotation app print route with template override
-                            const url = '/quotation/offers/' + offerId + '/pdf?preview_template_id={{ template.id }}';
+                            // Redirect to offer app print route with template override
+                            const url = '/offer/offers/' + offerId + '/pdf?preview_template_id={{ template.id }}';
                             window.open(url, '_blank');
                         }
                     </script>

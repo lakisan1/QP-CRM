@@ -1,6 +1,6 @@
 # CustomCRM 🚀
 
-A CRM system for **Product Pricing** and **Quotation Management**.
+A CRM system for **Product Pricing** and **Offer Management**.
 Built for small teams and individuals.\
 Easy to use and customize.\
 80% vibe code, 20% traditional code.\
@@ -23,8 +23,8 @@ Manage your product catalog with precision. Calculate margins, track base costs,
 - **Price History**: Keep track of every price change over time.
 - **Quick Price Update**: Update prices for multiple products on one page.
 - **Bulk Import/Export**: Import and Export your database with ease.
-- **Price Comparison**: Compare prices of products or different quotations.
-- **Filters**: Advanced filtering for products and quotations.
+- **Price Comparison**: Compare prices of products or different offers.
+- **Filters**: Advanced filtering for products and offers.
 - **Date Format**: Customizable date format settings.
 
 #### ➕ Add and edit Products and Prices
@@ -43,22 +43,22 @@ View price history.
 Quickly update prices by just typing the new input price and additional costs. Save and its added to price history.
 ![Quick Price Update](README_Images/PriceApp/QuickPriceUpdate.png)
 
-### 📄 Quotation App
+### 📄 Offer App
 Transform prices into professional PDF offers for your clients in seconds.
 - **Photo Integration**: Include product images directly in your offers from URL or file.
 - **NBS Exchange Rates**: Automatic real-time fetching of official rates.
 - **Professional PDFs**: Clean, template ready for you and easy to edit in app.
 - **Email Integration**: Send offers directly to clients from the app.
-- **Per-line Discount**: Apply discounts to individual items in the quotation.
-- **Quotation Presets**: Save and load quotation templates for faster creation.
+- **Per-line Discount**: Apply discounts to individual items in the offer.
+- **Offer Presets**: Save and load offer templates for faster creation.
 - **Customizable Fields**: Configure mandatory fields and default values.
-- **Item Reordering**: Easily rearrange items in your quotation.
+- **Item Reordering**: Easily rearrange items in your offer.
 
 ![Quotation List](README_Images/QuotationApp/Quotation1.png)
 
-#### ✏️ Edit Quotations
+#### ✏️ Edit Offers
 Powerful editor for adjusting offer details, adding items, and managing client info.\
-Option to edit price and product name, description from quotation app.
+Option to edit price and product name, description from offer app.
 ![Edit Quotation](README_Images/QuotationApp/Quotation2.png)
 
 #### 📝 PDF Output
@@ -66,7 +66,7 @@ Generate clean, brand-compliant PDFs.
 ![PDF Example](README_Images/QuotationApp/PDF11.png)
 
 #### 📝 Compare Prices
-Compare prices of products or different quotations with different options and products.
+Compare prices of products or different offers with different options and products.
 ![Compare Prices](README_Images/QuotationApp/Quotation3.png)
 
 
@@ -82,7 +82,7 @@ Full control over your system's global settings and security.
 ![Admin Panel](README_Images/Admin/Admin1.png)
 
 #### ✏️ Edit and create PDF Templates
-Create PDF templates for your quotations.\
+Create PDF templates for your offers.\
 ![Create PDF Templates](README_Images/Admin/PDF_Edit.png)
 
 Knowledge of HTML and CSS required. But it is easy to learn.\
@@ -126,7 +126,7 @@ Use these passwords to log in for the first time:
 
 - **Admin Panel**: `Admin1` (change all passwords from admin panel)
 - **Pricing App**: `Price1`
-- **Quotation App**: `Quotation1`
+- **Offer App**: `Offer1`
 
 ---
 

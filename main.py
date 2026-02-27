@@ -13,7 +13,7 @@ from werkzeug.middleware.dispatcher import DispatcherMiddleware
 # Note: These imports might trigger some initialization code, which is fine.
 # We assume they have `if __name__ == "__main__":` blocks to prevent running servers.
 from pricing.app import app as pricing_app, init_db as pricing_init_db, migrate_schema as pricing_migrate_schema
-from quotation.app import app as quotation_app, init_db as quotation_init_db
+from offer.app import app as offer_app, init_db as offer_init_db
 from admin.app import app as admin_app, init_db as admin_init_db
 from shared.config import STATIC_DIR, APP_ASSETS_DIR
 
@@ -37,13 +37,13 @@ def inject_i18n():
     lang = get_current_language()
     return dict(_=lambda text: _(text, lang), current_lang=lang)
 
-for sub_app in [pricing_app, quotation_app, admin_app, app]:
+for sub_app in [pricing_app, offer_app, admin_app, app]:
     sub_app.context_processor(inject_i18n)
 
 # Merge the applications using DispatcherMiddleware
 application = DispatcherMiddleware(app, {
     '/pricing': pricing_app,
-    '/quotation': quotation_app,
+    '/offer': offer_app,
     '/admin': admin_app
 })
 
@@ -54,7 +54,7 @@ if __name__ == "__main__":
     print("Initializing databases...")
     pricing_init_db()
     pricing_migrate_schema()
-    quotation_init_db()
+    offer_init_db()
     admin_init_db()
     
     # We use run_simple to run the WSGI application

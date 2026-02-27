@@ -5,7 +5,7 @@ import os
 # CustomCRM/
 #   shared/
 #   pricing_app/
-#   quotation_app/
+#   offer_app/
 #   app_data/
 #   static/
 
