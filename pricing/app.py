@@ -1424,7 +1424,7 @@ def new_price(product_id):
 
         conn.commit()
         conn.close()
-        return redirect(url_for("price_history", product_id=product_id))
+        return redirect(url_for("list_products"))
 
     # Load rounding rules for JS
     cur.execute("SELECT * FROM price_rounding_rules ORDER BY target, limit_val ASC;")
@@ -1560,7 +1560,7 @@ def edit_price(product_id, price_id):
         ))
         conn.commit()
         conn.close()
-        return redirect(url_for("price_history", product_id=product_id))
+        return redirect(url_for("list_products"))
 
     # GET – load category defaults (not critical for edit, but ok)
     defaults = {
