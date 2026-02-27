@@ -1101,7 +1101,7 @@ def offer_pdf(offer_id):
         )
 
     num = offer["offer_number"] or offer["id"]
-    filename = f"Ponuda_{num}.pdf"
+    filename = f"{num}.pdf"
 
     return send_file(
         io.BytesIO(pdf_bytes),

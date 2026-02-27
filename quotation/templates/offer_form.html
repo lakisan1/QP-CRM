@@ -496,7 +496,7 @@
                 // Construct filename
                 const offerNumberInput = document.querySelector('input[name="offer_number"]');
                 const offerNumber = offerNumberInput ? offerNumberInput.value : "Preview";
-                const filename = `Ponuda_${offerNumber}.pdf`;
+                const filename = `${offerNumber}.pdf`;
 
                 downloadPdfWithPrompt(this.href, filename);
             });
@@ -689,7 +689,7 @@
                 // 1. Get client email
                 const emailInput = document.querySelector('input[name="client_email"]');
                 let clientEmail = emailInput ? emailInput.value.trim() : "";
-                
+
                 // Format multiple emails for mailto (replace spaces, semicolons, and existing commas with a single comma)
                 clientEmail = clientEmail.replace(/[\s;,]+/g, ',');
 
@@ -704,7 +704,7 @@
                 // 3. Get offer data for replacement
                 const offerNumberInput = document.querySelector('input[name="offer_number"]');
                 const offerNumber = offerNumberInput ? offerNumberInput.value : "";
-                const filename = `Ponuda_${offerNumber}.pdf`;
+                const filename = `${offerNumber}.pdf`;
 
                 const clientNameInput = document.querySelector('input[name="client_name"]');
                 const clientName = clientNameInput ? clientNameInput.value : "";
