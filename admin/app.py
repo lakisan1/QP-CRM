@@ -345,8 +345,6 @@ def update_passwords():
     else:
         flash("No password changes requested.", "success")
         
-    return redirect(url_for("index"))
-
 @app.route("/upload_logo", methods=["POST"])
 def upload_logo():
     current_admin_pass = request.form.get("current_admin_password")
@@ -374,11 +372,66 @@ def upload_logo():
             
             # ALSO Save to app_assets/logo_company.jpg (which PDF template uses)
             asset_path = os.path.join(APP_ASSETS_DIR, "logo_company.jpg")
+            import shutil
             shutil.copy2(target_path, asset_path)
             
             flash("Logo updated successfully.", "success")
         except Exception as e:
             flash(f"Error saving logo: {e}", "error")
+    else:
+        flash("No file selected.", "error")
+
+    return redirect(url_for("index"))
+
+@app.route("/upload_footer", methods=["POST"])
+def upload_footer():
+    current_admin_pass = request.form.get("current_admin_password")
+    
+    if not check_password("admin", current_admin_pass):
+        flash("Invalid current Admin password.", "error")
+        return redirect(url_for("index"))
+        
+    f = request.files.get("footer_file")
+    if f and f.filename:
+        ext = os.path.splitext(f.filename)[1].lower()
+        if ext not in ['.jpg', '.jpeg', '.png']:
+            flash("Footer image must be JPG or PNG.", "error")
+            return redirect(url_for("index"))
+            
+        target_path = os.path.join(APP_ASSETS_DIR, "pdf_footer_image.png")
+        
+        try:
+            f.save(target_path)
+            flash("Footer image updated successfully.", "success")
+        except Exception as e:
+            flash(f"Error saving footer image: {e}", "error")
+    else:
+        flash("No file selected.", "error")
+
+    return redirect(url_for("index"))
+
+@app.route("/upload_favicon", methods=["POST"])
+def upload_favicon():
+    current_admin_pass = request.form.get("current_admin_password")
+    
+    if not check_password("admin", current_admin_pass):
+        flash("Invalid current Admin password.", "error")
+        return redirect(url_for("index"))
+        
+    f = request.files.get("favicon_file")
+    if f and f.filename:
+        ext = os.path.splitext(f.filename)[1].lower()
+        if ext not in ['.png']:
+            flash("Favicon must be PNG.", "error")
+            return redirect(url_for("index"))
+            
+        target_path = os.path.join(APP_ASSETS_DIR, "favicon.png")
+        
+        try:
+            f.save(target_path)
+            flash("Favicon updated successfully.", "success")
+        except Exception as e:
+            flash(f"Error saving favicon: {e}", "error")
     else:
         flash("No file selected.", "error")
 

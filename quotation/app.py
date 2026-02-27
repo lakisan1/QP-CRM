@@ -1159,8 +1159,8 @@ def offer_pdf(offer_id):
     logo_path = os.path.join(APP_ASSETS_DIR, "logo_company.jpg")
     logo_uri = Path(logo_path).as_uri()
 
-    # ---- RIG Logo URI ----
-    rig_path = os.path.join(APP_ASSETS_DIR, "RIG.png")
+    # ---- Footer Image URI ----
+    rig_path = os.path.join(APP_ASSETS_DIR, "pdf_footer_image.png")
     rig_uri = Path(rig_path).as_uri()
 
     ctx = {
