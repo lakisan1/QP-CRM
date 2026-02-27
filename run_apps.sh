@@ -74,10 +74,10 @@ echo "Activating venv..."
 source venv/bin/activate
 
 echo "Upgrading pip and installing requirements..."
-pip install --upgrade pip
-pip install -r requirements.txt
+venv/bin/pip install --upgrade pip
+venv/bin/pip install -r requirements.txt
 # Ensure Werkzeug is installed as it's needed for dispatcher
-pip install Werkzeug
+venv/bin/pip install Werkzeug
 
 #############################################
 # 4) Start Merged Flask App

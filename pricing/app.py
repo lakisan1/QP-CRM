@@ -10,7 +10,7 @@ import zipfile
 from PIL import Image
 from datetime import date
 
-# Base directory = the "Custom" folder (parent of this app folder)
+# Base directory = the "QP-CRM" folder (parent of this app folder)
 # We now use shared.config for this.
 import sys
 import os

@@ -9,7 +9,7 @@ from weasyprint import HTML, CSS
 from datetime import date
 from pathlib import Path
 
-# Base directory = the "Custom" folder (parent of this app folder)
+# Base directory = the "QP-CRM" folder (parent of this app folder)
 # We now use shared.config for this.
 
 # Ensure we can import 'shared' from parent dir

@@ -60,7 +60,7 @@ if __name__ == "__main__":
     # We use run_simple to run the WSGI application
     # This replaces app.run() for the combined app
     print("-------------------------------------------------------")
-    print("Starting Merged Link CustomCRM on port 5000")
+    print("Starting Merged Link QP-CRM on port 5000")
     print("Access at: http://localhost:5000")
     print("-------------------------------------------------------")
     
