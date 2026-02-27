@@ -1130,17 +1130,17 @@ def duplicate_offer(offer_id):
     cur.execute("""
         INSERT INTO offers (
             offer_number, date,
-            client_name, client_address, client_email, client_phone,
+            client_name, client_address, client_email, client_phone, client_pib, client_mb,
             currency, exchange_rate,
             discount_percent, vat_percent,
             total_net, total_discount, total_net_after_discount,
             total_vat, total_gross,
             payment_terms, delivery_terms, validity_days, notes, napomena, is_template
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0);
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0);
     """, (
         "", today,
-        offer["client_name"], offer["client_address"], offer["client_email"], offer["client_phone"],
+        offer["client_name"], offer["client_address"], offer["client_email"], offer["client_phone"], offer["client_pib"], offer["client_mb"],
         offer["currency"], offer["exchange_rate"],
         offer["discount_percent"], offer["vat_percent"],
         offer["total_net"], offer["total_discount"], offer["total_net_after_discount"],
