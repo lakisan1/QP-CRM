@@ -207,6 +207,10 @@ def index():
     row = cur.fetchone()
     email_offer_body = row["value"] if row else "Postovani,\n\nU prilogu vam saljemo ponudu br. {offer_number}.\n\nSrdacan pozdrav,\nVas Tim"
 
+    cur.execute("SELECT value FROM global_settings WHERE key = 'default_items_per_page';")
+    row = cur.fetchone()
+    default_items_per_page = row["value"] if row else "50"
+
     
     # Fetch all presets and group by category
     cur.execute("SELECT * FROM text_presets ORDER BY name ASC;")
@@ -240,6 +244,7 @@ def index():
         mandatory_fields=mandatory_fields,
         email_offer_subject=email_offer_subject,
         email_offer_body=email_offer_body,
+        default_items_per_page=default_items_per_page,
         timestamp=int(time.time()),
         theme=current_theme
     )
@@ -432,6 +437,10 @@ def update_settings():
     # Body can be empty, but let's save it anyway if present in form (even if empty string)
     if email_body is not None:
         cur.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES ('email_offer_body', ?);", (email_body,))
+
+    items_per_page = request.form.get("default_items_per_page")
+    if items_per_page:
+        cur.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES ('default_items_per_page', ?);", (items_per_page,))
 
         
     # Mandatory fields

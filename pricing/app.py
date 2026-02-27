@@ -545,8 +545,19 @@ def list_products():
     else:
         session["products_sort_option"] = sort_option
 
+    page = request.args.get("page", 1, type=int)
+
     conn = get_db()
     cur = conn.cursor()
+
+    # Fetch default items per page
+    cur.execute("SELECT value FROM global_settings WHERE key = 'default_items_per_page';")
+    row = cur.fetchone()
+    items_per_page = int(row["value"]) if row else 50
+    offset = (page - 1) * items_per_page
+
+    # Base query: count total
+    count_query = "SELECT COUNT(*) AS total_count FROM products p"
 
     # Base query: products + latest price
     query = """
@@ -574,20 +585,31 @@ def list_products():
         params.append(f"%{search_term}%")
 
     if where_clauses:
-        query += " WHERE " + " AND ".join(where_clauses)
+        where_stmt = " WHERE " + " AND ".join(where_clauses)
+        count_query += where_stmt
+        query += where_stmt
+
+    # Execute count before applying sort/limit
+    cur.execute(count_query, params)
+    total_count = cur.fetchone()["total_count"]
+
+    import math
+    total_pages = math.ceil(total_count / items_per_page) if total_count > 0 else 1
 
     # Sorting Logic
     if sort_option == "name_asc":
-        query += " ORDER BY p.name ASC;"
+        query += " ORDER BY p.name ASC"
     elif sort_option == "name_desc":
-        query += " ORDER BY p.name DESC;"
+        query += " ORDER BY p.name DESC"
     elif sort_option == "price_asc":
-        query += " ORDER BY COALESCE(pr.final_price, 0) ASC;"
+        query += " ORDER BY COALESCE(pr.final_price, 0) ASC"
     elif sort_option == "price_desc":
-        query += " ORDER BY COALESCE(pr.final_price, 0) DESC;"
+        query += " ORDER BY COALESCE(pr.final_price, 0) DESC"
     else:
         # Fallback
-        query += " ORDER BY p.name ASC;"
+        query += " ORDER BY p.name ASC"
+
+    query += f" LIMIT {items_per_page} OFFSET {offset};"
 
     cur.execute(query, params)
     products = cur.fetchall()
@@ -622,6 +644,8 @@ def list_products():
         category_options=category_options,
         search_term=search_term,
         sort_option=sort_option,
+        current_page=page,
+        total_pages=total_pages
     )
 @app.route("/products/quick_update")
 def quick_update_products():
@@ -654,6 +678,14 @@ def quick_update_products():
     conn = get_db()
     cur = conn.cursor()
 
+    # Fetch default items per page
+    cur.execute("SELECT value FROM global_settings WHERE key = 'default_items_per_page';")
+    row = cur.fetchone()
+    items_per_page = int(row["value"]) if row else 50
+    offset = (page - 1) * items_per_page
+
+    count_query = "SELECT COUNT(*) AS total_count FROM products p"
+
     # Base query: products + latest base_price + latest extras + current prices
     query = """
         SELECT p.*,
@@ -681,9 +713,19 @@ def quick_update_products():
         params.append(f"%{search_term}%")
 
     if where_clauses:
-        query += " WHERE " + " AND ".join(where_clauses)
+        where_stmt = " WHERE " + " AND ".join(where_clauses)
+        count_query += where_stmt
+        query += where_stmt
 
-    query += " ORDER BY p.name, p.category;"
+    # Execute count before applying sort/limit
+    cur.execute(count_query, params)
+    total_count = cur.fetchone()["total_count"]
+
+    import math
+    total_pages = math.ceil(total_count / items_per_page) if total_count > 0 else 1
+
+    query += " ORDER BY p.name, p.category"
+    query += f" LIMIT {items_per_page} OFFSET {offset};"
 
     cur.execute(query, params)
     products = cur.fetchall()
@@ -717,6 +759,8 @@ def quick_update_products():
         brand_options=brand_options,
         category_options=category_options,
         search_term=search_term,
+        current_page=page,
+        total_pages=total_pages
     )
 
 @app.route("/products/<int:product_id>/quick_update_save", methods=["POST"])

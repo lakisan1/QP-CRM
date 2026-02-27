@@ -147,4 +147,19 @@
     </table>
 </div>
 
+<!-- Pagination Controls -->
+<div style="margin-top: 20px; display: flex; justify-content: center; gap: 10px;">
+    {% if current_page > 1 %}
+    <a href="{{ url_for('list_offers', page=current_page - 1, view=current_view, date_from=date_from, date_to=date_to, search=search_term, country=country_filter, item=item_filter) }}"
+        class="btn btn-secondary">&laquo; Prethodna</a>
+    {% endif %}
+
+    <span style="padding: 10px; font-weight: 500;">Strana {{ current_page }} od {{ total_pages }}</span>
+
+    {% if current_page < total_pages %} <a
+        href="{{ url_for('list_offers', page=current_page + 1, view=current_view, date_from=date_from, date_to=date_to, search=search_term, country=country_filter, item=item_filter) }}"
+        class="btn btn-secondary">Sledeća &raquo;</a>
+        {% endif %}
+</div>
+
 {% endblock %}

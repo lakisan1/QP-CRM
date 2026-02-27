@@ -233,6 +233,15 @@
                     </div>
                 </div>
 
+                <div class="grid-2-col-asymmetric"
+                    style="grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-top: 15px;">
+                    <div>
+                        <label>Default Items Per Page (Products & Offers)</label>
+                        <input type="number" name="default_items_per_page" step="1" value="{{ default_items_per_page }}"
+                            placeholder="50">
+                    </div>
+                </div>
+
                 <div style="margin-top: 15px;">
                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                         <input type="checkbox" name="allow_duplicate_names" value="true" {% if

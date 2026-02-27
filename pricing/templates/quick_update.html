@@ -105,4 +105,19 @@
         {% endfor %}
     </table>
 </div>
+
+<!-- Pagination Controls -->
+<div style="margin-top: 20px; display: flex; justify-content: center; gap: 10px;">
+    {% if current_page > 1 %}
+    <a href="{{ url_for('quick_update_products', page=current_page - 1, brand=brand_filter, category=category_filter, search=search_term) }}"
+        class="btn btn-secondary">&laquo; Previous</a>
+    {% endif %}
+
+    <span style="padding: 10px; font-weight: 500;">Page {{ current_page }} of {{ total_pages }}</span>
+
+    {% if current_page < total_pages %} <a
+        href="{{ url_for('quick_update_products', page=current_page + 1, brand=brand_filter, category=category_filter, search=search_term) }}"
+        class="btn btn-secondary">Next &raquo;</a>
+        {% endif %}
+</div>
 {% endblock %}

@@ -256,6 +256,8 @@ def list_offers():
     else:
         session["offers_filter_search"] = search_term
 
+    page = request.args.get("page", 1, type=int)
+
     date_from = request.args.get("date_from")
     if date_from is None:
         date_from = session.get("offers_filter_date_from", "")
@@ -282,6 +284,12 @@ def list_offers():
 
     conn = get_db()
     cur = conn.cursor()
+    
+    # Fetch default items per page
+    cur.execute("SELECT value FROM global_settings WHERE key = 'default_items_per_page';")
+    row = cur.fetchone()
+    items_per_page = int(row["value"]) if row else 50
+    offset = (page - 1) * items_per_page
 
     # Fetch all countries for the dropdown dynamically
     countries = get_country_list()
@@ -294,9 +302,14 @@ def list_offers():
     """)
     products = cur.fetchall()
 
-    # Build query with optional item filter
+        # Build query with optional item filter
     if item_filter:
         # Join with offer_items to filter by product
+        count_query = """
+            SELECT COUNT(DISTINCT o.id) AS total_count
+            FROM offers o
+            INNER JOIN offer_items oi ON o.id = oi.offer_id
+        """
         query = """
             SELECT DISTINCT o.*
             FROM offers o
@@ -327,11 +340,18 @@ def list_offers():
             params.append(country_filter)
 
         if clauses:
-            query += " WHERE " + " AND ".join(clauses)
+            where_stmt = " WHERE " + " AND ".join(clauses)
+            count_query += where_stmt
+            query += where_stmt
 
-        query += " ORDER BY o.date DESC, o.id DESC;"
+        query += " ORDER BY o.date DESC, o.id DESC"
+        query += f" LIMIT {items_per_page} OFFSET {offset};"
     else:
         # No item filter, use simple query
+        count_query = """
+            SELECT COUNT(*) AS total_count
+            FROM offers
+        """
         query = """
             SELECT *
             FROM offers
@@ -362,9 +382,19 @@ def list_offers():
             params.append(country_filter)
 
         if clauses:
-            query += " WHERE " + " AND ".join(clauses)
+            where_stmt = " WHERE " + " AND ".join(clauses)
+            count_query += where_stmt
+            query += where_stmt
 
-        query += " ORDER BY date DESC, id DESC;"
+        query += " ORDER BY date DESC, id DESC"
+        query += f" LIMIT {items_per_page} OFFSET {offset};"
+
+    # Execute count
+    cur.execute(count_query, params)
+    total_count = cur.fetchone()["total_count"]
+    
+    import math
+    total_pages = math.ceil(total_count / items_per_page) if total_count > 0 else 1
 
     cur.execute(query, params)
     offers = cur.fetchall()
@@ -386,7 +416,9 @@ def list_offers():
         products=products,
         countries=countries,
         current_view=view,
-        current_language=current_language
+        current_language=current_language,
+        current_page=page,
+        total_pages=total_pages
     )
 
 
