@@ -346,6 +346,8 @@ def update_passwords():
     else:
         flash("No password changes requested.", "success")
         
+    return redirect(url_for("index"))
+        
 @app.route("/upload_logo", methods=["POST"])
 def upload_logo():
     current_admin_pass = request.form.get("current_admin_password")
