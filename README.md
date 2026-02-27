@@ -1,6 +1,7 @@
-# CustomCRM 🚀
+# QP-CRM (Quotation-Price CRM) 🚀
 
-A CRM system for **Product Pricing** and **Offer Management**.
+**QP-CRM** stands for **Quotation-Price CRM**. It's a specialized system designed to manage the critical link between product pricing and client offers.
+
 Built for small teams and individuals.\
 Easy to use and customize.\
 80% vibe code, 20% traditional code.\
@@ -95,7 +96,7 @@ Test custom PDF templates in app, no need to restart.
 
 ## 🚀 Beginner's Quick Start
 
-Setting up **CustomCRM** is easy, even for beginners!
+Setting up **QP-CRM** is easy, even for beginners!
 
 ### 💻 Fast Installation (Linux/Ubuntu) Linux only for now.
 1. **Download and extract** the project folder.

@@ -2,7 +2,7 @@
 set -e
 
 #############################################
-# Auto-setup & run merged CustomCRM app
+# Auto-setup & run QP-CRM app
 # - optional: apt update + install packages
 # - create app_data + product_images
 # - create venv if missing
@@ -93,4 +93,4 @@ echo "Starting merged app on port 5000..."
 nohup python3 main.py > main.log 2>&1 &
 
 echo "All done. App should now be up:"
-echo "  - Custom CRM : http://localhost:5000/"
+echo "  - QP-CRM : http://localhost:5000/"
