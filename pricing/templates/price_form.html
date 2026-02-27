@@ -138,33 +138,33 @@
                         <label>Garancija %:<br>
                             <input type="number" step="any" name="warranty_percent" id="warranty_percent"
                                 oninput="calculatePrice(this)"
-                                value="{% if price %}{{ ((price.warranty_percent or 0) * 100) | round(2) }}{% else %}0{% endif %}">
+                                value="{% if price %}{{ ((price.warranty_percent or 0) * 100) | round(2) }}{% else %}{{ defaults.warranty_percent | round(2) }}{% endif %}">
                         </label>
                     </p>
                     <p>
                         <label>Servis %:<br>
                             <input type="number" step="any" name="service_percent" id="service_percent"
                                 oninput="calculatePrice(this)"
-                                value="{% if price %}{{ ((price.service_percent or 0) * 100) | round(2) }}{% else %}0{% endif %}">
+                                value="{% if price %}{{ ((price.service_percent or 0) * 100) | round(2) }}{% else %}{{ defaults.service_percent | round(2) }}{% endif %}">
                         </label>
                     </p>
                     <p>
                         <label>Instalacija:<br>
                             <input type="number" step="any" name="instalation" id="instalation"
                                 oninput="calculatePrice(this)"
-                                value="{% if price %}{{ price.instalation }}{% else %}0{% endif %}">
+                                value="{% if price %}{{ price.instalation }}{% else %}{{ defaults.instalation }}{% endif %}">
                         </label>
                     </p>
                     <p>
                         <label>Obuka:<br>
                             <input type="number" step="any" name="traning" id="traning" oninput="calculatePrice(this)"
-                                value="{% if price %}{{ price.traning }}{% else %}0{% endif %}">
+                                value="{% if price %}{{ price.traning }}{% else %}{{ defaults.traning }}{% endif %}">
                         </label>
                     </p>
                     <p>
                         <label>Ostalo:<br>
                             <input type="number" step="any" name="other" id="other" oninput="calculatePrice(this)"
-                                value="{% if price %}{{ price.other }}{% else %}0{% endif %}">
+                                value="{% if price %}{{ price.other }}{% else %}{{ defaults.other }}{% endif %}">
                         </label>
                     </p>
 
