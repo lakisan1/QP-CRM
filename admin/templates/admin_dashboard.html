@@ -230,6 +230,17 @@
                     </small>
                 </div>
 
+                <div style="margin-top: 15px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" name="enable_product_discount" value="true" {% if
+                            enable_product_discount=='true' %}checked{% endif %}>
+                        Enable Discount per Product
+                    </label>
+                    <small style="color: var(--text-muted); display: block; margin-top: 4px;">
+                        If unchecked, the discount field per product will be hidden when editing items in an offer.
+                    </small>
+                </div>
+
                 <div style="margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 15px;">
                     <label style="font-weight: 600; margin-bottom: 10px; display: block;">Mandatory Fields in
                         Quotation</label>

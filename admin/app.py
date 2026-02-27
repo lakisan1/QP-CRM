@@ -178,6 +178,10 @@ def index():
     row = cur.fetchone()
     allow_duplicate_names = row["value"] if row else "false"
 
+    cur.execute("SELECT value FROM global_settings WHERE key = 'enable_product_discount';")
+    row = cur.fetchone()
+    enable_product_discount = row["value"] if row else "true"
+
     cur.execute("SELECT value FROM global_settings WHERE key = 'language';")
     row = cur.fetchone()
     current_language = row["value"] if row else "en"
@@ -221,6 +225,7 @@ def index():
         current_date_format=current_date_format,
         current_theme=current_theme,
         allow_duplicate_names=allow_duplicate_names,
+        enable_product_discount=enable_product_discount,
         current_language=current_language,
         default_vat_percent=default_vat_percent,
         default_validity_days=default_validity_days,
@@ -391,6 +396,10 @@ def update_settings():
     # Checkbox: if present = "true", if missing = "false"
     allow_dup_val = "true" if allow_dup == "true" else "false"
     cur.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES ('allow_duplicate_names', ?);", (allow_dup_val,))
+
+    enable_prod_disc = request.form.get("enable_product_discount")
+    enable_prod_disc_val = "true" if enable_prod_disc == "true" else "false"
+    cur.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES ('enable_product_discount', ?);", (enable_prod_disc_val,))
 
     lang = request.form.get("language")
     if lang:

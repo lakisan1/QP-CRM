@@ -291,11 +291,13 @@
                             <input type="number" step="any" name="unit_price">
                         </label>
                     </p>
+                    {% if enable_product_discount %}
                     <p>
                         <label>Popust %:<br>
                             <input type="number" step="any" name="discount_percent" value="0">
                         </label>
                     </p>
+                    {% endif %}
                 </div>
                 <p>
                     <button type="submit" class="btn btn-primary" style="width: 100%;">Dodaj u ponudu</button>
@@ -338,7 +340,9 @@
                     <th>Ime proizvoda / Opis</th>
                     <th>Kom</th>
                     <th>Cena kom</th>
+                    {% if enable_product_discount %}
                     <th>Popust %</th>
+                    {% endif %}
                     <th>Red zbir</th>
                 </tr>
             </thead>
@@ -367,9 +371,11 @@
                     </td>
                     <td style="text-align: center;">{{ it.quantity }}</td>
                     <td style="text-align: right; color: #2ecc71;">{{ format_amount(it.unit_price)}}</td>
+                    {% if enable_product_discount %}
                     <td style="text-align: center; color: #3498db;">
                         {% if it.discount_percent %}{{ (it.discount_percent * 100) | round(2) }}%{% else %}0%{% endif %}
                     </td>
+                    {% endif %}
                     <td style="text-align: right; color: #2ecc71; font-weight: bold;">{{ format_amount(it.line_net)}}
                     </td>
                 </tr>

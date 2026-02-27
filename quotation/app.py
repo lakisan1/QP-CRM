@@ -145,7 +145,8 @@ def _format_date_filter(date_str, fmt=None):
 def inject_helpers():
     return dict(
         format_amount=format_amount,
-        theme=get_theme()
+        theme=get_theme(),
+        enable_product_discount=get_enable_product_discount()
     )
 
 @app.route("/api/nbs_eur_rate")
@@ -200,6 +201,15 @@ def get_theme():
     row = cur.fetchone()
     conn.close()
     return row["value"] if row else "dark"
+
+def get_enable_product_discount():
+    """Fetch the enable_product_discount setting."""
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT value FROM global_settings WHERE key = 'enable_product_discount';")
+    row = cur.fetchone()
+    conn.close()
+    return (row["value"] == "true") if row else True
 
 def get_mandatory_fields():
     """Fetch mandatory field settings from global_settings."""
