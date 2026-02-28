@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Sale{% endblock %}
+{% block content %}
+<h1>{{ _('Sale')|default('Prodaja') }}</h1>
+
+<div class="card">
+    <form method="get" action="{{ url_for('list_sale') }}">
+        <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end;">
+            <label style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
+                <span style="font-weight: 500; font-size: 14px; white-space: nowrap;">Brand:</span>
+                <div style="width: 200px;">
+                    <select name="brand" class="searchable-select" onchange="this.form.submit()"
+                        style="margin-bottom: 0;">
+                        <option value="">-- all brands --</option>
+                        {% for b in brand_options %}
+                        <option value="{{ b }}" {% if brand_filter==b %}selected{% endif %}>
+                            {{ b }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </label>
+            <label style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
+                <span style="font-weight: 500; font-size: 14px; white-space: nowrap;">Category:</span>
+                <div style="width: 200px;">
+                    <select name="category" class="searchable-select" onchange="this.form.submit()"
+                        style="margin-bottom: 0;">
+                        <option value="">-- all categories --</option>
+                        {% for c in category_options %}
+                        <option value="{{ c }}" {% if category_filter==c %}selected{% endif %}>
+                            {{ c }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </label>
+            <label style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
+                <span style="font-weight: 500; font-size: 14px; white-space: nowrap;">Pretraga po imenu:</span>
+                <input type="text" name="search" value="{{ search_term or '' }}" onchange="this.form.submit()"
+                    style="margin-bottom: 0; width: 200px;">
+            </label>
+            <label style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
+                <span style="font-weight: 500; font-size: 14px; white-space: nowrap;">Sortiraj po:</span>
+                <div style="width: 200px;">
+                    <select name="sort" class="searchable-select" onchange="this.form.submit()"
+                        style="margin-bottom: 0;">
+                        <option value="name_asc" {% if sort_option=='name_asc' %}selected{% endif %}>Name (A-Z)</option>
+                        <option value="name_desc" {% if sort_option=='name_desc' %}selected{% endif %}>Name (Z-A)
+                        </option>
+                        <option value="price_asc" {% if sort_option=='price_asc' %}selected{% endif %}>Price (Low to
+                            High)</option>
+                        <option value="price_desc" {% if sort_option=='price_desc' %}selected{% endif %}>Price (High to
+                            Low)</option>
+                    </select>
+                </div>
+            </label>
+            <div style="display: flex; flex-direction: column;">
+                <span style="margin-bottom: 8px; font-weight: 500; font-size: 14px; visibility: hidden;">.</span>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <a href="{{ url_for('list_sale', clear=1) }}" class="btn btn-secondary"
+                        style="margin-bottom: 0; padding: 12px 24px; font-size: 15px;">Clear</a>
+                    <span
+                        style="background: var(--accent-primary, #3498db); color: white; padding: 4px 12px; border-radius: 20px; font-weight: bold; font-size: 14px;">
+                        {{ total_count }} {{ _('products')|default('products') }}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<div class="card">
+    <table class="larg-table product-table">
+        <tr>
+            <th>{{ _('Image')|default('Slika') }}</th>
+            <th>{{ _('Product')|default('Proizvod') }}</th>
+            <th>{{ _('Category')|default('Kategorija') }}</th>
+            <th>{{ _('Brand')|default('Brend') }}</th>
+            <th>{{ _('Current Price')|default('Trenutna cena') }}</th>
+            <th>{{ _('Discount Price')|default('Popust') }}</th>
+        </tr>
+        {% for p in products %}
+        <tr>
+            <td style="text-align: center; width: 85px;">
+                {% if p.photo_path %}
+                <img src="{{ url_for('product_image', filename=p.photo_path) }}"
+                    style="max-width: 80px; max-height: 80px;">
+                {% endif %}
+            </td>
+            <td>
+                {{ p.name }}
+            </td>
+            <td>{{ p.category }}</td>
+            <td>{{ p.brand }}</td>
+            <td>
+                {% if p.current_price is not none %}
+                <span style="color: #2ecc71; font-weight: bold;">{{ format_amount(p.current_price) }}</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if p.current_discount_price is not none %}
+                <span style="color: #3498db; font-weight: bold;">{{ format_amount(p.current_discount_price) }}</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+
+<!-- Pagination Controls -->
+<div style="margin-top: 20px; display: flex; justify-content: center; gap: 10px;">
+    {% if current_page > 1 %}
+    <a href="{{ url_for('list_sale', page=current_page - 1, brand=brand_filter, category=category_filter, search=search_term, sort=sort_option) }}"
+        class="btn btn-secondary">&laquo; Previous</a>
+    {% endif %}
+
+    <span style="padding: 10px; font-weight: 500;">Page {{ current_page }} of {{ total_pages }}</span>
+
+    {% if current_page < total_pages %} <a
+        href="{{ url_for('list_sale', page=current_page + 1, brand=brand_filter, category=category_filter, search=search_term, sort=sort_option) }}"
+        class="btn btn-secondary">Next &raquo;</a>
+        {% endif %}
+</div>
+{% endblock %}

@@ -20,9 +20,9 @@ echo "Working directory: $PWD"
 echo "Pulling latest code from Git..."
 if command -v git >/dev/null 2>&1; then
   # Automatically stash local modified images so git pull doesn't fail
-  if git status --porcelain | grep -E '\.(jpg|png)$' > /dev/null; then
+  if git status --porcelain | grep -E '\.(jpg|jpeg|png|ico)$' > /dev/null; then
     echo "Stashing local image changes..."
-    git stash push -m "Auto-stashing logo images before pull" -- "*.jpg" "*.png"
+    git stash push -m "Auto-stashing logo images before pull" -- "*.jpg" "*.jpeg" "*.png" "*.ico"
     HAS_STASHED=1
   else
     HAS_STASHED=0
@@ -98,8 +98,6 @@ venv/bin/pip install Werkzeug
 #############################################
 
 echo "Stopping any old instances (if running)..."
-pkill -f "pricing/app.py" || true
-pkill -f "offer/app.py" || true
 pkill -f "main.py" || true
 
 echo "Starting merged app on port 5000..."

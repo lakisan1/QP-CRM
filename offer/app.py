@@ -193,22 +193,14 @@ def logout():
     return redirect(url_for('login'))
 
 def get_date_format():
-    """Fetch the date_format setting from global_settings table."""
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT value FROM global_settings WHERE key = 'date_format';")
-    row = cur.fetchone()
-    conn.close()
-    return row["value"] if row else "YYYY-MM-DD"
+    """Fetch the date_format setting from cookies."""
+    from flask import request
+    return request.cookies.get("date_format", "YYYY-MM-DD")
 
 def get_theme():
-    """Fetch the theme setting from global_settings table."""
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT value FROM global_settings WHERE key = 'theme';")
-    row = cur.fetchone()
-    conn.close()
-    return row["value"] if row else "dark"
+    """Fetch the theme setting from cookies."""
+    from flask import request
+    return request.cookies.get("theme", "dark")
 
 def get_enable_product_discount():
     """Fetch the enable_product_discount setting."""
@@ -1382,33 +1374,7 @@ def compare_offers():
                            brand_options=brand_options, 
                            category_options=category_options)
 
-@app.route("/settings", methods=["GET", "POST"])
-def settings():
-    conn = get_db()
-    if request.method == "POST":
-        if "date_format" in request.form:
-            date_fmt = request.form.get("date_format")
-            cur = conn.cursor()
-            cur.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES ('date_format', ?);", (date_fmt,))
-            conn.commit()
 
-        if "theme" in request.form:
-            theme = request.form.get("theme")
-            cur = conn.cursor()
-            cur.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES ('theme', ?);", (theme,))
-            conn.commit()
-    
-    cur = conn.cursor()
-    cur.execute("SELECT value FROM global_settings WHERE key = 'date_format';")
-    row = cur.fetchone()
-    current_fmt = row["value"] if row else "YYYY-MM-DD"
-
-    cur.execute("SELECT value FROM global_settings WHERE key = 'theme';")
-    row = cur.fetchone()
-    current_theme = row["value"] if row else "dark"
-
-    conn.close()
-    return render_template("settings.html", current_date_format=current_fmt, current_theme=current_theme)
 
 @app.context_processor
 def inject_helpers():
