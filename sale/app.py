@@ -28,13 +28,9 @@ def get_db():
     return conn
 
 def get_theme():
-    """Fetch the theme setting from global_settings table."""
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT value FROM global_settings WHERE key = 'theme';")
-    row = cur.fetchone()
-    conn.close()
-    return row["value"] if row else "dark"
+    """Fetch the theme setting from cookies."""
+    from flask import request
+    return request.cookies.get("theme", "dark")
 
 @app.context_processor
 def inject_helpers():

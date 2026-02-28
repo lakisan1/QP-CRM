@@ -25,13 +25,11 @@
                 Update') }}</a>
         </div>
         <div class="nav-right">
-            <a href="{{ url_for('settings') }}" {% if request.endpoint=='settings' %}class="active" {% endif %}>{{
-                _('Settings') }}</a>
+
             <a href="/" {% if request.endpoint=='index' and not request.path.startswith('/pricing') %}class="active" {%
                 endif %}>{{ _('Landing Page') }}</a>
             <div class="nav-logo-container">
-                <img src="{{ url_for('static', filename='img/logo_company.jpg') }}" alt="QP-CRM Logo"
-                    class="nav-logo">
+                <img src="{{ url_for('static', filename='img/logo_company.jpg') }}" alt="QP-CRM Logo" class="nav-logo">
             </div>
         </div>
     </nav>

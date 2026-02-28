@@ -393,22 +393,14 @@ def save_product_image(image_stream, orig_filename, product_name):
     return filename
 
 def get_date_format():
-    """Fetch the date_format setting from global_settings table."""
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT value FROM global_settings WHERE key = 'date_format';")
-    row = cur.fetchone()
-    conn.close()
-    return row["value"] if row else "YYYY-MM-DD"
+    """Fetch the date_format setting from cookies."""
+    from flask import request
+    return request.cookies.get("date_format", "YYYY-MM-DD")
 
 def get_theme():
-    """Fetch the theme setting from global_settings table."""
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT value FROM global_settings WHERE key = 'theme';")
-    row = cur.fetchone()
-    conn.close()
-    return row["value"] if row else "dark"
+    """Fetch the theme setting from cookies."""
+    from flask import request
+    return request.cookies.get("theme", "dark")
 
 import requests
 
@@ -469,33 +461,7 @@ def logout():
 def product_image(filename):
     return send_from_directory(IMAGE_DIR, filename)
 
-@app.route("/settings", methods=["GET", "POST"])
-def settings():
-    conn = get_db()
-    if request.method == "POST":
-        if "date_format" in request.form:
-            date_fmt = request.form.get("date_format")
-            cur = conn.cursor()
-            cur.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES ('date_format', ?);", (date_fmt,))
-            conn.commit()
-        
-        if "theme" in request.form:
-            theme = request.form.get("theme")
-            cur = conn.cursor()
-            cur.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES ('theme', ?);", (theme,))
-            conn.commit()
-    
-    cur = conn.cursor()
-    cur.execute("SELECT value FROM global_settings WHERE key = 'date_format';")
-    row = cur.fetchone()
-    current_fmt = row["value"] if row else "YYYY-MM-DD"
 
-    cur.execute("SELECT value FROM global_settings WHERE key = 'theme';")
-    row = cur.fetchone()
-    current_theme = row["value"] if row else "dark"
-
-    conn.close()
-    return render_template("settings.html", current_date_format=current_fmt, current_theme=current_theme)
 
 @app.template_filter('format_date')
 def _format_date_filter(date_str):
