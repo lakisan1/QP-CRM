@@ -14,10 +14,11 @@
 <body>
     <nav>
         <div class="nav-links">
-            <a href="{{ url_for('list_prices') }}" {% if request.endpoint=='list_prices' %}class="active" {% endif %}>{{ _('Prices')|default('Cene') }}</a>
+            <a href="{{ url_for('list_sale') }}" {% if request.endpoint=='list_sale' %}class="active" {% endif %}>{{
+                _('Sale')|default('Prodaja') }}</a>
         </div>
         <div class="nav-right">
-            <a href="/" {% if request.endpoint=='index' and not request.path.startswith('/prices') %}class="active" {%
+            <a href="/" {% if request.endpoint=='index' and not request.path.startswith('/sale') %}class="active" {%
                 endif %}>{{ _('Landing Page')|default('Početna') }}</a>
             <div class="nav-logo-container">
                 <img src="{{ url_for('static', filename='img/logo_company.jpg') }}" alt="QP-CRM Logo" class="nav-logo">

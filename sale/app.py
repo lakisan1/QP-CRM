@@ -19,8 +19,8 @@ app = Flask(
     static_url_path="/static",
     template_folder="templates"
 )
-app.secret_key = "prices_readonly_secret_change_me"
-app.config['SESSION_COOKIE_NAME'] = 'prices_readonly_session'
+app.secret_key = "sale_readonly_secret_change_me"
+app.config['SESSION_COOKIE_NAME'] = 'sale_readonly_session'
 
 def get_db():
     conn = sqlite3.connect(DATABASE)
@@ -48,38 +48,38 @@ def product_image(filename):
     return send_from_directory(IMAGE_DIR, filename)
 
 @app.route("/")
-def list_prices():
+def list_sale():
     # Check if we should clear filters
     if request.args.get("clear"):
-        session.pop("prices_filter_brand", None)
-        session.pop("prices_filter_category", None)
-        session.pop("prices_filter_search", None)
-        return redirect(url_for("list_prices"))
+        session.pop("sale_filter_brand", None)
+        session.pop("sale_filter_category", None)
+        session.pop("sale_filter_search", None)
+        return redirect(url_for("list_sale"))
 
     # Load from request or fallback to session
     brand_filter = request.args.get("brand")
     if brand_filter is None:
-        brand_filter = session.get("prices_filter_brand", "")
+        brand_filter = session.get("sale_filter_brand", "")
     else:
-        session["prices_filter_brand"] = brand_filter
+        session["sale_filter_brand"] = brand_filter
 
     category_filter = request.args.get("category")
     if category_filter is None:
-        category_filter = session.get("prices_filter_category", "")
+        category_filter = session.get("sale_filter_category", "")
     else:
-        session["prices_filter_category"] = category_filter
+        session["sale_filter_category"] = category_filter
 
     search_term = request.args.get("search")
     if search_term is None:
-        search_term = session.get("prices_filter_search", "")
+        search_term = session.get("sale_filter_search", "")
     else:
-        session["prices_filter_search"] = search_term
+        session["sale_filter_search"] = search_term
 
     sort_option = request.args.get("sort")
     if sort_option is None:
-        sort_option = session.get("prices_sort_option", "name_asc") # Default sort
+        sort_option = session.get("sale_sort_option", "name_asc") # Default sort
     else:
-        session["prices_sort_option"] = sort_option
+        session["sale_sort_option"] = sort_option
 
     page = request.args.get("page", 1, type=int)
 
@@ -170,7 +170,7 @@ def list_prices():
     conn.close()
 
     return render_template(
-        "prices.html",
+        "sale.html",
         products=products,
         brand_filter=brand_filter,
         category_filter=category_filter,
