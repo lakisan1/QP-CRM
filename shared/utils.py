@@ -89,7 +89,9 @@ TRANSLATIONS = {
         'Phone': 'Telefon',
         'Tel': 'Tel',
         'products': 'proizvoda',
-        'offers': 'ponuda'
+        'offers': 'ponuda',
+        'PriceList': 'Cenovnik',
+        'Sale': 'Prodaja'
     },
     'en': {
         # Defaults are mostly English in the code
