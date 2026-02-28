@@ -15,6 +15,7 @@ from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from pricing.app import app as pricing_app, init_db as pricing_init_db, migrate_schema as pricing_migrate_schema
 from offer.app import app as offer_app, init_db as offer_init_db
 from admin.app import app as admin_app, init_db as admin_init_db
+from prices.app import app as prices_app
 from shared.config import STATIC_DIR, APP_ASSETS_DIR
 
 # Initialize the main landing app
@@ -37,12 +38,13 @@ def inject_i18n():
     lang = get_current_language()
     return dict(_=lambda text: _(text, lang), current_lang=lang)
 
-for sub_app in [pricing_app, offer_app, admin_app, app]:
+for sub_app in [pricing_app, offer_app, admin_app, prices_app, app]:
     sub_app.context_processor(inject_i18n)
 
 # Merge the applications using DispatcherMiddleware
 application = DispatcherMiddleware(app, {
     '/pricing': pricing_app,
+    '/prices': prices_app,
     '/offer': offer_app,
     '/admin': admin_app
 })

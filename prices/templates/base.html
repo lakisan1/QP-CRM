@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en" data-theme="{{ theme|default('dark') }}">
+
+<head>
+    <meta charset="utf-8">
+    <title>{% block title %}Cene{% endblock %}</title>
+    <link rel="icon" type="image/png" href="/app_assets/favicon.png">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <!-- Tom Select (searchable dropdowns) -->
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+</head>
+
+<body>
+    <nav>
+        <div class="nav-links">
+            <a href="{{ url_for('list_prices') }}" {% if request.endpoint=='list_prices' %}class="active" {% endif %}>{{ _('Prices')|default('Cene') }}</a>
+        </div>
+        <div class="nav-right">
+            <a href="/" {% if request.endpoint=='index' and not request.path.startswith('/prices') %}class="active" {%
+                endif %}>{{ _('Landing Page')|default('Početna') }}</a>
+            <div class="nav-logo-container">
+                <img src="{{ url_for('static', filename='img/logo_company.jpg') }}" alt="QP-CRM Logo" class="nav-logo">
+            </div>
+        </div>
+    </nav>
+    <hr>
+    {% block content %}{% endblock %}
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            // Initialize Tom Select on elements with .searchable-select class
+            document.querySelectorAll('.searchable-select').forEach((el) => {
+                new TomSelect(el, {
+                    create: false,
+                    sortField: {
+                        field: "text",
+                        direction: "asc"
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+
+</html>
