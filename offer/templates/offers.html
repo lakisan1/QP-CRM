@@ -136,7 +136,8 @@
                     <button type="submit" class="btn btn-warning btn-sm">Duplicate</button>
                 </form>
 
-                <a href="{{ url_for('offer_pdf', offer_id=o.id) }}" target="_blank" class="btn btn-primary btn-sm">
+                <a href="{{ url_for('offer_pdf', offer_id=o.id) }}" target="_blank"
+                    class="btn btn-primary btn-sm pdf-download-btn" data-filename="{{ o.offer_number or o.id }}.pdf">
                     PDF
                 </a>
 
@@ -164,5 +165,28 @@
         class="btn btn-secondary">Sledeća &raquo;</a>
         {% endif %}
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Find all PDF download buttons
+        document.querySelectorAll('.pdf-download-btn').forEach(btn => {
+            btn.addEventListener('click', function (e) {
+                e.preventDefault(); // Prevent standard navigation
+
+                const url = this.href;
+                const filename = this.getAttribute('data-filename') || 'ponuda.pdf';
+
+                // Call the globally shared function from pdf_utils.js
+                if (typeof downloadPdfWithPrompt === 'function') {
+                    downloadPdfWithPrompt(url, filename);
+                } else {
+                    console.error("downloadPdfWithPrompt not found. Make sure pdf_utils.js is loaded.");
+                    // Fallback to regular navigation
+                    window.open(url, '_blank');
+                }
+            });
+        });
+    });
+</script>
 
 {% endblock %}
