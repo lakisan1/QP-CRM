@@ -20,9 +20,12 @@ echo "Working directory: $PWD"
 echo "Pulling latest code from Git..."
 if command -v git >/dev/null 2>&1; then
   # Automatically stash local modified images so git pull doesn't fail
-  if git status --porcelain | grep -E '\.(jpg|jpeg|png|ico)$' > /dev/null; then
+  # Get tracked image files that have been modified/deleted
+  MODIFIED_IMAGES=$(git diff --name-only HEAD | grep -iE '\.(jpg|jpeg|png|ico)$' || true)
+  if [ -n "$MODIFIED_IMAGES" ]; then
     echo "Stashing local image changes..."
-    git stash push -m "Auto-stashing logo images before pull" -- "*.jpg" "*.jpeg" "*.png" "*.ico"
+    mapfile -t IMAGE_ARRAY <<< "$MODIFIED_IMAGES"
+    git stash push -m "Auto-stashing logo images before pull" -- "${IMAGE_ARRAY[@]}"
     HAS_STASHED=1
   else
     HAS_STASHED=0
