@@ -393,8 +393,19 @@ def save_product_image(image_stream, orig_filename, product_name):
     return filename
 
 def get_date_format():
-    """Fetch the date_format setting from cookies."""
+    """Fetch the date_format setting."""
     from flask import request
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("SELECT value FROM global_settings WHERE key = 'date_format';")
+        row = cur.fetchone()
+        conn.close()
+        if row and row["value"]:
+            return row["value"]
+    except Exception:
+        pass
+
     return request.cookies.get("date_format", "YYYY-MM-DD")
 
 def get_theme():

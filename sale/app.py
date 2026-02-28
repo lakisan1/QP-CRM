@@ -44,6 +44,10 @@ def product_image(filename):
     return send_from_directory(IMAGE_DIR, filename)
 
 @app.route("/")
+def index():
+    return redirect(url_for("list_sale"))
+
+@app.route("/pricelist")
 def list_sale():
     # Check if we should clear filters
     if request.args.get("clear"):

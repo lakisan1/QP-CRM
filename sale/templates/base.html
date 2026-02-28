@@ -15,7 +15,7 @@
     <nav>
         <div class="nav-links">
             <a href="{{ url_for('list_sale') }}" {% if request.endpoint=='list_sale' %}class="active" {% endif %}>{{
-                _('Sale')|default('Prodaja') }}</a>
+                _('PriceList')|default('Cenovnik') }}</a>
         </div>
         <div class="nav-right">
             <a href="/" {% if request.endpoint=='index' and not request.path.startswith('/sale') %}class="active" {%
