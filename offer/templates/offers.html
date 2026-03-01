@@ -142,7 +142,7 @@
                 </a>
 
                 <form method="post" action="{{ url_for('delete_offer', offer_id=o.id) }}" style="display:inline;"
-                    onsubmit="return confirm('BRISANJE ponude!!! NIJE moguce vracanje nakon BRISANJA!!!.');">
+                    onsubmit="return prompt('DA LI STE SIGURNI?\nBRISANJE ponude!!! NIJE moguce vracanje nakon BRISANJA!!!\nUnesite reč DELETE da biste potvrdili brisanje:') === 'DELETE';">
                     <button type="submit" class="btn btn-danger btn-sm">Delete</button>
                 </form>
             </td>

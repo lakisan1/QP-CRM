@@ -112,10 +112,9 @@
                     style="text-decoration: none; margin-right: 10px;">Izmeni proizvod</a>
 
                 <form method="post" action="{{ url_for('delete_product', product_id=p.id) }}" style="display:inline;"
-                    onsubmit="return confirm('OBRISATI proizvod i SVE njegove cene?\nOvo se NE može poništiti.');">
+                    onsubmit="return prompt('DA LI STE SIGURNI?\nOvo će obrisati proizvod i SVE njegove cene, što se NE može poništiti.\nUnesite reč DELETE da biste potvrdili brisanje:') === 'DELETE';">
                     <button type="submit" class="btn btn-danger btn-sm">Delete</button>
                 </form>
-            </td>
             </td>
         </tr>
         {% endfor %}
