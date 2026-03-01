@@ -384,7 +384,7 @@
         </div>
         <!-- Database Management -->
         <div class="card">
-            <h3>System Backup & Restore</h3>
+            <h3>System Backup & Maintenance</h3>
             <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px;">
                 Manage backups for your data. <strong>Full System</strong> includes images and is recommended.
             </p>
@@ -437,7 +437,7 @@
             </div>
 
             <h4 style="margin-top: 0; margin-bottom: 15px; opacity: 0.7;">Database Only (No Images)</h4>
-            <div class="split-layout">
+            <div class="split-layout" style="margin-bottom: 30px;">
                 <!-- Backup -->
                 <div>
                     <h5 style="margin-top: 0;">Backup</h5>
@@ -474,6 +474,31 @@
                         </button>
                     </form>
                 </div>
+            </div>
+
+            <h4 style="margin-top: 0; margin-bottom: 15px; opacity: 0.7;">System Maintenance</h4>
+            <div
+                style="background: var(--bg-input); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
+                <h5 style="margin-top: 0; color: var(--text-main);">Clean Up Images</h5>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px;">
+                    This will scan the database and physical image folder securely. It deletes orphaned files not
+                    attached to any product,
+                    and fixes mismatched file names (e.g. from older data) to match standard formatting.
+                </p>
+                <form action="{{ url_for('cleanup_images') }}" method="POST"
+                    style="display: flex; gap: 15px; align-items: flex-end;">
+                    <div style="flex-grow: 1; max-width: 300px;">
+                        <label style="color: var(--accent-warning); font-size: 0.85rem;">Admin Password Required</label>
+                        <input type="password" name="current_admin_password" required
+                            placeholder="Enter Admin Password">
+                    </div>
+                    <div>
+                        <button type="submit" class="btn btn-primary"
+                            onclick="return confirm('This will rename mismatched files and delete orphaned images. Make sure nobody is currently editing products. Proceed?');">
+                            Run Image Cleanup
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
 

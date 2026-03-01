@@ -608,6 +608,86 @@ def edit_pdf_template(template_id):
         
     return render_template("pdf_template_edit.html", template=template, offers=offers)
 
+import re
+
+@app.route("/cleanup_images", methods=["POST"])
+def cleanup_images():
+    current_admin_pass = request.form.get("current_admin_password")
+    if not check_password("admin", current_admin_pass):
+        flash("Invalid Admin Password", "error")
+        return redirect(url_for('index'))
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute("SELECT id, name, photo_path FROM products")
+    products = cur.fetchall()
+
+    renamed_count = 0
+    deleted_count = 0
+    missing_count = 0
+
+    valid_paths_in_db = set()
+
+    for p in products:
+        pid, pname, pphoto = p[0], p[1], p[2]
+        
+        if not pphoto:
+            continue
+            
+        # 1. Check if the file physically exists
+        old_full_path = os.path.join(IMAGE_DIR, pphoto)
+        if not os.path.exists(old_full_path):
+            missing_count += 1
+            # Opt: we could clear it here, but leaving it as-is is safer
+            continue
+
+        # 2. Check if the name needs standardization
+        ext = os.path.splitext(pphoto)[1].lower()
+        if not ext:
+            ext = ".jpg"
+
+        base = (pname or "").strip().lower()
+        base = re.sub(r"\s+", "_", base)
+        base = re.sub(r"[^a-z0-9_-]", "", base)
+        if not base:
+             base = "product"
+
+        new_filename = base + ext
+
+        if new_filename != pphoto:
+            new_full_path = os.path.join(IMAGE_DIR, new_filename)
+            try:
+                # Rename file
+                os.rename(old_full_path, new_full_path)
+                # Update DB
+                cur.execute("UPDATE products SET photo_path = ? WHERE id = ?", (new_filename, pid))
+                renamed_count += 1
+                valid_paths_in_db.add(new_filename)
+            except Exception as e:
+                print(f"Error renaming {old_full_path} to {new_full_path}: {e}")
+                valid_paths_in_db.add(pphoto) # Fallback to tracking old name
+        else:
+            valid_paths_in_db.add(pphoto)
+
+    conn.commit()
+    conn.close()
+
+    # 3. Clean up orphaned files in IMAGE_DIR
+    if os.path.exists(IMAGE_DIR):
+        for filename in os.listdir(IMAGE_DIR):
+            if filename not in valid_paths_in_db:
+                file_path = os.path.join(IMAGE_DIR, filename)
+                if os.path.isfile(file_path):
+                    try:
+                        os.remove(file_path)
+                        deleted_count += 1
+                    except Exception as e:
+                        print(f"Error removing orphaned image {file_path}: {e}")
+
+    flash(f"Image Cleanup Complete: {renamed_count} renamed/fixed, {deleted_count} orphaned files deleted, {missing_count} DB records pointing to missing files.", "success")
+    return redirect(url_for("index"))
+
 @app.route("/delete_pdf_template", methods=["POST"])
 def delete_pdf_template():
     tpl_id = request.form.get("template_id")
