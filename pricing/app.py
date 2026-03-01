@@ -1077,6 +1077,15 @@ def edit_product(product_id):
                 error=str(e)
             )
 
+        # Delete old photo if it was replaced and has a different name
+        if product["photo_path"] and photo_path != product["photo_path"]:
+            old_full_path = os.path.join(IMAGE_DIR, product["photo_path"])
+            if os.path.exists(old_full_path):
+                try:
+                    os.remove(old_full_path)
+                except Exception as e:
+                    print(f"Error removing replaced image {old_full_path}: {e}")
+
         cur.execute("""
             UPDATE products
             SET name = ?, description = ?, category = ?, brand = ?, photo_path = ?
@@ -1116,6 +1125,10 @@ def delete_product(product_id):
     conn = get_db()
     cur = conn.cursor()
 
+    # Fetch product to get the photo path before deleting
+    cur.execute("SELECT photo_path FROM products WHERE id = ?;", (product_id,))
+    product = cur.fetchone()
+
     # 1) Detach from offers (so snapshots stay valid)
     try:
         cur.execute("""
@@ -1135,6 +1148,15 @@ def delete_product(product_id):
 
     conn.commit()
     conn.close()
+
+    # 4) Delete the photo file
+    if product and product["photo_path"]:
+        file_path = os.path.join(IMAGE_DIR, product["photo_path"])
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except Exception as e:
+                print(f"Error removing image {file_path}: {e}")
 
     return redirect(url_for("list_products"))  # or whatever your products list endpoint is called
 
