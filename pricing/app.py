@@ -1032,6 +1032,32 @@ def edit_product(product_id):
             elif photo_url:
                 stream, orig_filename = download_image_from_url(photo_url)
                 photo_path = save_product_image(stream, orig_filename, name)
+            else:
+                # No new photo provided. Check if name changed and photo exists.
+                if photo_path and product["name"] != name:
+                    ext = os.path.splitext(photo_path)[1].lower()
+                    if not ext:
+                        ext = ".jpg"
+
+                    base = (name or "").strip().lower()
+                    base = re.sub(r"\s+", "_", base)
+                    base = re.sub(r"[^a-z0-9_-]", "", base)
+                    if not base:
+                        base = "product"
+
+                    new_filename = base + ext
+
+                    if new_filename != photo_path:
+                        old_full_path = os.path.join(IMAGE_DIR, photo_path)
+                        new_full_path = os.path.join(IMAGE_DIR, new_filename)
+                        
+                        if os.path.exists(old_full_path):
+                            try:
+                                os.rename(old_full_path, new_full_path)
+                                photo_path = new_filename
+                            except Exception as e:
+                                print(f"Error renaming image {old_full_path} to {new_full_path}: {e}")
+
         except ValueError as e:
             # Create a temporary product object to preserve form data, keeping original ID/path
             # Convert to dict to allow assignment (sqlite3.Row is immutable)
