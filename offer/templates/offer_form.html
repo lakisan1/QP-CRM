@@ -288,7 +288,7 @@
                 </p>
                 <p>
                     <label>Opis:<br>
-                        <textarea name="item_description" rows="5"></textarea>
+                        <textarea name="item_description" id="item_description" rows="5"></textarea>
                     </label>
                 </p>
                 <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
@@ -377,8 +377,8 @@
                     </td>
                     <td>
                         <strong>{{ it.item_name }}</strong><br>
-                        <small style="white-space: pre-wrap; color: var(--text-muted);">{{ it.item_description
-                            }}</small>
+                        <div style="font-size: small; color: var(--text-muted);">{{ it.item_description | md | safe }}
+                        </div>
                     </td>
                     <td style="text-align: center;">{{ it.quantity }}</td>
                     <td style="text-align: right; color: #2ecc71;">{{ format_amount(it.unit_price)}}</td>
@@ -503,13 +503,27 @@
         const descTextarea = document.querySelector('textarea[name="item_description"]');
         const priceInput = document.querySelector('input[name="unit_price"]');
 
+        let easyMDE;
+        if (descTextarea) {
+            easyMDE = new EasyMDE({
+                element: descTextarea,
+                status: false,
+                spellChecker: false,
+                toolbar: ["bold", "italic", "heading", "|", "quote", "unordered-list", "ordered-list", "|", "link", "preview"]
+            });
+        }
+
         function fillFromSelection() {
             if (!productSelect || !nameInput || !descTextarea) return;
             const opt = productSelect.options[productSelect.selectedIndex];
             if (!opt) return;
 
             nameInput.value = opt.dataset.name || '';
-            descTextarea.value = opt.dataset.description || '';
+            if (easyMDE) {
+                easyMDE.value(opt.dataset.description || '');
+            } else {
+                descTextarea.value = opt.dataset.description || '';
+            }
 
             if (priceInput) {
                 if (opt.dataset.price) {
@@ -713,6 +727,9 @@
         }
 
 
+
     });
 </script>
+<link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css">
+<script src="https://unpkg.com/easymde/dist/easymde.min.js"></script>
 {% endblock %}

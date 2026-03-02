@@ -72,9 +72,9 @@
 
         <td>
             <strong>{{ it.item_name }}</strong><br>
-            <small class="multiline">
-                {{ it.item_description }}
-            </small>
+            <div class="markdown-content" style="font-size: smaller;">
+                {{ it.item_description | md | safe }}
+            </div>
         </td>
 
         <td style="text-align:center;">

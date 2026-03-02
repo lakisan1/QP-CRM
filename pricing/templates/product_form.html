@@ -71,7 +71,7 @@
         </p>
         <p>
             <label>Opis:<br>
-                <textarea name="description" rows="8"
+                <textarea name="description" id="product_description" rows="8"
                     cols="80">{% if product %}{{ product.description }}{% endif %}</textarea>
             </label>
         </p>
@@ -139,6 +139,18 @@
                 }
             });
         }
+
+        const descTextarea = document.getElementById("product_description");
+        if (descTextarea) {
+            new EasyMDE({
+                element: descTextarea,
+                status: false,
+                spellChecker: false,
+                toolbar: ["bold", "italic", "heading", "|", "quote", "unordered-list", "ordered-list", "|", "link", "preview"]
+            });
+        }
     });
 </script>
+<link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css">
+<script src="https://unpkg.com/easymde/dist/easymde.min.js"></script>
 {% endblock %}

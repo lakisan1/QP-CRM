@@ -217,3 +217,24 @@ h3 {
     page-break-inside: avoid;
     margin-top: 20px;
 }
+
+/* === Markdown Content === */
+.markdown-content p {
+    margin: 0 0 4px 0;
+}
+.markdown-content p:last-child {
+    margin-bottom: 0;
+}
+.markdown-content ul, .markdown-content ol {
+    margin: 4px 0 4px 0;
+    padding-left: 18px;
+}
+.markdown-content li {
+    margin-bottom: 2px;
+}
+.markdown-content h1, .markdown-content h2, .markdown-content h3, .markdown-content h4, .markdown-content h5, .markdown-content h6 {
+    margin: 8px 0 4px 0;
+    font-size: 1.1em;
+    font-weight: bold;
+    color: var(--text-dark);
+}

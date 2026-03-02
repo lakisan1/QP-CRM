@@ -18,6 +18,13 @@ PARENT_DIR = os.path.dirname(CURRENT_DIR)
 if PARENT_DIR not in sys.path:
     sys.path.append(PARENT_DIR)
 
+# Add custom_libs so we can import without root permissions
+CUSTOM_LIBS_DIR = os.path.join(PARENT_DIR, 'custom_libs')
+if CUSTOM_LIBS_DIR not in sys.path:
+    sys.path.append(CUSTOM_LIBS_DIR)
+
+import markdown
+
 from shared.config import BASE_DIR, APP_DATA_DIR, DATABASE, IMAGE_DIR, APP_ASSETS_DIR, STATIC_DIR
 from shared.db import get_db
 from shared.auth import check_password
@@ -148,6 +155,36 @@ def _format_date_filter(date_str, fmt=None):
     if fmt is None:
         fmt = get_date_format()
     return format_date(date_str, fmt)
+
+import re
+
+def fix_markdown_lists(text):
+    if not text:
+        return text
+    lines = text.split('\n')
+    fixed_lines = []
+    in_list = False
+    for line in lines:
+        is_list_item = bool(re.match(r'^[ \t]*([*+-]|\d+\.)[ \t]+', line))
+        is_empty = not line.strip()
+        if is_list_item and not in_list and fixed_lines and fixed_lines[-1].strip():
+            fixed_lines.append('')
+        if is_list_item and line.strip().startswith('*') and not line.startswith(' '):
+             # Ensure there is a space after bullet if the user forgot but the regex caught it? No, regex already requires space.
+             pass
+        fixed_lines.append(line)
+        if is_empty:
+            in_list = False
+        elif is_list_item:
+            in_list = True
+    return '\n'.join(fixed_lines)
+
+@app.template_filter('md')
+def render_markdown(text):
+    if not text:
+        return ""
+    text = fix_markdown_lists(text)
+    return markdown.markdown(text, extensions=['extra', 'nl2br'])
 
 @app.context_processor
 def inject_helpers():
