@@ -76,7 +76,7 @@
             </label>
         </p>
         <p>
-            <label>Slika (JPG,PNG):<br>
+            <label>Slika (JPG,PNG,WEBP):<br>
                 <div class="file-upload-wrapper">
                     {% if product and product.photo_path %}
                     <div style="margin-bottom: 10px;">
@@ -86,7 +86,7 @@
                     </div>
                     {% endif %}
 
-                    <input type="file" name="photo_file" accept="image/jpeg, image/png">
+                    <input type="file" name="photo_file" accept="image/jpeg, image/png, image/webp">
                     <span class="file-upload-text">Klikni ili prevuci sliku ovde</span>
                 </div>
 

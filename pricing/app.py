@@ -353,8 +353,8 @@ def save_product_image(image_stream, orig_filename, product_name):
 
     # Check extension
     ext = os.path.splitext(orig_filename)[1].lower()
-    if ext not in [".jpg", ".jpeg", ".png"]:
-        raise ValueError("Slika mora biti JPG ili PNG (.jpg, .jpeg, ili .png).")
+    if ext not in [".jpg", ".jpeg", ".png", ".webp"]:
+        raise ValueError("Slika mora biti JPG, PNG ili WEBP (.jpg, .jpeg, .png, ili .webp).")
 
     # Build base name from product_name
     base = (product_name or "").strip().lower()
@@ -425,14 +425,15 @@ def download_image_from_url(url):
         resp.raise_for_status()
         
         content_type = resp.headers.get('Content-Type', '').lower()
-        if 'image/jpeg' not in content_type and 'image/png' not in content_type:
-            raise ValueError("URL ne vodi do JPG ili PNG slike.")
+        if 'image/jpeg' not in content_type and 'image/png' not in content_type and 'image/webp' not in content_type:
+            raise ValueError("URL ne vodi do JPG, PNG ili WEBP slike.")
 
         # Get original filename from URL or default to url_image.jpg
         orig_filename = url.split("/")[-1].split("?")[0] or "url_image.jpg"
-        if not any(orig_filename.lower().endswith(ex) for ex in ['.jpg', '.jpeg', '.png']):
+        if not any(orig_filename.lower().endswith(ex) for ex in ['.jpg', '.jpeg', '.png', '.webp']):
             # force extension based on content-type if missing
             if 'png' in content_type: orig_filename += '.png'
+            elif 'webp' in content_type: orig_filename += '.webp'
             else: orig_filename += '.jpg'
 
         return io.BytesIO(resp.content), orig_filename
