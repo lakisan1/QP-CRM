@@ -14,6 +14,8 @@ Please open issues for any bugs or suggestions!
 
 ## 🌟 Key Features
 
+For a comprehensive list of all application features, check out the [Full Feature List](FEATURES.md).
+
 A lot of options to create a custom sale price based on a lot of parameters.\
 Easy to add photos to products.\
 **Open source, free to use and modify as you wish. Fully local.**
