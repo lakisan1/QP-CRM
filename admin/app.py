@@ -160,7 +160,7 @@ def login():
 @app.route("/logout")
 def logout():
     session.pop('admin_authenticated', None)
-    return redirect(url_for('login'))
+    return redirect('/')
 
 @app.route("/")
 def index():

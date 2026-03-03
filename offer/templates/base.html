@@ -31,6 +31,7 @@
 
             <a href="/" {% if request.endpoint=='index' and not request.path.startswith('/offer') %}class="active" {%
                 endif %}>{{ _('Landing Page') }}</a>
+            <a href="{{ url_for('logout') }}" class="btn btn-danger" style="margin-right: 15px;">Logout</a>
             <div class="nav-logo-container">
                 <img src="{{ url_for('static', filename='img/logo_company.jpg') }}" alt="QP-CRM Logo" class="nav-logo">
             </div>

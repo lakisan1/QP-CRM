@@ -227,7 +227,7 @@ def login():
 @app.route("/logout")
 def logout():
     session.pop('authenticated', None)
-    return redirect(url_for('login'))
+    return redirect('/')
 
 def get_date_format():
     """Fetch the date_format setting."""

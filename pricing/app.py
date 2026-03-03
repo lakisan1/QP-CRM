@@ -474,7 +474,7 @@ def login():
 @app.route("/logout")
 def logout():
     session.pop('authenticated', None)
-    return redirect(url_for('login'))
+    return redirect('/')
 
 @app.route("/product-image/<path:filename>")
 def product_image(filename):
