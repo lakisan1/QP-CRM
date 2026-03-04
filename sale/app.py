@@ -2,7 +2,8 @@ import os
 import sys
 import sqlite3
 import math
-from flask import Flask, render_template, request, redirect, url_for, send_from_directory, session
+from flask import Flask, render_template, request, redirect, url_for, send_from_directory, session, abort
+import markdown
 
 # Ensure shared modules can be imported
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -181,6 +182,40 @@ def list_sale():
         current_page=page,
         total_pages=total_pages,
         total_count=total_count
+    )
+
+@app.route("/product/<int:product_id>")
+def view_product(product_id):
+    conn = get_db()
+    cur = conn.cursor()
+
+    query = """
+        SELECT p.*,
+               pr.final_price AS current_price,
+               pr.discount_price AS current_discount_price
+        FROM products p
+        LEFT JOIN prices pr
+          ON pr.id = (
+              SELECT MAX(id) FROM prices WHERE product_id = p.id
+          )
+        WHERE p.id = ?
+    """
+    cur.execute(query, (product_id,))
+    product = cur.fetchone()
+    conn.close()
+
+    if not product:
+        abort(404)
+
+    # Convert markdown description to HTML safely
+    description_html = ""
+    if product["description"]:
+        description_html = markdown.markdown(product["description"])
+
+    return render_template(
+        "view_product.html",
+        product=product,
+        description_html=description_html
     )
 
 if __name__ == "__main__":
