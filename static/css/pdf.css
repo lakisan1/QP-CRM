@@ -74,6 +74,9 @@ h3 {
     border-bottom: 2px solid var(--brand-blue);
     display: block;
     width: 100%;
+}
+
+.items-header {
     page-break-after: avoid;
     break-after: avoid;
 }
