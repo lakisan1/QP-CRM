@@ -74,6 +74,8 @@ h3 {
     border-bottom: 2px solid var(--brand-blue);
     display: block;
     width: 100%;
+    page-break-after: avoid;
+    break-after: avoid;
 }
 
 .multiline {
@@ -102,6 +104,8 @@ h3 {
     /* Darker border for the scope */
     border-radius: 6px;
     overflow: hidden;
+    page-break-before: auto;
+    break-before: auto;
 }
 
 .items-table th {
@@ -143,6 +147,7 @@ h3 {
 /* Avoid splitting rows */
 .items-table tr {
     page-break-inside: avoid;
+    break-inside: avoid;
 }
 
 /* Totals styling */
