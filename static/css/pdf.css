@@ -144,10 +144,10 @@ h3 {
     background-color: #fcfcfc;
 }
 
-/* Avoid splitting rows */
+/* Allow splitting rows for long descriptions */
 .items-table tr {
-    page-break-inside: avoid;
-    break-inside: avoid;
+    page-break-inside: auto;
+    break-inside: auto;
 }
 
 /* Totals styling */
