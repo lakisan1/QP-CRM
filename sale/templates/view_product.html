@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}{{ product.name }}{% endblock %}
+
+{% block content %}
+<style>
+/* CSS copied from admin/product_body.html and adjusted for read-only view */
+.admin-card {
+    background-color: var(--bg-card);
+    border-radius: 8px;
+    padding: 24px;
+    margin-bottom: 24px;
+    border: 1px solid var(--border-color);
+}
+.row {
+    display: flex;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+    gap: 16px;
+}
+.full-width {
+    width: 100%;
+}
+.half-width {
+    flex: 1;
+    min-width: 250px;
+}
+.header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+.back-btn {
+    text-decoration: none;
+    color: var(--text-primary);
+    background-color: var(--bg-hover);
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+.back-btn:hover {
+    background-color: var(--border-color);
+}
+.price-tag {
+    font-size: 1.25rem;
+    font-weight: bold;
+    padding: 8px 16px;
+    border-radius: 6px;
+    display: inline-block;
+}
+.price-regular {
+    background-color: rgba(46, 204, 113, 0.1);
+    color: #2ecc71;
+}
+.price-discount {
+    background-color: rgba(52, 152, 219, 0.1);
+    color: #3498db;
+    margin-top: 8px;
+}
+.label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+    display: block;
+}
+.value {
+    font-size: 1.1rem;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+.md-content {
+    background-color: var(--bg-hover);
+    padding: 20px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    line-height: 1.6;
+}
+.md-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+}
+.md-content a {
+    color: var(--accent-primary);
+    text-decoration: none;
+}
+.md-content a:hover {
+    text-decoration: underline;
+}
+.product-image-container {
+    text-align: center;
+    margin-bottom: 24px;
+}
+.product-image {
+    max-width: 100%;
+    max-height: 400px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+</style>
+
+<div class="header-row">
+    <h1>{{ product.name }}</h1>
+    <a href="{{ url_for('list_sale') }}" class="back-btn">&larr; {{ _('Back to Sale')|default('Nazad') }}</a>
+</div>
+
+<div class="admin-card">
+    <div class="row">
+        {% if product.photo_path %}
+        <div class="half-width product-image-container">
+            <img src="{{ url_for('product_image', filename=product.photo_path) }}" alt="{{ product.name }}" class="product-image">
+        </div>
+        {% endif %}
+        
+        <div class="half-width" style="display: flex; flex-direction: column; gap: 20px;">
+            <div>
+                <span class="label">{{ _('Brand')|default('Brend') }}</span>
+                <span class="value">{{ product.brand or '-' }}</span>
+            </div>
+            
+            <div>
+                <span class="label">{{ _('Category')|default('Kategorija') }}</span>
+                <span class="value">{{ product.category or '-' }}</span>
+            </div>
+            
+            <div>
+                <span class="label">{{ _('Current Price')|default('Trenutna cena') }}</span>
+                {% if product.current_price is not none %}
+                <div class="price-tag price-regular">{{ format_amount(product.current_price) }}</div>
+                {% else %}
+                <span class="value">-</span>
+                {% endif %}
+            </div>
+            
+            <div>
+                <span class="label">{{ _('Discount Price')|default('Popust') }}</span>
+                {% if product.current_discount_price is not none %}
+                <div class="price-tag price-discount">{{ format_amount(product.current_discount_price) }}</div>
+                {% else %}
+                <span class="value">-</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if description_html %}
+<div class="admin-card">
+    <h3 style="margin-top: 0; margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
+        {{ _('Description')|default('Opis') }}
+    </h3>
+    <div class="md-content">
+        {{ description_html|safe }}
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

@@ -484,10 +484,82 @@
         }
 
         document.querySelectorAll('form').forEach(f => {
-            f.addEventListener('submit', saveScroll);
+            // Auto-save logic for product / item forms
+            if (f.getAttribute('action') !== 'update_header' && !f.querySelector('input[name="action"][value="update_header"]')) {
+                f.addEventListener('submit', function (e) {
+                    if (hasUnsavedChanges && form) {
+                        e.preventDefault();
+                        const isMainSubmission = this.hasAttribute('data-submit-pending');
+                        if (!isMainSubmission) {
+                            this.setAttribute('data-submit-pending', 'true');
+                            
+                            // Save scroll position
+                            saveScroll();
+
+                            // Create an invisible iframe or use fetch to submit header quietly, then submit this form
+                            // But easiest is to append this form's data to the main form and submit main form
+                            // Or submit main form async, then this form
+                            
+                            const formData = new FormData(form);
+                            // We need to submit the main form via fetch, then submit this form normally
+                            fetch(window.location.href, {
+                                method: 'POST',
+                                body: formData
+                            }).then(response => {
+                                if (response.ok) {
+                                    hasUnsavedChanges = false;
+                                    this.submit();
+                                } else {
+                                    alert("Greška pri snimanju zaglavlja ponude.");
+                                    this.removeAttribute('data-submit-pending');
+                                }
+                            }).catch(err => {
+                                console.error(err);
+                                alert("Greška u mrežnoj komunikaciji pri snimanju zaglavlja.");
+                                this.removeAttribute('data-submit-pending');
+                            });
+                        }
+                    } else {
+                        saveScroll();
+                    }
+                });
+            } else {
+                f.addEventListener('submit', saveScroll);
+            }
+
             // Also catch change events for elements that trigger submit
             f.querySelectorAll('select, input').forEach(el => {
-                el.addEventListener('change', saveScroll);
+                if(el.tagName === 'SELECT' && el.hasAttribute('onchange') && el.getAttribute('onchange').includes('this.form.submit()')) {
+                    // Remove inline onchange and use event listener
+                    el.removeAttribute('onchange');
+                    el.addEventListener('change', function() {
+                        if (hasUnsavedChanges && form) {
+                            // Save scroll position
+                            saveScroll();
+
+                            const formData = new FormData(form);
+                            fetch(window.location.href, {
+                                method: 'POST',
+                                body: formData
+                            }).then(response => {
+                                if (response.ok) {
+                                    hasUnsavedChanges = false;
+                                    f.submit();
+                                } else {
+                                    alert("Greška pri snimanju zaglavlja ponude.");
+                                }
+                            }).catch(err => {
+                                console.error(err);
+                                alert("Greška u mrežnoj komunikaciji pri snimanju zaglavlja.");
+                            });
+                        } else {
+                            saveScroll();
+                            f.submit();
+                        }
+                    });
+                } else {
+                    el.addEventListener('change', saveScroll);
+                }
             });
         });
 
@@ -726,7 +798,18 @@
             });
         }
 
-
+        // --- Template confirmation ---
+        const isTemplateCb = document.querySelector('input[name="is_template"]');
+        if (isTemplateCb) {
+            isTemplateCb.addEventListener('click', function(e) {
+                if (this.checked) {
+                    const confirmed = confirm("Da li ste sigurni da želite da sačuvate ovu ponudu kao šablon?");
+                    if (!confirmed) {
+                        e.preventDefault();
+                    }
+                }
+            });
+        }
 
     });
 </script>

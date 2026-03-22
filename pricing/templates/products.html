@@ -107,9 +107,13 @@
                 <span style="color: #3498db; font-weight: bold;">{{ format_amount(p.current_discount_price) }}</span>
                 {% endif %}
             </td>
-            <td style="text-align: center; width: 250px;">
+            <td style="text-align: center; width: 330px;">
                 <a href="{{ url_for('edit_product', product_id=p.id) }}" class="btn btn-primary btn-sm"
                     style="text-decoration: none; margin-right: 10px;">Izmeni proizvod</a>
+                    
+                <a href="{{ url_for('add_product', duplicate_id=p.id) }}" class="btn btn-warning btn-sm"
+                    style="text-decoration: none; margin-right: 10px;"
+                    onclick="return confirm('Duplirati ovaj proizvod?');">Duplicate</a>
 
                 <form method="post" action="{{ url_for('delete_product', product_id=p.id) }}" style="display:inline;"
                     onsubmit="return prompt('DA LI STE SIGURNI?\nOvo će obrisati proizvod i SVE njegove cene, što se NE može poništiti.\nUnesite reč DELETE da biste potvrdili brisanje:') === 'DELETE';">

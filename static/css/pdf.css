@@ -76,6 +76,11 @@ h3 {
     width: 100%;
 }
 
+.items-header {
+    page-break-after: avoid;
+    break-after: avoid;
+}
+
 .multiline {
     white-space: pre-line;
     color: var(--text-muted);
@@ -102,6 +107,8 @@ h3 {
     /* Darker border for the scope */
     border-radius: 6px;
     overflow: hidden;
+    page-break-before: auto;
+    break-before: auto;
 }
 
 .items-table th {
@@ -140,9 +147,10 @@ h3 {
     background-color: #fcfcfc;
 }
 
-/* Avoid splitting rows */
+/* Allow splitting rows for long descriptions */
 .items-table tr {
-    page-break-inside: avoid;
+    page-break-inside: auto;
+    break-inside: auto;
 }
 
 /* Totals styling */
