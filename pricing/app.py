@@ -991,6 +991,19 @@ def add_product():
     cat_rows = cur.fetchall()
     cur.execute("SELECT name FROM brands ORDER BY name;")
     brand_rows = cur.fetchall()
+    
+    product = None
+    duplicate_id = request.args.get("duplicate_id", type=int)
+    if duplicate_id:
+        cur.execute("SELECT * FROM products WHERE id = ?;", (duplicate_id,))
+        row = cur.fetchone()
+        if row:
+            product = dict(row)
+            product["name"] = ""
+            product["photo_path"] = None
+            product["photo_url"] = ""
+            product["id"] = None
+            
     conn.close()
 
     categories = [row["category"] for row in cat_rows]
@@ -1000,7 +1013,7 @@ def add_product():
         "product_form.html",
         categories=categories,
         brand_options=brand_options,
-        product=None
+        product=product
     )
 
 @app.route("/products/<int:product_id>/edit", methods=["GET", "POST"])
