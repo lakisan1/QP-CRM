@@ -137,6 +137,19 @@
                         <td style="text-align:right;">{{ _('Total') }}:</td>
                         <td style="text-align:right;">{{ format_amount(offer.total_net_after_discount or 0) }}</td>
                     </tr>
+                    {% if offer.special_discount_percent and offer.special_discount_percent > 0 %}
+                    <tr>
+                        <td style="text-align:right; color: #9b59b6;">SPECIJALNI POPUST {{
+                            ((offer.special_discount_percent or
+                            0)
+                            * 100) | round(2) }}%:</td>
+                        <td style="text-align:right; color: #9b59b6; font-weight: bold;">{{ format_amount(offer.total_special_discount or 0) }}</td>
+                    </tr>
+                    <tr class="total-row">
+                        <td style="text-align:right;">UKUPNO sa specijalnim popustom:</td>
+                        <td style="text-align:right;">{{ format_amount(offer.total_net_after_special_discount or 0) }}</td>
+                    </tr>
+                    {% endif %}
                     <tr>
                         <td style="text-align:right; color: var(--text-muted);">{{ _('VAT') }} {{ ((offer.vat_percent or
                             0) * 100)

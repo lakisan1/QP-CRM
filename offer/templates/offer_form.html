@@ -136,6 +136,12 @@
                     </label>
                 </p>
                 <p>
+                    <label>Specijalni popust % (globalni):<br>
+                        <input type="number" step="any" name="special_discount_percent"
+                            value="{% if offer and offer.special_discount_percent is not none %}{{ (offer.special_discount_percent * 100) | round(2) }}{% endif %}">
+                    </label>
+                </p>
+                <p>
                     <label>PDV % :<br>
                         <input type="number" step="any" name="vat_percent"
                             value="{% if offer and offer.vat_percent is not none %}{{ (offer.vat_percent * 100) | round(2) }}{% else %}{{ default_vat_percent }}{% endif %}">
@@ -401,7 +407,7 @@
                 <span style="color: #2ecc71; font-weight: bold;">{{ format_amount(offer.total_net or 0) }}</span>
             </div>
             <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                <span style="color: #3498db;">POPUST:</span>
+                <span style="color: #3498db;">POPUST {{ ((offer.discount_percent or 0) * 100) | round(2) }}%:</span>
                 <span style="color: #3498db; font-weight: bold;">{{ format_amount(offer.total_discount or 0) }}</span>
             </div>
             <div
@@ -409,6 +415,17 @@
                 <span>UKUPNO:</span>
                 <span>{{ format_amount(offer.total_net_after_discount or 0) }}</span>
             </div>
+            {% if offer.special_discount_percent and offer.special_discount_percent > 0 %}
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                <span style="color: #9b59b6;">SPECIJALNI POPUST {{ ((offer.special_discount_percent or 0) * 100) | round(2) }}%:</span>
+                <span style="color: #9b59b6; font-weight: bold;">{{ format_amount(offer.total_special_discount or 0) }}</span>
+            </div>
+            <div
+                style="display: flex; justify-content: space-between; margin-bottom: 5px; font-weight: bold; border-top: 1px dotted var(--border-color); padding-top: 5px;">
+                <span>UKUPNO sa specijalnim popustom:</span>
+                <span>{{ format_amount(offer.total_net_after_special_discount or 0) }}</span>
+            </div>
+            {% endif %}
             <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
                 <span>PDV {{ ((offer.vat_percent or 0) * 100) | round(2) }}%:</span>
                 <span>{{ format_amount(offer.total_vat or 0) }}</span>
