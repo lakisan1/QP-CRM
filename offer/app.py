@@ -76,6 +76,9 @@ def init_db():
             total_net REAL,
             total_discount REAL,
             total_net_after_discount REAL,
+            special_discount_percent REAL DEFAULT 0.0,
+            total_special_discount REAL DEFAULT 0.0,
+            total_net_after_special_discount REAL DEFAULT 0.0,
             total_vat REAL,
             total_gross REAL,
 
@@ -117,6 +120,21 @@ def init_db():
         cur.execute("ALTER TABLE offers ADD COLUMN country TEXT DEFAULT 'Srbija';")
     except sqlite3.OperationalError:
         # Already exists
+        pass
+
+    try:
+        cur.execute("ALTER TABLE offers ADD COLUMN special_discount_percent REAL DEFAULT 0.0;")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        cur.execute("ALTER TABLE offers ADD COLUMN total_special_discount REAL DEFAULT 0.0;")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        cur.execute("ALTER TABLE offers ADD COLUMN total_net_after_special_discount REAL DEFAULT 0.0;")
+    except sqlite3.OperationalError:
         pass
 
     # Offer items table
@@ -481,9 +499,11 @@ def new_offer():
         exchange_rate = float(request.form.get("exchange_rate") or 0)
 
         discount_percent_input = float(request.form.get("discount_percent") or 0)
+        special_discount_percent_input = float(request.form.get("special_discount_percent") or 0)
         vat_percent_input = float(request.form.get("vat_percent") or 20)
 
         discount_percent = discount_percent_input / 100.0 if discount_percent_input else 0.0
+        special_discount_percent = special_discount_percent_input / 100.0 if special_discount_percent_input else 0.0
         vat_percent = vat_percent_input / 100.0 if vat_percent_input else 0.0
 
         payment_terms = (request.form.get("payment_terms") or "").strip()
@@ -544,6 +564,7 @@ def new_offer():
             "currency": currency,
             "exchange_rate": exchange_rate,
             "discount_percent": discount_percent_input / 100.0 if discount_percent_input else None, 
+            "special_discount_percent": special_discount_percent_input / 100.0 if special_discount_percent_input else None, 
             "vat_percent": vat_percent_input / 100.0 if vat_percent_input else None,
             "payment_terms": payment_terms,
             "delivery_terms": delivery_terms,
@@ -591,6 +612,7 @@ def new_offer():
             "currency": currency,
             "exchange_rate": exchange_rate,
             "discount_percent": discount_percent_input / 100.0 if discount_percent_input else None, 
+            "special_discount_percent": special_discount_percent_input / 100.0 if special_discount_percent_input else None, 
             "vat_percent": vat_percent_input / 100.0 if vat_percent_input else None,
             "payment_terms": payment_terms,
             "delivery_terms": delivery_terms,
@@ -609,17 +631,18 @@ def new_offer():
                 offer_number, date,
                 client_name, client_address, client_email, client_phone, client_pib, client_mb,
                 currency, exchange_rate,
-                discount_percent, vat_percent,
+                discount_percent, special_discount_percent, vat_percent,
                 total_net, total_discount, total_net_after_discount,
+                total_special_discount, total_net_after_special_discount,
                 total_vat, total_gross,
                 payment_terms, delivery_terms, validity_days, notes, napomena, is_template, country
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, ?, ?);
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, ?, ?);
         """, (
             offer_number, date_str,
             client_name, client_address, client_email, client_phone, client_pib, client_mb,
             currency, exchange_rate,
-            discount_percent, vat_percent,
+            discount_percent, special_discount_percent, vat_percent,
             payment_terms, delivery_terms, validity_days, notes, napomena, is_template, country
         ))
         offer_id = cur.lastrowid
@@ -710,6 +733,7 @@ def recalc_totals(offer_id):
         return
 
     discount_percent = offer["discount_percent"] or 0.0
+    special_discount_percent = offer["special_discount_percent"] or 0.0
     vat_percent = offer["vat_percent"] or 0.0
 
     # Sum line_net
@@ -723,16 +747,22 @@ def recalc_totals(offer_id):
 
     total_discount = total_net * discount_percent
     total_net_after_discount = total_net - total_discount
-    total_vat = total_net_after_discount * vat_percent
-    total_gross = total_net_after_discount + total_vat
+    
+    total_special_discount = total_net_after_discount * special_discount_percent
+    total_net_after_special_discount = total_net_after_discount - total_special_discount
+    
+    total_vat = total_net_after_special_discount * vat_percent
+    total_gross = total_net_after_special_discount + total_vat
 
     cur.execute("""
         UPDATE offers
         SET total_net = ?, total_discount = ?, total_net_after_discount = ?,
+            special_discount_percent = ?, total_special_discount = ?, total_net_after_special_discount = ?,
             total_vat = ?, total_gross = ?
         WHERE id = ?;
     """, (
         total_net, total_discount, total_net_after_discount,
+        special_discount_percent, total_special_discount, total_net_after_special_discount,
         total_vat, total_gross, offer_id
     ))
     conn.commit()
@@ -777,9 +807,11 @@ def edit_offer(offer_id):
             exchange_rate = float(request.form.get("exchange_rate") or 0)
 
             discount_percent_input = float(request.form.get("discount_percent") or 0)
+            special_discount_percent_input = float(request.form.get("special_discount_percent") or 0)
             vat_percent_input = float(request.form.get("vat_percent") or 20)
 
             discount_percent = discount_percent_input / 100.0 if discount_percent_input else 0.0
+            special_discount_percent = special_discount_percent_input / 100.0 if special_discount_percent_input else 0.0
             vat_percent = vat_percent_input / 100.0 if vat_percent_input else 0.0
 
             payment_terms = (request.form.get("payment_terms") or "").strip()
@@ -826,14 +858,14 @@ def edit_offer(offer_id):
                 SET offer_number = ?, date = ?,
                     client_name = ?, client_address = ?, client_email = ?, client_phone = ?, client_pib = ?, client_mb = ?,
                     currency = ?, exchange_rate = ?,
-                    discount_percent = ?, vat_percent = ?,
+                    discount_percent = ?, special_discount_percent = ?, vat_percent = ?,
                     payment_terms = ?, delivery_terms = ?, validity_days = ?, notes = ?, napomena = ?, is_template = ?, country = ?
                 WHERE id = ?;
             """, (
                 offer_number, date_str,
                 client_name, client_address, client_email, client_phone, client_pib, client_mb,
                 currency, exchange_rate,
-                discount_percent, vat_percent,
+                discount_percent, special_discount_percent, vat_percent,
                 payment_terms, delivery_terms, validity_days, notes, napomena, is_template, country,
                 offer_id
             ))
@@ -1288,18 +1320,20 @@ def duplicate_offer(offer_id):
             offer_number, date,
             client_name, client_address, client_email, client_phone, client_pib, client_mb,
             currency, exchange_rate,
-            discount_percent, vat_percent,
+            discount_percent, special_discount_percent, vat_percent,
             total_net, total_discount, total_net_after_discount,
+            total_special_discount, total_net_after_special_discount,
             total_vat, total_gross,
             payment_terms, delivery_terms, validity_days, notes, napomena, is_template, country
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?);
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?);
     """, (
         "", today,
         offer["client_name"], offer["client_address"], offer["client_email"], offer["client_phone"], offer["client_pib"], offer["client_mb"],
         offer["currency"], offer["exchange_rate"],
-        offer["discount_percent"], offer["vat_percent"],
+        offer["discount_percent"], offer["special_discount_percent"], offer["vat_percent"],
         offer["total_net"], offer["total_discount"], offer["total_net_after_discount"],
+        offer["total_special_discount"], offer["total_net_after_special_discount"],
         offer["total_vat"], offer["total_gross"],
         offer["payment_terms"], offer["delivery_terms"], offer["validity_days"], offer["notes"], offer["napomena"], offer["country"]
     ))

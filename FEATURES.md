@@ -15,7 +15,7 @@ This page contains a comprehensive list of all the features implemented in the Q
 - **Professional PDF Generation**: Generate dynamic, styled, brand-ready PDFs natively from the app.
 - **Markdown Support for Descriptions**: Rich-text editing on product descriptions within offers using EasyMDE; beautifully formatted text (bold, lists, etc.) rendered seamlessly into the final PDF.
 - **Email Integration**: Send custom styled quotation emails with PDF attachments directly from the app interface.
-- **Line-item & Global Discounts**: Apply percentage or fixed-amount discounts across an entire quote or toggle item-specific per-line discounts dynamically.
+- **Line-item & Global Discounts**: Apply percentage discounts across an entire quote, toggle item-specific per-line discounts dynamically, and layer additional "Special Discounts" on top of existing subtotals for greater pricing flexibility.
 - **Live NBS Exchange Rates**: Connect to the National Bank of Serbia (NBS) API for automatic fetching and conversion of currency exchange rates into base pricing.
 - **Client Management Details**: Customizable, default mandatory fields for CRM records including PIB, MB, multiple emails parsing, and direct persistence of client data for repeat offers.
 - **Quick Offer Presets**: Save, reload, and default offer templates over existing workflows.
