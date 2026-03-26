@@ -142,6 +142,12 @@
                     </label>
                 </p>
                 <p>
+                    <label>Treći popust % (globalni):<br>
+                        <input type="number" step="any" name="third_discount_percent"
+                            value="{% if offer and offer.third_discount_percent is not none %}{{ (offer.third_discount_percent * 100) | round(2) }}{% endif %}">
+                    </label>
+                </p>
+                <p>
                     <label>PDV % :<br>
                         <input type="number" step="any" name="vat_percent"
                             value="{% if offer and offer.vat_percent is not none %}{{ (offer.vat_percent * 100) | round(2) }}{% else %}{{ default_vat_percent }}{% endif %}">
@@ -426,10 +432,23 @@
                 <span>{{ format_amount(offer.total_net_after_special_discount or 0) }}</span>
             </div>
             {% endif %}
+            {% if offer.third_discount_percent and offer.third_discount_percent > 0 %}
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                <span style="color: #e67e22;">TREĆI POPUST {{ ((offer.third_discount_percent or 0) * 100) | round(2) }}%:</span>
+                <span style="color: #e67e22; font-weight: bold;">{{ format_amount(offer.total_third_discount or 0) }}</span>
+            </div>
+            <div
+                style="display: flex; justify-content: space-between; margin-bottom: 5px; font-weight: bold; border-top: 1px dotted var(--border-color); padding-top: 5px;">
+                <span>UKUPNO sa trećim popustom:</span>
+                <span>{{ format_amount(offer.total_net_after_third_discount or 0) }}</span>
+            </div>
+            {% endif %}
+            {% if offer.vat_percent and offer.vat_percent > 0 %}
             <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
                 <span>PDV {{ ((offer.vat_percent or 0) * 100) | round(2) }}%:</span>
                 <span>{{ format_amount(offer.total_vat or 0) }}</span>
             </div>
+            {% endif %}
             <div
                 style="display: flex; justify-content: space-between; font-size: 1.2em; font-weight: bold; color: var(--accent-success); border-top: 2px solid var(--accent-success); padding-top: 5px; margin-top: 5px;">
                 <span>UKUPNO ZA UPLATU:</span>

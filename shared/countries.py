@@ -105,6 +105,7 @@ COUNTRIES = [
     {"code": "KM", "name": "Komori", "name_en": "Comoros"},
     {"code": "CG", "name": "Kongo (Brazavil)", "name_en": "Congo (Brazzaville)"},
     {"code": "CD", "name": "Kongo (Kinšasa)", "name_en": "Congo (Kinshasa)"},
+    {"code": "XK", "name": "Kosovo", "name_en": "Kosovo"},
     {"code": "CR", "name": "Kostarika", "name_en": "Costa Rica"},
     {"code": "CU", "name": "Kuba", "name_en": "Cuba"},
     {"code": "KW", "name": "Kuvajt", "name_en": "Kuwait"},
