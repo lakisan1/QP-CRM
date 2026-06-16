@@ -3,7 +3,8 @@ from .db import get_db
 DEFAULT_PASSWORDS = {
     "admin": "Admin1",
     "pricing": "Price1",
-    "offer": "Offer1"
+    "offer": "Offer1",
+    "rent": "Rent1"
 }
 
 def get_password(app_name):

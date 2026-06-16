@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="utf-8">
+<title>Plan Plaćanja – {{ contract.contract_number }}</title>
+<style>
+@page {
+    size: A4 portrait;
+    margin: 15mm 12mm 14mm 12mm;
+}
+* { box-sizing: border-box; }
+body {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 7.8pt;
+    color: #222;
+    margin: 0; padding: 0;
+    line-height: 1.35;
+}
+
+/* ── Header ── */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2.5px solid #007acc;
+    padding-bottom: 7px;
+    margin-bottom: 10px;
+}
+.header img { max-height: 42px; width: auto; }
+.co-block { text-align: right; font-size: 7pt; color: #444; line-height: 1.5; }
+.co-name  { font-size: 9.5pt; font-weight: 700; color: #007acc; display: block; }
+
+h1 {
+    text-align: center;
+    font-size: 10pt;
+    color: #007acc;
+    margin: 0 0 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+/* ── Meta grid ── */
+.meta-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 7px;
+    margin-bottom: 10px;
+}
+.meta-box {
+    border: 1px solid #dde3ea;
+    border-radius: 4px;
+    padding: 6px 8px;
+    background: #f8fafc;
+}
+.meta-box .lbl { font-size: 6pt; color: #999; text-transform: uppercase; letter-spacing: 0.4px; }
+.meta-box .val { font-size: 8pt; font-weight: 700; color: #111; margin-top: 2px; word-break: break-word; }
+
+/* ── Summary strip ── */
+.summary-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 5px;
+    margin-bottom: 10px;
+}
+.sum-cell {
+    background: #007acc;
+    color: white;
+    border-radius: 4px;
+    padding: 5px 7px;
+    text-align: center;
+}
+.sum-cell .sl { font-size: 6pt; opacity: 0.85; text-transform: uppercase; letter-spacing: 0.3px; }
+.sum-cell .sv { font-size: 8.5pt; font-weight: 700; margin-top: 2px; }
+
+/* ── Table ── */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 7.5pt;
+}
+thead th {
+    background: #007acc;
+    color: white;
+    padding: 5px 4px;
+    text-align: center;
+    font-size: 6.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    border-right: 1px solid rgba(255,255,255,0.15);
+    white-space: nowrap;
+}
+thead th:last-child { border-right: none; }
+
+tbody td {
+    padding: 4px 5px;
+    border-bottom: 1px solid #eaecef;
+    border-right: 1px solid #f0f0f0;
+    text-align: right;
+    vertical-align: middle;
+}
+tbody td:last-child { border-right: none; }
+tbody td.nr  { text-align: center; font-weight: 700; color: #007acc; }
+tbody td.opis { text-align: left; color: #555; }
+tbody td.date { text-align: center; white-space: nowrap; font-weight: 600; }
+
+tbody tr:nth-child(even) { background: #f9fafb; }
+tbody tr.pre-row td { background: #fffbf0; color: #7a5800; }
+tbody tr.pre-row td.nr { color: #b07000; }
+
+/* ── totals row ── */
+tbody tr.sum-row td {
+    background: #007acc;
+    color: white;
+    font-weight: 700;
+    border-bottom: none;
+    font-size: 8pt;
+}
+
+.dash { color: #bbb; }
+
+/* ── Note ── */
+.note {
+    font-size: 6.5pt; color: #777;
+    margin-top: 8px; line-height: 1.5;
+    border-top: 1px dashed #ccc;
+    padding-top: 5px;
+}
+
+/* ── Signatures ── */
+.sig-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 50px; margin-top: 16px; }
+.sig-box { text-align: center; }
+.sig-name { font-weight: 700; font-size: 8pt; margin-bottom: 22px; }
+.sig-line { border-top: 1px solid #333; padding-top: 4px; font-size: 7pt; color: #555; }
+
+/* ── Footer ── */
+.footer {
+    margin-top: 12px;
+    font-size: 6.5pt; color: #aaa;
+    border-top: 1px solid #e0e0e0;
+    padding-top: 5px;
+    text-align: center;
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+    {% if logo_url %}<img src="{{ logo_url }}" alt="Logo">{% else %}<div></div>{% endif %}
+    <div class="co-block">
+        <span class="co-name">Marinković - Hofmann d.o.o.</span>
+        MB: 07775911 &nbsp;|&nbsp; PIB: 101030495<br>
+        TR: 220-0000000021678-48 ProCredit Bank
+    </div>
+</div>
+
+<h1>Pregled plana dospeća obaveza po osnovu Ugovora o zakupu</h1>
+
+<!-- META -->
+<div class="meta-grid">
+    <div class="meta-box">
+        <div class="lbl">Zakupac</div>
+        <div class="val">{{ contract.client_name }}</div>
+        {% if contract.client_representative %}<div style="font-size:6.5pt;color:#777;margin-top:2px;">{{ contract.client_representative }}</div>{% endif %}
+    </div>
+    <div class="meta-box">
+        <div class="lbl">Predmet zakupa</div>
+        <div class="val" style="white-space:pre-line;">{{ contract.equipment_model }}</div>
+    </div>
+    <div class="meta-box">
+        <div class="lbl">Broj Ugovora / Period</div>
+        <div class="val">{{ contract.contract_number or '–' }}</div>
+        <div style="font-size:7pt;color:#666;margin-top:2px;">{{ contract.contract_date }} &nbsp;|&nbsp; {{ contract.period_months }} meseci</div>
+    </div>
+</div>
+
+<!-- SUMMARY STRIP -->
+<div class="summary-strip">
+    <div class="sum-cell">
+        <div class="sl">Mesečna rata BRUTO</div>
+        <div class="sv">{{ "%.2f €"|format(calc.rata_bruto) }}</div>
+    </div>
+    <div class="sum-cell" style="background:#005fa3;">
+        <div class="sl">Rata nakon zatvaranja avansa</div>
+        <div class="sv">{{ "%.2f €"|format(calc.rata_nakon) }}</div>
+    </div>
+    <div class="sum-cell" style="background:#00875a;">
+        <div class="sl">Avans BRUTO</div>
+        <div class="sv">{{ "%.2f €"|format(calc.ucesce_bruto) }}</div>
+    </div>
+    <div class="sum-cell" style="background:#6c757d;">
+        <div class="sl">Adm. trošak BRUTO</div>
+        <div class="sv">{{ "%.2f €"|format(calc.admin_bruto) }}</div>
+    </div>
+</div>
+
+<!-- SCHEDULE TABLE -->
+<table>
+    <thead>
+    <tr>
+        <th style="width:4%;">R.Br.</th>
+        <th>Zakupnina<br>(neto)</th>
+        <th>Avans<br>(neto)</th>
+        <th>Druge<br>uplate (neto)</th>
+        <th>PDV</th>
+        <th style="background:#005fa3;">Suma<br>(bruto)</th>
+        <th>Zatvaranje<br>Avansa</th>
+        <th style="background:#005fa3;">Suma nakon<br>zatv. avansa</th>
+        <th style="width:10%;">Datum<br>dospeća</th>
+        <th style="text-align:left;width:13%;">Opis</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for row in schedule %}
+    <tr class="{{ 'pre-row' if row.nr.startswith('0') else '' }}">
+        <td class="nr">{{ row.nr }}</td>
+        <td>{% if row.neto is not none %}{{ "%.2f €"|format(row.neto) }}{% else %}<span class="dash">–</span>{% endif %}</td>
+        <td>{% if row.avans is not none %}{{ "%.2f €"|format(row.avans) }}{% else %}<span class="dash">–</span>{% endif %}</td>
+        <td>{% if row.druge is not none %}{{ "%.2f €"|format(row.druge) }}{% else %}<span class="dash">–</span>{% endif %}</td>
+        <td>{{ "%.2f €"|format(row.pdv) }}</td>
+        <td style="font-weight:700;">{{ "%.2f €"|format(row.suma) }}</td>
+        <td>{% if row.zatvaranje is not none %}{{ "%.2f €"|format(row.zatvaranje) }}{% else %}<span class="dash">–</span>{% endif %}</td>
+        <td style="font-weight:700;">{% if row.suma_nakon is not none %}{{ "%.2f €"|format(row.suma_nakon) }}{% else %}<span class="dash">–</span>{% endif %}</td>
+        <td class="date">{{ row.datum }}</td>
+        <td class="opis">{{ row.opis }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+<div class="note">
+    * Svi iznosi iskazani su u evrima. Plaćanje se vrši u dinarima po srednjem kursu NBS na dan uplate.<br>
+    * Datumi dospeća označavaju poslednji dan tekućeg meseca u kom rata dospeva na naplatu.
+</div>
+
+<div class="sig-grid">
+    <div class="sig-box">
+        <div class="sig-name">ZA ZAKUPODAVCA<br>MARINKOVIĆ-HOFMANN DOO<br>Vlada Marinković</div>
+        <div class="sig-line">Potpis i pečat</div>
+    </div>
+    <div class="sig-box">
+        <div class="sig-name">ZA ZAKUPCA<br>{{ contract.client_name }}<br>{{ contract.client_representative or '–' }}</div>
+        <div class="sig-line">Potpis i pečat</div>
+    </div>
+</div>
+
+<div class="footer">
+    MARINKOVIĆ-HOFMANN DOO &nbsp;·&nbsp; Desetog Oktobra 3, 11262 Velika Moštanica &nbsp;·&nbsp;
+    MB: 07775911 &nbsp;·&nbsp; PIB: 101030495 &nbsp;·&nbsp; TR: 220-0000000021678-48 ProCredit Bank A.D. Beograd
+</div>
+</body>
+</html>

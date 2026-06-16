@@ -80,6 +80,7 @@
             <a href="{{ url_for('index') }}" class="active">Dashboard</a>
             <a href="{{ url_for('list_pdf_templates') }}">PDF Templates</a>
             <a href="{{ url_for('list_rounding_rules') }}">Rounding Rules</a>
+            <a href="/admin/rent/templates">Rent Šabloni</a>
         </div>
         <div class="nav-right">
             <a href="/">{{ _('Landing Page') }}</a>
@@ -131,6 +132,13 @@
                         <label>New Offer App Password</label>
                         <input type="password" name="new_offer_password" placeholder="Leave blank to keep unchanged">
                         <input type="password" name="new_offer_password_confirm" placeholder="Confirm new password"
+                            style="margin-top: -10px;">
+                    </div>
+
+                    <div>
+                        <label>New Rent App Password (Zakup)</label>
+                        <input type="password" name="new_rent_password" placeholder="Leave blank to keep unchanged">
+                        <input type="password" name="new_rent_password_confirm" placeholder="Confirm new password"
                             style="margin-top: -10px;">
                     </div>
                 </div>
@@ -358,7 +366,71 @@
             </form>
         </div>
 
+        <!-- Rent Module Defaults -->
+        <div class="card">
+            <h3>📋 Zakup – Podrazumevani finansijski parametri</h3>
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px;">
+                Ove vrednosti se automatski učitavaju pri kreiranju novog ugovora o zakupu.
+                Mogu se izmeniti pojedinačno po ugovoru.
+            </p>
+            <form action="{{ url_for('update_settings') }}" method="POST">
+                <div class="grid-2-col-asymmetric" style="grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px;">
+                    <label>Godišnja kamata (%)
+                        <input type="number" name="rent_default_interest_rate" step="0.01" min="0"
+                               value="{{ rent_defaults.rent_default_interest_rate }}">
+                    </label>
+                    <label>Stopa osiguranja – god. (%)
+                        <input type="number" name="rent_default_insurance_rate" step="0.001" min="0"
+                               value="{{ rent_defaults.rent_default_insurance_rate }}">
+                    </label>
+                    <label>Stopa garancije – god. (%)
+                        <input type="number" name="rent_default_guarantee_rate" step="0.01" min="0"
+                               value="{{ rent_defaults.rent_default_guarantee_rate }}">
+                    </label>
+                    <label>Administrativni trošak (€)
+                        <input type="number" name="rent_default_admin_fee" step="0.01" min="0"
+                               value="{{ rent_defaults.rent_default_admin_fee }}">
+                    </label>
+                    <label>PDV (%)
+                        <input type="number" name="rent_default_vat_percent" step="0.01" min="0"
+                               value="{{ rent_defaults.rent_default_vat_percent }}">
+                    </label>
+                    <label>Ostatak vrednosti (%)
+                        <input type="number" name="rent_default_salvage_value_percent" step="0.01" min="0"
+                               value="{{ rent_defaults.rent_default_salvage_value_percent }}">
+                    </label>
+                    <label>Učešće / Avans (%)
+                        <input type="number" name="rent_default_downpayment_percent" step="0.01" min="0" max="100"
+                               value="{{ rent_defaults.rent_default_downpayment_percent }}">
+                    </label>
+                    <label>Podrazumevani broj meseci
+                        <input type="number" name="rent_default_period_months" step="1" min="1"
+                               value="{{ rent_defaults.rent_default_period_months }}">
+                    </label>
+                </div>
+                <div style="margin-top: 16px;">
+                    <label style="color: var(--accent-warning);">Confirm Current Admin Password</label>
+                    <input type="password" name="current_admin_password" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Sačuvaj Rent Parametre</button>
+            </form>
+        </div>
+
+        <!-- Rent Master Template Editor link -->
+        <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px 24px;">
+            <div>
+                <h3 style="margin:0 0 4px;">📄 Zakup – Master šabloni dokumenata</h3>
+                <p style="margin:0;color:var(--text-muted);font-size:0.9rem;">
+                    Globalno uredite HTML šablone za sve ugovore o zakupu (Ugovor, Zapisnik, Meničko ovlašćenje, itd.).
+                </p>
+            </div>
+            <a href="/admin/rent/templates" class="btn btn-primary" style="white-space:nowrap;">
+                Otvori editor šablona →
+            </a>
+        </div>
+
         <!-- Email Configuration -->
+
         <div class="card">
             <h3>Email Configuration</h3>
             <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px;">

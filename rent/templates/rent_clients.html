@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Klijenti – Zakup{% endblock %}
+{% block content %}
+<h1>👥 Baza Klijenata</h1>
+{% if msg %}<div class="alert alert-success">{{ msg }}</div>{% endif %}
+
+<div style="display:grid;grid-template-columns:400px 1fr;gap:24px;align-items:start;">
+<!-- ADD/EDIT FORM -->
+<div class="calc-card card">
+    <h3>{{ 'Izmeni klijenta' if edit_client else 'Dodaj klijenta' }}</h3>
+    <form method="post">
+        <input type="hidden" name="action" value="save">
+        {% if edit_client %}<input type="hidden" name="client_id" value="{{ edit_client.id }}">{% endif %}
+        <label>Ime Firme *<input type="text" name="name" value="{{ edit_client.name if edit_client else '' }}" required></label>
+        <label>Matični Broj<input type="text" name="mb" value="{{ edit_client.mb if edit_client else '' }}"></label>
+        <label>PIB<input type="text" name="pib" value="{{ edit_client.pib if edit_client else '' }}"></label>
+        <label>Broj Računa<input type="text" name="account" value="{{ edit_client.account if edit_client else '' }}"></label>
+        <label>Adresa Sedišta<input type="text" name="address" value="{{ edit_client.address if edit_client else '' }}"></label>
+        <label>Adresa Zakupa<input type="text" name="rent_address" value="{{ edit_client.rent_address if edit_client else '' }}"></label>
+        <label>Potpisnik Ugovora<input type="text" name="representative" value="{{ edit_client.representative if edit_client else '' }}"></label>
+        <label>e-Mail<input type="email" name="email" value="{{ edit_client.email if edit_client else '' }}"></label>
+        <label>Jemac (Ime, Grad, JMBG)<input type="text" name="guarantor" value="{{ edit_client.guarantor if edit_client else '' }}"></label>
+        <div style="display:flex;gap:10px;margin-top:8px;">
+            <button type="submit" class="btn btn-success">💾 Sačuvaj</button>
+            {% if edit_client %}<a href="{{ url_for('list_clients') }}" class="btn btn-secondary">Otkaži</a>{% endif %}
+        </div>
+    </form>
+    {% if edit_client %}
+    <form method="post" style="margin-top:12px;" onsubmit="return confirm('Obrisati klijenta?');">
+        <input type="hidden" name="action" value="delete">
+        <input type="hidden" name="client_id" value="{{ edit_client.id }}">
+        <button type="submit" class="btn btn-danger btn-sm">🗑 Obriši klijenta</button>
+    </form>
+    {% endif %}
+</div>
+
+<!-- TABLE -->
+<div class="card">
+    <table>
+        <thead><tr>
+            <th>Ime Firme</th><th>MB</th><th>PIB</th><th>Potpisnik</th><th>e-Mail</th><th>Akcija</th>
+        </tr></thead>
+        <tbody>
+        {% for cl in clients %}
+        <tr>
+            <td>{{ cl.name }}</td>
+            <td>{{ cl.mb }}</td>
+            <td>{{ cl.pib }}</td>
+            <td>{{ cl.representative }}</td>
+            <td><a href="mailto:{{ cl.email }}">{{ cl.email }}</a></td>
+            <td><a href="{{ url_for('list_clients', edit_id=cl.id) }}" class="btn btn-warning btn-sm">Izmeni</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" style="text-align:center;color:var(--text-muted);">Nema klijenata.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+</div>
+{% endblock %}

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="utf-8">
+<title>{{ template_name }} – {{ contract.contract_number or contract.id }}</title>
+<style>
+@page {
+    size: A4;
+    margin: 16mm 15mm 20mm 15mm;
+    @bottom-left {
+        content: "MARINKOVIĆ-HOFMANN d.o.o.  ·  Velika Moštanica, Desetog Oktobra 3  ·  MB: 07775911  ·  PIB: 101030495  ·  TR: 220-0000000021678-48 ProCredit Bank A.D.";
+        font-size: 6pt;
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        color: #aaa;
+        border-top: 1px solid #e0e0e0;
+        padding-top: 3pt;
+        vertical-align: top;
+    }
+    @bottom-right {
+        content: "Strana " counter(page) " od " counter(pages);
+        font-size: 6pt;
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        color: #aaa;
+        border-top: 1px solid #e0e0e0;
+        padding-top: 3pt;
+        vertical-align: top;
+    }
+}
+
+* { box-sizing: border-box; }
+
+body {
+    font-family: "Times New Roman", Times, serif;
+    font-size: 10.5pt;
+    color: #111;
+    margin: 0;
+    padding: 0;
+    line-height: 1.65;
+}
+
+/* ── Header (identical to Ponuda) ── */
+.doc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2.5px solid #007acc;
+    padding-bottom: 8px;
+    margin-bottom: 14px;
+}
+.doc-header img { max-height: 48px; width: auto; }
+.co-block { text-align: right; font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 7.5pt; color: #444; line-height: 1.5; }
+.co-name  { font-size: 10.5pt; font-weight: 700; color: #007acc; display: block; }
+
+/* ── Document title block ── */
+.doc-title-block {
+    text-align: center;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e0e4ea;
+}
+.doc-title-block .doc-type {
+    font-size: 6.5pt; color: #999; text-transform: uppercase;
+    letter-spacing: 1.2px; font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+.doc-title-block h1 {
+    margin: 5px 0 3px; font-size: 13.5pt; font-weight: 700; color: #111;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+.doc-title-block .doc-meta {
+    font-size: 8pt; color: #555;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+/* ── Body content ── */
+p   { margin: 0 0 7pt; text-align: justify; }
+h1  { font-size: 12pt; text-align: center; margin: 10pt 0 8pt; font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; }
+h2  { font-size: 10.5pt; margin: 10pt 0 5pt; font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; }
+h3  { font-size: 10pt; margin: 8pt 0 4pt; font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; }
+
+/* ── Article headings (Član 1.) ── */
+.clan-header {
+    text-align: center;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 10.5pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin: 20pt 0 6pt;
+    color: #007acc;
+    page-break-after: avoid;
+}
+.clan-header::after {
+    content: "";
+    display: block;
+    width: 90px;
+    height: 1.5px;
+    background: #007acc;
+    margin: 4px auto 0;
+    opacity: 0.4;
+}
+
+/* ── Section sub-headings ── */
+.section-header {
+    text-align: center;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 9.5pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin: 14pt 0 8pt;
+    color: #333;
+    page-break-after: avoid;
+}
+
+/* ── Tables ── */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 10pt;
+    font-size: 9.5pt;
+}
+table td, table th {
+    border: 1px solid #d0d6df;
+    padding: 4pt 8pt;
+    vertical-align: top;
+}
+table th {
+    background: #f0f4f8;
+    font-weight: 700;
+    text-align: left;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 8pt;
+    color: #007acc;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+table tr:nth-child(even) td { background: #fafbfc; }
+
+ul, ol { margin: 0 0 7pt 20pt; padding: 0; }
+li { margin-bottom: 3pt; }
+
+strong, b { font-weight: 700; }
+em, i     { font-style: italic; }
+
+/* ── Signature block ── */
+.sig-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 50px; margin-top: 30pt; }
+.sig-box { text-align: center; }
+.sig-name { font-weight: 700; font-size: 9pt; margin-bottom: 28px; font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; }
+.sig-line { border-top: 1px solid #555; padding-top: 5px; font-size: 7.5pt; color: #555; font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; }
+
+</style>
+</head>
+<body>
+
+<!-- HEADER (same as Ponuda) -->
+<div class="doc-header">
+    <div>{% if logo_url %}<img src="{{ logo_url }}" alt="Logo">{% endif %}</div>
+    <div class="co-block">
+        <span class="co-name">Marinković - Hofmann d.o.o.</span>
+        11262 Velika Moštanica, Desetog oktobra 3<br>
+        MB: 07775911 &nbsp;|&nbsp; PIB: 101030495<br>
+        TR: 220-0000000021678-48 ProCredit Bank
+    </div>
+</div>
+
+<!-- Document title block -->
+<div class="doc-title-block">
+    <div class="doc-type">Dokument ugovora o zakupu</div>
+    <h1>{{ template_name }}</h1>
+    <div class="doc-meta">
+        Ugovor br. <strong>{{ contract.contract_number or contract.id }}</strong>
+        &nbsp;|&nbsp; Zakupac: <strong>{{ contract.client_name }}</strong>
+        &nbsp;|&nbsp; Datum: <strong>{{ contract.contract_date }}</strong>
+    </div>
+</div>
+
+<!-- Document content -->
+{{ html_content|safe }}
+
+</body>
+</html>

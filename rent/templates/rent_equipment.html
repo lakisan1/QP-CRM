@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Oprema – Zakup{% endblock %}
+{% block content %}
+<h1>🔧 Baza Opreme</h1>
+{% if msg %}<div class="alert alert-success">{{ msg }}</div>{% endif %}
+
+<div style="display:grid;grid-template-columns:380px 1fr;gap:24px;align-items:start;">
+<!-- FORM -->
+<div class="card">
+    <h3>{{ 'Izmeni opremu' if edit_eq else 'Dodaj opremu' }}</h3>
+    <form method="post">
+        <input type="hidden" name="action" value="save">
+        {% if edit_eq %}<input type="hidden" name="eq_id" value="{{ edit_eq.id }}">{% endif %}
+        <label>Naziv (maks 255 znakova) *
+            <textarea name="name" rows="3" required>{{ edit_eq.name if edit_eq else '' }}</textarea>
+        </label>
+        <label>Prodajna cena neto (€)
+            <input type="number" name="price" step="0.01" min="0" value="{{ edit_eq.price if edit_eq else 0 }}">
+        </label>
+        <label>Podrazumevani broj meseci
+            <input type="number" name="default_rent_months" step="1" min="1" value="{{ edit_eq.default_rent_months if edit_eq else 48 }}">
+        </label>
+        <label>Stopa garancije/troška – god. (%)
+            <input type="number" name="default_guarantee_rate" step="0.01" min="0" value="{{ edit_eq.default_guarantee_rate if edit_eq else 5 }}">
+        </label>
+        <label>Učešće / Avans (%)
+            <input type="number" name="default_downpayment_percent" step="0.01" min="0" max="100" value="{{ edit_eq.default_downpayment_percent if edit_eq else 20 }}">
+        </label>
+        <div style="display:flex;gap:10px;margin-top:8px;">
+            <button type="submit" class="btn btn-success">💾 Sačuvaj</button>
+            {% if edit_eq %}<a href="{{ url_for('list_equipment') }}" class="btn btn-secondary">Otkaži</a>{% endif %}
+        </div>
+    </form>
+    {% if edit_eq %}
+    <form method="post" style="margin-top:12px;" onsubmit="return confirm('Obrisati opremu?');">
+        <input type="hidden" name="action" value="delete">
+        <input type="hidden" name="eq_id" value="{{ edit_eq.id }}">
+        <button type="submit" class="btn btn-danger btn-sm">🗑 Obriši</button>
+    </form>
+    {% endif %}
+</div>
+
+<!-- TABLE -->
+<div class="card">
+    <table>
+        <thead><tr>
+            <th>Naziv</th><th>Cena (€)</th><th>Meseci</th><th>Garancija %</th><th>Avans %</th><th>Akcija</th>
+        </tr></thead>
+        <tbody>
+        {% for eq in equipment %}
+        <tr>
+            <td style="font-size:12px;max-width:300px;">{{ eq.name }}</td>
+            <td style="text-align:right;">{{ format_amount(eq.price) }}</td>
+            <td style="text-align:center;">{{ eq.default_rent_months }}</td>
+            <td style="text-align:center;">{{ eq.default_guarantee_rate }}%</td>
+            <td style="text-align:center;">{{ eq.default_downpayment_percent }}%</td>
+            <td><a href="{{ url_for('list_equipment', edit_id=eq.id) }}" class="btn btn-warning btn-sm">Izmeni</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" style="text-align:center;color:var(--text-muted);">Nema opreme.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+</div>
+{% endblock %}

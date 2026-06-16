@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="utf-8">
+<title>Ponuda – {{ contract.contract_number }}</title>
+<style>
+@page {
+    size: A4;
+    margin: 16mm 14mm 14mm 14mm;
+}
+* { box-sizing: border-box; }
+body {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 8.8pt;
+    color: #222;
+    margin: 0; padding: 0;
+    line-height: 1.4;
+}
+
+/* ── Header ── */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2.5px solid #007acc;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+}
+.header img { max-height: 48px; width: auto; }
+.co-block { text-align: right; font-size: 7.5pt; color: #444; line-height: 1.5; }
+.co-name { font-size: 10.5pt; font-weight: 700; color: #007acc; display: block; }
+
+/* ── Two-column meta ── */
+.meta-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.meta-box {
+    border: 1px solid #dde3ea;
+    border-radius: 5px;
+    padding: 7px 10px;
+    background: #f8fafc;
+}
+.meta-box .lbl { font-size: 6.5pt; color: #888; text-transform: uppercase; letter-spacing: 0.4px; }
+.meta-box .val { font-size: 9pt; font-weight: 700; color: #1a1a1a; margin-top: 2px; }
+
+/* ── Equipment box ── */
+.equip-box {
+    border: 1.5px solid #007acc;
+    border-radius: 5px;
+    padding: 8px 12px;
+    background: #f0f7ff;
+    margin-bottom: 10px;
+}
+.equip-box .lbl { font-size: 7pt; font-weight: 700; color: #007acc; text-transform: uppercase; letter-spacing: 0.4px; }
+.equip-box .val { font-size: 9.5pt; font-weight: 700; color: #1a1a1a; margin-top: 3px; white-space: pre-line; }
+
+/* ── Section heading ── */
+h2 {
+    font-size: 9pt;
+    color: #007acc;
+    border-bottom: 1.5px solid #007acc;
+    padding-bottom: 3px;
+    margin: 10px 0 6px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+/* ── Params table ── */
+.params { width: 100%; border-collapse: collapse; }
+.params tr { border-bottom: 1px solid #eaecef; }
+.params tr:last-child { border-bottom: none; }
+.params td { padding: 4px 8px; font-size: 8.5pt; }
+.params td:last-child { text-align: right; font-weight: 600; width: 90px; }
+.params tr.hl td { background: #f0f7ff; }
+.params tr.total td { background: #007acc; color: white; font-weight: 700; font-size: 9pt; border-radius: 3px; }
+.params tr.total td:first-child { border-radius: 3px 0 0 3px; }
+.params tr.total td:last-child  { border-radius: 0 3px 3px 0; }
+
+/* ── Note ── */
+.note {
+    font-size: 7pt; color: #666; margin-top: 10px;
+    border-top: 1px dashed #ccc; padding-top: 6px; line-height: 1.5;
+}
+
+/* ── Signature ── */
+.sig-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 22px; }
+.sig-box { text-align: center; }
+.sig-name { font-weight: 700; font-size: 8.5pt; margin-bottom: 28px; }
+.sig-line { border-top: 1px solid #333; padding-top: 4px; font-size: 7.5pt; color: #555; }
+
+/* ── Footer ── */
+.footer {
+    margin-top: 16px;
+    font-size: 7pt; color: #999;
+    border-top: 1px solid #e0e0e0;
+    padding-top: 5px;
+    text-align: center;
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+    {% if logo_url %}<img src="{{ logo_url }}" alt="Logo">{% else %}<div></div>{% endif %}
+    <div class="co-block">
+        <span class="co-name">Marinković - Hofmann d.o.o.</span>
+        11262 Velika Moštanica, Desetog oktobra 3<br>
+        MB: 07775911 &nbsp;|&nbsp; PIB: 101030495<br>
+        TR: 220-0000000021678-48 ProCredit Bank
+    </div>
+</div>
+
+<!-- META -->
+<div class="meta-grid">
+    <div class="meta-box">
+        <div class="lbl">Privrednom društvu (Zakupac)</div>
+        <div class="val">{{ contract.client_name }}</div>
+        {% if contract.client_mb %}<div style="font-size:7.5pt;margin-top:3px;color:#555;">MB: {{ contract.client_mb }}{% if contract.client_pib %} &nbsp;|&nbsp; PIB: {{ contract.client_pib }}{% endif %}</div>{% endif %}
+        {% if contract.client_email %}<div style="font-size:7.5pt;color:#555;">{{ contract.client_email }}</div>{% endif %}
+        {% if contract.client_address %}<div style="font-size:7.5pt;color:#555;">{{ contract.client_address }}</div>{% endif %}
+    </div>
+    <div class="meta-box">
+        <div class="lbl">Ponuda br. / Datum</div>
+        <div class="val" style="font-size:12pt;">{{ contract.contract_number or '–' }}</div>
+        <div style="font-size:8pt;color:#555;margin-top:4px;">U V. Moštanici, {{ contract.contract_date }}</div>
+    </div>
+</div>
+
+<!-- EQUIPMENT -->
+<div class="equip-box">
+    <div class="lbl">Predmet zakupa</div>
+    <div class="val">{{ contract.equipment_model }}</div>
+</div>
+
+<!-- PARAMS TABLE -->
+<h2>Parametri Ponude za Zakup</h2>
+<table class="params">
+    <tr><td>Trajanje zakupa (meseci)</td><td>{{ contract.period_months }}</td></tr>
+
+    <tr class="hl"><td>Mesečna zakupnina – <em>neto</em></td><td>{{ "%.2f €"|format(calc.rata_neto) }}</td></tr>
+    <tr><td style="padding-left:16px;">od čega: finansiranje</td><td>{{ "%.2f €"|format(calc.rata_fin) }}</td></tr>
+    <tr><td style="padding-left:16px;">od čega: osiguranje</td><td>{{ "%.2f €"|format(calc.osiguranje) }}</td></tr>
+    <tr><td style="padding-left:16px;">od čega: garancija/trošak</td><td>{{ "%.2f €"|format(calc.garancija) }}</td></tr>
+    <tr><td>PDV ({{ contract.vat_percent|int }}%)</td><td>{{ "%.2f €"|format(calc.rata_pdv) }}</td></tr>
+    <tr class="total"><td>Mesečna zakupnina – BRUTO (sa PDV-om)</td><td>{{ "%.2f €"|format(calc.rata_bruto) }}</td></tr>
+
+    <tr><td>&nbsp;</td><td>&nbsp;</td></tr>
+    <tr><td>Mesečno zatvaranje avansa</td><td>{{ "%.2f €"|format(calc.zatvaranje) }}</td></tr>
+    <tr class="hl"><td>Rata nakon zatvaranja avansa</td><td>{{ "%.2f €"|format(calc.rata_nakon) }}</td></tr>
+
+    <tr><td>&nbsp;</td><td>&nbsp;</td></tr>
+    <tr><td>Obavezan avans – <em>neto</em></td><td>{{ "%.2f €"|format(calc.ucesce) }}</td></tr>
+    <tr><td>PDV na avans</td><td>{{ "%.2f €"|format(calc.ucesce_pdv) }}</td></tr>
+    <tr class="total"><td>Obavezan avans – BRUTO</td><td>{{ "%.2f €"|format(calc.ucesce_bruto) }}</td></tr>
+
+    <tr><td>&nbsp;</td><td>&nbsp;</td></tr>
+    <tr><td>Adm. troškovi izrade ugovora – <em>neto</em></td><td>{{ "%.2f €"|format(calc.admin_fee) }}</td></tr>
+    <tr class="hl"><td>Adm. troškovi izrade ugovora – <em>bruto</em></td><td>{{ "%.2f €"|format(calc.admin_bruto) }}</td></tr>
+</table>
+
+<div class="note">
+    * Svi iznosi iskazani su u evrima. Plaćanje se vrši u dinarima po srednjem kursu NBS na dan uplate.<br>
+    * Rok važenja ponude: 20 dana od datuma izdavanja.<br>
+    * Ponuda važi za pravna lica. Po proveri boniteta firme ostvaruju se navedeni uslovi zakupa.
+</div>
+
+<div class="sig-grid">
+    <div class="sig-box">
+        <div class="sig-name">Saglasan sa ponudom<br>{{ contract.client_representative or contract.client_name }}</div>
+        <div class="sig-line">Potpis i pečat zakupca</div>
+    </div>
+    <div class="sig-box">
+        <div class="sig-name">Marinković-Hofmann d.o.o.<br>Vlada Marinković</div>
+        <div class="sig-line">Potpis i pečat zakupodavca</div>
+    </div>
+</div>
+
+<div class="footer">
+    MARINKOVIĆ-HOFMANN DOO &nbsp;·&nbsp; Desetog Oktobra 3, 11262 Velika Moštanica &nbsp;·&nbsp;
+    MB: 07775911 &nbsp;·&nbsp; PIB: 101030495 &nbsp;·&nbsp; TR: 220-0000000021678-48 ProCredit Bank A.D. Beograd
+</div>
+</body>
+</html>

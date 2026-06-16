@@ -17,6 +17,7 @@ from offer.app import app as offer_app, init_db as offer_init_db
 from admin.app import app as admin_app, init_db as admin_init_db
 from sale.app import app as sale_app
 from settings.app import app as settings_app
+from rent.app import app as rent_app, init_db as rent_init_db
 from shared.config import STATIC_DIR, APP_ASSETS_DIR
 
 # Initialize the main landing app
@@ -39,7 +40,7 @@ def inject_i18n():
     lang = get_current_language()
     return dict(_=lambda text: _(text, lang), current_lang=lang)
 
-for sub_app in [pricing_app, offer_app, admin_app, sale_app, settings_app, app]:
+for sub_app in [pricing_app, offer_app, admin_app, sale_app, settings_app, rent_app, app]:
     sub_app.context_processor(inject_i18n)
 
 # Merge the applications using DispatcherMiddleware
@@ -48,7 +49,8 @@ application = DispatcherMiddleware(app, {
     '/sale': sale_app,
     '/offer': offer_app,
     '/admin': admin_app,
-    '/settings': settings_app
+    '/settings': settings_app,
+    '/rent': rent_app
 })
 
 if __name__ == "__main__":
@@ -60,6 +62,7 @@ if __name__ == "__main__":
     pricing_migrate_schema()
     offer_init_db()
     admin_init_db()
+    rent_init_db()
     
     # We use run_simple to run the WSGI application
     # This replaces app.run() for the combined app
