@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Ugovori – Zakup{% endblock %}
+{% block content %}
+<h1>📄 Pregled Ugovora o Zakupu</h1>
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+    <a href="{{ url_for('new_contract') }}" class="btn btn-success">+ Novi Ugovor</a>
+    <span style="background:var(--accent-primary);color:white;padding:4px 14px;border-radius:20px;font-weight:bold;">
+        {{ total }} ugovora
+    </span>
+</div>
+
+<div class="card">
+    <form method="get" style="display:flex;flex-wrap:wrap;gap:15px;align-items:flex-end;">
+        <label style="display:flex;flex-direction:column;">
+            <span style="margin-bottom:6px;font-size:13px;font-weight:500;">Od datuma:</span>
+            <input type="date" name="date_from" value="{{ date_from }}" onchange="this.form.submit()" style="margin-bottom:0;">
+        </label>
+        <label style="display:flex;flex-direction:column;">
+            <span style="margin-bottom:6px;font-size:13px;font-weight:500;">Do datuma:</span>
+            <input type="date" name="date_to" value="{{ date_to }}" onchange="this.form.submit()" style="margin-bottom:0;">
+        </label>
+        <label style="display:flex;flex-direction:column;flex:1;min-width:200px;">
+            <span style="margin-bottom:6px;font-size:13px;font-weight:500;">Pretraga (broj / klijent):</span>
+            <input type="text" name="search" value="{{ search }}" style="margin-bottom:0;">
+        </label>
+        <button type="submit" class="btn btn-primary" style="margin-bottom:0;">Traži</button>
+        <a href="{{ url_for('list_contracts') }}" class="btn btn-secondary" style="margin-bottom:0;">Reset</a>
+    </form>
+</div>
+
+<div class="card">
+    <table class="larg-table">
+        <thead>
+        <tr>
+            <th>Datum</th>
+            <th>Broj Ugovora</th>
+            <th>Klijent</th>
+            <th>Model Opreme</th>
+            <th>Cena (€)</th>
+            <th>Mesečna rata neto (€)</th>
+            <th>Mesečna rata bruto (€)</th>
+            <th style="width:80px;">Akcije</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for c in contracts %}
+            {% set calc = calculate_rent(c.price, c.period_months, c.downpayment_percent,
+                                         c.salvage_value_percent, c.interest_rate,
+                                         c.insurance_rate, c.guarantee_rate,
+                                         c.vat_percent, c.admin_fee) %}
+            <tr>
+                <td style="white-space:nowrap;">{{ c.contract_date }}</td>
+                <td><a href="{{ url_for('edit_contract', contract_id=c.id) }}">{{ c.contract_number or c.id }}</a></td>
+                <td>{{ c.client_name }}</td>
+                <td style="max-width:200px;font-size:12px;">{{ c.equipment_model }}</td>
+                <td style="text-align:right;">{{ format_amount(c.price) }}</td>
+                <td style="text-align:right;font-weight:600;">{{ format_amount(calc.rata_neto) }}</td>
+                <td style="text-align:right;font-weight:600;color:var(--accent-primary);">{{ format_amount(calc.rata_bruto) }}</td>
+                <td style="text-align:center;">
+                    <button type="button"
+                            class="btn btn-danger btn-sm"
+                            data-action="{{ url_for('delete_contract', contract_id=c.id) }}"
+                            onclick="openDeleteModal(this)">Bri&#353;i</button>
+                </td>
+            </tr>
+        {% else %}
+            <tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:30px;">Nema ugovora.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if total_pages > 1 %}
+<div style="display:flex;justify-content:center;gap:10px;margin-top:20px;">
+    {% if current_page > 1 %}
+    <a href="{{ url_for('list_contracts', page=current_page-1, search=search, date_from=date_from, date_to=date_to) }}" class="btn btn-secondary">« Prethodna</a>
+    {% endif %}
+    <span style="padding:10px;font-weight:500;">Strana {{ current_page }} od {{ total_pages }}</span>
+    {% if current_page < total_pages %}
+    <a href="{{ url_for('list_contracts', page=current_page+1, search=search, date_from=date_from, date_to=date_to) }}" class="btn btn-secondary">Sledeća »</a>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- ── Confirmation Modal ────────────────────────────────────── -->
+<div id="deleteModal" style="
+    display:none; position:fixed; inset:0;
+    background:rgba(0,0,0,0.65); z-index:9999;
+    align-items:center; justify-content:center;">
+  <div style="
+      background:var(--bg-card,#1e1e2e);
+      border:1px solid var(--border-color,#333);
+      border-radius:14px; padding:36px 44px;
+      max-width:380px; width:90%; text-align:center;
+      box-shadow:0 24px 64px rgba(0,0,0,0.6);">
+    <div style="font-size:2.8rem;margin-bottom:12px;">🗑️</div>
+    <h3 style="margin:0 0 8px;font-size:1.15rem;">Brisanje ugovora</h3>
+    <p style="color:var(--text-muted,#aaa);margin:0 0 28px;font-size:0.92rem;">
+        Da li ste sigurni? Ova akcija je <strong>nepovratna</strong>.
+    </p>
+    <div style="display:flex;gap:14px;justify-content:center;">
+        <button class="btn btn-secondary" onclick="closeDeleteModal()">Otkaži</button>
+        <button class="btn btn-danger"    onclick="doDelete()">Da, obriši</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var _deleteUrl = null;
+
+function openDeleteModal(btn) {
+    _deleteUrl = btn.getAttribute('data-action');
+    var m = document.getElementById('deleteModal');
+    m.style.display = 'flex';
+}
+
+function closeDeleteModal() {
+    document.getElementById('deleteModal').style.display = 'none';
+    _deleteUrl = null;
+}
+
+function doDelete() {
+    if (!_deleteUrl) return;
+    // Create and submit a hidden form
+    var f = document.createElement('form');
+    f.method = 'POST';
+    f.action = _deleteUrl;
+    document.body.appendChild(f);
+    f.submit();
+}
+
+// Close on backdrop click
+document.getElementById('deleteModal').addEventListener('click', function(e) {
+    if (e.target === this) closeDeleteModal();
+});
+</script>
+{% endblock %}

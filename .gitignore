@@ -33,3 +33,7 @@ quotation.log
 # Temp
 *.tmp
 temp/
+
+# Local vendored deps (install via pip / requirements.txt instead)
+deps/
+custom_libs/

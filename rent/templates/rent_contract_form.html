@@ -1,0 +1,284 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Izmeni' if contract else 'Novi' }} Ugovor – Zakup{% endblock %}
+{% block content %}
+<style>
+/* ─── Layout ─────────────────────────────────────────────────── */
+.main-layout   { display:grid; grid-template-columns:1fr 340px; gap:24px; align-items:start; }
+.form-grid     { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.form-grid.three { grid-template-columns:1fr 1fr 1fr; }
+@media(max-width:1100px){ .main-layout { grid-template-columns:1fr; } }
+@media(max-width:800px){ .form-grid, .form-grid.three { grid-template-columns:1fr; } }
+
+/* ─── Section titles ─────────────────────────────────────────── */
+.sec { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.7px;
+       color:var(--accent-primary); border-bottom:2px solid var(--accent-primary);
+       padding-bottom:4px; margin:20px 0 12px; }
+.sec:first-child { margin-top:0; }
+
+/* ─── Calc sidebar ───────────────────────────────────────────── */
+.calc-sticky { position:sticky; top:20px; }
+.calc-row    { display:flex; justify-content:space-between; padding:5px 0;
+               border-bottom:1px solid var(--border-color); font-size:13px; }
+.calc-row:last-child { border-bottom:none; }
+.clbl  { color:var(--text-muted); }
+.cval  { font-weight:600; font-family:monospace; }
+.ctotal{ background:var(--accent-primary); color:white !important; border-radius:8px;
+         padding:10px 14px; margin:10px 0 0; display:flex; justify-content:space-between;
+         font-size:15px; font-weight:700; }
+.csubt { background:var(--bg-input); border-radius:6px; padding:8px 10px; margin:4px 0;
+         display:flex; justify-content:space-between; font-size:13px; font-weight:600; }
+.csub-lbl { color:var(--text-muted); font-weight:400; }
+
+/* ─── Advanced section (collapsible) ────────────────────────── */
+details > summary {
+    cursor:pointer; list-style:none; display:flex; align-items:center; gap:8px;
+    font-size:12px; font-weight:600; color:var(--text-muted); padding:8px 0;
+    border-top:1px dashed var(--border-color); margin-top:12px; user-select:none;
+}
+details > summary::before { content:"▶"; font-size:10px; transition:transform .2s; }
+details[open] > summary::before { transform:rotate(90deg); }
+details > summary::-webkit-details-marker { display:none; }
+</style>
+
+<div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;">
+    <a href="{{ url_for('list_contracts') }}" class="btn btn-secondary">← Nazad</a>
+    <h1 style="margin:0;">{{ 'Izmena: ' + (contract.contract_number or '') if contract else 'Novi Ugovor o Zakupu' }}</h1>
+</div>
+
+<div class="main-layout">
+
+<!-- ════════════════════ LEFT: FORM ═════════════════════════════ -->
+<div>
+<form method="post" id="contractForm">
+
+<!-- ── Ugovor ── -->
+<div class="card">
+<div class="sec">Podaci o Ugovoru</div>
+<div class="form-grid">
+    <label>Broj Ugovora<input type="text" name="contract_number" placeholder="Automatsko generisanje ako je prazno" value="{{ contract.contract_number if contract else '' }}"></label>
+    <label>Datum zaključenja<input type="date" name="contract_date" value="{{ contract.contract_date if contract else today }}" required></label>
+</div>
+<div class="form-grid">
+    <label>Datum preuzimanja<input type="date" name="delivery_date" value="{{ contract.delivery_date if contract else '' }}"></label>
+    <label>Vreme preuzimanja<input type="time" name="delivery_time" value="{{ contract.delivery_time if contract else '10:00' }}"></label>
+</div>
+</div>
+
+<!-- ── Klijent ── -->
+<div class="card">
+<div class="sec">Klijent</div>
+<label style="margin-bottom:4px;font-size:13px;">Izaberi iz baze klijenata</label>
+<select id="clientSelect" class="searchable-select" style="margin-bottom:14px;">
+    <option value="">-- Izaberi klijenta --</option>
+    {% for cl in clients %}
+    <option value="{{ cl.id }}" {% if contract and contract.client_name == cl.name %}selected{% endif %}>{{ cl.name }}</option>
+    {% endfor %}
+</select>
+<div class="form-grid">
+    <label>Ime firme (Zakupac) *<input type="text" name="client_name" id="client_name" value="{{ contract.client_name if contract else '' }}" required></label>
+    <label>Matični broj<input type="text" name="client_mb" id="client_mb" value="{{ contract.client_mb if contract else '' }}"></label>
+</div>
+<div class="form-grid">
+    <label>PIB<input type="text" name="client_pib" id="client_pib" value="{{ contract.client_pib if contract else '' }}"></label>
+    <label>Broj računa<input type="text" name="client_account" id="client_account" value="{{ contract.client_account if contract else '' }}"></label>
+</div>
+<div class="form-grid">
+    <label>Adresa sedišta<input type="text" name="client_address" id="client_address" value="{{ contract.client_address if contract else '' }}"></label>
+    <label>Adresa zakupa<input type="text" name="rent_address" id="rent_address" value="{{ contract.rent_address if contract else '' }}"></label>
+</div>
+<div class="form-grid">
+    <label>Ime potpisnika<input type="text" name="client_representative" id="client_representative" value="{{ contract.client_representative if contract else '' }}"></label>
+    <label>e-Mail<input type="email" name="client_email" id="client_email" value="{{ contract.client_email if contract else '' }}"></label>
+</div>
+<label>Jemac (Ime, Grad, JMBG)<input type="text" name="guarantor" id="guarantor" value="{{ contract.guarantor if contract else '' }}"></label>
+</div>
+
+<!-- ── Oprema ── -->
+<div class="card">
+<div class="sec">Oprema</div>
+<label style="margin-bottom:4px;font-size:13px;">Izaberi iz baze opreme</label>
+<select id="equipSelect" class="searchable-select" style="margin-bottom:14px;">
+    <option value="">-- Izaberi opremu --</option>
+    {% for eq in equipment %}
+    <option value="{{ eq.id }}" {% if contract and contract.equipment_model == eq.name %}selected{% endif %}>{{ eq.name }}</option>
+    {% endfor %}
+</select>
+<label>Model / Opis predmeta zakupa
+    <textarea name="equipment_model" id="equipment_model" rows="3" style="font-size:13px;">{{ contract.equipment_model if contract else '' }}</textarea>
+</label>
+</div>
+
+<!-- ── Finansijski parametri ── -->
+<div class="card">
+<div class="sec">Finansijski parametri</div>
+<div class="form-grid">
+    <label>Prodajna cena neto (€)
+        <input type="number" name="price" id="price" step="0.01" min="0"
+               value="{{ contract.price if contract else 0 }}" oninput="recalc()">
+    </label>
+    <label>Broj meseci
+        <input type="number" name="period_months" id="period_months" step="1" min="1"
+               value="{{ contract.period_months if contract else rent_defaults.rent_default_period_months }}" oninput="recalc()">
+    </label>
+</div>
+
+<!-- Advanced params — hidden by default, loaded from admin defaults -->
+<details id="advancedDetails">
+    <summary>⚙️ Napredne finansijske postavke (Admin defaults)</summary>
+    <div style="margin-top:12px;">
+        <div class="form-grid three">
+            <label>Učešće / Avans (%)
+                <input type="number" name="downpayment_percent" id="downpayment_percent" step="0.01" min="0" max="100"
+                       value="{{ contract.downpayment_percent if contract else rent_defaults.rent_default_downpayment_percent }}" oninput="recalc()">
+            </label>
+            <label>Ostatak vrednosti (%)
+                <input type="number" name="salvage_value_percent" id="salvage_value_percent" step="0.01" min="0" max="100"
+                       value="{{ contract.salvage_value_percent if contract else rent_defaults.rent_default_salvage_value_percent }}" oninput="recalc()">
+            </label>
+            <label>PDV (%)
+                <input type="number" name="vat_percent" id="vat_percent" step="0.01" min="0"
+                       value="{{ contract.vat_percent if contract else rent_defaults.rent_default_vat_percent }}" oninput="recalc()">
+            </label>
+        </div>
+        <div class="form-grid three">
+            <label>Godišnja kamata (%)
+                <input type="number" name="interest_rate" id="interest_rate" step="0.01" min="0"
+                       value="{{ contract.interest_rate if contract else rent_defaults.rent_default_interest_rate }}" oninput="recalc()">
+            </label>
+            <label>Stopa osiguranja – god. (%)
+                <input type="number" name="insurance_rate" id="insurance_rate" step="0.001" min="0"
+                       value="{{ contract.insurance_rate if contract else rent_defaults.rent_default_insurance_rate }}" oninput="recalc()">
+            </label>
+            <label>Stopa garancije – god. (%)
+                <input type="number" name="guarantee_rate" id="guarantee_rate" step="0.01" min="0"
+                       value="{{ contract.guarantee_rate if contract else rent_defaults.rent_default_guarantee_rate }}" oninput="recalc()">
+            </label>
+        </div>
+        <label>Adm. trošak ugovora (€)
+            <input type="number" name="admin_fee" id="admin_fee" step="0.01" min="0"
+                   value="{{ contract.admin_fee if contract else rent_defaults.rent_default_admin_fee }}" oninput="recalc()" style="max-width:200px;">
+        </label>
+    </div>
+</details>
+</div>
+
+<!-- ── Buttons ── -->
+<div style="margin-top:4px;display:flex;gap:10px;flex-wrap:wrap;">
+    <button type="submit" class="btn btn-success" style="font-size:15px;padding:12px 28px;">💾 Sačuvaj</button>
+    {% if contract %}
+    <a href="{{ url_for('pdf_offer', contract_id=contract.id) }}" target="_blank" class="btn btn-primary">📄 PDF Ponuda</a>
+    <a href="{{ url_for('pdf_schedule', contract_id=contract.id) }}" target="_blank" class="btn btn-primary">📅 PDF Plan Plaćanja</a>
+    <a href="{{ url_for('contract_documents', contract_id=contract.id) }}" class="btn btn-secondary" style="border:2px solid var(--accent-primary);">📁 Dokumenta</a>
+    {% endif %}
+</div>
+
+</form>
+</div><!-- end left -->
+
+<!-- ════════════════════ RIGHT: LIVE CALC ═══════════════════════ -->
+<div class="calc-sticky">
+<div class="card">
+<div class="sec" style="margin-top:0;">📊 Kalkulacija</div>
+
+<div class="csubt"><span class="csub-lbl">Cena neto</span><span id="r_price">–</span></div>
+
+<div style="margin-top:10px;margin-bottom:2px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);">Avans</div>
+<div class="calc-row"><span class="clbl">Neto</span><span class="cval" id="r_ucesce">–</span></div>
+<div class="calc-row"><span class="clbl">PDV</span><span class="cval" id="r_ucesce_pdv">–</span></div>
+<div class="csubt"><span class="csub-lbl">Avans BRUTO</span><span id="r_ucesce_bruto" style="color:var(--accent-primary);">–</span></div>
+
+<div style="margin-top:10px;margin-bottom:2px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);">Mesečna Rata</div>
+<div class="calc-row"><span class="clbl">Finansiranje</span><span class="cval" id="r_fin">–</span></div>
+<div class="calc-row"><span class="clbl">Osiguranje</span><span class="cval" id="r_osig">–</span></div>
+<div class="calc-row"><span class="clbl">Garancija</span><span class="cval" id="r_gar">–</span></div>
+<div class="calc-row" style="font-weight:700;"><span class="clbl">Rata neto</span><span class="cval" id="r_neto">–</span></div>
+<div class="calc-row"><span class="clbl">PDV</span><span class="cval" id="r_pdv">–</span></div>
+<div class="ctotal"><span>Rata BRUTO</span><span id="r_bruto">–</span></div>
+
+<div style="margin-top:12px;"></div>
+<div class="calc-row"><span class="clbl">Zatvaranje avansa/mes.</span><span class="cval" id="r_zatv">–</span></div>
+<div class="csubt"><span class="csub-lbl">Rata nakon zatvaranja</span><span id="r_nakon" style="color:var(--accent-success);">–</span></div>
+
+<div style="margin-top:12px;margin-bottom:2px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);">Jednokratni troškovi</div>
+<div class="calc-row"><span class="clbl">Adm. trošak neto</span><span class="cval" id="r_admin">–</span></div>
+<div class="csubt"><span class="csub-lbl">Adm. trošak BRUTO</span><span id="r_admin_bruto">–</span></div>
+
+<div style="margin-top:12px;border-top:1px solid var(--border-color);padding-top:10px;">
+<div class="calc-row"><span class="clbl">Ostatak vrednosti</span><span class="cval" id="r_ostatak">–</span></div>
+</div>
+</div>
+</div><!-- end right -->
+
+</div><!-- end main-layout -->
+
+<script>
+function fmt(v) {
+    if (v===null||v===undefined||isNaN(v)) return '–';
+    return v.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
+}
+function pmtCalc(rate,nper,pv,fv,type){
+    if(rate===0) return -(pv+fv)/nper;
+    const f=Math.pow(1+rate,nper);
+    let d=(f-1)/rate;
+    if(type===1) d*=(1+rate);
+    return -(pv*f+fv)/d;
+}
+function g(id){ return parseFloat(document.getElementById(id)?.value)||0; }
+function gi(id){ return parseInt(document.getElementById(id)?.value)||0; }
+function s(id,v){ const el=document.getElementById(id); if(el) el.textContent=v; }
+
+function recalc(){
+    const price=g('price'), vat=g('vat_percent'), n=gi('period_months')||48,
+          dp=g('downpayment_percent'), sv=g('salvage_value_percent'),
+          ir=g('interest_rate'), ins=g('insurance_rate'), gr=g('guarantee_rate'), adm=g('admin_fee');
+
+    const ucesce=price*dp/100, ucesce_pdv=ucesce*vat/100, ucesce_bruto=ucesce+ucesce_pdv;
+    const ostatak=price*sv/100;
+    const rata_fin=pmtCalc(ir/100/12,n,-(price-ucesce),ostatak,0);
+    const osig=ins/100*price/12, gar=price*gr/100/n;
+    const rata_neto=rata_fin+osig+gar, rata_pdv=rata_neto*vat/100, rata_bruto=rata_neto+rata_pdv;
+    const zatv=ucesce_bruto/n, rata_nakon=rata_bruto-zatv;
+    const adm_pdv=adm*vat/100, adm_bruto=adm+adm_pdv;
+
+    s('r_price',fmt(price));
+    s('r_ucesce',fmt(ucesce)); s('r_ucesce_pdv',fmt(ucesce_pdv)); s('r_ucesce_bruto',fmt(ucesce_bruto));
+    s('r_ostatak',fmt(ostatak));
+    s('r_fin',fmt(rata_fin)); s('r_osig',fmt(osig)); s('r_gar',fmt(gar));
+    s('r_neto',fmt(rata_neto)); s('r_pdv',fmt(rata_pdv)); s('r_bruto',fmt(rata_bruto));
+    s('r_zatv',fmt(zatv)); s('r_nakon',fmt(rata_nakon));
+    s('r_admin',fmt(adm)); s('r_admin_bruto',fmt(adm_bruto));
+}
+
+document.getElementById('clientSelect').addEventListener('change',function(){
+    const id=this.value; if(!id) return;
+    fetch(`/rent/api/client/${id}`).then(r=>r.json()).then(d=>{
+        ['client_name','client_mb','client_pib','client_account',
+         'client_address','rent_address','client_representative','client_email','guarantor']
+        .forEach(f=>{ const el=document.getElementById(f); if(el) el.value=d[f.replace('client_','')] ?? d[f] ?? ''; });
+        document.getElementById('client_name').value=d.name||'';
+        document.getElementById('client_mb').value=d.mb||'';
+        document.getElementById('client_pib').value=d.pib||'';
+        document.getElementById('client_account').value=d.account||'';
+        document.getElementById('client_address').value=d.address||'';
+        document.getElementById('rent_address').value=d.rent_address||'';
+        document.getElementById('client_representative').value=d.representative||'';
+        document.getElementById('client_email').value=d.email||'';
+        document.getElementById('guarantor').value=d.guarantor||'';
+    });
+});
+
+document.getElementById('equipSelect').addEventListener('change',function(){
+    const id=this.value; if(!id) return;
+    fetch(`/rent/api/equipment/${id}`).then(r=>r.json()).then(d=>{
+        document.getElementById('equipment_model').value=d.name||'';
+        document.getElementById('price').value=d.price||0;
+        document.getElementById('period_months').value=d.default_rent_months||48;
+        document.getElementById('guarantee_rate').value=d.default_guarantee_rate||5;
+        document.getElementById('downpayment_percent').value=d.default_downpayment_percent||20;
+        recalc();
+    });
+});
+
+recalc();
+</script>
+{% endblock %}

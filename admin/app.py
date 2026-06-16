@@ -212,7 +212,23 @@ def index():
     row = cur.fetchone()
     default_items_per_page = row["value"] if row else "25"
 
-    
+    # Fetch rent module defaults
+    rent_defaults = {}
+    rent_keys = {
+        'rent_default_interest_rate': '14.0',
+        'rent_default_insurance_rate': '1.13',
+        'rent_default_guarantee_rate': '5.0',
+        'rent_default_admin_fee': '50.0',
+        'rent_default_vat_percent': '20.0',
+        'rent_default_salvage_value_percent': '20.0',
+        'rent_default_downpayment_percent': '20.0',
+        'rent_default_period_months': '48',
+    }
+    for key, default in rent_keys.items():
+        cur.execute("SELECT value FROM global_settings WHERE key = ?;", (key,))
+        row = cur.fetchone()
+        rent_defaults[key] = row["value"] if row else default
+
     # Fetch all presets and group by category
     cur.execute("SELECT * FROM text_presets ORDER BY name ASC;")
     all_presets = cur.fetchall()
@@ -246,6 +262,7 @@ def index():
         email_offer_subject=email_offer_subject,
         email_offer_body=email_offer_body,
         default_items_per_page=default_items_per_page,
+        rent_defaults=rent_defaults,
         timestamp=int(time.time()),
         theme=current_theme
     )
@@ -329,6 +346,7 @@ def update_passwords():
         ("admin", request.form.get("new_admin_password"), request.form.get("new_admin_password_confirm")),
         ("pricing", request.form.get("new_pricing_password"), request.form.get("new_pricing_password_confirm")),
         ("offer", request.form.get("new_offer_password"), request.form.get("new_offer_password_confirm")),
+        ("rent", request.form.get("new_rent_password"), request.form.get("new_rent_password_confirm")),
     ]
 
     updated_count = 0
@@ -498,11 +516,22 @@ def update_settings():
     if items_per_page:
         cur.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES ('default_items_per_page', ?);", (items_per_page,))
 
-        
     # Mandatory fields
     for field in ['req_client_address', 'req_client_email', 'req_client_phone', 'req_client_pib', 'req_client_mb']:
         val = "true" if request.form.get(field) == "true" else "false"
         cur.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?);", (field, val))
+
+    # Rent module defaults
+    rent_num_keys = [
+        'rent_default_interest_rate', 'rent_default_insurance_rate',
+        'rent_default_guarantee_rate', 'rent_default_admin_fee',
+        'rent_default_vat_percent', 'rent_default_salvage_value_percent',
+        'rent_default_downpayment_percent', 'rent_default_period_months',
+    ]
+    for key in rent_num_keys:
+        val = request.form.get(key)
+        if val is not None and val.strip() != '':
+            cur.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?);", (key, val.strip()))
 
     conn.commit()
     conn.close()
@@ -1053,3 +1082,50 @@ def delete_rounding_rule():
     
     flash("Rounding rule deleted.", "success")
     return redirect(url_for("list_rounding_rules"))
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Rent Master Template Editor (Admin)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/rent/templates")
+def admin_rent_templates():
+    if not session.get("admin_authenticated"):
+        return redirect(url_for("login"))
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT id, slug, name FROM rent_templates ORDER BY id;")
+    templates = cur.fetchall()
+    conn.close()
+    return render_template("admin_rent_templates.html", templates=templates, selected=None, msg=None)
+
+
+@app.route("/rent/templates/<slug>", methods=["GET", "POST"])
+def admin_rent_template_edit(slug):
+    if not session.get("admin_authenticated"):
+        return redirect(url_for("login"))
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT id, slug, name FROM rent_templates ORDER BY id;")
+    templates = cur.fetchall()
+
+    cur.execute("SELECT * FROM rent_templates WHERE slug=?;", (slug,))
+    selected = cur.fetchone()
+    if not selected:
+        conn.close()
+        return "Šablon nije pronađen", 404
+
+    msg = None
+    if request.method == "POST":
+        new_html = request.form.get("content_html", "")
+        cur.execute("UPDATE rent_templates SET content_html=? WHERE slug=?;", (new_html, slug))
+        conn.commit()
+        msg = "✓ Šablon je uspešno sačuvan."
+        # Re-fetch updated
+        cur.execute("SELECT * FROM rent_templates WHERE slug=?;", (slug,))
+        selected = cur.fetchone()
+
+    conn.close()
+    return render_template("admin_rent_templates.html",
+                           templates=templates,
+                           selected=selected,
+                           msg=msg)

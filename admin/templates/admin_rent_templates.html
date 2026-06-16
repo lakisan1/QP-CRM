@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="sr" data-theme="{{ theme|default('dark') }}">
+<head>
+    <meta charset="UTF-8">
+    <title>Rent Šabloni – Admin</title>
+    <link rel="icon" type="image/png" href="/app_assets/favicon.png">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <style>
+        .layout {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 24px;
+            align-items: start;
+        }
+        .sidebar-list { list-style: none; padding: 0; margin: 0; }
+        .sidebar-list li a {
+            display: block;
+            padding: 10px 14px;
+            border-radius: 6px;
+            color: var(--text-main);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: background 0.15s;
+            border: 1px solid transparent;
+        }
+        .sidebar-list li a:hover { background: var(--bg-hover); }
+        .sidebar-list li a.active {
+            background: rgba(0,122,204,0.15);
+            border-color: var(--accent-primary);
+            color: var(--accent-primary);
+            font-weight: 600;
+        }
+        .editor-wrap { display: flex; flex-direction: column; gap: 16px; }
+        #template-editor {
+            width: 100%;
+            min-height: 520px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.82rem;
+            line-height: 1.55;
+            padding: 16px;
+            background: var(--bg-input);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            resize: vertical;
+        }
+        .preview-frame {
+            background: #fff;
+            color: #111;
+            border-radius: 6px;
+            padding: 32px 40px;
+            min-height: 300px;
+            border: 1px solid var(--border-color);
+            font-family: "Times New Roman", Times, serif;
+            font-size: 11pt;
+            line-height: 1.65;
+        }
+        /* article heading styles mirrored from document css */
+        .preview-frame .clan-header {
+            text-align: center; font-family: Arial, sans-serif;
+            font-size: 11pt; font-weight: bold; text-transform: uppercase;
+            letter-spacing: 0.5px; margin: 14pt 0 5pt; color: #111;
+        }
+        .preview-frame .clan-header::after {
+            content: ""; display: block; width: 70px; height: 1px;
+            background: #007acc; margin: 3px auto 0;
+        }
+        .preview-frame .section-header {
+            text-align: center; font-family: Arial, sans-serif;
+            font-size: 10.5pt; font-weight: bold; text-transform: uppercase;
+            margin: 12pt 0 7pt; color: #333;
+        }
+        .preview-frame p { margin: 0 0 6pt; text-align: justify; }
+        .preview-frame strong { font-weight: 700; }
+        .msg-ok {
+            background: rgba(0,180,100,0.12); color: #00b464;
+            padding: 10px 16px; border-radius: 8px; font-size: 0.9rem; font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+<nav>
+    <div class="nav-links">
+        <a href="/admin/" class="active">Dashboard</a>
+        <a href="/admin/rent/templates">Rent Šabloni</a>
+    </div>
+    <div class="nav-links">
+        <a href="/admin/logout" class="btn-logout">Odjava</a>
+    </div>
+</nav>
+
+<div class="content">
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;">
+        <a href="/admin/" class="btn btn-secondary">← Dashboard</a>
+        <div>
+            <h1 style="margin:0;font-size:1.4rem;">📄 Rent – Master Šabloni dokumenata</h1>
+            <p style="margin:4px 0 0;color:var(--text-muted);font-size:0.9rem;">
+                Globalne izmene šablona važe za sve buduće ugovore. Već sačuvane izmene po ugovoru nisu promenjene.
+            </p>
+        </div>
+    </div>
+
+    {% if msg %}
+    <div class="msg-ok" style="margin-bottom:16px;">{{ msg }}</div>
+    {% endif %}
+
+    <div class="layout">
+        <!-- Sidebar: template list -->
+        <div class="card" style="padding:16px;">
+            <h3 style="margin:0 0 12px;font-size:1rem;">Dokumenti</h3>
+            <ul class="sidebar-list">
+                {% for t in templates %}
+                <li>
+                    <a href="/admin/rent/templates/{{ t['slug'] }}"
+                       class="{{ 'active' if selected and selected['slug'] == t['slug'] else '' }}">
+                        {{ t['name'] }}
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <!-- Editor -->
+        <div>
+            {% if selected %}
+            <div class="card editor-wrap">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                    <h3 style="margin:0;font-size:1.05rem;">✏️ {{ selected['name'] }}</h3>
+                    <div style="display:flex;gap:8px;">
+                        <button type="button" onclick="togglePreview()" class="btn btn-secondary btn-sm">👁 Preview</button>
+                        <button type="submit" form="editor-form" class="btn btn-primary btn-sm">💾 Sačuvaj šablon</button>
+                    </div>
+                </div>
+
+                <p style="color:var(--text-muted);font-size:0.82rem;margin:0;">
+                    Direktno uređujte HTML sadržaj. Dostupni placeholdersi:
+                    <code>{{ '{{ client_name }}' }}</code>,
+                    <code>{{ '{{ contract_number }}' }}</code>,
+                    <code>{{ '{{ rata_bruto_fmt }}' }}</code>,
+                    <code>{{ '{{ period_months }}' }}</code>, itd.
+                </p>
+
+                <form id="editor-form" method="post">
+                    <textarea id="template-editor" name="content_html">{{ selected['content_html'] | e }}</textarea>
+                    <div style="display:flex;justify-content:flex-end;">
+                        <button type="submit" class="btn btn-primary">💾 Sačuvaj šablon</button>
+                    </div>
+                </form>
+
+                <!-- Live Preview -->
+                <div id="preview-section" style="display:none;">
+                    <h4 style="margin:0 0 8px;color:var(--text-muted);font-size:0.85rem;">PREVIEW (placeholders ostaju vidljivi)</h4>
+                    <div class="preview-frame" id="preview-frame"></div>
+                </div>
+            </div>
+            {% else %}
+            <div class="card" style="text-align:center;padding:60px 24px;color:var(--text-muted);">
+                <div style="font-size:2.5rem;margin-bottom:12px;">📂</div>
+                <p>Izaberite dokument sa liste sa leve strane da biste ga izmenili.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+function togglePreview() {
+    var sec = document.getElementById('preview-section');
+    var frame = document.getElementById('preview-frame');
+    if (sec.style.display === 'none') {
+        frame.innerHTML = document.getElementById('template-editor').value;
+        sec.style.display = 'block';
+    } else {
+        sec.style.display = 'none';
+    }
+}
+// Live update preview on keyup
+var ed = document.getElementById('template-editor');
+if (ed) {
+    ed.addEventListener('keyup', function() {
+        var sec = document.getElementById('preview-section');
+        if (sec && sec.style.display !== 'none') {
+            document.getElementById('preview-frame').innerHTML = ed.value;
+        }
+    });
+}
+</script>
+</body>
+</html>

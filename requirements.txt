@@ -1,5 +1,7 @@
 flask
-
 Pillow
 requests
 WeasyPrint
+python-docx
+mammoth
+lxml
