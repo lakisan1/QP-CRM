@@ -5,6 +5,24 @@
 .separator-row td {
     border-top: 2px solid var(--border-color) !important;
 }
+/* Email preset card */
+#email-preset-card { cursor: default; }
+#email-preset-body { display: none; }
+#email-preset-body.open { display: block; }
+#preset-text {
+    width: 100%;
+    min-height: 160px;
+    resize: vertical;
+    font-family: inherit;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    background: var(--bg-input);
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px 14px;
+    box-sizing: border-box;
+}
 </style>
 <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;">
     <a href="{{ url_for('edit_contract', contract_id=contract.id) }}" class="btn btn-secondary">← Ugovor</a>
@@ -13,6 +31,28 @@
         <p style="margin:4px 0 0;color:var(--text-muted);font-size:0.9rem;">
             {{ contract.contract_number or contract.id }} — {{ contract.client_name }}
         </p>
+    </div>
+</div>
+
+<!-- ── Email Preset ── -->
+<div class="card" id="email-preset-card" style="margin-bottom:20px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;"
+         onclick="togglePreset()">
+        <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:1.1rem;">✉️</span>
+            <strong>Email Preset</strong>
+            <span style="color:var(--text-muted);font-size:0.85rem;">– klikni da otvoriš / zatvoriš</span>
+        </div>
+        <span id="preset-chevron" style="color:var(--text-muted);font-size:1.1rem;transition:transform 0.2s;">▶</span>
+    </div>
+    <div id="email-preset-body" style="margin-top:14px;">
+        <textarea id="preset-text" readonly>{{ email_preset }}</textarea>
+        <div style="display:flex;gap:10px;margin-top:10px;">
+            <button class="btn btn-primary btn-sm" onclick="copyPreset(this)">📋 Kopiraj tekst</button>
+            <span style="color:var(--text-muted);font-size:0.82rem;align-self:center;">
+                Kopiraj i nalepite u Vaš email klijent
+            </span>
+        </div>
     </div>
 </div>
 
@@ -86,5 +126,36 @@
         </tbody>
     </table>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function togglePreset() {
+    var body = document.getElementById('email-preset-body');
+    var chevron = document.getElementById('preset-chevron');
+    if (body.classList.contains('open')) {
+        body.classList.remove('open');
+        body.style.display = 'none';
+        chevron.style.transform = 'rotate(0deg)';
+    } else {
+        body.classList.add('open');
+        body.style.display = 'block';
+        chevron.style.transform = 'rotate(90deg)';
+    }
+}
+
+function copyPreset(btn) {
+    var text = document.getElementById('preset-text').value;
+    navigator.clipboard.writeText(text).then(function() {
+        var orig = btn.textContent;
+        btn.textContent = '✓ Kopirano!';
+        btn.style.background = '#00b464';
+        setTimeout(function() {
+            btn.textContent = orig;
+            btn.style.background = '';
+        }, 2000);
+    });
+}
+</script>
 {% endblock %}
 

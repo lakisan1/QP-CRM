@@ -855,12 +855,32 @@ def contract_documents(contract_id):
 
     cur.execute("SELECT template_slug, updated_at FROM rent_contract_documents WHERE contract_id=?;", (contract_id,))
     saved_slugs = {row["template_slug"]: row["updated_at"] for row in cur.fetchall()}
+
+    # Fetch email preset and substitute placeholders
+    _DEFAULT_EMAIL = (
+        "Poštovani,\n\n"
+        "U prilogu Vam dostavljamo sva dokumenta vezana za zakup opreme.\n\n"
+        "Ukoliko ste saglasni, molimo Vas da to potvrdite emailom, kako bismo Vam "
+        "poštom poslali potpisane primerke ugovora koje nam na dan ugradnje opreme "
+        "vraćate sa Vašim potpisom. Svaki prilog ide u 4 primerka – 2 za Vas i 2 za nas.\n\n"
+        "Molimo Vas da popunite i meničko ovlašćenje.\n\n"
+        "Uplatu avansa izvršite na osnovu Instrukcija za uplatu avansa, "
+        "a nakon toga pratite Plan plaćanja.\n\n"
+        "Srdačan pozdrav,\nMarinković-Hofmann d.o.o."
+    )
+    cur.execute("SELECT value FROM global_settings WHERE key='rent_email_preset';")
+    row = cur.fetchone()
+    email_preset = (row["value"] if row else _DEFAULT_EMAIL)
+    email_preset = email_preset.replace("{{ client_name }}", contract["client_name"] or "")
+    email_preset = email_preset.replace("{{ contract_number }}", contract["contract_number"] or str(contract_id))
+
     conn.close()
 
     return render_template("rent_contract_documents.html",
                            contract=contract,
                            templates=templates,
-                           saved_slugs=saved_slugs)
+                           saved_slugs=saved_slugs,
+                           email_preset=email_preset)
 
 
 
@@ -956,6 +976,7 @@ def document_pdf(contract_id, slug):
         raw_html = template["content_html"]
         for key, value in ctx.items():
             raw_html = raw_html.replace("{{ " + key + " }}", str(value))
+            raw_html = raw_html.replace("{{" + key + "}}", str(value))
         html_content = format_document_html(raw_html)
 
     logo_path = os.path.join(APP_ASSETS_DIR, "logo_company.jpg")
