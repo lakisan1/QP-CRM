@@ -1,3 +1,4 @@
+# pyrefly: ignore [missing-import]
 from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file
 import os
 import sys
@@ -229,6 +230,22 @@ def index():
         row = cur.fetchone()
         rent_defaults[key] = row["value"] if row else default
 
+    # Fetch rent email preset
+    _DEFAULT_RENT_EMAIL = (
+        "Poštovani,\n\n"
+        "U prilogu Vam dostavljamo sva dokumenta vezana za zakup opreme.\n\n"
+        "Ukoliko ste saglasni, molimo Vas da to potvrdite emailom, kako bismo Vam "
+        "poštom poslali potpisane primerke ugovora koje nam na dan ugradnje opreme "
+        "vraćate sa Vašim potpisom. Svaki prilog ide u 4 primerka – 2 za Vas i 2 za nas.\n\n"
+        "Molimo Vas da popunite i meničko ovlašćenje.\n\n"
+        "Uplatu avansa izvršite na osnovu Instrukcija za uplatu avansa, "
+        "a nakon toga pratite Plan plaćanja.\n\n"
+        "Srdačan pozdrav,\nMarinković-Hofmann d.o.o."
+    )
+    cur.execute("SELECT value FROM global_settings WHERE key = 'rent_email_preset';")
+    row = cur.fetchone()
+    rent_email_preset = row["value"] if row else _DEFAULT_RENT_EMAIL
+
     # Fetch all presets and group by category
     cur.execute("SELECT * FROM text_presets ORDER BY name ASC;")
     all_presets = cur.fetchall()
@@ -263,6 +280,7 @@ def index():
         email_offer_body=email_offer_body,
         default_items_per_page=default_items_per_page,
         rent_defaults=rent_defaults,
+        rent_email_preset=rent_email_preset,
         timestamp=int(time.time()),
         theme=current_theme
     )
@@ -532,6 +550,11 @@ def update_settings():
         val = request.form.get(key)
         if val is not None and val.strip() != '':
             cur.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?);", (key, val.strip()))
+
+    # Rent email preset
+    rent_email_preset_val = request.form.get("rent_email_preset")
+    if rent_email_preset_val is not None:
+        cur.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES ('rent_email_preset', ?);", (rent_email_preset_val,))
 
     conn.commit()
     conn.close()
@@ -1129,8 +1152,22 @@ def admin_rent_templates():
     cur = conn.cursor()
     cur.execute("SELECT id, slug, name FROM rent_templates ORDER BY id;")
     templates = _sort_rent_templates(cur.fetchall())
+    cur.execute("SELECT value FROM global_settings WHERE key='rent_email_preset';")
+    row = cur.fetchone()
+    rent_email_preset = row["value"] if row else (
+        "Poštovani,\n\n"
+        "U prilogu Vam dostavljamo sva dokumenta vezana za zakup opreme.\n\n"
+        "Ukoliko ste saglasni, molimo Vas da to potvrdite emailom, kako bismo Vam "
+        "poštom poslali potpisane primerke ugovora koje nam na dan ugradnje opreme "
+        "vraćate sa Vašim potpisom. Svaki prilog ide u 4 primerka \u2013 2 za Vas i 2 za nas.\n\n"
+        "Molimo Vas da popunite i meničko ovlašćenje.\n\n"
+        "Uplatu avansa izvršite na osnovu Instrukcija za uplatu avansa, "
+        "a nakon toga pratite Plan plaćanja.\n\n"
+        "Srdačan pozdrav,\nMarinković-Hofmann d.o.o."
+    )
     conn.close()
-    return render_template("admin_rent_templates.html", templates=templates, selected=None, msg=None)
+    return render_template("admin_rent_templates.html", templates=templates, selected=None, msg=None,
+                           rent_email_preset=rent_email_preset)
 
 
 @app.route("/rent/templates/<slug>", methods=["GET", "POST"])
@@ -1158,9 +1195,24 @@ def admin_rent_template_edit(slug):
         cur.execute("SELECT * FROM rent_templates WHERE slug=?;", (slug,))
         selected = cur.fetchone()
 
+    cur.execute("SELECT value FROM global_settings WHERE key='rent_email_preset';")
+    ep_row = cur.fetchone()
+    rent_email_preset = ep_row["value"] if ep_row else (
+        "Poštovani,\n\n"
+        "U prilogu Vam dostavljamo sva dokumenta vezana za zakup opreme.\n\n"
+        "Ukoliko ste saglasni, molimo Vas da to potvrdite emailom, kako bismo Vam "
+        "poštom poslali potpisane primerke ugovora koje nam na dan ugradnje opreme "
+        "vraćate sa Vašim potpisom. Svaki prilog ide u 4 primerka \u2013 2 za Vas i 2 za nas.\n\n"
+        "Molimo Vas da popunite i meničko ovlašćenje.\n\n"
+        "Uplatu avansa izvršite na osnovu Instrukcija za uplatu avansa, "
+        "a nakon toga pratite Plan plaćanja.\n\n"
+        "Srdačan pozdrav,\nMarinković-Hofmann d.o.o."
+    )
+
     conn.close()
     return render_template("admin_rent_templates.html",
                            templates=templates,
                            selected=selected,
-                           msg=msg)
+                           msg=msg,
+                           rent_email_preset=rent_email_preset)
 

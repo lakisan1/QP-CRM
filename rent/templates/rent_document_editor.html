@@ -230,13 +230,23 @@ function execCmd(cmd) {
     document.getElementById('doc-content').focus();
 }
 
+// ── Change tracking ──────────────────────────────────────────────────────────
+var _initialContent = document.getElementById('doc-content').innerHTML;
+var _isDirty = false;
+
+document.getElementById('doc-content').addEventListener('input', function() {
+    _isDirty = (this.innerHTML !== _initialContent);
+});
+
 function saveDoc() {
+    _isDirty = false;   // clear flag before submit so no dialog fires
     document.getElementById('hidden-content').value =
         document.getElementById('doc-content').innerHTML;
     document.getElementById('save-form').submit();
 }
 
-// Autosave every 60 s via fetch
+// Autosave every 60 s via fetch (does NOT clear _isDirty — user should still
+// be aware they have unsaved local changes visible in the editor)
 setInterval(function() {
     var content = document.getElementById('doc-content').innerHTML;
     var fd = new FormData(document.getElementById('save-form'));
@@ -244,15 +254,20 @@ setInterval(function() {
     fetch(document.getElementById('save-form').action, {
         method: 'POST', body: fd, redirect: 'manual'
     }).then(function() {
+        _initialContent = content;  // autosave succeeded → reset baseline
+        _isDirty = false;
         var ind = document.getElementById('save-indicator');
         ind.style.display = 'inline';
         setTimeout(function() { ind.style.display = 'none'; }, 2500);
     });
 }, 60000);
 
-// Warn before navigating away
+// Warn before navigating away ONLY when there are unsaved changes
 window.addEventListener('beforeunload', function(e) {
-    e.preventDefault(); e.returnValue = '';
+    if (_isDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+    }
 });
 </script>
 {% endblock %}

@@ -169,6 +169,28 @@
     </div>
 </div>
 
+<!-- ── Email Preset ── -->
+<div class="content" style="margin-top:24px;">
+    <div class="card">
+        <h3 style="margin:0 0 6px;">✉️ Email Preset za dokumenta</h3>
+        <p style="color:var(--text-muted);font-size:0.85rem;margin:0 0 16px;">
+            Tekst koji se prikazuje na strani dokumenta ugovora za brzo kopiranje u email klijent.<br>
+            Možete koristiti <code>{{ '{{ client_name }}' }}</code> i <code>{{ '{{ contract_number }}' }}</code> kao placeholder-e.
+        </p>
+        <form action="/admin/update_settings" method="POST">
+            <textarea name="rent_email_preset" rows="10"
+                      style="width:100%;font-family:monospace;font-size:0.85rem;line-height:1.6;">{{ rent_email_preset }}</textarea>
+            <div style="margin-top:12px;display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+                <div style="flex:1;min-width:200px;">
+                    <label style="color:var(--accent-warning);font-size:0.85rem;">Potvrdi Admin lozinku</label>
+                    <input type="password" name="current_admin_password" required style="margin-bottom:0;">
+                </div>
+                <button type="submit" class="btn btn-primary">💾 Sačuvaj Email Preset</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
 function togglePreview() {
     var sec = document.getElementById('preview-section');
