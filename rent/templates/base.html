@@ -14,12 +14,12 @@
 {% if not pdf_mode %}
 <nav>
     <div class="nav-links">
-        <a href="{{ url_for('list_contracts') }}" {% if request.endpoint=='list_contracts' %}class="active"{% endif %}>📄 Ugovori</a>
-        <a href="{{ url_for('list_clients') }}"   {% if request.endpoint=='list_clients'   %}class="active"{% endif %}>👥 Klijenti</a>
-        <a href="{{ url_for('list_equipment') }}" {% if request.endpoint=='list_equipment' %}class="active"{% endif %}>🔧 Oprema</a>
+        <a href="{{ url_for('list_contracts') }}" {% if request.endpoint=='list_contracts' %}class="active"{% endif %}>Ugovori</a>
+        <a href="{{ url_for('list_clients') }}"   {% if request.endpoint=='list_clients'   %}class="active"{% endif %}>Klijenti</a>
+        <a href="{{ url_for('list_equipment') }}" {% if request.endpoint=='list_equipment' %}class="active"{% endif %}>Oprema</a>
     </div>
     <div class="nav-right">
-        <a href="/">🏠 Početna</a>
+        <a href="/">Početna</a>
         <a href="{{ url_for('logout') }}" class="btn btn-danger" style="margin-right:15px;">Odjava</a>
         <div class="nav-logo-container">
             <img src="{{ url_for('static', filename='img/logo_company.jpg') }}" alt="Logo" class="nav-logo">

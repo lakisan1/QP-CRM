@@ -31,7 +31,7 @@ if command -v git >/dev/null 2>&1; then
     HAS_STASHED=0
   fi
 
-  git pull
+  git pull || echo "WARNING: git pull failed — continuing with existing code."
 
   if [ "$HAS_STASHED" -eq 1 ]; then
     echo "Restoring local image changes..."
@@ -102,10 +102,11 @@ venv/bin/pip install Werkzeug
 
 echo "Stopping any old instances (if running)..."
 pkill -f "main.py" || true
+sleep 2  # Allow port 5000 to be fully released
 
 echo "Starting merged app on port 5000..."
 # We use nohup to keep it running after shell closes
-nohup python3 main.py > main.log 2>&1 &
+nohup venv/bin/python main.py > main.log 2>&1 &
 
 echo "All done. App should now be up:"
 echo "  - QP-CRM : http://localhost:5000/"

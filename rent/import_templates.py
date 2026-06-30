@@ -25,12 +25,12 @@ DOCX_DIR = os.path.join(os.path.dirname(HERE), "excell Rent calc", "word documen
 # ---------------------------------------------------------------------------
 TEMPLATES = [
     ("Ugovor o zakupu opreme.docx",                    "ugovor-zakup",          "Ugovor o zakupu opreme"),
-    ("Ugovor o zakupu opreme jemac.docx",              "ugovor-zakup-jemac",    "Ugovor o zakupu opreme (sa jemcem)"),
     ("Prilog 1 Zapisnik o primopredaji.docx",          "prilog-1-zapisnik",     "Prilog 1 – Zapisnik o primopredaji"),
     ("Prilog 2 Protokol o prihvatljivom stanju.docx",  "prilog-2-protokol",     "Prilog 2 – Protokol o prihvatljivom stanju"),
     ("Menicno ovlascenje Opcija 1.docx",               "menicno-ovlascenje",    "Meničko ovlašćenje"),
     ("Instrukcija za uplatu Avansa.docx",              "instrukcija-avans",     "Instrukcija za uplatu avansa"),
     ("Informacije za osiguranje.docx",                 "info-osiguranje",       "Informacije za osiguranje"),
+    ("Ugovor o zakupu opreme jemac.docx",              "ugovor-zakup-jemac",    "Ugovor o zakupu opreme (sa jemcem)"),
     ("Zapisnik o Preuzimanju predmeta zakupa.docx",    "zapisnik-preuzimanje",  "Zapisnik o preuzimanju predmeta zakupa"),
 ]
 

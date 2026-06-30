@@ -166,8 +166,8 @@ details > summary::-webkit-details-marker { display:none; }
 <div style="margin-top:4px;display:flex;gap:10px;flex-wrap:wrap;">
     <button type="submit" class="btn btn-success" style="font-size:15px;padding:12px 28px;">💾 Sačuvaj</button>
     {% if contract %}
-    <a href="{{ url_for('pdf_offer', contract_id=contract.id) }}" target="_blank" class="btn btn-primary">📄 PDF Ponuda</a>
-    <a href="{{ url_for('pdf_schedule', contract_id=contract.id) }}" target="_blank" class="btn btn-primary">📅 PDF Plan Plaćanja</a>
+    <a href="{{ url_for('pdf_offer', contract_id=contract.id) }}" target="_blank" class="btn btn-primary">📄 Prilog 3 – Ponuda</a>
+    <a href="{{ url_for('pdf_schedule', contract_id=contract.id) }}" target="_blank" class="btn btn-primary">📅 Prilog 4 – Plan Plaćanja</a>
     <a href="{{ url_for('contract_documents', contract_id=contract.id) }}" class="btn btn-secondary" style="border:2px solid var(--accent-primary);">📁 Dokumenta</a>
     {% endif %}
 </div>

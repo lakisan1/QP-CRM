@@ -935,7 +935,9 @@ def factory_reset():
         # Truncate tables
         tables_to_clear = [
             "products", "prices", "offers", "offer_items", "brands", 
-            "category_pricing_defaults", "text_presets", "price_rounding_rules"
+            "category_pricing_defaults", "text_presets", "price_rounding_rules",
+            "rent_clients", "rent_equipment", "rent_contracts",
+            "rent_contract_documents", "rent_templates"
         ]
         for table in tables_to_clear:
             cur.execute(f"DELETE FROM {table};")
@@ -960,11 +962,26 @@ def factory_reset():
             'admin_password': 'Admin1',
             'pricing_password': 'Price1',
             'offer_password': 'Offer1',
-            'active_pdf_template_id': '0'
+            'active_pdf_template_id': '0',
+            'rent_default_interest_rate': '14.0',
+            'rent_default_insurance_rate': '1.13',
+            'rent_default_guarantee_rate': '5.0',
+            'rent_default_admin_fee': '50.0',
+            'rent_default_vat_percent': '20.0',
+            'rent_default_salvage_value_percent': '20.0',
+            'rent_default_downpayment_percent': '20.0',
+            'rent_default_period_months': '48',
         }
         
         for key, value in defaults.items():
             cur.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?);", (key, value))
+
+        # Re-seed rent templates from JSON defaults
+        try:
+            from rent.import_templates import seed_templates
+            seed_templates(conn)
+        except Exception as seed_e:
+            print(f"[factory_reset] Warning: Could not re-seed rent templates: {seed_e}")
             
         # Re-enable Foreign Keys
         cur.execute("PRAGMA foreign_keys = ON;")
@@ -1087,6 +1104,23 @@ def delete_rounding_rule():
 # Rent Master Template Editor (Admin)
 # ─────────────────────────────────────────────────────────────────────────────
 
+# Preferred display order for rent templates (slugs not listed go to the end)
+_TEMPLATE_SORT_ORDER = [
+    "ugovor-zakup",
+    "prilog-1-zapisnik",
+    "prilog-2-protokol",
+    "menicno-ovlascenje",
+    "instrukcija-avans",
+    "info-osiguranje",
+    "ugovor-zakup-jemac",
+    "zapisnik-preuzimanje",
+]
+
+def _sort_rent_templates(templates):
+    """Sort template rows by the preferred display order."""
+    order_map = {slug: i for i, slug in enumerate(_TEMPLATE_SORT_ORDER)}
+    return sorted(templates, key=lambda t: order_map.get(t["slug"], 999))
+
 @app.route("/rent/templates")
 def admin_rent_templates():
     if not session.get("admin_authenticated"):
@@ -1094,7 +1128,7 @@ def admin_rent_templates():
     conn = get_db()
     cur = conn.cursor()
     cur.execute("SELECT id, slug, name FROM rent_templates ORDER BY id;")
-    templates = cur.fetchall()
+    templates = _sort_rent_templates(cur.fetchall())
     conn.close()
     return render_template("admin_rent_templates.html", templates=templates, selected=None, msg=None)
 
@@ -1106,7 +1140,7 @@ def admin_rent_template_edit(slug):
     conn = get_db()
     cur = conn.cursor()
     cur.execute("SELECT id, slug, name FROM rent_templates ORDER BY id;")
-    templates = cur.fetchall()
+    templates = _sort_rent_templates(cur.fetchall())
 
     cur.execute("SELECT * FROM rent_templates WHERE slug=?;", (slug,))
     selected = cur.fetchone()
@@ -1129,3 +1163,4 @@ def admin_rent_template_edit(slug):
                            templates=templates,
                            selected=selected,
                            msg=msg)
+
