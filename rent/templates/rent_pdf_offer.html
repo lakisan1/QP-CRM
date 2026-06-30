@@ -2,7 +2,7 @@
 <html lang="sr">
 <head>
 <meta charset="utf-8">
-<title>Ponuda – {{ contract.contract_number }}</title>
+<title>Prilog 3 – Ponuda – {{ contract.contract_number }}</title>
 <style>
 @page {
     size: A4;
@@ -151,7 +151,7 @@ h2 {
 
     <tr><td>&nbsp;</td><td>&nbsp;</td></tr>
     <tr><td>Mesečno zatvaranje avansa</td><td>{{ "%.2f €"|format(calc.zatvaranje) }}</td></tr>
-    <tr class="hl"><td>Rata nakon zatvaranja avansa</td><td>{{ "%.2f €"|format(calc.rata_nakon) }}</td></tr>
+    <tr class="total"><td>Rata nakon zatvaranja avansa</td><td>{{ "%.2f €"|format(calc.rata_nakon) }}</td></tr>
 
     <tr><td>&nbsp;</td><td>&nbsp;</td></tr>
     <tr><td>Obavezan avans – <em>neto</em></td><td>{{ "%.2f €"|format(calc.ucesce) }}</td></tr>

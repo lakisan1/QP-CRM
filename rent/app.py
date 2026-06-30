@@ -606,7 +606,7 @@ def pdf_offer(contract_id):
     pdf_bytes = HTML(string=html_str, base_url=BASE_DIR).write_pdf()
     buf = io.BytesIO(pdf_bytes)
     buf.seek(0)
-    filename = f"Ponuda_{c.get('contract_number','') or contract_id}.pdf"
+    filename = f"Prilog_3_Ponuda_{c.get('contract_number','') or contract_id}.pdf"
     return send_file(buf, mimetype="application/pdf",
                      as_attachment=False, download_name=filename)
 
@@ -638,7 +638,7 @@ def pdf_schedule(contract_id):
     pdf_bytes = HTML(string=html_str, base_url=BASE_DIR).write_pdf()
     buf = io.BytesIO(pdf_bytes)
     buf.seek(0)
-    filename = f"Plan_Placanja_{c.get('contract_number','') or contract_id}.pdf"
+    filename = f"Prilog_4_Plan_Placanja_{c.get('contract_number','') or contract_id}.pdf"
     return send_file(buf, mimetype="application/pdf",
                      as_attachment=False, download_name=filename)
 
@@ -823,6 +823,23 @@ def _build_doc_context(contract: dict, calc: dict) -> dict:
 
 
 # ─── Document list for a contract ──────────────────────────────────────────────
+# Preferred display order for rent templates (slugs not listed go to the end)
+TEMPLATE_SORT_ORDER = [
+    "ugovor-zakup",
+    "prilog-1-zapisnik",
+    "prilog-2-protokol",
+    "menicno-ovlascenje",
+    "instrukcija-avans",
+    "info-osiguranje",
+    "ugovor-zakup-jemac",
+    "zapisnik-preuzimanje",
+]
+
+def _sort_templates(templates):
+    """Sort template rows by the preferred display order."""
+    order_map = {slug: i for i, slug in enumerate(TEMPLATE_SORT_ORDER)}
+    return sorted(templates, key=lambda t: order_map.get(t["slug"], 999))
+
 @app.route("/contracts/<int:contract_id>/documents")
 def contract_documents(contract_id):
     conn = get_db()
@@ -834,7 +851,7 @@ def contract_documents(contract_id):
         return "Ugovor nije pronađen", 404
 
     cur.execute("SELECT * FROM rent_templates ORDER BY id;")
-    templates = cur.fetchall()
+    templates = _sort_templates(cur.fetchall())
 
     cur.execute("SELECT template_slug, updated_at FROM rent_contract_documents WHERE contract_id=?;", (contract_id,))
     saved_slugs = {row["template_slug"]: row["updated_at"] for row in cur.fetchall()}
@@ -844,6 +861,7 @@ def contract_documents(contract_id):
                            contract=contract,
                            templates=templates,
                            saved_slugs=saved_slugs)
+
 
 
 # ─── Document editor (GET = load/create draft, POST = save edits) ───────────────
