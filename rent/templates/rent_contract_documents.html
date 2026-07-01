@@ -9,10 +9,26 @@
 #email-preset-card { cursor: default; }
 #email-preset-body { display: none; }
 #email-preset-body.open { display: block; }
-#preset-text {
-    width: 100%;
-    min-height: 160px;
-    resize: vertical;
+.preset-field {
+    margin-bottom: 14px;
+}
+.preset-field label {
+    display: block;
+    font-weight: 600;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.preset-field .field-row {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+}
+.preset-field input[type="text"],
+.preset-field textarea {
+    flex: 1;
     font-family: inherit;
     font-size: 0.9rem;
     line-height: 1.6;
@@ -20,8 +36,20 @@
     color: var(--text-main);
     border: 1px solid var(--border-color);
     border-radius: 8px;
-    padding: 12px 14px;
+    padding: 10px 12px;
     box-sizing: border-box;
+}
+.preset-field textarea {
+    min-height: 160px;
+    resize: vertical;
+}
+.preset-field input[type="text"] {
+    height: auto;
+}
+.copy-btn {
+    white-space: nowrap;
+    align-self: flex-start;
+    margin-top: 0;
 }
 </style>
 <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;">
@@ -46,13 +74,38 @@
         <span id="preset-chevron" style="color:var(--text-muted);font-size:1.1rem;transition:transform 0.2s;">▶</span>
     </div>
     <div id="email-preset-body" style="margin-top:14px;">
-        <textarea id="preset-text" readonly>{{ email_preset }}</textarea>
-        <div style="display:flex;gap:10px;margin-top:10px;">
-            <button class="btn btn-primary btn-sm" onclick="copyPreset(this)">📋 Kopiraj tekst</button>
-            <span style="color:var(--text-muted);font-size:0.82rem;align-self:center;">
-                Kopiraj i nalepite u Vaš email klijent
-            </span>
+
+        <!-- To (customer email) -->
+        <div class="preset-field">
+            <label>📧 Kome (To)</label>
+            <div class="field-row">
+                <input type="text" id="preset-email" value="{{ client_email }}" readonly>
+                <button class="btn btn-secondary btn-sm copy-btn" onclick="copyField('preset-email', this)">📋 Kopiraj</button>
+            </div>
         </div>
+
+        <!-- Subject -->
+        <div class="preset-field">
+            <label>📌 Naslov (Subject)</label>
+            <div class="field-row">
+                <input type="text" id="preset-subject" value="{{ email_subject }}" readonly>
+                <button class="btn btn-secondary btn-sm copy-btn" onclick="copyField('preset-subject', this)">📋 Kopiraj</button>
+            </div>
+        </div>
+
+        <!-- Body -->
+        <div class="preset-field">
+            <label>📝 Tekst emaila (Body)</label>
+            <div class="field-row">
+                <textarea id="preset-text" readonly>{{ email_preset }}</textarea>
+                <button class="btn btn-primary btn-sm copy-btn" onclick="copyField('preset-text', this)">📋 Kopiraj</button>
+            </div>
+        </div>
+
+        <p style="color:var(--text-muted);font-size:0.82rem;margin:4px 0 0;">
+            Kopirajte svako polje i nalepite u Vaš email klijent.
+            Naslov i telo emaila se mogu menjati u <strong>Admin → Rent Šabloni</strong>.
+        </p>
     </div>
 </div>
 
@@ -144,18 +197,20 @@ function togglePreset() {
     }
 }
 
-function copyPreset(btn) {
-    var text = document.getElementById('preset-text').value;
+function copyField(fieldId, btn) {
+    var el = document.getElementById(fieldId);
+    var text = el.value;
     navigator.clipboard.writeText(text).then(function() {
         var orig = btn.textContent;
         btn.textContent = '✓ Kopirano!';
         btn.style.background = '#00b464';
+        btn.style.color = '#fff';
         setTimeout(function() {
             btn.textContent = orig;
             btn.style.background = '';
+            btn.style.color = '';
         }, 2000);
     });
 }
 </script>
 {% endblock %}
-

@@ -1,6 +1,6 @@
 # QP-CRM (Quotation-Price CRM) 🚀
 
-**QP-CRM** stands for **Quotation-Price CRM**. It's a specialized system designed to manage the critical link between product pricing and client offers.
+**QP-CRM** stands for **Quotation-Price CRM**. It's a specialized system designed to manage the critical link between product pricing, client offers, and equipment rental contracts.
 
 Built for small teams and individuals.\
 Easy to use and customize.\
@@ -93,6 +93,17 @@ Test custom PDF templates in app, no need to restart.
 ![Edit PDF Templates](README_Images/Admin/PDF_Edit1.png)
 
 
+### 📦 Rent Module
+Manage equipment rental contracts with full document generation and financial calculations.
+- **Contract Management**: Create and track rental contracts with client details, equipment lists, and payment schedules.
+- **Financial Calculator**: Built-in lease calculator with interest rates, insurance, guarantees, VAT, and salvage value.
+- **Document Templates**: 8+ editable legal document templates (contracts, appendices, protocols) with live HTML editor.
+- **PDF Generation**: Professional PDF output with company branding, page break protection, and automatic placeholder substitution.
+- **Payment Schedules**: Auto-generated amortization plans with monthly breakdowns.
+- **Email Preset**: Customizable email template with subject line, auto-filled client data, and one-click copy for each field.
+- **Offer Integration**: Prilog 3 (Offer) and Prilog 4 (Payment Plan) auto-linked from the contract documents page.
+- **Admin Configuration**: Centralized default rates, template editing, and email preset management from the Admin panel.
+
 
 ---
 
@@ -153,6 +164,7 @@ Use these passwords to log in for the first time:
 - **Admin Panel**: `Admin1` (change all passwords from admin panel)
 - **Pricing App**: `Price1`
 - **Offer App**: `Offer1`
+- **Rent Module**: `Rent1`
 
 ---
 

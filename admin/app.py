@@ -556,10 +556,18 @@ def update_settings():
     if rent_email_preset_val is not None:
         cur.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES ('rent_email_preset', ?);", (rent_email_preset_val,))
 
+    # Rent email subject
+    rent_email_subject_val = request.form.get("rent_email_subject")
+    if rent_email_subject_val is not None:
+        cur.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES ('rent_email_subject', ?);", (rent_email_subject_val,))
+
     conn.commit()
     conn.close()
     
     flash("Settings updated.", "success")
+    redirect_to = request.form.get("redirect_to")
+    if redirect_to:
+        return redirect(redirect_to)
     return redirect(url_for("index"))
 
 @app.route("/backup_db")
@@ -1165,9 +1173,13 @@ def admin_rent_templates():
         "a nakon toga pratite Plan plaćanja.\n\n"
         "Srdačan pozdrav,\nMarinković-Hofmann d.o.o."
     )
+    cur.execute("SELECT value FROM global_settings WHERE key='rent_email_subject';")
+    subj_row = cur.fetchone()
+    rent_email_subject = subj_row["value"] if subj_row else "Ugovor i prilozi za zakup opreme - {{ contract_number }} - {{ client_name }}"
     conn.close()
     return render_template("admin_rent_templates.html", templates=templates, selected=None, msg=None,
-                           rent_email_preset=rent_email_preset)
+                           rent_email_preset=rent_email_preset,
+                           rent_email_subject=rent_email_subject)
 
 
 @app.route("/rent/templates/<slug>", methods=["GET", "POST"])
@@ -1209,10 +1221,15 @@ def admin_rent_template_edit(slug):
         "Srdačan pozdrav,\nMarinković-Hofmann d.o.o."
     )
 
+    cur.execute("SELECT value FROM global_settings WHERE key='rent_email_subject';")
+    subj_row2 = cur.fetchone()
+    rent_email_subject = subj_row2["value"] if subj_row2 else "Ugovor i prilozi za zakup opreme - {{ contract_number }} - {{ client_name }}"
+
     conn.close()
     return render_template("admin_rent_templates.html",
                            templates=templates,
                            selected=selected,
                            msg=msg,
-                           rent_email_preset=rent_email_preset)
+                           rent_email_preset=rent_email_preset,
+                           rent_email_subject=rent_email_subject)
 

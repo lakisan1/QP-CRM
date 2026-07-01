@@ -874,13 +874,27 @@ def contract_documents(contract_id):
     email_preset = email_preset.replace("{{ client_name }}", contract["client_name"] or "")
     email_preset = email_preset.replace("{{ contract_number }}", contract["contract_number"] or str(contract_id))
 
+    # Fetch email subject preset
+    _DEFAULT_SUBJECT = "Ugovor i prilozi za zakup opreme - {{ contract_number }} - {{ client_name }}"
+    cur.execute("SELECT value FROM global_settings WHERE key='rent_email_subject';")
+    subj_row = cur.fetchone()
+    email_subject = (subj_row["value"] if subj_row else _DEFAULT_SUBJECT)
+    email_subject = email_subject.replace("{{ client_name }}", contract["client_name"] or "")
+    email_subject = email_subject.replace("{{ contract_number }}", contract["contract_number"] or str(contract_id))
+    email_subject = email_subject.replace("{{client_name}}", contract["client_name"] or "")
+    email_subject = email_subject.replace("{{contract_number}}", contract["contract_number"] or str(contract_id))
+
+    client_email = contract["client_email"] or ""
+
     conn.close()
 
     return render_template("rent_contract_documents.html",
                            contract=contract,
                            templates=templates,
                            saved_slugs=saved_slugs,
-                           email_preset=email_preset)
+                           email_preset=email_preset,
+                           email_subject=email_subject,
+                           client_email=client_email)
 
 
 
