@@ -178,8 +178,19 @@
             Možete koristiti <code>{{ '{{ client_name }}' }}</code> i <code>{{ '{{ contract_number }}' }}</code> kao placeholder-e.
         </p>
         <form action="/admin/update_settings" method="POST">
-            <textarea name="rent_email_preset" rows="10"
-                      style="width:100%;font-family:monospace;font-size:0.85rem;line-height:1.6;">{{ rent_email_preset }}</textarea>
+            <input type="hidden" name="redirect_to" value="/admin/rent/templates">
+            <div style="margin-bottom:12px;">
+                <label style="font-weight:600;font-size:0.85rem;">Naslov emaila (Subject)</label>
+                <input type="text" name="rent_email_subject" value="{{ rent_email_subject }}"
+                       style="width:100%;font-family:monospace;font-size:0.85rem;"
+                       placeholder="Ugovor i prilozi za zakup opreme - {{ '{{ contract_number }}' }} - {{ '{{ client_name }}' }}">
+                <small style="color:var(--text-muted);">Koristite <code>{{ '{{ client_name }}' }}</code> i <code>{{ '{{ contract_number }}' }}</code> kao placeholder-e.</small>
+            </div>
+            <div style="margin-bottom:12px;">
+                <label style="font-weight:600;font-size:0.85rem;">Telo emaila (Body)</label>
+                <textarea name="rent_email_preset" rows="10"
+                          style="width:100%;font-family:monospace;font-size:0.85rem;line-height:1.6;">{{ rent_email_preset }}</textarea>
+            </div>
             <div style="margin-top:12px;display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
                 <div style="flex:1;min-width:200px;">
                     <label style="color:var(--accent-warning);font-size:0.85rem;">Potvrdi Admin lozinku</label>

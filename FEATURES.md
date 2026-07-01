@@ -26,10 +26,26 @@ This page contains a comprehensive list of all the features implemented in the Q
 - **Branding Personalization**: Upload custom system Favicons, Application Logos, and predefined Footer snippets for uniform branding on exported assets.
 - **Global Text & UI Presets**: Set unified system settings like default global VAT, delivery terms, standard payment texts, validity days, and application date formats.
 - **Integrated File Management Utility**: Execute cleanups to automatically prune orphaned product images and keep server assets trim.
-- **Role-based Authentication**: Password updates and gated accesses for the underlying Price, Offer, and Admin environments.
+- **Role-based Authentication**: Password updates and gated accesses for the underlying Price, Offer, Rent, and Admin environments.
+- **Rent Template Administration**: Edit master HTML templates for all rental document types, manage email preset subject and body text with placeholder support, and configure default financial parameters (interest rate, insurance, guarantee, VAT, downpayment, salvage value, period).
+
+## 📦 Rent Module (Equipment Leasing)
+- **Contract Lifecycle Management**: Create, edit, and track rental contracts with full client details, equipment lists, delivery dates, and payment terms.
+- **Client Database**: Dedicated client management with company info, contact details, bank accounts, representatives, and guarantor data — auto-linked to contracts.
+- **Financial Lease Calculator**: Built-in amortization engine computing monthly instalments from base equipment price, interest rate, insurance rate, guarantee rate, admin fee, VAT, downpayment percentage, salvage value, and contract duration.
+- **Auto-generated Payment Schedules**: Professional PDF payment plan (Prilog 4) with month-by-month breakdown of principal, interest, insurance, and running balance.
+- **8+ Legal Document Templates**: Pre-seeded editable templates including main contract, handover protocol, acceptance protocol, promissory note authorization, advance payment instructions, insurance info, guarantor contract, and equipment takeover record.
+- **Live Document Editor**: Rich-text WYSIWYG editor with formatting toolbar (bold, italic, underline, alignment, lists), dirty-state tracking to prevent accidental data loss, and instant save.
+- **Automatic Placeholder Substitution**: Dynamic replacement of `{{ client_name }}`, `{{ contract_number }}`, `{{ equipment_model }}`, financial amounts, and 30+ other placeholders across all document templates.
+- **Professional PDF Output**: WeasyPrint-powered PDF generation with company logo header, styled article headings (Član), section headers, page break protection on paragraphs/tables/signatures, and automatic page numbering with company footer.
+- **Offer Integration**: Prilog 3 (Offer PDF) and Prilog 4 (Payment Schedule PDF) auto-linked directly from the contract documents page without manual editing.
+- **Email Preset Workflow**: Collapsible email helper card on the documents page with three separate copyable fields — customer email (To), customizable subject line, and body text — each with one-click copy and visual feedback.
+- **Centralized Admin Configuration**: All default financial rates, document templates, and email presets (subject + body) managed from the Admin → Rent Šabloni page with password-protected saves.
+- **Visual Document Ordering**: Prioritized document list with Prilog 3 & 4 grouped after Prilog 2, CSS separator lines for advanced document categories (guarantor contracts), and sequential numbering.
 
 ## 💻 Tech & System Foundation
 - **Unified Progressive Web App (PWA)**: Desktop installation support via Chrome, providing seamless native-feeling windows mapped to your server IP.
 - **Fast Deployments & Database Management**: Quick Linux deployment scripts (`run_apps.sh`) handling dependency management and instant auto-start servers.
 - **Backup & Restore System**: 1-click administrative utilities for executing comprehensive full-system backups (including databases, user-uploaded images, logos, assets) or restoring from legacy snapshots.
 - **Standalone Read-Only Instances**: Zero-login viewer modules for basic users to inspect live pricing out-of-the-box. 
+
