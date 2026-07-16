@@ -147,7 +147,7 @@
         {% if loop.index == 3 %}
         <!-- ── Fixed: Prilog 3 & 4 (auto-generated, no edit) ── -->
         <tr>
-            <td style="color:var(--text-muted);font-size:0.85rem;">Prilog 3</td>
+            <td style="color:var(--text-muted);font-size:0.85rem;">3</td>
             <td style="font-weight:500;">Prilog 3 – Ponuda</td>
             <td>
                 <span style="background:rgba(0,122,204,0.12);color:var(--accent-primary);padding:3px 10px;border-radius:20px;font-size:0.8rem;">
@@ -160,7 +160,7 @@
             </td>
         </tr>
         <tr>
-            <td style="color:var(--text-muted);font-size:0.85rem;">Prilog 4</td>
+            <td style="color:var(--text-muted);font-size:0.85rem;">4</td>
             <td style="font-weight:500;">Prilog 4 – Plan Plaćanja</td>
             <td>
                 <span style="background:rgba(0,122,204,0.12);color:var(--accent-primary);padding:3px 10px;border-radius:20px;font-size:0.8rem;">
@@ -172,6 +172,11 @@
                    target="_blank" class="btn btn-primary btn-sm">🖨️ PDF</a>
             </td>
         </tr>
+        {% endif %}
+        {% else %}
+        <tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:30px;">Nema šablona u bazi.</td></tr>
+        {% endfor %}
+        <!-- Evidencija Uplata – uvek poslednja -->
         <tr>
             <td style="color:var(--text-muted);font-size:0.85rem;">📝</td>
             <td style="font-weight:500;">Evidencija Uplata <span style="color:var(--text-muted);font-size:0.75rem;">(fillable PDF)</span></td>
@@ -185,10 +190,6 @@
                    target="_blank" class="btn btn-secondary btn-sm">📥 Preuzmi</a>
             </td>
         </tr>
-        {% endif %}
-        {% else %}
-        <tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:30px;">Nema šablona u bazi.</td></tr>
-        {% endfor %}
         </tbody>
     </table>
 </div>

@@ -239,12 +239,24 @@ def init_db():
 
     conn.commit()
 
+    # Migration: add is_signed column if it doesn't exist (backward compatible)
+    _migrate_add_column_if_not_exists(cur, "rent_contracts", "is_signed", "INTEGER DEFAULT 0")
+    conn.commit()
+
     # Seed from CSV if tables are empty
     _seed_clients(conn)
     _seed_equipment(conn)
     seed_templates(conn)
 
     conn.close()
+
+
+def _migrate_add_column_if_not_exists(cur, table, column, col_def):
+    """Add a column if it doesn't already exist (backward compatible migration)."""
+    try:
+        cur.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_def};")
+    except sqlite3.OperationalError:
+        pass  # column already exists
 
 
 def _clean_num(s):
@@ -348,6 +360,7 @@ def list_contracts():
     search = request.args.get("search", "").strip()
     date_from = request.args.get("date_from", "").strip()
     date_to = request.args.get("date_to", "").strip()
+    signed_filter = request.args.get("signed", "all").strip()  # all, signed, unsigned
     page = request.args.get("page", 1, type=int)
     per_page = 25
     offset = (page - 1) * per_page
@@ -365,6 +378,10 @@ def list_contracts():
     if date_to:
         clauses.append("contract_date <= ?")
         params.append(date_to)
+    if signed_filter == "signed":
+        clauses.append("is_signed = 1")
+    elif signed_filter == "unsigned":
+        clauses.append("(is_signed IS NULL OR is_signed = 0)")
 
     where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
 
@@ -379,8 +396,25 @@ def list_contracts():
     return render_template("rent_contracts.html",
                            contracts=contracts,
                            search=search, date_from=date_from, date_to=date_to,
+                           signed_filter=signed_filter,
                            current_page=page, total_pages=total_pages, total=total,
                            calculate_rent=calculate_rent)
+
+
+@app.route("/contracts/toggle_signed/<int:contract_id>", methods=["POST"])
+def toggle_signed(contract_id):
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT is_signed FROM rent_contracts WHERE id=?;", (contract_id,))
+    row = cur.fetchone()
+    if not row:
+        conn.close()
+        return jsonify({"error": "Not found"}), 404
+    new_val = 0 if row["is_signed"] else 1
+    cur.execute("UPDATE rent_contracts SET is_signed=? WHERE id=?;", (new_val, contract_id))
+    conn.commit()
+    conn.close()
+    return jsonify({"is_signed": new_val})
 
 
 @app.route("/contracts/new", methods=["GET", "POST"])
