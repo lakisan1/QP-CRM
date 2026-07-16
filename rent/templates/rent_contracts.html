@@ -20,6 +20,14 @@
             <span style="margin-bottom:6px;font-size:13px;font-weight:500;">Do datuma:</span>
             <input type="date" name="date_to" value="{{ date_to }}" onchange="this.form.submit()" style="margin-bottom:0;">
         </label>
+        <label style="display:flex;flex-direction:column;">
+            <span style="margin-bottom:6px;font-size:13px;font-weight:500;">Status potpisa:</span>
+            <select name="signed" onchange="this.form.submit()" style="margin-bottom:0;">
+                <option value="all" {% if signed_filter == "all" %}selected{% endif %}>Svi</option>
+                <option value="signed" {% if signed_filter == "signed" %}selected{% endif %}>Potpisani</option>
+                <option value="unsigned" {% if signed_filter == "unsigned" %}selected{% endif %}>Nepotpisani</option>
+            </select>
+        </label>
         <label style="display:flex;flex-direction:column;flex:1;min-width:200px;">
             <span style="margin-bottom:6px;font-size:13px;font-weight:500;">Pretraga (broj / klijent):</span>
             <input type="text" name="search" value="{{ search }}" style="margin-bottom:0;">
@@ -28,6 +36,42 @@
         <a href="{{ url_for('list_contracts') }}" class="btn btn-secondary" style="margin-bottom:0;">Reset</a>
     </form>
 </div>
+
+<style>
+tr.signed-row {
+    background: rgba(0, 180, 100, 0.08) !important;
+}
+tr.signed-row:hover {
+    background: rgba(0, 180, 100, 0.15) !important;
+}
+.status-badge {
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.status-signed {
+    background: rgba(0, 180, 100, 0.15);
+    color: #00b464;
+}
+.status-unsigned {
+    background: rgba(160, 160, 160, 0.1);
+    color: var(--text-muted);
+}
+.toggle-signed-btn {
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    padding: 2px 6px;
+    border-radius: 6px;
+    transition: background 0.15s;
+}
+.toggle-signed-btn:hover {
+    background: rgba(0, 0, 0, 0.1);
+}
+</style>
 
 <div class="card">
     <table class="larg-table">
@@ -40,7 +84,8 @@
             <th>Cena (€)</th>
             <th>Mesečna rata neto (€)</th>
             <th>Mesečna rata bruto (€)</th>
-            <th style="width:80px;">Akcije</th>
+            <th>Status</th>
+            <th style="width:120px;">Akcije</th>
         </tr>
         </thead>
         <tbody>
@@ -49,7 +94,8 @@
                                          c.salvage_value_percent, c.interest_rate,
                                          c.insurance_rate, c.guarantee_rate,
                                          c.vat_percent, c.admin_fee) %}
-            <tr>
+            {% set is_signed = c.is_signed == 1 %}
+            <tr {% if is_signed %}class="signed-row"{% endif %}>
                 <td style="white-space:nowrap;">{{ c.contract_date }}</td>
                 <td><a href="{{ url_for('edit_contract', contract_id=c.id) }}">{{ c.contract_number or c.id }}</a></td>
                 <td>{{ c.client_name }}</td>
@@ -57,7 +103,15 @@
                 <td style="text-align:right;">{{ format_amount(c.price) }}</td>
                 <td style="text-align:right;font-weight:600;">{{ format_amount(calc.rata_neto) }}</td>
                 <td style="text-align:right;font-weight:600;color:var(--accent-primary);">{{ format_amount(calc.rata_bruto) }}</td>
-                <td style="text-align:center;">
+                <td style="text-align:center;white-space:nowrap;">
+                    <span class="status-badge {% if is_signed %}status-signed{% else %}status-unsigned{% endif %}"
+                          style="cursor:pointer;"
+                          title="{% if is_signed %}Klikni da poništiš potpis{% else %}Klikni da označiš kao potpisan{% endif %}"
+                          onclick="toggleSigned({{ c.id }}, this)">
+                        {% if is_signed %}✅ Potpisan{% else %}⬜ Nije potpisan{% endif %}
+                    </span>
+                </td>
+                <td style="text-align:center;white-space:nowrap;">
                     <button type="button"
                             class="btn btn-danger btn-sm"
                             data-action="{{ url_for('delete_contract', contract_id=c.id) }}"
@@ -65,7 +119,7 @@
                 </td>
             </tr>
         {% else %}
-            <tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:30px;">Nema ugovora.</td></tr>
+            <tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:30px;">Nema ugovora.</td></tr>
         {% endfor %}
         </tbody>
     </table>
@@ -74,11 +128,11 @@
 {% if total_pages > 1 %}
 <div style="display:flex;justify-content:center;gap:10px;margin-top:20px;">
     {% if current_page > 1 %}
-    <a href="{{ url_for('list_contracts', page=current_page-1, search=search, date_from=date_from, date_to=date_to) }}" class="btn btn-secondary">« Prethodna</a>
+    <a href="{{ url_for('list_contracts', page=current_page-1, search=search, date_from=date_from, date_to=date_to, signed=signed_filter) }}" class="btn btn-secondary">« Prethodna</a>
     {% endif %}
     <span style="padding:10px;font-weight:500;">Strana {{ current_page }} od {{ total_pages }}</span>
     {% if current_page < total_pages %}
-    <a href="{{ url_for('list_contracts', page=current_page+1, search=search, date_from=date_from, date_to=date_to) }}" class="btn btn-secondary">Sledeća »</a>
+    <a href="{{ url_for('list_contracts', page=current_page+1, search=search, date_from=date_from, date_to=date_to, signed=signed_filter) }}" class="btn btn-secondary">Sledeća »</a>
     {% endif %}
 </div>
 {% endif %}
@@ -122,7 +176,6 @@ function closeDeleteModal() {
 
 function doDelete() {
     if (!_deleteUrl) return;
-    // Create and submit a hidden form
     var f = document.createElement('form');
     f.method = 'POST';
     f.action = _deleteUrl;
@@ -130,9 +183,23 @@ function doDelete() {
     f.submit();
 }
 
-// Close on backdrop click
 document.getElementById('deleteModal').addEventListener('click', function(e) {
     if (e.target === this) closeDeleteModal();
 });
+
+// ── Toggle Signed ──────────────────────────────────────
+function toggleSigned(contractId, el) {
+    var isCurrentlySigned = el.textContent.indexOf('Potpisan') !== -1 && el.textContent.indexOf('✓') !== -1;
+    var msg = isCurrentlySigned ? 'Da li ste sigurni da želite da poništite potpis?' : 'Da li ste sigurni da želite da označite ugovor kao potpisan?';
+    if (!confirm(msg)) return;
+    fetch('/rent/contracts/toggle_signed/' + contractId, { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            location.reload();
+        })
+        .catch(err => {
+            alert('Greška: ' + err.message);
+        });
+}
 </script>
 {% endblock %}
