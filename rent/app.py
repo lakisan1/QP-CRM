@@ -692,7 +692,6 @@ def pdf_schedule_fillable(contract_id):
         writer.add_page(page)
 
     num_rows = len(schedule)
-    num_pages = len(writer.pages)
 
     # A4 landscape dimensions in points
     page_width = 842
