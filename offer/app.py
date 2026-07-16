@@ -569,6 +569,10 @@ def new_offer():
             cur.execute("SELECT value FROM global_settings WHERE key = 'email_offer_body';")
             row = cur.fetchone()
             email_offer_body = row["value"] if row else "Postovani,\n\nU prilogu vam saljemo ponudu br. {offer_number}.\n\nSrdacan pozdrav,\nVas Tim"
+
+            cur.execute("SELECT value FROM global_settings WHERE key = 'language';")
+            row = cur.fetchone()
+            current_language = row["value"] if row else "en"
             
             conn.close()
 
@@ -581,19 +585,19 @@ def new_offer():
                 "client_phone": client_phone,
                 "client_pib": client_pib,
                 "client_mb": client_mb,
-            "currency": currency,
-            "exchange_rate": exchange_rate,
-            "discount_percent": discount_percent_input / 100.0 if discount_percent_input else None, 
-            "special_discount_percent": special_discount_percent_input / 100.0 if special_discount_percent_input else None, 
-            "third_discount_percent": third_discount_percent_input / 100.0 if third_discount_percent_input else None,
-            "vat_percent": vat_percent_input / 100.0 if vat_percent_input else None,
-            "payment_terms": payment_terms,
-            "delivery_terms": delivery_terms,
-            "validity_days": validity_days,
-            "notes": notes,
-            "napomena": napomena,
-            "country": country
-        }
+                "currency": currency,
+                "exchange_rate": exchange_rate,
+                "discount_percent": discount_percent_input / 100.0 if discount_percent_input else None, 
+                "special_discount_percent": special_discount_percent_input / 100.0 if special_discount_percent_input else None, 
+                "third_discount_percent": third_discount_percent_input / 100.0 if third_discount_percent_input else None,
+                "vat_percent": vat_percent_input / 100.0 if vat_percent_input else None,
+                "payment_terms": payment_terms,
+                "delivery_terms": delivery_terms,
+                "validity_days": validity_days,
+                "notes": notes,
+                "napomena": napomena,
+                "country": country
+            }
             return render_template("offer_form.html", offer=preserved_offer, today=date.today().isoformat(), 
                                    error=" ".join(errors), mandatory_fields=mandatory, presets_by_cat=presets_by_cat,
                                    countries=get_country_list(),

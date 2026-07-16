@@ -18,8 +18,6 @@ COUNTRIES = [
     {"code": "RU", "name": "Rusija", "name_en": "Russia"},
     {"code": "UK", "name": "Velika Britanija", "name_en": "United Kingdom"},
     {"code": "US", "name": "SAD", "name_en": "USA"},
-    {"code": "CN", "name": "Kina", "name_en": "China"},
-
     # Rest of the world (Alphabetical by Serbian name)
     {"code": "AL", "name": "Albanija", "name_en": "Albania"},
     {"code": "DZ", "name": "Alžir", "name_en": "Algeria"},

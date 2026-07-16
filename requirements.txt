@@ -2,6 +2,7 @@ flask
 Pillow
 requests
 WeasyPrint
+pypdf
 python-docx
 mammoth
 lxml

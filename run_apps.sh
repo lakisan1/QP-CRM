@@ -81,8 +81,10 @@ mkdir -p app_data/product_images
 # 3) Python venv + requirements
 #############################################
 
-if [ ! -d venv ]; then
-  echo "Creating Python virtual environment..."
+# Recreate venv if missing or pip is broken
+if [ ! -d venv ] || ! venv/bin/python -m pip --version >/dev/null 2>&1; then
+  echo "Creating/recreating Python virtual environment..."
+  rm -rf venv
   python3 -m venv venv
 fi
 
@@ -91,10 +93,10 @@ echo "Activating venv..."
 source venv/bin/activate
 
 echo "Upgrading pip and installing requirements..."
-venv/bin/pip install --upgrade pip
-venv/bin/pip install -r requirements.txt
+venv/bin/python -m pip install --upgrade pip
+venv/bin/python -m pip install -r requirements.txt
 # Ensure Werkzeug is installed as it's needed for dispatcher
-venv/bin/pip install Werkzeug
+venv/bin/python -m pip install Werkzeug
 
 #############################################
 # 4) Start Merged Flask App

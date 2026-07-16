@@ -1,6 +1,5 @@
 import os
 import sys
-import sqlite3
 import math
 from flask import Flask, render_template, request, redirect, url_for, send_from_directory, session, abort
 import markdown
@@ -11,7 +10,8 @@ PARENT_DIR = os.path.dirname(CURRENT_DIR)
 if PARENT_DIR not in sys.path:
     sys.path.append(PARENT_DIR)
 
-from shared.config import STATIC_DIR, DATABASE, IMAGE_DIR
+from shared.config import STATIC_DIR, IMAGE_DIR
+from shared.db import get_db
 from shared.utils import format_amount
 
 app = Flask(
@@ -22,11 +22,6 @@ app = Flask(
 )
 app.secret_key = "sale_readonly_secret_change_me"
 app.config['SESSION_COOKIE_NAME'] = 'sale_readonly_session'
-
-def get_db():
-    conn = sqlite3.connect(DATABASE)
-    conn.row_factory = sqlite3.Row
-    return conn
 
 def get_theme():
     """Fetch the theme setting from cookies."""
