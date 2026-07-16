@@ -172,6 +172,19 @@
                    target="_blank" class="btn btn-primary btn-sm">🖨️ PDF</a>
             </td>
         </tr>
+        <tr>
+            <td style="color:var(--text-muted);font-size:0.85rem;">📝</td>
+            <td style="font-weight:500;">Evidencija Uplata <span style="color:var(--text-muted);font-size:0.75rem;">(fillable PDF)</span></td>
+            <td>
+                <span style="background:rgba(212,116,10,0.12);color:#d4740a;padding:3px 10px;border-radius:20px;font-size:0.8rem;">
+                    Popunjiv PDF
+                </span>
+            </td>
+            <td style="text-align:center;">
+                <a href="{{ url_for('pdf_schedule_fillable', contract_id=contract.id) }}"
+                   target="_blank" class="btn btn-secondary btn-sm">📥 Preuzmi</a>
+            </td>
+        </tr>
         {% endif %}
         {% else %}
         <tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:30px;">Nema šablona u bazi.</td></tr>
