@@ -152,6 +152,87 @@
             </form>
         </div>
 
+        <!-- API Key Management -->
+        <div class="card">
+            <h3>🔑 API Key Management</h3>
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px;">
+                Manage the API key used by AI agents and external integrations to access the product/category/brand API.
+                The key is passed as <code>Authorization: Bearer <key></code> header.
+            </p>
+
+            <div style="display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap;">
+                <!-- Current Key Display -->
+                <div style="flex: 1; min-width: 300px; background: var(--bg-input); padding: 15px; border-radius: 8px;">
+                    <strong style="display: block; margin-bottom: 8px;">Current API Key:</strong>
+                    {% if api_key_exists %}
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <code id="apiKeyDisplay" style="flex: 1; padding: 8px 12px; background: var(--bg-main); border-radius: 4px; font-size: 0.85rem; word-break: break-all; filter: blur(5px); transition: filter 0.2s;">
+                            {{ api_key_value }}
+                        </code>
+                        <button type="button" class="btn btn-sm btn-secondary" onclick="toggleApiKeyVisibility()" style="white-space: nowrap; padding: 6px 12px;">
+                            👁 Show
+                        </button>
+                    </div>
+                    <small style="color: var(--text-muted); margin-top: 6px; display: block;">
+                        Copy this key and provide it to your AI agent. Store it securely.
+                    </small>
+                    {% else %}
+                    <div style="padding: 10px; background: var(--accent-warning-bg, rgba(255, 165, 0, 0.1)); border-radius: 4px; color: var(--accent-warning, orange);">
+                        ⚠️ No API key has been generated yet. Click "Generate New Key" below.
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Actions -->
+                <div style="display: flex; flex-direction: column; gap: 10px; min-width: 220px;">
+                    <form action="{{ url_for('api_key_generate') }}" method="POST" onsubmit="return confirm('Generating a new key will replace the existing one. All current API integrations will need the new key. Continue?');">
+                        <div style="margin-bottom: 8px;">
+                            <input type="password" name="current_admin_password" placeholder="Admin Password" required
+                                style="width: 100%; margin-bottom: 0;">
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="width: 100%;">
+                            🔄 Generate New Key
+                        </button>
+                    </form>
+
+                    {% if api_key_exists %}
+                    <form action="{{ url_for('api_key_revoke') }}" method="POST" onsubmit="return confirm('Revoking the API key will immediately disable ALL API access. Are you sure?');">
+                        <div style="margin-bottom: 8px;">
+                            <input type="password" name="current_admin_password" placeholder="Admin Password" required
+                                style="width: 100%; margin-bottom: 0;">
+                        </div>
+                        <button type="submit" class="btn btn-danger" style="width: 100%;">
+                            🗑 Revoke Key
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if api_key_exists %}
+            <div style="margin-top: 15px; padding: 10px; background: var(--bg-hover); border-radius: 4px;">
+                <strong>Quick Test (curl):</strong>
+                <code style="display: block; margin-top: 5px; padding: 8px; background: #1a1a2e; color: #00ff88; border-radius: 4px; font-size: 0.8rem; overflow-x: auto;">
+                    curl -H "Authorization: Bearer <span class="key-placeholder">{{ api_key_value[:8] }}...</span>" http://localhost:5000/api/v1/health
+                </code>
+            </div>
+            {% endif %}
+        </div>
+
+        <script>
+            function toggleApiKeyVisibility() {
+                const display = document.getElementById('apiKeyDisplay');
+                const btn = event.target;
+                if (display.style.filter === 'none') {
+                    display.style.filter = 'blur(5px)';
+                    btn.textContent = '👁 Show';
+                } else {
+                    display.style.filter = 'none';
+                    btn.textContent = '🙈 Hide';
+                }
+            }
+        </script>
+
         <!-- Branding -->
         <div class="card">
             <h3>Company Branding</h3>

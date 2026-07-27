@@ -16,7 +16,7 @@ if PARENT_DIR not in sys.path:
 
 from shared.config import STATIC_DIR, DATABASE, APP_ASSETS_DIR, IMAGE_DIR
 from shared.db import get_db
-from shared.auth import check_password, set_password, get_password
+from shared.auth import check_password, set_password, get_password, get_api_key, generate_api_key, revoke_api_key
 from shared.countries import get_country_list
 
 app = Flask(
@@ -261,6 +261,10 @@ def index():
         row = cur.fetchone()
         mandatory_fields[field] = (row["value"] == "true") if row else False
 
+    # API Key info
+    api_key_value = get_api_key()
+    api_key_exists = api_key_value is not None
+
     conn.close()
 
     return render_template(
@@ -282,7 +286,9 @@ def index():
         rent_defaults=rent_defaults,
         rent_email_preset=rent_email_preset,
         timestamp=int(time.time()),
-        theme=current_theme
+        theme=current_theme,
+        api_key_exists=api_key_exists,
+        api_key_value=api_key_value
     )
 
 @app.route("/add_preset", methods=["POST"])
@@ -1130,6 +1136,34 @@ def delete_rounding_rule():
     
     flash("Rounding rule deleted.", "success")
     return redirect(url_for("list_rounding_rules"))
+
+# ─────────────────────────────────────────────────────────────────────────────
+# API Key Management
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/api_key/generate", methods=["POST"])
+def api_key_generate():
+    """Generate a new API key (requires admin password)."""
+    current_admin_pass = request.form.get("current_admin_password")
+    if not check_password("admin", current_admin_pass):
+        flash("Invalid Admin Password.", "error")
+        return redirect(url_for("index"))
+
+    new_key = generate_api_key()
+    flash(f"New API key generated.", "success")
+    return redirect(url_for("index"))
+
+@app.route("/api_key/revoke", methods=["POST"])
+def api_key_revoke():
+    """Revoke (delete) the current API key (requires admin password)."""
+    current_admin_pass = request.form.get("current_admin_password")
+    if not check_password("admin", current_admin_pass):
+        flash("Invalid Admin Password.", "error")
+        return redirect(url_for("index"))
+
+    revoke_api_key()
+    flash("API key revoked. All existing API integrations will stop working.", "warning")
+    return redirect(url_for("index"))
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Rent Master Template Editor (Admin)

@@ -18,12 +18,17 @@ from admin.app import app as admin_app, init_db as admin_init_db
 from sale.app import app as sale_app
 from settings.app import app as settings_app
 from rent.app import app as rent_app, init_db as rent_init_db
+from pricing.api_v1 import api_v1
 from shared.config import STATIC_DIR, APP_ASSETS_DIR
+from shared.auth import get_api_key, generate_api_key
 
 # Initialize the main landing app
 # We explicitly set static_folder to the shared one so it can serve css/js for the landing page
 # AND for the sub-apps if they generate URLs pointing to /static
 app = Flask(__name__, template_folder='templates', static_folder=STATIC_DIR, static_url_path='/static')
+
+# Register API v1 blueprint on the top-level app (NOT under /pricing prefix)
+app.register_blueprint(api_v1, url_prefix="/api/v1")
 
 @app.route("/")
 def index():

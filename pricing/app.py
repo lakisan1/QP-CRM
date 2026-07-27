@@ -35,6 +35,7 @@ from shared.auth import check_password
 # import common_utils (it's in PARENT_DIR)
 # we already added PARENT_DIR to sys.path above
 from shared.utils import format_amount, format_date, get_nbs_rate
+from shared.auth import get_api_key, generate_api_key
 
 app = Flask(
     __name__,
@@ -46,8 +47,12 @@ app.config['SESSION_COOKIE_NAME'] = 'pricing_session'
 
 @app.before_request
 def check_auth():
-    # Exempt login page and static files from authentication
+    # Exempt login page, static files, and API blueprint from authentication
     if request.endpoint in ('login', 'static'):
+        return None
+    
+    # Allow API blueprint routes to use their own auth (Bearer token)
+    if request.endpoint and request.endpoint.startswith('api_v1.'):
         return None
     
     if not session.get('authenticated'):
@@ -520,11 +525,17 @@ def render_markdown(text):
     text = fix_markdown_lists(text)
     return markdown.markdown(text, extensions=['extra', 'nl2br'])
 
+def _(text):
+    """Simple gettext passthrough (no i18n configured)."""
+    return text
+
+
 @app.context_processor
 def inject_helpers():
     return dict(
         format_amount=format_amount,
-        theme=get_theme()
+        theme=get_theme(),
+        _=_,
     )
 
 # ---------- PRODUCTS ----------
@@ -1772,4 +1783,18 @@ def delete_price(product_id, price_id):
 if __name__ == "__main__":
     init_db()
     migrate_schema()
+
+    # Auto-generate API key on first run if none exists
+    existing_key = get_api_key()
+    if not existing_key:
+        new_key = generate_api_key()
+        print(f"\n{'='*60}")
+        print(f"  🔑 API v1: No API key found. Generated new key:")
+        print(f"  {new_key}")
+        print(f"  Manage this key in: Admin Panel → API Key Management")
+        print(f"  Use: Authorization: Bearer {new_key}")
+        print(f"{'='*60}\n")
+    else:
+        print(f"\n  🔑 API v1 key loaded. Manage in Admin Panel → API Key Management\n")
+
     app.run(host="0.0.0.0", port=5000, debug=True)
