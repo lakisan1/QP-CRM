@@ -34,6 +34,8 @@ quotation.log
 *.tmp
 temp/
 
-# Local vendored deps (install via pip / requirements.txt instead)
+# Local vendored deps (install via pip / requirements.txt instead).
+# NOTE: custom_libs/ is tracked since Phase 0 — it is loaded via sys.path at
+# runtime, so a fresh clone + docker build needs it in the repo (Phase 2 will
+# replace the vendored markdown with a pinned pip dependency).
 deps/
-custom_libs/
