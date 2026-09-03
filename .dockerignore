@@ -24,7 +24,9 @@ __pycache__/
 *.log
 main.log
 
-# Binary artifacts and one-off dev scripts
+# Binary artifacts and one-off dev scripts. The legacy root test_*.py
+# scratch scripts are named individually (NOT blanket-ignored) because the
+# pytest suite itself lives in tests/ and MUST ship in the image.
 *.pdf
 *.xlsx
 *.xlsb
@@ -32,10 +34,19 @@ pricing.db
 success.pdf
 download_pdf*.py
 measure_pdf*.py
-test_*.py
-test_dests*.py
+test_dests.py
+test_dests2.py
+test_pdf_flask.py
+test_weasy.py
 
 # Same junk nested in subpackages (plain `*.pyc` etc. only match the root)
 **/__pycache__/
 **/*.pyc
 **/*.log
+
+# The pytest suite + golden PDF baselines ship in the image so the suite can
+# run with one command (docker compose run --rm app pytest). Negations come
+# last on purpose: later rules override earlier ones, so this also un-ignores
+# tests/golden/baselines/*.pdf matched by `*.pdf` above.
+!tests/
+!tests/**

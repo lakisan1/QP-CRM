@@ -5,7 +5,8 @@
 # served by gunicorn through wsgi.py (P0-T2), on port 5000.
 #
 # Runtime concerns wired here:
-#   * image: qp-crm:phase0, built from ./Dockerfile (P0-T3)
+#   * image: qp-crm:phase1, built from ./Dockerfile (P0-T3; phase-1 adds the
+#     pytest test layer, P1-T1 — qp-crm:phase0 remains the rollback tag)
 #   * secrets come from .env (see .env.example, P0-T4)
 #   * all mutable state is bind-mounted OUTSIDE the image, so the
 #     rebuild/update flow (./deploy.sh) never loses data
@@ -17,7 +18,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: qp-crm:phase0
+    image: qp-crm:phase1
     container_name: qp-crm
     ports:
       - "5000:5000"

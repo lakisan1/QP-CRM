@@ -30,6 +30,13 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Test-only dependencies (pytest), Phase 1 P1-T1. Separate file + layer so
+# production requirements.txt stays untouched and this layer never
+# invalidates the one above. The suite runs via:
+#   docker compose run --rm app pytest
+COPY dev-requirements.txt .
+RUN pip install --no-cache-dir -r dev-requirements.txt
+
 # Application code. Build-context junk (venv, .git, PDFs, scratch scripts,
 # app_data, .env, ...) is kept out by .dockerignore. custom_libs/ MUST ship —
 # the vendored markdown library is loaded via sys.path at runtime.

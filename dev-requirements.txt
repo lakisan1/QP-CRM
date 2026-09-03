@@ -1,0 +1,10 @@
+# QP-CRM - test-only requirements (pinned)
+#
+# Phase 1 (P1-T1): the pytest suite runs INSIDE the Docker image via
+#   docker compose build app
+#   docker compose run --rm app pytest
+# so pytest ships in the image through this separate file/layer. Production
+# dependencies stay in requirements.txt and are never touched by test needs.
+#
+# Regenerate pins only deliberately, like requirements.txt.
+pytest==8.4.2
