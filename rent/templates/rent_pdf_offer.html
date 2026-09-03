@@ -76,9 +76,28 @@ h2 {
 .params td { padding: 4px 8px; font-size: 8.5pt; }
 .params td:last-child { text-align: right; font-weight: 600; width: 90px; }
 .params tr.hl td { background: #f0f7ff; }
-.params tr.total td { background: #007acc; color: white; font-weight: 700; font-size: 9pt; border-radius: 3px; }
-.params tr.total td:first-child { border-radius: 3px 0 0 3px; }
-.params tr.total td:last-child  { border-radius: 0 3px 3px 0; }
+    .params tr.total td { background: #007acc; color: white; font-weight: 700; font-size: 9pt; border-radius: 3px; }
+    .params tr.total td:first-child { border-radius: 3px 0 0 3px; }
+    .params tr.total td:last-child  { border-radius: 0 3px 3px 0; }
+
+    /* Green total for monthly payments (Rata nakon zatvaranja avansa) */
+    .params tr.total.green td { background: #1e8e3e; }
+
+    /* Orange total for admin fees (Adm. troškovi izrade ugovora) */
+    .params tr.total.orange td { background: #f59e0b; }
+
+    /* Section headers for visual grouping (no text/content change) */
+    .params tr.section td { color: white; font-weight: 700; font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.5px; padding: 5px 8px; border-radius: 3px; }
+    .params tr.section.green td { background: #1e8e3e; }
+    .params tr.section.blue td { background: #007acc; }
+    .params tr.section.orange td { background: #f59e0b; }
+    .params tr.section td:first-child { border-radius: 3px 0 0 3px; }
+    .params tr.section td:last-child  { border-radius: 0 3px 3px 0; }
+
+    /* Group row backgrounds */
+    .params tr.green-row td { background: #f0faf3; }
+    .params tr.blue-row td { background: #f0f7ff; }
+    .params tr.orange-row td { background: #fff7ed; }
 
 /* ── Note ── */
 .note {
@@ -142,25 +161,24 @@ h2 {
 <table class="params">
     <tr><td>Trajanje zakupa (meseci)</td><td>{{ contract.period_months }}</td></tr>
 
-    <tr class="hl"><td>Mesečna zakupnina – <em>neto</em></td><td>{{ "%.2f €"|format(calc.rata_neto) }}</td></tr>
-    <tr><td style="padding-left:16px;">od čega: finansiranje</td><td>{{ "%.2f €"|format(calc.rata_fin) }}</td></tr>
-    <tr><td style="padding-left:16px;">od čega: osiguranje</td><td>{{ "%.2f €"|format(calc.osiguranje) }}</td></tr>
-    <tr><td style="padding-left:16px;">od čega: garancija/trošak</td><td>{{ "%.2f €"|format(calc.garancija) }}</td></tr>
-    <tr><td>PDV ({{ contract.vat_percent|int }}%)</td><td>{{ "%.2f €"|format(calc.rata_pdv) }}</td></tr>
-    <tr class="total"><td>Mesečna zakupnina – BRUTO (sa PDV-om)</td><td>{{ "%.2f €"|format(calc.rata_bruto) }}</td></tr>
+    <tr class="section green"><td colspan="2">Zakupnina</td></tr>
+    <tr class="hl green-row"><td>Mesečna zakupnina – <em>neto</em></td><td>{{ "%.2f €"|format(calc.rata_neto) }}</td></tr>
+    <tr class="green-row"><td style="padding-left:16px;">od čega: finansiranje</td><td>{{ "%.2f €"|format(calc.rata_fin) }}</td></tr>
+    <tr class="green-row"><td style="padding-left:16px;">od čega: osiguranje</td><td>{{ "%.2f €"|format(calc.osiguranje) }}</td></tr>
+    <tr class="green-row"><td style="padding-left:16px;">od čega: garancija/trošak</td><td>{{ "%.2f €"|format(calc.garancija) }}</td></tr>
+    <tr class="green-row"><td>PDV ({{ contract.vat_percent|int }}%)</td><td>{{ "%.2f €"|format(calc.rata_pdv) }}</td></tr>
+    <tr class="green-row"><td>Mesečna zakupnina – BRUTO (sa PDV-om)</td><td>{{ "%.2f €"|format(calc.rata_bruto) }}</td></tr>
+    <tr class="green-row"><td>Mesečno zatvaranje avansa</td><td>{{ "%.2f €"|format(calc.zatvaranje) }}</td></tr>
+    <tr class="total green"><td>Rata nakon zatvaranja avansa</td><td>{{ "%.2f €"|format(calc.rata_nakon) }}</td></tr>
 
-    <tr><td>&nbsp;</td><td>&nbsp;</td></tr>
-    <tr><td>Mesečno zatvaranje avansa</td><td>{{ "%.2f €"|format(calc.zatvaranje) }}</td></tr>
-    <tr class="total"><td>Rata nakon zatvaranja avansa</td><td>{{ "%.2f €"|format(calc.rata_nakon) }}</td></tr>
-
-    <tr><td>&nbsp;</td><td>&nbsp;</td></tr>
-    <tr><td>Obavezan avans – <em>neto</em></td><td>{{ "%.2f €"|format(calc.ucesce) }}</td></tr>
-    <tr><td>PDV na avans</td><td>{{ "%.2f €"|format(calc.ucesce_pdv) }}</td></tr>
+    <tr class="section blue"><td colspan="2">Avans</td></tr>
+    <tr class="blue-row"><td>Obavezan avans – <em>neto</em></td><td>{{ "%.2f €"|format(calc.ucesce) }}</td></tr>
+    <tr class="blue-row"><td>PDV na avans</td><td>{{ "%.2f €"|format(calc.ucesce_pdv) }}</td></tr>
     <tr class="total"><td>Obavezan avans – BRUTO</td><td>{{ "%.2f €"|format(calc.ucesce_bruto) }}</td></tr>
 
-    <tr><td>&nbsp;</td><td>&nbsp;</td></tr>
-    <tr><td>Adm. troškovi izrade ugovora – <em>neto</em></td><td>{{ "%.2f €"|format(calc.admin_fee) }}</td></tr>
-    <tr class="hl"><td>Adm. troškovi izrade ugovora – <em>bruto</em></td><td>{{ "%.2f €"|format(calc.admin_bruto) }}</td></tr>
+    <tr class="section orange"><td colspan="2">Adm. troškovi izrade ugovora</td></tr>
+    <tr class="orange-row"><td>Adm. troškovi izrade ugovora – <em>neto</em></td><td>{{ "%.2f €"|format(calc.admin_fee) }}</td></tr>
+    <tr class="total orange"><td>Adm. troškovi izrade ugovora – <em>bruto</em></td><td>{{ "%.2f €"|format(calc.admin_bruto) }}</td></tr>
 </table>
 
 <div class="note">

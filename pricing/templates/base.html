@@ -21,8 +21,10 @@
             <a href="{{ url_for('brands') }}" {% if request.endpoint=='brands' %}class="active" {% endif %}>{{
                 _('Brands') }}</a>
             <a href="{{ url_for('quick_update_products') }}"
-                class="nav-btn-special {% if request.endpoint=='quick_update_products' %}active{% endif %}">{{ _('Quick
+                class="{% if request.endpoint=='quick_update_products' %}active{% endif %}">{{ _('Quick
                 Update') }}</a>
+            <a href="{{ url_for('product_sync') }}" {% if request.endpoint=='product_sync' %}class="active" {%
+                endif %}>{{ _('Sync Sajt') }}</a>
         </div>
         <div class="nav-right">
 
@@ -40,8 +42,9 @@
     <script>
         document.addEventListener("DOMContentLoaded", function () {
             // Initialize Tom Select on elements with .searchable-select class
+            // Store instance on the element so pages can destroy/re-init it later
             document.querySelectorAll('.searchable-select').forEach((el) => {
-                new TomSelect(el, {
+                el._tomSelect = new TomSelect(el, {
                     create: false,
                     sortField: {
                         field: "text",

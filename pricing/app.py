@@ -108,6 +108,29 @@ def init_db():
     # Set default date format if not exists
     cur.execute("INSERT OR IGNORE INTO global_settings (key, value) VALUES ('date_format', 'YYYY-MM-DD');")
 
+    # Website sync snapshot table (Sajt <-> CRM product sync, manual only)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS site_products (
+            id           INTEGER PRIMARY KEY,   -- WP product ID
+            name         TEXT NOT NULL,
+            url          TEXT,
+            brand_id     INTEGER,               -- WP brand ID
+            brand_name   TEXT,                  -- denormalized for display speed
+            cat_id       INTEGER,               -- WP category ID (first category)
+            cat_name     TEXT,
+            image_url    TEXT,
+            modified     TEXT,
+            fetched_at   TEXT,
+            included_items TEXT                -- ACF 'Obim isporuke' (what's in the box)
+        );
+    """)
+
+    # Add included_items column to existing site_products (for older DBs)
+    try:
+        cur.execute("ALTER TABLE site_products ADD COLUMN included_items TEXT;")
+    except sqlite3.OperationalError:
+        pass
+
     # Prices table (base definition)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS prices (
@@ -256,6 +279,21 @@ def migrate_schema():
             cur.execute(f"ALTER TABLE prices ADD COLUMN {col_name} {col_type}")
         except sqlite3.OperationalError:
             pass
+
+    # 3b. Add site_product_id column to products (Sajt <-> CRM sync, 1:1 link)
+    # UNIQUE so one CRM product links to at most one site product and vice versa.
+    # NOTE: SQLite's ALTER TABLE ADD COLUMN cannot add a column with a UNIQUE
+    # constraint, so we add a plain column and enforce uniqueness via a UNIQUE
+    # index (NULLs are treated as distinct in a unique index - which is correct).
+    try:
+        cur.execute("ALTER TABLE products ADD COLUMN site_product_id INTEGER;")
+    except sqlite3.OperationalError:
+        # Column already exists - no-op.
+        pass
+    cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_products_site_product_id ON products(site_product_id);")
+    # Index for fast lookups by name when building the comparison table
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_products_name ON products(name);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_site_products_name ON site_products(name);")
 
     # 4. Remove UNIQUE constraint from prices if present
     cur.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='prices'")
@@ -526,8 +564,9 @@ def render_markdown(text):
     return markdown.markdown(text, extensions=['extra', 'nl2br'])
 
 def _(text):
-    """Simple gettext passthrough (no i18n configured)."""
-    return text
+    """Translate text using shared i18n (works in standalone mode too)."""
+    from shared.utils import translate, get_current_language
+    return translate(text, get_current_language())
 
 
 @app.context_processor
@@ -539,6 +578,14 @@ def inject_helpers():
     )
 
 # ---------- PRODUCTS ----------
+
+@app.route("/products/product_sync")
+def product_sync():
+    """Sajt <-> CRM product comparison/sync page (manual sync only)."""
+    return render_template(
+        "product_sync.html",
+        api_key=get_api_key(),
+    )
 
 @app.route("/products")
 def list_products():

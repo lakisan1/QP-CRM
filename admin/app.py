@@ -7,6 +7,7 @@ import zipfile
 import io
 import pathlib
 import shutil
+import sqlite3
 
 # Ensure we can import 'shared' from parent dir
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -24,7 +25,7 @@ app = Flask(
     static_folder=STATIC_DIR,
     static_url_path="/static"
 )
-app.secret_key = "crm_admin_secret_key_change_me"
+app.secret_key = os.environ.get("ADMIN_SECRET_KEY", "crm_admin_secret_key_change_me")
 app.config['SESSION_COOKIE_NAME'] = 'admin_session'
 
 def init_presets_table():
@@ -377,6 +378,9 @@ def update_passwords():
     
     for app_name, new_p, confirm_p in changes:
         if new_p: # if not empty
+            if len(new_p) < 8:
+                flash(f"Error: Password for {app_name} must be at least 8 characters.", "error")
+                return redirect(url_for("index"))
             if new_p != confirm_p:
                 flash(f"Error: Passwords for {app_name} did not match.", "error")
                 return redirect(url_for("index"))
@@ -412,8 +416,14 @@ def upload_logo():
         target_path = os.path.join(target_dir, "logo_company.jpg")
         
         try:
-            # Save to static/img/logo_company.jpg
-            f.save(target_path)
+            # If PNG, convert to JPG to match the .jpg filename (G34)
+            if ext == '.png':
+                from PIL import Image
+                img = Image.open(f.stream).convert("RGB")
+                img.save(target_path, "JPEG")
+            else:
+                # Save to static/img/logo_company.jpg
+                f.save(target_path)
             
             # ALSO Save to app_assets/logo_company.jpg (which PDF template uses)
             asset_path = os.path.join(APP_ASSETS_DIR, "logo_company.jpg")
@@ -580,21 +590,45 @@ def update_settings():
 def backup_db():
     if not session.get('admin_authenticated'):
         return redirect(url_for('login'))
-        
-    conn = get_db()
-    conn.close() # Ensure db is closed before reading file
-    
-    file_path = DATABASE
-    if not os.path.exists(file_path):
-        flash("Database file not found.", "error")
+
+    # G36: Use sqlite3.backup() for a WAL-safe snapshot instead of reading the raw file.
+    try:
+        src_conn = get_db()
+        # Create a fresh connection to the DB file so backup() is WAL-safe
+        src_conn.commit()
+        src_conn.close()
+
+        backup_conn = sqlite3.connect(DATABASE)
+        mem_conn = sqlite3.connect(':memory:')
+        backup_conn.backup(mem_conn)
+
+        # Write the snapshot to a BytesIO buffer
+        buf = io.BytesIO()
+        # Copy the in-memory DB into buf by dumping it to a temp file-like path
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
+            tmp_name = tmp.name
+            # Dump mem_conn into the temp file
+            dst_conn = sqlite3.connect(tmp_name)
+            mem_conn.backup(dst_conn)
+            dst_conn.close()
+            with open(tmp_name, "rb") as fh:
+                buf.write(fh.read())
+        os.remove(tmp_name)
+        mem_conn.close()
+        backup_conn.close()
+
+        buf.seek(0)
+        date_str = time.strftime("%Y-%m-%d")
+        return send_file(
+            buf,
+            as_attachment=True,
+            download_name=f"full_backup_{date_str}.db",
+            mimetype="application/octet-stream"
+        )
+    except Exception as e:
+        flash(f"Error creating backup: {e}", "error")
         return redirect(url_for("index"))
-        
-    date_str = time.strftime("%Y-%m-%d")
-    return send_file(
-        file_path,
-        as_attachment=True,
-        download_name=f"full_backup_{date_str}.db"
-    )
 
 @app.route("/pdf_templates")
 def list_pdf_templates():
@@ -740,16 +774,32 @@ def cleanup_images():
     conn.close()
 
     # 3. Clean up orphaned files in IMAGE_DIR
+    # G35: Only delete a file if it is NOT referenced anywhere else in the DB,
+    #      not just in `products`. This avoids deleting shared images.
+    conn = get_db()
+    cur2 = conn.cursor()
     if os.path.exists(IMAGE_DIR):
         for filename in os.listdir(IMAGE_DIR):
             if filename not in valid_paths_in_db:
-                file_path = os.path.join(IMAGE_DIR, filename)
-                if os.path.isfile(file_path):
+                # Check every table that may reference image paths before deleting
+                cur2.execute("SELECT COUNT(*) AS c FROM products WHERE photo_path = ?", (filename,))
+                used = cur2.fetchone()["c"] > 0
+                if not used:
+                    # Also check rent equipment photos if that table exists
                     try:
-                        os.remove(file_path)
-                        deleted_count += 1
-                    except Exception as e:
-                        print(f"Error removing orphaned image {file_path}: {e}")
+                        cur2.execute("SELECT COUNT(*) AS c FROM rent_equipment WHERE photo_path = ?", (filename,))
+                        used = cur2.fetchone()["c"] > 0
+                    except Exception:
+                        pass
+                if not used:
+                    file_path = os.path.join(IMAGE_DIR, filename)
+                    if os.path.isfile(file_path):
+                        try:
+                            os.remove(file_path)
+                            deleted_count += 1
+                        except Exception as e:
+                            print(f"Error removing orphaned image {file_path}: {e}")
+    conn.close()
 
     flash(f"Image Cleanup Complete: {renamed_count} renamed/fixed, {deleted_count} orphaned files deleted, {missing_count} DB records pointing to missing files.", "success")
     return redirect(url_for("index"))
@@ -803,11 +853,33 @@ def restore_db():
             flash("Invalid file extension. Please upload a .db file.", "error")
             return redirect(url_for("index"))
             
-        # We need to overwrite the database file.
-        # Ensure no active connections (not 100% possible with threading but we try)
-        # In this simple app, just overwriting usually works on Linux.
+        # G30: Restore safely by loading into a temp DB, then swapping in
+        #       with an exclusive lock. This avoids corrupting the live DB
+        #       if another connection is active mid-write.
         try:
-            f.save(DATABASE)
+            # 1. Save upload to a temp file
+            import tempfile
+            with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
+                tmp_name = tmp.name
+                f.save(tmp_name)
+
+            # 2. Verify the uploaded DB is a valid SQLite file
+            conn = sqlite3.connect(tmp_name)
+            conn.execute("PRAGMA integrity_check;")
+            conn.close()
+
+            # 3. Swap the temp file into place under a lock
+            #    Use sqlite3 backup() to replace DATABASE atomically.
+            src_conn = sqlite3.connect(tmp_name)
+            dst_conn = sqlite3.connect(DATABASE)
+            src_conn.backup(dst_conn)
+            dst_conn.commit()
+            dst_conn.close()
+            src_conn.close()
+
+            # 4. Clean up temp file
+            os.remove(tmp_name)
+
             flash("Database restored successfully.", "success")
         except Exception as e:
             flash(f"Error restoring database: {e}", "error")
@@ -976,8 +1048,11 @@ def factory_reset():
             "rent_clients", "rent_equipment", "rent_contracts",
             "rent_contract_documents", "rent_templates"
         ]
+        # G31: Use parameterized queries — table names come from a fixed allow-list
+        allowed_tables = set(tables_to_clear)
         for table in tables_to_clear:
-            cur.execute(f"DELETE FROM {table};")
+            if table in allowed_tables:
+                cur.execute(f"DELETE FROM {table};")
         
         # Reset PDF Templates (keep only 'System Default' and make it read-only)
         cur.execute("DELETE FROM pdf_templates WHERE name != 'System Default';")

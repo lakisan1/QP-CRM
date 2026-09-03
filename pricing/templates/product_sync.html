@@ -1,0 +1,555 @@
+{% extends "base.html" %}
+{% block title %}Sync Sajt ↔ CRM{% endblock %}
+{% block content %}
+<style>
+    .sync-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 16px;
+    }
+    .sync-toolbar input[type="text"] {
+        padding: 8px;
+        min-width: 240px;
+        border: 1px solid var(--input-border, #444);
+        border-radius: 6px;
+        background: var(--bg-input, #2a2a2a);
+        color: var(--text-main, #eee);
+    }
+    .sync-toolbar .btn {
+        white-space: nowrap;
+    }
+    .filter-group { display: flex; gap: 4px; }
+    .filter-group .btn { padding: 6px 12px; }
+    .filter-group .btn.active {
+        outline: 2px solid var(--accent-primary, #3498db);
+        outline-offset: 2px;
+    }
+    .badge {
+        display: inline-block; padding: 2px 8px;
+        border-radius: 10px; font-size: 12px;
+    }
+    .badge-suggest { background: var(--accent-warning, #f1c40f); color: #222; }
+    .badge-missing { background: var(--accent-danger, #e74c3c); color: #fff; }
+
+    .sync-table td, .sync-table th { padding: 8px 10px; vertical-align: middle; }
+    .sync-table td img {
+        max-height: 50px; max-width: 50px; border-radius: 4px;
+    }
+    .sync-table .empty-col { color: #888; font-style: italic; }
+    .section-header {
+        margin-top: 24px; font-weight: bold;
+        color: var(--accent-primary, #3498db);
+    }
+    .section-header .count { color: var(--text-muted, #888); font-weight: normal; }
+    .action-cell { white-space: nowrap; }
+
+    /* Modal / dialog */
+    .modal-overlay {
+        position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+        display: none; align-items: center; justify-content: center; z-index: 1000;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal-box {
+        background: var(--bg-card, #1e1e1e); border: 1px solid var(--input-border, #444);
+        border-radius: 10px; padding: 20px; max-width: 640px; width: 92%;
+        max-height: 90vh; overflow-y: auto; color: var(--text-main, #eee);
+    }
+    .modal-box h3 { margin-top: 0; }
+    .modal-box label { display: block; margin-top: 10px; font-weight: bold; }
+    .modal-box input, .modal-box textarea, .modal-box select {
+        width: 100%; padding: 8px; margin-top: 4px;
+        border: 1px solid var(--input-border, #444); border-radius: 6px;
+        background: var(--bg-input, #2a2a2a); color: var(--text-main, #eee);
+        box-sizing: border-box;
+    }
+    .modal-box textarea { min-height: 140px; }
+    .modal-box img { max-height: 120px; border-radius: 6px; margin-top: 6px; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+
+    .msg { padding: 10px 14px; border-radius: 6px; margin-bottom: 14px; font-weight: bold; }
+    .msg-error { background: var(--accent-danger, #e74c3c); color: #fff; }
+    .msg-success { background: var(--accent-success, #2ecc71); color: #fff; }
+    .msg-info { background: var(--accent-primary, #3498db); color: #fff; }
+</style>
+
+<h2>Sync Sajt ↔ CRM (Proizvodi)</h2>
+<p style="color: var(--text-muted, #888);">
+    Ručno poređenje proizvoda iz CRM-a i sa sajta autoservisnaoprema.com.
+    Podaci sa sajta se povlače <strong>samo</strong> klikom na „Osveži sa sajta" — nikad automatski.
+</p>
+
+<div class="sync-toolbar">
+    <button class="btn btn-primary" id="btn-fetch">🔄 Osveži sa sajta</button>
+    <div class="filter-group">
+        <button class="btn btn-secondary filter-btn active" data-filter="all">Svi</button>
+        <button class="btn btn-secondary filter-btn" data-filter="unlinked">Nepovezani</button>
+        <button class="btn btn-secondary filter-btn" data-filter="crm_missing">Fali u CRM-u</button>
+        <button class="btn btn-secondary filter-btn" data-filter="site_missing">Fali na sajtu</button>
+    </div>
+    <input type="text" id="search-q" placeholder="Pretraga po imenu (obe strane)...">
+    <button class="btn btn-secondary" id="btn-search">Pretraži</button>
+</div>
+
+<div id="msg-area"></div>
+<div id="table-container"></div>
+
+<!-- Poveži modal (dropdown sa pretragom) -->
+<div class="modal-overlay" id="link-modal">
+    <div class="modal-box">
+        <h3>Poveži sa CRM proizvodom</h3>
+        <p style="color: var(--text-muted, #888);">
+            Sajt proizvod: <strong id="link-site-name"></strong> (ID: <span id="link-site-id"></span>)
+        </p>
+        <label>CRM proizvod (pretraga po imenu)</label>
+        <select class="searchable-select" id="link-product-select"></select>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" id="link-cancel">Otkaži</button>
+            <button class="btn btn-success" id="link-save">Poveži</button>
+        </div>
+    </div>
+</div>
+
+<!-- Dodaj u CRM modal -->
+<div class="modal-overlay" id="add-modal">
+    <div class="modal-box">
+        <h3>Dodaj u CRM</h3>
+        <p style="color: var(--text-muted, #888);">
+            Sajt proizvod: <strong id="add-site-name"></strong> (ID: <span id="add-site-id"></span>)
+        </p>
+        <label>Naziv proizvoda</label>
+        <input type="text" id="add-name">
+        <label>Opis</label>
+        <textarea id="add-desc"></textarea>
+        <label>Brend (opcionalno — unapred izabran samo ako ima tačno poklapanje imena)</label>
+        <select id="add-brand"><option value="">— bez brenda —</option></select>
+        <label>Kategorija (opcionalno)</label>
+        <select id="add-cat"><option value="">— bez kategorije —</option></select>
+        <img id="add-img" alt="Slika proizvoda" style="display:none;">
+        <div id="add-generating" style="display:none;margin-top:10px;color:var(--accent-primary,#3498db);font-weight:bold;">
+            ⏳ Generišem podatke sa sajta...
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" id="add-cancel">Otkaži</button>
+            <button class="btn btn-success" id="add-save">Dodaj u CRM</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API_KEY = {{ api_key|tojson }};
+    let currentFilter = 'all';
+    let currentQ = '';
+    let brands = [];
+    let categories = [];
+    let currentTableData = null;
+
+    function apiFetch(url, opts) {
+        opts = opts || {};
+        opts.headers = opts.headers || {};
+        opts.headers['Authorization'] = 'Bearer ' + API_KEY;
+        return fetch(url, opts).then(r => r.json());
+    }
+
+    function showMsg(type, text) {
+        const area = document.getElementById('msg-area');
+        const cls = type === 'error' ? 'msg-error' : (type === 'success' ? 'msg-success' : 'msg-info');
+        area.innerHTML = '<div class="msg ' + cls + '">' + text + '</div>';
+    }
+
+    function esc(s) {
+        if (s == null) return '';
+        const div = document.createElement('div');
+        div.textContent = String(s);
+        return div.innerHTML;
+    }
+
+    function rowCell(text, empty) {
+        if (empty) return '<td class="empty-col">—</td>';
+        return '<td>' + esc(text) + '</td>';
+    }
+
+    // Render site product name as a hyperlink to the site when url is available
+    function siteNameLink(name, url) {
+        const safeName = esc(name);
+        const safeUrl = esc(url);
+        if (!safeUrl) return safeName;
+        return '<a href="' + safeUrl + '" target="_blank" rel="noopener noreferrer" title="Otvori proizvod na sajtu">' + safeName + '</a>';
+    }
+
+    // Render the full table from the API response
+    function renderTable(data) {
+        const container = document.getElementById('table-container');
+        let html = '';
+
+        if (data.fetched_at) {
+            html += '<div style="margin-bottom:10px;color:var(--text-muted,#888);">Poslednje osvežavanje sajta: ' + esc(data.fetched_at) + '</div>';
+        }
+
+        // ---- Pairs ----
+        if (data.pairs.length) {
+            html += '<div class="section-header">Povezani / predloženi parovi <span class="count">(' + data.pairs.length + ')</span></div>';
+            html += '<table class="sync-table">';
+            html += '<tr><th>CRM naziv</th><th>CRM brend</th><th>CRM kategorija</th><th></th><th>Sajt naziv</th><th>Sajt brend</th><th>Sajt kategorija</th><th>Akcija</th></tr>';
+            for (const p of data.pairs) {
+                const isSuggested = p.suggested;
+                const isMissingSite = p.type === 'linked_missing_site';
+                let badge = '';
+                if (isSuggested) badge = ' <span class="badge badge-suggest">predlog</span>';
+                if (isMissingSite) badge = ' <span class="badge badge-missing">fali na sajtu</span> ' + (p.note ? esc(p.note) : '');
+                html += '<tr>';
+                html += '<td>' + esc(p.name) + badge + '</td>';
+                html += rowCell(p.brand, !p.brand);
+                html += rowCell(p.category, !p.category);
+                html += '<td style="text-align:center;">↔</td>';
+                if (isMissingSite) {
+                    html += '<td class="empty-col">—</td>';
+                    html += rowCell('', true);
+                    html += rowCell('', true);
+                } else {
+                    html += '<td>' + siteNameLink(p.site_name, p.site_url) + '</td>';
+                    html += rowCell(p.site_brand, !p.site_brand);
+                    html += rowCell(p.site_cat, !p.site_cat);
+                }
+                html += '<td class="action-cell">';
+                if (isMissingSite) {
+                    html += '<button class="btn btn-secondary btn-sm" data-unlink="' + p.product_id + '">Raskini vezu</button>';
+                } else {
+                    if (isSuggested) {
+                        html += '<button class="btn btn-success btn-sm" data-confirm="' + p.product_id + ',' + p.site_id + '">Potvrdi</button> ';
+                    }
+                    html += '<button class="btn btn-danger btn-sm" data-unlink="' + p.product_id + '">Raskini vezu</button>';
+                }
+                html += '</td>';
+                html += '</tr>';
+            }
+            html += '</table>';
+        }
+
+        // ---- Site-only (fali u CRM-u) ----
+        if (data.site_only.length) {
+            html += '<div class="section-header">Samo na sajtu — fali u CRM-u <span class="count">(' + data.site_only.length + ')</span></div>';
+            html += '<table class="sync-table">';
+            html += '<tr><th>CRM naziv</th><th>CRM brend</th><th>CRM kategorija</th><th></th><th>Sajt naziv</th><th>Sajt brend</th><th>Sajt kategorija</th><th>Akcija</th></tr>';
+            for (const s of data.site_only) {
+                const note = s.crm_linked_missing ? ' <span class="badge badge-missing">CRM proizvod obrisan, veza sačuvana</span>' : '';
+                html += '<tr>';
+                html += '<td class="empty-col">—</td>';
+                html += rowCell('', true);
+                html += rowCell('', true);
+                html += '<td style="text-align:center;">↔</td>';
+                html += '<td>' + siteNameLink(s.site_name, s.site_url) + note + '</td>';
+                html += rowCell(s.site_brand, !s.site_brand);
+                html += rowCell(s.site_cat, !s.site_cat);
+                html += '<td class="action-cell">';
+                html += '<button class="btn btn-secondary btn-sm" data-link="' + s.site_id + '">Poveži</button> ';
+                html += '<button class="btn btn-success btn-sm" data-add="' + s.site_id + '">Dodaj u CRM</button>';
+                html += '</td>';
+                html += '</tr>';
+            }
+            html += '</table>';
+        }
+
+        // ---- CRM-only (samo u CRM-u) ----
+        if (data.crm_only.length) {
+            html += '<div class="section-header">Samo u CRM-u <span class="count">(' + data.crm_only.length + ')</span></div>';
+            html += '<table class="sync-table">';
+            html += '<tr><th>CRM naziv</th><th>CRM brend</th><th>CRM kategorija</th><th></th><th>Sajt naziv</th><th>Sajt brend</th><th>Sajt kategorija</th><th>Akcija</th></tr>';
+            for (const c of data.crm_only) {
+                html += '<tr>';
+                html += '<td>' + esc(c.name) + '</td>';
+                html += rowCell(c.brand, !c.brand);
+                html += rowCell(c.category, !c.category);
+                html += '<td style="text-align:center;">↔</td>';
+                html += '<td class="empty-col">—</td>';
+                html += rowCell('', true);
+                html += rowCell('', true);
+                html += '<td class="action-cell"></td>';
+                html += '</tr>';
+            }
+            html += '</table>';
+        }
+
+        if (!data.pairs.length && !data.site_only.length && !data.crm_only.length) {
+            html += '<p style="color:var(--text-muted,#888);">Nema proizvoda. Kliknite „Osveži sa sajta" da povučete podatke.</p>';
+        }
+
+        container.innerHTML = html;
+
+        // Bind action buttons via delegation
+        container.querySelectorAll('[data-link]').forEach(btn => {
+            btn.addEventListener('click', () => openLink(parseInt(btn.dataset.link)));
+        });
+        container.querySelectorAll('[data-add]').forEach(btn => {
+            btn.addEventListener('click', () => openAdd(parseInt(btn.dataset.add)));
+        });
+        container.querySelectorAll('[data-unlink]').forEach(btn => {
+            btn.addEventListener('click', () => openUnlink(parseInt(btn.dataset.unlink)));
+        });
+        container.querySelectorAll('[data-confirm]').forEach(btn => {
+            const parts = btn.dataset.confirm.split(',');
+            const pid = parseInt(parts[0]);
+            const sid = parseInt(parts[1]);
+            btn.addEventListener('click', () => confirmLink(pid, sid));
+        });
+    }
+
+    // Load the table with current filter + search
+    function loadTable() {
+        let url = '/api/v1/sync/table?filter=' + encodeURIComponent(currentFilter);
+        if (currentQ) url += '&q=' + encodeURIComponent(currentQ);
+        return apiFetch(url).then(r => {
+            if (!r.success) { showMsg('error', r.error || 'Greška'); return; }
+            brands = r.data.brands || [];
+            categories = r.data.categories || [];
+            currentTableData = r.data;
+            renderTable(r.data);
+        }).catch(err => showMsg('error', 'Greška: ' + err.message));
+    }
+
+    // ---- Fetch button ----
+    document.getElementById('btn-fetch').addEventListener('click', function () {
+        this.disabled = true;
+        showMsg('info', 'Povlačenje snapshot-a sa sajta... (može potrajati)');
+        apiFetch('/api/v1/sync/fetch', { method: 'POST' }).then(r => {
+            if (!r.success) {
+                showMsg('error', r.error || 'Greška pri osvežavanju.');
+                this.disabled = false;
+                return;
+            }
+            const d = r.data;
+            showMsg('success', 'Osveženo! Povučeno: ' + d.fetched + ' · Novo: ' + d.new + ' · Promenjeno: ' + d.changed + ' · Uklonjeno sa sajta: ' + d.removed_from_site);
+            this.disabled = false;
+            loadTable();
+        }).catch(err => {
+            showMsg('error', 'Greška: ' + err.message);
+            this.disabled = false;
+        });
+    });
+
+    // ---- Filters ----
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            currentFilter = this.dataset.filter;
+            loadTable();
+        });
+    });
+
+    // ---- Search ----
+    document.getElementById('btn-search').addEventListener('click', () => {
+        currentQ = document.getElementById('search-q').value.trim();
+        loadTable();
+    });
+    document.getElementById('search-q').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { currentQ = this.value.trim(); loadTable(); }
+    });
+
+    // ---- Link modal ----
+    let linkSiteId = null;
+
+    function openLink(siteId) {
+        linkSiteId = siteId;
+        // Find site product name from table data
+        let siteName = null;
+        if (currentTableData) {
+            const all = (currentTableData.pairs || []).concat(currentTableData.site_only || []);
+            const found = all.find(p => p.site_id === siteId);
+            if (found) siteName = found.site_name;
+        }
+        document.getElementById('link-site-name').textContent = siteName || ('Proizvod #' + siteId);
+        document.getElementById('link-site-id').textContent = String(siteId);
+        loadCRMForLink();
+        document.getElementById('link-modal').classList.add('show');
+    }
+
+    function loadCRMForLink() {
+        const sel = document.getElementById('link-product-select');
+        // Destroy any existing TomSelect instance FIRST — TomSelect hides the
+        // original <select>, so adding <option> children to a hidden element
+        // would not show up in the UI. Must destroy before repopulating.
+        if (sel._tomSelect) {
+            sel._tomSelect.destroy();
+            sel._tomSelect = null;
+        }
+        sel.innerHTML = '';
+        // Remote/backend search via TomSelect load callback — reliable even in
+        // hidden modals and scales beyond the first page. The backend /api/v1/products
+        // endpoint supports ?search= (case-insensitive, trimmed) as verified.
+        sel._tomSelect = new TomSelect(sel, {
+            create: false,
+            placeholder: 'Pretraži CRM proizvod...',
+            shouldLoad: () => true,
+            load: (query, callback) => {
+                let url = '/api/v1/products?per_page=50';
+                if (query) url += '&search=' + encodeURIComponent(query);
+                apiFetch(url).then(r => {
+                    if (!r.success) { callback(); return; }
+                    const data = r.data || [];
+                    callback(null, data.map(p => ({ id: p.id, name: p.name })));
+                }).catch(() => callback());
+            },
+            labelField: 'name',
+            valueField: 'id',
+            searchField: ['name'],
+            render: {
+                option: (data) => '<div>' + esc(data.name) + '</div>',
+                item: (data) => '<div>' + esc(data.name) + '</div>'
+            }
+        });
+    }
+
+    document.getElementById('link-cancel').addEventListener('click', () => {
+        document.getElementById('link-modal').classList.remove('show');
+    });
+
+    document.getElementById('link-save').addEventListener('click', () => {
+        const sel = document.getElementById('link-product-select');
+        let productId = null;
+        if (sel._tomSelect) productId = sel._tomSelect.getValue();
+        else productId = sel.value;
+        if (!productId) { showMsg('error', 'Izaberite CRM proizvod.'); return; }
+        apiFetch('/api/v1/sync/link', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ product_id: parseInt(productId), site_id: linkSiteId })
+        }).then(r => {
+            if (!r.success) { showMsg('error', r.error || 'Greška pri povezivanju.'); return; }
+            showMsg('success', 'Veza je uspešno uspostavljena.');
+            document.getElementById('link-modal').classList.remove('show');
+            loadTable();
+        }).catch(err => showMsg('error', 'Greška: ' + err.message));
+    });
+
+    // ---- Confirm suggested link ----
+    function confirmLink(productId, siteId) {
+        apiFetch('/api/v1/sync/link', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ product_id: productId, site_id: siteId })
+        }).then(r => {
+            if (!r.success) { showMsg('error', r.error || 'Greška.'); return; }
+            showMsg('success', 'Veza potvrđena.');
+            loadTable();
+        }).catch(err => showMsg('error', 'Greška: ' + err.message));
+    }
+
+    // ---- Unlink ----
+    function openUnlink(productId) {
+        if (!confirm('Raskiniti ovu vezu?')) return;
+        apiFetch('/api/v1/sync/unlink', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ product_id: productId })
+        }).then(r => {
+            if (!r.success) { showMsg('error', r.error || 'Greška.'); return; }
+            showMsg('success', 'Veza raskinuta.');
+            loadTable();
+        }).catch(err => showMsg('error', 'Greška: ' + err.message));
+    }
+
+    // ---- Add to CRM modal ----
+    let addSiteId = null;
+    let addImageUrl = null;
+
+    function openAdd(siteId) {
+        addSiteId = siteId;
+        addImageUrl = null;
+        // Find the site product name from current table data
+        let siteName = null;
+        if (currentTableData) {
+            const all = (currentTableData.pairs || []).concat(currentTableData.site_only || []);
+            const found = all.find(p => p.site_id === siteId);
+            if (found) siteName = found.site_name;
+        }
+        document.getElementById('add-site-name').textContent = siteName || ('Proizvod #' + siteId);
+        document.getElementById('add-site-id').textContent = String(siteId);
+        document.getElementById('add-name').value = '';
+        document.getElementById('add-desc').value = '';
+
+        // Populate brand/category dropdowns
+        const brandSel = document.getElementById('add-brand');
+        const catSel = document.getElementById('add-cat');
+        brandSel.innerHTML = '<option value="">— bez brenda —</option>';
+        catSel.innerHTML = '<option value="">— bez kategorije —</option>';
+        for (const b of brands) brandSel.insertAdjacentHTML('beforeend', '<option value="' + esc(b) + '">' + esc(b) + '</option>');
+        for (const c of categories) catSel.insertAdjacentHTML('beforeend', '<option value="' + esc(c) + '">' + esc(c) + '</option>');
+
+        // Show loading indicator and disable save while fetching site info
+        const generating = document.getElementById('add-generating');
+        const saveBtn = document.getElementById('add-save');
+        generating.style.display = 'block';
+        saveBtn.disabled = true;
+
+        // Fetch site product info (name, image) for prefill
+        apiFetch('/api/v1/sync/product_info?site_id=' + siteId).then(r => {
+            // Always hide the loading indicator and re-enable save
+            generating.style.display = 'none';
+            saveBtn.disabled = false;
+            if (!r.success) {
+                showMsg('error', r.error || 'Greška pri generisanju podataka sa sajta.');
+                return;
+            }
+            document.getElementById('add-site-name').textContent = r.data.name || ('Proizvod #' + siteId);
+            document.getElementById('add-name').value = r.data.name || '';
+            document.getElementById('add-desc').value = r.data.description || '';
+            addImageUrl = r.data.image_url || null;
+            if (addImageUrl) {
+                const img = document.getElementById('add-img');
+                img.src = addImageUrl;
+                img.style.display = 'block';
+            } else {
+                document.getElementById('add-img').style.display = 'none';
+            }
+            // Pre-select brand/category only if exact name match exists in CRM
+            const brandSel = document.getElementById('add-brand');
+            const catSel = document.getElementById('add-cat');
+            if (r.data.crm_match_brand && brandSel.querySelector('option[value="' + esc(r.data.crm_match_brand) + '"]')) {
+                brandSel.value = r.data.crm_match_brand;
+            }
+            if (r.data.crm_match_category && catSel.querySelector('option[value="' + esc(r.data.crm_match_category) + '"]')) {
+                catSel.value = r.data.crm_match_category;
+            }
+        }).catch(err => {
+            // On network failure, hide loading and show error
+            generating.style.display = 'none';
+            saveBtn.disabled = false;
+            showMsg('error', 'Greška pri generisanju podataka sa sajta: ' + err.message);
+        });
+
+        document.getElementById('add-modal').classList.add('show');
+    }
+
+    document.getElementById('add-cancel').addEventListener('click', () => {
+        document.getElementById('add-modal').classList.remove('show');
+    });
+
+    document.getElementById('add-save').addEventListener('click', () => {
+        const name = document.getElementById('add-name').value.trim();
+        if (!name) { showMsg('error', 'Naziv proizvoda je obavezan.'); return; }
+        const body = {
+            name: name,
+            description: document.getElementById('add-desc').value,
+            brand: document.getElementById('add-brand').value,
+            category: document.getElementById('add-cat').value,
+            site_id: addSiteId,
+            image_url: addImageUrl || ''
+        };
+        apiFetch('/api/v1/sync/add_product', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        }).then(r => {
+            if (!r.success) { showMsg('error', r.error || 'Greška pri dodavanju.'); return; }
+            showMsg('success', 'Proizvod dodat u CRM i povezan.');
+            document.getElementById('add-modal').classList.remove('show');
+            loadTable();
+        }).catch(err => showMsg('error', 'Greška: ' + err.message));
+    });
+
+    // Initial load
+    loadTable();
+</script>
+{% endblock %}

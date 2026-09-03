@@ -85,18 +85,23 @@ def seed_templates(conn):
         return  # Already seeded – nothing to do
 
     # ── Path 1: JSON defaults (preferred, always available on remote) ──
+    # G44: Wrap json.load in try/except — a corrupt JSON must not crash init_db.
     if os.path.exists(JSON_DEFAULTS):
         print("[import_templates] Seeding from rent_templates_defaults.json ...")
-        with open(JSON_DEFAULTS, encoding="utf-8") as f:
-            entries = json.load(f)
-        for entry in entries:
-            cur.execute(
-                "INSERT INTO rent_templates (slug, name, content_html) VALUES (?, ?, ?);",
-                (entry["slug"], entry["name"], entry["content_html"]),
-            )
-            print(f"[import_templates] Seeded: {entry['name']}")
-        conn.commit()
-        return
+        try:
+            with open(JSON_DEFAULTS, encoding="utf-8") as f:
+                entries = json.load(f)
+            for entry in entries:
+                cur.execute(
+                    "INSERT INTO rent_templates (slug, name, content_html) VALUES (?, ?, ?);",
+                    (entry["slug"], entry["name"], entry["content_html"]),
+                )
+                print(f"[import_templates] Seeded: {entry['name']}")
+            conn.commit()
+            return
+        except Exception as e:
+            print(f"[import_templates] ERROR: Could not parse JSON defaults ({e}). Falling back to .docx ...")
+            conn.rollback()
 
     # ── Path 2: Legacy .docx conversion (only if source files present) ──
     _seed_from_docx(cur, conn)
@@ -119,8 +124,19 @@ def _seed_from_docx(cur, conn):
     NS_W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 
     def _resolve_field(raw_name):
-        key = raw_name.strip('"«» ').lower()
-        return FIELD_MAP.get(key, key)
+        # G42: Normalize Unicode (š→s, č→c, ć→c, ž→z, đ→d) so that both
+        #      "datum_zaključenja_ugovora" and "datum_zakljucenja_ugovora"
+        #      resolve to the same key.
+        raw = raw_name.strip('"«» ').lower()
+        normalized = (
+            raw.replace("š", "s")
+               .replace("č", "c")
+               .replace("ć", "c")
+               .replace("ž", "z")
+               .replace("đ", "d")
+        )
+        # Try exact key first, then normalized key
+        return FIELD_MAP.get(raw, FIELD_MAP.get(normalized, raw))
 
     def _clean_xml_fields(xml_bytes):
         for prefix, uri in [
@@ -197,7 +213,13 @@ def _seed_from_docx(cur, conn):
         result = mammoth.convert_to_html(buf)
         return result.value
 
+    # G41: Guard the legacy .docx folder — it may not exist on remote servers.
+    if not os.path.isdir(DOCX_DIR):
+        print("[import_templates] WARNING: Legacy .docx folder not found – skipping docx seed.")
+        return
+
     print("[import_templates] JSON defaults not found – trying .docx conversion ...")
+    inserted = False
     for filename, slug, display_name in TEMPLATES:
         docx_path = os.path.join(DOCX_DIR, filename)
         if not os.path.exists(docx_path):
@@ -209,7 +231,10 @@ def _seed_from_docx(cur, conn):
                 "INSERT INTO rent_templates (slug, name, content_html) VALUES (?, ?, ?);",
                 (slug, display_name, html),
             )
+            inserted = True
             print(f"[import_templates] Imported: {display_name}")
         except Exception as e:
             print(f"[import_templates] ERROR importing {filename}: {e}")
-    conn.commit()
+    # G43: Commit only if something was actually inserted.
+    if inserted:
+        conn.commit()

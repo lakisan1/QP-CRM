@@ -1,6 +1,7 @@
 import os
 import sys
 import math
+import html
 from flask import Flask, render_template, request, redirect, url_for, send_from_directory, session, abort
 import markdown
 
@@ -20,7 +21,7 @@ app = Flask(
     static_url_path="/static",
     template_folder="templates"
 )
-app.secret_key = "sale_readonly_secret_change_me"
+app.secret_key = os.environ.get("SALE_SECRET_KEY", "sale_readonly_secret_change_me")
 app.config['SESSION_COOKIE_NAME'] = 'sale_readonly_session'
 
 def get_theme():
@@ -205,7 +206,8 @@ def view_product(product_id):
     # Convert markdown description to HTML safely
     description_html = ""
     if product["description"]:
-        description_html = markdown.markdown(product["description"])
+        # Escape raw HTML/JS in the source before Markdown conversion to prevent XSS
+        description_html = markdown.markdown(html.escape(product["description"]))
 
     return render_template(
         "view_product.html",

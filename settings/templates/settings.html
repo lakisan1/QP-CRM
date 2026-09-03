@@ -31,6 +31,7 @@
                 Podešavanja se čuvaju samo na ovom uređaju (cookies). Ne utiču na druge uređaje.
             </p>
             <form method="post">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
                 <p>
                     <label style="font-weight: 500;">Format datuma:<br>
                         <select name="date_format"

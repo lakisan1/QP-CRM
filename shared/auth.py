@@ -69,7 +69,7 @@ def revoke_api_key():
 def get_password(app_name):
     """
     Get the current password for the given app_name from global_settings.
-    app_name can be 'admin', 'pricing', 'offer'.
+    app_name can be 'admin', 'pricing', 'offer', 'rent'.
     """
     key = f"{app_name}_password"
     conn = get_db()

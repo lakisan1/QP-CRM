@@ -1138,9 +1138,12 @@ def document_editor(contract_id, slug):
         )
         ctx = _build_doc_context(c, calc)
         raw_html = template["content_html"]
+        # G26: Escape values before replacing placeholders to avoid corrupting HTML
+        import html
         for key, value in ctx.items():
-            raw_html = raw_html.replace("{{ " + key + " }}", str(value))
-            raw_html = raw_html.replace("{{" + key + "}}", str(value))
+            safe_value = html.escape(str(value))
+            raw_html = raw_html.replace("{{ " + key + " }}", safe_value)
+            raw_html = raw_html.replace("{{" + key + "}}", safe_value)
         html_content = format_document_html(raw_html)
 
     conn.close()
@@ -1180,13 +1183,25 @@ def document_pdf(contract_id, slug):
         )
         ctx = _build_doc_context(c, calc)
         raw_html = template["content_html"]
+        # G26: Escape values before replacing placeholders to avoid corrupting HTML
+        import html
         for key, value in ctx.items():
-            raw_html = raw_html.replace("{{ " + key + " }}", str(value))
-            raw_html = raw_html.replace("{{" + key + "}}", str(value))
+            safe_value = html.escape(str(value))
+            raw_html = raw_html.replace("{{ " + key + " }}", safe_value)
+            raw_html = raw_html.replace("{{" + key + "}}", safe_value)
         html_content = format_document_html(raw_html)
 
+    # G25: Use base64 data URI for the logo so it works on remote servers too
     logo_path = os.path.join(APP_ASSETS_DIR, "logo_company.jpg")
-    logo_url = f"file://{logo_path}" if os.path.exists(logo_path) else ""
+    logo_url = ""
+    if os.path.exists(logo_path):
+        try:
+            import base64
+            with open(logo_path, "rb") as lf:
+                logo_b64 = base64.b64encode(lf.read()).decode("ascii")
+            logo_url = f"data:image/jpeg;base64,{logo_b64}"
+        except Exception as e:
+            print(f"Warning: Could not encode logo: {e}")
 
     html_str = render_template("rent_pdf_document.html",
                                contract=dict(contract),

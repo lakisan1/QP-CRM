@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Ponuda {{ offer.offer_number or offer.id }}{% endblock %}
+
+{% block content %}
+<h1>Ponuda {{ offer.offer_number or offer.id }}</h1>
+
+<div class="card">
+    <h2>Informacije o ponudi</h2>
+    <table class="larg-table">
+        <tr>
+            <th>Broj / ime ponude</th>
+            <td>{{ offer.offer_number or offer.id }}</td>
+        </tr>
+        <tr>
+            <th>Datum</th>
+            <td>{{ offer.date | format_date }}</td>
+        </tr>
+        <tr>
+            <th>Valuta / kurs</th>
+            <td>{{ offer.currency or '' }}{% if offer.exchange_rate %} ({{ offer.exchange_rate }}){% endif %}</td>
+        </tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>Informacije o musteriji</h2>
+    <table class="larg-table">
+        <tr>
+            <th>Naziv</th>
+            <td>{{ offer.client_name }}</td>
+        </tr>
+        <tr>
+            <th>Država</th>
+            <td>{{ offer.country or '' }}</td>
+        </tr>
+        <tr>
+            <th>Adresa</th>
+            <td>{{ offer.client_address or '' }}</td>
+        </tr>
+        <tr>
+            <th>eMail</th>
+            <td>{{ offer.client_email or '' }}</td>
+        </tr>
+        <tr>
+            <th>Telefon</th>
+            <td>{{ offer.client_phone or '' }}</td>
+        </tr>
+        <tr>
+            <th>PIB</th>
+            <td>{{ offer.client_pib or '' }}</td>
+        </tr>
+        <tr>
+            <th>MB</th>
+            <td>{{ offer.client_mb or '' }}</td>
+        </tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>Stavke ponude</h2>
+    <table class="offer-items-table">
+        <thead>
+            <tr>
+                <th style="width: 30px;">br.</th>
+                <th>Fotografija</th>
+                <th>Ime proizvoda / Opis</th>
+                <th>Kom</th>
+                <th>Cena kom</th>
+                {% if enable_product_discount %}
+                <th>Popust %</th>
+                {% endif %}
+                <th>Red zbir</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for it in items %}
+            <tr>
+                <td style="text-align: center;">{{ it.line_order }}</td>
+                <td style="text-align: center;">
+                    {% if it.item_photo_path %}
+                    <img src="{{ url_for('product_image', filename=it.item_photo_path) }}" style="max-width: 100px;">
+                    {% endif %}
+                </td>
+                <td>
+                    <strong>{{ it.item_name }}</strong><br>
+                    <div style="font-size: small; color: var(--text-muted);">{{ it.item_description | md | safe }}</div>
+                </td>
+                <td style="text-align: center;">{{ it.quantity }}</td>
+                <td style="text-align: right; color: #2ecc71;">{{ format_amount(it.unit_price) }}</td>
+                {% if enable_product_discount %}
+                <td style="text-align: center; color: #3498db;">
+                    {% if it.discount_percent %}{{ (it.discount_percent * 100) | round(2) }}%{% else %}0%{% endif %}
+                </td>
+                {% endif %}
+                <td style="text-align: right; color: #2ecc71; font-weight: bold;">{{ format_amount(it.line_net) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="card" style="margin-left: auto; max-width: 400px; padding: 15px; box-shadow: none;">
+        <table class="larg-table">
+            <tr>
+                <th>Ukupno neto</th>
+                <td>{{ format_amount(offer.total_net) if offer.total_net is not none else '' }} {{ offer.currency or '' }}</td>
+            </tr>
+            <tr>
+                <th>Rabat</th>
+                <td>{{ format_amount(offer.total_discount) if offer.total_discount is not none else '' }} {{ offer.currency or '' }}</td>
+            </tr>
+            <tr>
+                <th>PDV</th>
+                <td>{{ format_amount(offer.total_vat) if offer.total_vat is not none else '' }} {{ offer.currency or '' }}</td>
+            </tr>
+            <tr>
+                <th>Ukupno bruto</th>
+                <td><strong>{{ format_amount(offer.total_gross) if offer.total_gross is not none else '' }} {{ offer.currency or '' }}</strong></td>
+            </tr>
+        </table>
+    </div>
+</div>
+
+<div style="display: flex; gap: 10px; margin-top: 20px;">
+    <a href="{{ url_for('edit_offer', offer_id=offer.id) }}" class="btn btn-primary">Izmeni</a>
+    <a href="{{ url_for('offer_pdf', offer_id=offer.id) }}" target="_blank" class="btn btn-success">PDF</a>
+    <a href="{{ url_for('list_offers') }}" class="btn btn-secondary">Nazad</a>
+</div>
+{% endblock %}

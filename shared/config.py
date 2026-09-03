@@ -26,3 +26,13 @@ STATIC_DIR = os.path.join(BASE_DIR, "static")
 
 # app_assets inside app_data
 APP_ASSETS_DIR = os.path.join(BASE_DIR, "app_assets")
+
+# ---------- Website sync (Sajt <-> CRM product sync) ----------
+# Public WP REST API for autoservisnaoprema.com (no auth keys needed).
+# Sync is EXCLUSIVELY manual - triggered only by clicking the button in the UI.
+SITE_BASE_URL = os.environ.get("QP_SITE_BASE_URL", "https://autoservisnaoprema.com")
+SITE_API_BASE = SITE_BASE_URL.rstrip("/") + "/wp-json/wp/v2"
+SITE_PER_PAGE = int(os.environ.get("QP_SITE_PER_PAGE", "100"))
+SITE_TIMEOUT = 15          # seconds
+SITE_RETRIES = 2           # retry count on network error
+SITE_MAX_DESC_LEN = 1000   # max chars for generated description

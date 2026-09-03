@@ -94,8 +94,8 @@ thead th:last-child { border-right: none; }
 
 tbody td {
     padding: 4px 5px;
-    border-bottom: 1px solid #eaecef;
-    border-right: 1px solid #f0f0f0;
+    border-bottom: 1px solid #c8cdd3;
+    border-right: 1px solid #c8cdd3;
     text-align: right;
     vertical-align: middle;
 }
@@ -104,7 +104,7 @@ tbody td.nr  { text-align: center; font-weight: 700; color: #007acc; }
 tbody td.opis { text-align: left; color: #555; }
 tbody td.date { text-align: center; white-space: nowrap; font-weight: 600; }
 
-tbody tr:nth-child(even) { background: #f9fafb; }
+tbody tr:nth-child(even) { background: #eef1f4; }
 tbody tr.pre-row td { background: #fffbf0; color: #7a5800; }
 tbody tr.pre-row td.nr { color: #b07000; }
 
@@ -181,15 +181,15 @@ tbody tr.sum-row td {
         <div class="sl">Mesečna rata BRUTO</div>
         <div class="sv">{{ "%.2f €"|format(calc.rata_bruto) }}</div>
     </div>
-    <div class="sum-cell" style="background:#005fa3;">
+    <div class="sum-cell" style="background:#1e8e3e;">
         <div class="sl">Rata nakon zatvaranja avansa</div>
         <div class="sv">{{ "%.2f €"|format(calc.rata_nakon) }}</div>
     </div>
-    <div class="sum-cell" style="background:#00875a;">
+    <div class="sum-cell" style="background:#007acc;">
         <div class="sl">Avans BRUTO</div>
         <div class="sv">{{ "%.2f €"|format(calc.ucesce_bruto) }}</div>
     </div>
-    <div class="sum-cell" style="background:#6c757d;">
+    <div class="sum-cell" style="background:#007acc;">
         <div class="sl">Adm. trošak BRUTO</div>
         <div class="sv">{{ "%.2f €"|format(calc.admin_bruto) }}</div>
     </div>
@@ -202,11 +202,11 @@ tbody tr.sum-row td {
         <th style="width:4%;">R.Br.</th>
         <th>Zakupnina<br>(neto)</th>
         <th>Avans<br>(neto)</th>
-        <th>Druge<br>uplate (neto)</th>
+        <th style="background:#f59e0b;">Druge<br>uplate (neto)</th>
         <th>PDV</th>
         <th style="background:#005fa3;">Suma<br>(bruto)</th>
         <th>Zatvaranje<br>Avansa</th>
-        <th style="background:#005fa3;">Suma nakon<br>zatv. avansa</th>
+        <th style="background:#1e8e3e;">Suma nakon<br>zatv. avansa</th>
         <th style="width:10%;">Datum<br>dospeća</th>
         <th style="text-align:left;width:13%;">Opis</th>
     </tr>
@@ -217,11 +217,11 @@ tbody tr.sum-row td {
         <td class="nr">{{ row.nr }}</td>
         <td>{% if row.neto is not none %}{{ "%.2f €"|format(row.neto) }}{% else %}<span class="dash">–</span>{% endif %}</td>
         <td>{% if row.avans is not none %}{{ "%.2f €"|format(row.avans) }}{% else %}<span class="dash">–</span>{% endif %}</td>
-        <td>{% if row.druge is not none %}{{ "%.2f €"|format(row.druge) }}{% else %}<span class="dash">–</span>{% endif %}</td>
+        <td {% if loop.index <= 2 %}style="background:#fff7ed;"{% endif %}>{% if row.druge is not none %}{{ "%.2f €"|format(row.druge) }}{% else %}<span class="dash">–</span>{% endif %}</td>
         <td>{{ "%.2f €"|format(row.pdv) }}</td>
         <td style="font-weight:700;">{{ "%.2f €"|format(row.suma) }}</td>
         <td>{% if row.zatvaranje is not none %}{{ "%.2f €"|format(row.zatvaranje) }}{% else %}<span class="dash">–</span>{% endif %}</td>
-        <td style="font-weight:700;">{% if row.suma_nakon is not none %}{{ "%.2f €"|format(row.suma_nakon) }}{% else %}<span class="dash">–</span>{% endif %}</td>
+        <td style="font-weight:700;background:#e7f5ec;">{% if row.suma_nakon is not none %}{{ "%.2f €"|format(row.suma_nakon) }}{% else %}<span class="dash">–</span>{% endif %}</td>
         <td class="date">{{ row.datum }}</td>
         <td class="opis">{{ row.opis }}</td>
     </tr>
