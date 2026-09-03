@@ -1,0 +1,46 @@
+# QP-CRM — Phase 0 compose stack (P0-T5).
+#
+# One container runs the whole multi-app stack: main.py merges
+# pricing/offer/rent/admin/sale/settings via DispatcherMiddleware and is
+# served by gunicorn through wsgi.py (P0-T2), on port 5000.
+#
+# Runtime concerns wired here:
+#   * image: qp-crm:phase0, built from ./Dockerfile (P0-T3)
+#   * secrets come from .env (see .env.example, P0-T4)
+#   * all mutable state is bind-mounted OUTSIDE the image, so the
+#     rebuild/update flow (./deploy.sh) never loses data
+#
+# NOTE: intentionally no `version:` key — obsolete in Compose v2.
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: qp-crm:phase0
+    container_name: qp-crm
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    environment:
+      TZ: "Europe/Belgrade"
+    volumes:
+      # SQLite databases (app_data/pricing.db, WAL mode) + product images.
+      - ./app_data:/app/app_data
+      # Shared app assets (favicon, logo_company.jpg, pdf_footer_image.png,
+      # RIG.png, defaults/) served via the /app_assets/<name> route.
+      - ./app_assets:/app/app_assets
+      # Logo upload writes into static/img — without this mount the uploaded
+      # logo is lost on the next rebuild (image layers are ephemeral).
+      - ./static/img:/app/static/img
+    restart: unless-stopped
+    healthcheck:
+      # python:3.12-slim ships no curl/wget — poll with the stdlib instead.
+      # First boot imports WeasyPrint and creates the DB schema, hence the
+      # generous start_period.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/api/v1/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s

@@ -1,0 +1,41 @@
+# Build-context hygiene (P0-T5): keep the image small and secrets/data out
+# of the build context. Runtime state (app_data, app_assets, static/img,
+# custom_libs) reaches the container via bind mounts / vendored code — not
+# via COPY of these files.
+#
+# CRITICAL: custom_libs/ is the vendored markdown library loaded via sys.path
+# at runtime — it is deliberately NOT ignored here. Never add it below.
+
+# Virtualenv, VCS, editor, workspace noise
+venv/
+.git/
+.agents/
+.vscode/
+KANBAN.json
+README_Images/
+
+# Runtime data / secrets (bind-mounted or injected at runtime instead)
+app_data/
+.env
+
+# Python + log junk
+__pycache__/
+*.pyc
+*.log
+main.log
+
+# Binary artifacts and one-off dev scripts
+*.pdf
+*.xlsx
+*.xlsb
+pricing.db
+success.pdf
+download_pdf*.py
+measure_pdf*.py
+test_*.py
+test_dests*.py
+
+# Same junk nested in subpackages (plain `*.pyc` etc. only match the root)
+**/__pycache__/
+**/*.pyc
+**/*.log
