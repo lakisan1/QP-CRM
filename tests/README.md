@@ -29,11 +29,18 @@ Run one file / one test:
 ## Isolation (read this before adding tests)
 
 `tests/conftest.py` patches `shared.config` (`APP_DATA_DIR`, `DATABASE`,
-`IMAGE_DIR`, `APP_ASSETS_DIR`) into a throwaway temp directory **before any
-app module is imported** — every sub-app binds those names at import time, so
-this is the only safe moment. The suite therefore never touches the
-bind-mounted `app_data/pricing.db`. `tests/test_infra_isolation.py` guards
-this contract; if it fails, stop and fix the isolation, do not run the suite.
+`IMAGE_DIR`, `APP_ASSETS_DIR`) into the fixed throwaway tree
+`/tmp/qp-crm-tests` **before any app module is imported** — every sub-app
+binds those names at import time, so this is the only safe moment. The suite
+therefore never touches the bind-mounted `app_data/pricing.db`.
+`tests/test_infra_isolation.py` guards this contract; if it fails, stop and
+fix the isolation, do not run the suite.
+
+The path is FIXED (not `tempfile.mkdtemp`) on purpose: WeasyPrint names image
+XObjects `i + md5(image URL)`, so a random path would change golden PDF bytes
+on every run. `/tmp` dies with the container, so each `docker compose run`
+still starts from a clean tree — but **do not run two suites against the same
+image in parallel** (they would share `/tmp/qp-crm-tests`).
 
 The session fixture replays the production init sequence
 (pricing init + migrate → offer → admin → rent) into the temp DB — seeded

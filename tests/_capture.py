@@ -23,7 +23,10 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-TEST_ROOT = tempfile.mkdtemp(prefix="qp-crm-capture-")
+TEST_ROOT = "/tmp/qp-crm-capture"  # fixed like tests/conftest.py (deterministic URLs)
+import shutil
+if os.path.exists(TEST_ROOT):
+    shutil.rmtree(TEST_ROOT)
 TEST_APP_DATA_DIR = os.path.join(TEST_ROOT, "app_data")
 TEST_DATABASE = os.path.join(TEST_APP_DATA_DIR, "pricing.db")
 for _d in (TEST_APP_DATA_DIR, os.path.join(TEST_APP_DATA_DIR, "product_images"),

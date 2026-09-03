@@ -22,14 +22,21 @@ never "fix the app in this phase" -- log discoveries as bug cards instead.
 """
 
 import os
+import shutil
 import sys
-import tempfile
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-TEST_ROOT = tempfile.mkdtemp(prefix="qp-crm-tests-")
+# FIXED test root -- deliberately NOT tempfile.mkdtemp(): WeasyPrint names
+# image XObjects 'i' + md5(their URL), so a random path would change the
+# golden PDF bytes on every run. /tmp is wiped with the container, so this
+# is fresh per `docker compose run` anyway. Consequence: do not run two
+# suites against the same image in parallel (they would share the path).
+TEST_ROOT = "/tmp/qp-crm-tests"
+if os.path.exists(TEST_ROOT):
+    shutil.rmtree(TEST_ROOT)
 TEST_APP_DATA_DIR = os.path.join(TEST_ROOT, "app_data")
 TEST_IMAGE_DIR = os.path.join(TEST_APP_DATA_DIR, "product_images")
 TEST_ASSETS_DIR = os.path.join(TEST_ROOT, "app_assets")
