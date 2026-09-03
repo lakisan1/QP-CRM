@@ -35,6 +35,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # the vendored markdown library is loaded via sys.path at runtime.
 COPY . .
 
+# COPY preserves the source file modes, and some files may carry mode 600
+# (created by tooling) — the non-root app user then cannot read them and
+# gunicorn fails with 'Permission denied: /app/wsgi.py'. Grant read +
+# directory traversal to everyone; writes go to the bind-mounted dirs only.
+RUN chmod -R a+rX /app
+
 # Non-root runtime user with uid/gid 1000: matches the host user that owns
 # the bind mounts in docker-compose.yml (./app_data, ./app_assets,
 # ./static/img), so the container can read/write them without root.
