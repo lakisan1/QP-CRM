@@ -25,7 +25,7 @@ app = Flask(
     static_folder=STATIC_DIR,
     static_url_path="/static"
 )
-app.secret_key = "crm_rent_secret_key_change_me"
+app.secret_key = os.environ.get("RENT_SECRET_KEY", "crm_rent_secret_key_change_me")
 app.config['SESSION_COOKIE_NAME'] = 'rent_session'
 
 CSV_DIR = os.path.join(BASE_DIR, "excell Rent calc")

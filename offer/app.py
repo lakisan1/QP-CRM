@@ -39,7 +39,7 @@ app = Flask(
     static_folder=STATIC_DIR,
     static_url_path="/static"
 )
-app.secret_key = "crm_offer_secret_key_change_me"
+app.secret_key = os.environ.get("OFFER_SECRET_KEY", "crm_offer_secret_key_change_me")
 app.config['SESSION_COOKIE_NAME'] = 'offer_session'
 
 @app.before_request
