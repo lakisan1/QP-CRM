@@ -4,7 +4,8 @@ Single-container deployment: the Flask multi-app stack (pricing / offer / rent /
 admin / sale / settings, merged by `main.py` via DispatcherMiddleware and served
 by gunicorn through `wsgi.py`) runs in one container on **port 5000**.
 
-- Image: `qp-crm:phase0` — built from `./Dockerfile`
+- Image: `qp-crm:phase1` — built from `./Dockerfile` (phase-1 adds the pytest
+test layer; `qp-crm:phase0` remains the rollback tag)
 - Container name: `qp-crm` — stack file: `docker-compose.yml`
 - Secrets: `.env` (see `.env.example`)
 
@@ -83,6 +84,20 @@ docker compose logs -f app    # follow live
 ```
 
 gunicorn/Flask output goes to the container's stdout (visible via docker logs).
+
+## Running the test suite (Phase 1)
+
+The pytest suite ships in the image and runs with one command:
+
+```bash
+docker compose build app            # only when code/tests/deps changed
+docker compose run --rm app pytest
+```
+
+The suite is fully isolated from the live stack: it patches the data paths
+into a throwaway `/tmp/qp-crm-tests` tree inside the container and never
+touches the bind-mounted `app_data/pricing.db`. Details, golden-PDF
+re-baselining and the characterization discipline live in `tests/README.md`.
 
 ## Quick reference
 
