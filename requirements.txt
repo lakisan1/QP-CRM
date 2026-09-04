@@ -5,11 +5,8 @@
 # `venv/bin/python -m pip freeze > requirements.txt` re-pins whatever happens
 # to be installed at that moment and drops this header.
 #
-# NOTE: 'markdown' is intentionally NOT listed here. It is vendored in
-# custom_libs/ (markdown 3.10.2) and made importable via sys.path hacks at
-# runtime. Phase 2 replaces this vendored copy with the pip 'Markdown'
-# package - at that point add `Markdown==<version>` here and remove the
-# sys.path hack.
+# 'Markdown' replaces the pre-Phase-2 vendored custom_libs/markdown copy
+# (same 3.10.2 version, so rendered markdown is byte-identical).
 
 blinker==1.9.0
 brotli==1.2.0
@@ -26,6 +23,7 @@ idna==3.19
 itsdangerous==2.2.0
 Jinja2==3.1.6
 lxml==6.1.3
+Markdown==3.10.2
 mammoth==1.12.1
 MarkupSafe==3.0.3
 pillow==12.3.0

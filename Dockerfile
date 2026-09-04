@@ -38,8 +38,8 @@ COPY dev-requirements.txt .
 RUN pip install --no-cache-dir -r dev-requirements.txt
 
 # Application code. Build-context junk (venv, .git, PDFs, scratch scripts,
-# app_data, .env, ...) is kept out by .dockerignore. custom_libs/ MUST ship —
-# the vendored markdown library is loaded via sys.path at runtime.
+# app_data, .env, ...) is kept out by .dockerignore. Markdown comes from
+# requirements.txt (pinned 3.10.2) since the Phase-2 stage-6 devendor.
 COPY . .
 
 # COPY preserves the source file modes, and some files may carry mode 600

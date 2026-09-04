@@ -21,10 +21,6 @@ PARENT_DIR = os.path.dirname(CURRENT_DIR)
 if PARENT_DIR not in sys.path:
     sys.path.append(PARENT_DIR)
 
-# Add custom_libs so we can import without root permissions
-CUSTOM_LIBS_DIR = os.path.join(PARENT_DIR, 'custom_libs')
-if CUSTOM_LIBS_DIR not in sys.path:
-    sys.path.append(CUSTOM_LIBS_DIR)
 
 import markdown
 

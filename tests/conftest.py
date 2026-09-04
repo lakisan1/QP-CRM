@@ -47,7 +47,7 @@ for _directory in (TEST_APP_DATA_DIR, TEST_IMAGE_DIR, TEST_ASSETS_DIR):
 
 # --- patch shared.config BEFORE any app module imports it --------------------
 # BASE_DIR stays real on purpose: template folders, static/ (incl. the offer
-# PDF css) and custom_libs are code, not state, and rent's document renderer
+# PDF css) are code, not state, and rent's document renderer
 # uses BASE_DIR as the WeasyPrint base_url.
 import shared.config as _config  # noqa: E402
 

@@ -1,10 +1,6 @@
 # Build-context hygiene (P0-T5): keep the image small and secrets/data out
-# of the build context. Runtime state (app_data, app_assets, static/img,
-# custom_libs) reaches the container via bind mounts / vendored code — not
-# via COPY of these files.
-#
-# CRITICAL: custom_libs/ is the vendored markdown library loaded via sys.path
-# at runtime — it is deliberately NOT ignored here. Never add it below.
+# of the build context. Runtime state (app_data, app_assets, static/img)
+# reaches the container via bind mounts — not via COPY of these files.
 
 # Virtualenv, VCS, editor, workspace noise
 venv/
