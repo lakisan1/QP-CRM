@@ -189,7 +189,7 @@ def test_offer_pdf_custom_template_matches_golden_baseline(
 def test_rent_document_pdf_matches_golden_baseline(temp_db, rent_client, assets_dir, contract_id):
     """ugovor-zakup is seeded from rent/rent_templates_defaults.json and filled
     through the {{ key }}/{{key}} + html.escape substitution loop."""
-    response = rent_client.get(f"/contracts/{contract_id}/documents/ugovor-zakup/pdf")
+    response = rent_client.get(f"/rent/contracts/{contract_id}/documents/ugovor-zakup/pdf")
     assert response.status_code == 200
     assert response.mimetype == "application/pdf"
     _assert_golden("rent_ugovor_zakup_golden.pdf", response.data)

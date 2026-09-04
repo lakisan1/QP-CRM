@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, send_file, jsonify, session
+from flask import Blueprint, Flask, render_template, request, redirect, url_for, send_file, jsonify, session
 import sqlite3
 import os
 import sys
@@ -20,38 +20,44 @@ from shared.auth import check_password
 from shared.utils import format_amount
 from rent.import_templates import seed_templates
 
-app = Flask(
-    __name__,
-    static_folder=STATIC_DIR,
-    static_url_path="/static"
-)
-app.secret_key = os.environ.get("RENT_SECRET_KEY", "crm_rent_secret_key_change_me")
-app.config['SESSION_COOKIE_NAME'] = 'rent_session'
+# ---------------------------------------------------------------------------
+# Phase 2 stage 1: rent is a Blueprint on the single QP-CRM app.
+#
+# The Flask(...) instance, secret key and SESSION_COOKIE_NAME moved to
+# main.py (one session/secret/cookie; RENT_SECRET_KEY and the rent_session
+# cookie are no longer read). The rent_authenticated session flag keeps its
+# pre-consolidation name -- it was already module-scoped. Routes keep the
+# same URLs via the blueprint's /rent prefix in main.py; endpoints are
+# namespaced (rent.list_contracts, ...) and templates live under
+# rent/templates/rent/.
+# ---------------------------------------------------------------------------
+
+bp = Blueprint("rent", __name__, template_folder="templates")
 
 CSV_DIR = os.path.join(BASE_DIR, "excell Rent calc")
 
 
-@app.before_request
+@bp.before_request
 def check_auth():
-    if request.endpoint in ('login', 'static'):
+    if request.endpoint in ('rent.login',):
         return None
     if not session.get('rent_authenticated'):
-        return redirect(url_for('login'))
+        return redirect(url_for('rent.login'))
 
 
-@app.route("/login", methods=["GET", "POST"])
+@bp.route("/login", methods=["GET", "POST"])
 def login():
     error = None
     if request.method == "POST":
         if check_password("rent", request.form.get("password")):
             session['rent_authenticated'] = True
-            return redirect(url_for('index'))
+            return redirect(url_for('rent.index'))
         else:
             error = "Pogrešna lozinka"
-    return render_template("rent_login.html", error=error)
+    return render_template("rent/rent_login.html", error=error)
 
 
-@app.route("/logout")
+@bp.route("/logout")
 def logout():
     session.pop('rent_authenticated', None)
     return redirect('/')
@@ -340,7 +346,7 @@ def _seed_equipment(conn):
 
 
 # ─── Context processor ─────────────────────────────────────────────────────────
-@app.context_processor
+@bp.context_processor
 def inject_helpers():
     return dict(format_amount=format_amount, theme=_get_theme())
 
@@ -350,12 +356,12 @@ def _get_theme():
 
 
 # ─── Routes ────────────────────────────────────────────────────────────────────
-@app.route("/")
+@bp.route("/")
 def index():
-    return redirect(url_for("list_contracts"))
+    return redirect(url_for("rent.list_contracts"))
 
 
-@app.route("/contracts")
+@bp.route("/contracts")
 def list_contracts():
     search = request.args.get("search", "").strip()
     date_from = request.args.get("date_from", "").strip()
@@ -393,7 +399,7 @@ def list_contracts():
     contracts = cur.fetchall()
     conn.close()
 
-    return render_template("rent_contracts.html",
+    return render_template("rent/rent_contracts.html",
                            contracts=contracts,
                            search=search, date_from=date_from, date_to=date_to,
                            signed_filter=signed_filter,
@@ -401,7 +407,7 @@ def list_contracts():
                            calculate_rent=calculate_rent)
 
 
-@app.route("/contracts/toggle_signed/<int:contract_id>", methods=["POST"])
+@bp.route("/contracts/toggle_signed/<int:contract_id>", methods=["POST"])
 def toggle_signed(contract_id):
     conn = get_db()
     cur = conn.cursor()
@@ -417,12 +423,12 @@ def toggle_signed(contract_id):
     return jsonify({"is_signed": new_val})
 
 
-@app.route("/contracts/new", methods=["GET", "POST"])
+@bp.route("/contracts/new", methods=["GET", "POST"])
 def new_contract():
     return _contract_form(None)
 
 
-@app.route("/contracts/edit/<int:contract_id>", methods=["GET", "POST"])
+@bp.route("/contracts/edit/<int:contract_id>", methods=["GET", "POST"])
 def edit_contract(contract_id):
     return _contract_form(contract_id)
 
@@ -522,17 +528,17 @@ def _contract_form(contract_id):
             cur.execute(f"UPDATE rent_contracts SET {sets} WHERE id=?;", list(data.values()) + [contract_id])
             conn.commit()
             conn.close()
-            return redirect(url_for("edit_contract", contract_id=contract_id))
+            return redirect(url_for("rent.edit_contract", contract_id=contract_id))
         else:
             cur.execute(f"INSERT INTO rent_contracts ({cols}) VALUES ({placeholders});", list(data.values()))
             new_id = cur.lastrowid
             conn.commit()
             conn.close()
-            return redirect(url_for("edit_contract", contract_id=new_id))
+            return redirect(url_for("rent.edit_contract", contract_id=new_id))
 
     conn.close()
     rent_defaults = _get_rent_defaults()
-    return render_template("rent_contract_form.html",
+    return render_template("rent/rent_contract_form.html",
                            contract=contract,
                            clients=clients,
                            equipment=equipment,
@@ -540,16 +546,16 @@ def _contract_form(contract_id):
                            rent_defaults=rent_defaults)
 
 
-@app.route("/contracts/delete/<int:contract_id>", methods=["POST"])
+@bp.route("/contracts/delete/<int:contract_id>", methods=["POST"])
 def delete_contract(contract_id):
     conn = get_db()
     conn.execute("DELETE FROM rent_contracts WHERE id=?;", (contract_id,))
     conn.commit()
     conn.close()
-    return redirect(url_for("list_contracts"))
+    return redirect(url_for("rent.list_contracts"))
 
 
-@app.route("/contracts/duplicate/<int:contract_id>", methods=["POST"])
+@bp.route("/contracts/duplicate/<int:contract_id>", methods=["POST"])
 def duplicate_contract(contract_id):
     conn = get_db()
     cur = conn.cursor()
@@ -565,13 +571,13 @@ def duplicate_contract(contract_id):
         new_id = cur.lastrowid
         conn.commit()
         conn.close()
-        return redirect(url_for("edit_contract", contract_id=new_id))
+        return redirect(url_for("rent.edit_contract", contract_id=new_id))
     conn.close()
-    return redirect(url_for("list_contracts"))
+    return redirect(url_for("rent.list_contracts"))
 
 
 # ─── API endpoints ─────────────────────────────────────────────────────────────
-@app.route("/api/client/<int:client_id>")
+@bp.route("/api/client/<int:client_id>")
 def api_client(client_id):
     conn = get_db()
     cur = conn.cursor()
@@ -583,7 +589,7 @@ def api_client(client_id):
     return jsonify(dict(row))
 
 
-@app.route("/api/equipment/<int:eq_id>")
+@bp.route("/api/equipment/<int:eq_id>")
 def api_equipment(eq_id):
     conn = get_db()
     cur = conn.cursor()
@@ -595,7 +601,7 @@ def api_equipment(eq_id):
     return jsonify(dict(row))
 
 
-@app.route("/api/calculate")
+@bp.route("/api/calculate")
 def api_calculate():
     try:
         price = float(request.args.get("price", 0))
@@ -614,7 +620,7 @@ def api_calculate():
 
 
 # ─── PDF Routes ────────────────────────────────────────────────────────────────
-@app.route("/contracts/pdf/offer/<int:contract_id>")
+@bp.route("/contracts/pdf/offer/<int:contract_id>")
 def pdf_offer(contract_id):
     conn = get_db()
     cur = conn.cursor()
@@ -634,7 +640,7 @@ def pdf_offer(contract_id):
     logo_path = os.path.join(APP_ASSETS_DIR, "logo_company.jpg")
     logo_url = f"file://{logo_path}" if os.path.exists(logo_path) else ""
 
-    html_str = render_template("rent_pdf_offer.html",
+    html_str = render_template("rent/rent_pdf_offer.html",
                                contract=c, calc=calc,
                                logo_url=logo_url, pdf_mode=True)
     pdf_bytes = HTML(string=html_str, base_url=BASE_DIR).write_pdf()
@@ -645,7 +651,7 @@ def pdf_offer(contract_id):
                      as_attachment=False, download_name=filename)
 
 
-@app.route("/contracts/pdf/schedule/<int:contract_id>")
+@bp.route("/contracts/pdf/schedule/<int:contract_id>")
 def pdf_schedule(contract_id):
     conn = get_db()
     cur = conn.cursor()
@@ -666,7 +672,7 @@ def pdf_schedule(contract_id):
     logo_path = os.path.join(APP_ASSETS_DIR, "logo_company.jpg")
     logo_url = f"file://{logo_path}" if os.path.exists(logo_path) else ""
 
-    html_str = render_template("rent_pdf_schedule.html",
+    html_str = render_template("rent/rent_pdf_schedule.html",
                                contract=c, calc=calc, schedule=schedule,
                                logo_url=logo_url, pdf_mode=True)
     pdf_bytes = HTML(string=html_str, base_url=BASE_DIR).write_pdf()
@@ -678,7 +684,7 @@ def pdf_schedule(contract_id):
                      as_attachment=False, download_name=filename)
 
 
-@app.route("/contracts/pdf/schedule_fillable/<int:contract_id>")
+@bp.route("/contracts/pdf/schedule_fillable/<int:contract_id>")
 def pdf_schedule_fillable(contract_id):
     """Generate a fillable PDF payment tracker (Evidencija Uplata).
 
@@ -713,7 +719,7 @@ def pdf_schedule_fillable(contract_id):
     logo_url = f"file://{logo_path}" if os.path.exists(logo_path) else ""
 
     # Pass 1: WeasyPrint renders to PDF with empty columns
-    html_str = render_template("rent_pdf_schedule_fillable.html",
+    html_str = render_template("rent/rent_pdf_schedule_fillable.html",
                                contract=c, calc=calc, schedule=schedule,
                                logo_url=logo_url, pdf_mode=True)
     pdf_bytes = HTML(string=html_str, base_url=BASE_DIR).write_pdf()
@@ -836,7 +842,7 @@ def pdf_schedule_fillable(contract_id):
 
 
 # ─── Clients CRUD ──────────────────────────────────────────────────────────────
-@app.route("/clients", methods=["GET", "POST"])
+@bp.route("/clients", methods=["GET", "POST"])
 def list_clients():
     conn = get_db()
     cur = conn.cursor()
@@ -874,7 +880,7 @@ def list_clients():
             conn.commit()
             msg = "Obrisano."
         conn.close()
-        return redirect(url_for("list_clients"))
+        return redirect(url_for("rent.list_clients"))
 
     if edit_id:
         cur.execute("SELECT * FROM rent_clients WHERE id=?;", (edit_id,))
@@ -883,11 +889,11 @@ def list_clients():
     cur.execute("SELECT * FROM rent_clients ORDER BY name;")
     clients = cur.fetchall()
     conn.close()
-    return render_template("rent_clients.html", clients=clients, edit_client=edit_client, msg=msg)
+    return render_template("rent/rent_clients.html", clients=clients, edit_client=edit_client, msg=msg)
 
 
 # ─── Equipment CRUD ────────────────────────────────────────────────────────────
-@app.route("/equipment", methods=["GET", "POST"])
+@bp.route("/equipment", methods=["GET", "POST"])
 def list_equipment():
     conn = get_db()
     cur = conn.cursor()
@@ -921,7 +927,7 @@ def list_equipment():
             conn.commit()
             msg = "Obrisano."
         conn.close()
-        return redirect(url_for("list_equipment"))
+        return redirect(url_for("rent.list_equipment"))
 
     if edit_id:
         cur.execute("SELECT * FROM rent_equipment WHERE id=?;", (edit_id,))
@@ -930,7 +936,7 @@ def list_equipment():
     cur.execute("SELECT * FROM rent_equipment ORDER BY name;")
     equipment = cur.fetchall()
     conn.close()
-    return render_template("rent_equipment.html", equipment=equipment, edit_eq=edit_eq, msg=msg)
+    return render_template("rent/rent_equipment.html", equipment=equipment, edit_eq=edit_eq, msg=msg)
 
 
 # ─── Helper: format document HTML with official headings ───────────────────────
@@ -1032,7 +1038,7 @@ def _sort_templates(templates):
     order_map = {slug: i for i, slug in enumerate(TEMPLATE_SORT_ORDER)}
     return sorted(templates, key=lambda t: order_map.get(t["slug"], 999))
 
-@app.route("/contracts/<int:contract_id>/documents")
+@bp.route("/contracts/<int:contract_id>/documents")
 def contract_documents(contract_id):
     conn = get_db()
     cur = conn.cursor()
@@ -1080,7 +1086,7 @@ def contract_documents(contract_id):
 
     conn.close()
 
-    return render_template("rent_contract_documents.html",
+    return render_template("rent/rent_contract_documents.html",
                            contract=contract,
                            templates=templates,
                            saved_slugs=saved_slugs,
@@ -1091,7 +1097,7 @@ def contract_documents(contract_id):
 
 
 # ─── Document editor (GET = load/create draft, POST = save edits) ───────────────
-@app.route("/contracts/<int:contract_id>/documents/<slug>", methods=["GET", "POST"])
+@bp.route("/contracts/<int:contract_id>/documents/<slug>", methods=["GET", "POST"])
 def document_editor(contract_id, slug):
     conn = get_db()
     cur = conn.cursor()
@@ -1119,7 +1125,7 @@ def document_editor(contract_id, slug):
         """, (contract_id, slug, content, datetime.now().isoformat()))
         conn.commit()
         conn.close()
-        return redirect(url_for("document_editor", contract_id=contract_id, slug=slug))
+        return redirect(url_for("rent.document_editor", contract_id=contract_id, slug=slug))
 
     # GET — check if a draft already exists
     cur.execute("SELECT custom_content_html FROM rent_contract_documents WHERE contract_id=? AND template_slug=?;",
@@ -1147,14 +1153,14 @@ def document_editor(contract_id, slug):
         html_content = format_document_html(raw_html)
 
     conn.close()
-    return render_template("rent_document_editor.html",
+    return render_template("rent/rent_document_editor.html",
                            contract=contract,
                            template=template,
                            html_content=html_content)
 
 
 # ─── Print document to PDF ─────────────────────────────────────────────────────
-@app.route("/contracts/<int:contract_id>/documents/<slug>/pdf")
+@bp.route("/contracts/<int:contract_id>/documents/<slug>/pdf")
 def document_pdf(contract_id, slug):
     conn = get_db()
     cur = conn.cursor()
@@ -1203,7 +1209,7 @@ def document_pdf(contract_id, slug):
         except Exception as e:
             print(f"Warning: Could not encode logo: {e}")
 
-    html_str = render_template("rent_pdf_document.html",
+    html_str = render_template("rent/rent_pdf_document.html",
                                contract=dict(contract),
                                template_name=template["name"],
                                html_content=html_content,

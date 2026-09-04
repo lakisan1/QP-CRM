@@ -1,10 +1,10 @@
-{% extends "base.html" %}
+{% extends "rent/base.html" %}
 {% block title %}Ugovori – Zakup{% endblock %}
 {% block content %}
 <h1>📄 Pregled Ugovora o Zakupu</h1>
 
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-    <a href="{{ url_for('new_contract') }}" class="btn btn-success">+ Novi Ugovor</a>
+    <a href="{{ url_for('rent.new_contract') }}" class="btn btn-success">+ Novi Ugovor</a>
     <span style="background:var(--accent-primary);color:white;padding:4px 14px;border-radius:20px;font-weight:bold;">
         {{ total }} ugovora
     </span>
@@ -33,7 +33,7 @@
             <input type="text" name="search" value="{{ search }}" style="margin-bottom:0;">
         </label>
         <button type="submit" class="btn btn-primary" style="margin-bottom:0;">Traži</button>
-        <a href="{{ url_for('list_contracts') }}" class="btn btn-secondary" style="margin-bottom:0;">Reset</a>
+        <a href="{{ url_for('rent.list_contracts') }}" class="btn btn-secondary" style="margin-bottom:0;">Reset</a>
     </form>
 </div>
 
@@ -97,7 +97,7 @@ tr.signed-row:hover {
             {% set is_signed = c.is_signed == 1 %}
             <tr {% if is_signed %}class="signed-row"{% endif %}>
                 <td style="white-space:nowrap;">{{ c.contract_date }}</td>
-                <td><a href="{{ url_for('edit_contract', contract_id=c.id) }}">{{ c.contract_number or c.id }}</a></td>
+                <td><a href="{{ url_for('rent.edit_contract', contract_id=c.id) }}">{{ c.contract_number or c.id }}</a></td>
                 <td>{{ c.client_name }}</td>
                 <td style="max-width:200px;font-size:12px;">{{ c.equipment_model }}</td>
                 <td style="text-align:right;">{{ format_amount(c.price) }}</td>
@@ -114,7 +114,7 @@ tr.signed-row:hover {
                 <td style="text-align:center;white-space:nowrap;">
                     <button type="button"
                             class="btn btn-danger btn-sm"
-                            data-action="{{ url_for('delete_contract', contract_id=c.id) }}"
+                            data-action="{{ url_for('rent.delete_contract', contract_id=c.id) }}"
                             onclick="openDeleteModal(this)">Bri&#353;i</button>
                 </td>
             </tr>
@@ -128,11 +128,11 @@ tr.signed-row:hover {
 {% if total_pages > 1 %}
 <div style="display:flex;justify-content:center;gap:10px;margin-top:20px;">
     {% if current_page > 1 %}
-    <a href="{{ url_for('list_contracts', page=current_page-1, search=search, date_from=date_from, date_to=date_to, signed=signed_filter) }}" class="btn btn-secondary">« Prethodna</a>
+    <a href="{{ url_for('rent.list_contracts', page=current_page-1, search=search, date_from=date_from, date_to=date_to, signed=signed_filter) }}" class="btn btn-secondary">« Prethodna</a>
     {% endif %}
     <span style="padding:10px;font-weight:500;">Strana {{ current_page }} od {{ total_pages }}</span>
     {% if current_page < total_pages %}
-    <a href="{{ url_for('list_contracts', page=current_page+1, search=search, date_from=date_from, date_to=date_to, signed=signed_filter) }}" class="btn btn-secondary">Sledeća »</a>
+    <a href="{{ url_for('rent.list_contracts', page=current_page+1, search=search, date_from=date_from, date_to=date_to, signed=signed_filter) }}" class="btn btn-secondary">Sledeća »</a>
     {% endif %}
 </div>
 {% endif %}

@@ -115,10 +115,14 @@ def offer_client(temp_db):
 
 @pytest.fixture(scope="session")
 def rent_client(temp_db):
-    """Flask test client for the rent sub-app, pre-authenticated."""
-    from rent.app import app
+    """Flask test client for the rent module, pre-authenticated.
 
-    app.config["TESTING"] = True
+    Since the Phase-2 consolidation rent is a blueprint on the single app
+    (main.app); its session flag keeps the rent_authenticated name it had
+    before the merge.
+    """
+    from main import app
+
     client = app.test_client()
     with client.session_transaction() as session:
         session["rent_authenticated"] = True

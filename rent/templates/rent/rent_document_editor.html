@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "rent/base.html" %}
 {% block title %}{{ template.name }}{% endblock %}
 {% block content %}
 
@@ -153,7 +153,7 @@
 
 <!-- ── Toolbar ── -->
 <div id="editor-toolbar">
-    <a href="{{ url_for('contract_documents', contract_id=contract.id) }}" class="btn btn-secondary btn-sm">← Nazad</a>
+    <a href="{{ url_for('rent.contract_documents', contract_id=contract.id) }}" class="btn btn-secondary btn-sm">← Nazad</a>
     <div class="tb-sep"></div>
     <span class="tb-label">{{ contract.contract_number or contract.id }} / {{ template.name }}</span>
     <div class="tb-sep"></div>
@@ -173,7 +173,7 @@
 
     <div style="margin-left:auto;display:flex;gap:8px;">
         <button class="btn btn-success btn-sm" onclick="saveDoc()">💾 Sačuvaj</button>
-        <a href="{{ url_for('document_pdf', contract_id=contract.id, slug=template.slug) }}"
+        <a href="{{ url_for('rent.document_pdf', contract_id=contract.id, slug=template.slug) }}"
            target="_blank" class="btn btn-primary btn-sm">🖨️ Štampaj PDF</a>
     </div>
 </div>
@@ -220,7 +220,7 @@
 
 <!-- Hidden save form -->
 <form id="save-form" method="post"
-      action="{{ url_for('document_editor', contract_id=contract.id, slug=template.slug) }}">
+      action="{{ url_for('rent.document_editor', contract_id=contract.id, slug=template.slug) }}">
     <input type="hidden" id="hidden-content" name="content">
 </form>
 

@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "rent/base.html" %}
 {% block title %}Oprema – Zakup{% endblock %}
 {% block content %}
 <h1>🔧 Baza Opreme</h1>
@@ -28,7 +28,7 @@
         </label>
         <div style="display:flex;gap:10px;margin-top:8px;">
             <button type="submit" class="btn btn-success">💾 Sačuvaj</button>
-            {% if edit_eq %}<a href="{{ url_for('list_equipment') }}" class="btn btn-secondary">Otkaži</a>{% endif %}
+            {% if edit_eq %}<a href="{{ url_for('rent.list_equipment') }}" class="btn btn-secondary">Otkaži</a>{% endif %}
         </div>
     </form>
     {% if edit_eq %}
@@ -54,7 +54,7 @@
             <td style="text-align:center;">{{ eq.default_rent_months }}</td>
             <td style="text-align:center;">{{ eq.default_guarantee_rate }}%</td>
             <td style="text-align:center;">{{ eq.default_downpayment_percent }}%</td>
-            <td><a href="{{ url_for('list_equipment', edit_id=eq.id) }}" class="btn btn-warning btn-sm">Izmeni</a></td>
+            <td><a href="{{ url_for('rent.list_equipment', edit_id=eq.id) }}" class="btn btn-warning btn-sm">Izmeni</a></td>
         </tr>
         {% else %}
         <tr><td colspan="6" style="text-align:center;color:var(--text-muted);">Nema opreme.</td></tr>

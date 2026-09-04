@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "rent/base.html" %}
 {% block title %}Klijenti – Zakup{% endblock %}
 {% block content %}
 <h1>👥 Baza Klijenata</h1>
@@ -22,7 +22,7 @@
         <label>Jemac (Ime, Grad, JMBG)<input type="text" name="guarantor" value="{{ edit_client.guarantor if edit_client else '' }}"></label>
         <div style="display:flex;gap:10px;margin-top:8px;">
             <button type="submit" class="btn btn-success">💾 Sačuvaj</button>
-            {% if edit_client %}<a href="{{ url_for('list_clients') }}" class="btn btn-secondary">Otkaži</a>{% endif %}
+            {% if edit_client %}<a href="{{ url_for('rent.list_clients') }}" class="btn btn-secondary">Otkaži</a>{% endif %}
         </div>
     </form>
     {% if edit_client %}
@@ -48,7 +48,7 @@
             <td>{{ cl.pib }}</td>
             <td>{{ cl.representative }}</td>
             <td><a href="mailto:{{ cl.email }}">{{ cl.email }}</a></td>
-            <td><a href="{{ url_for('list_clients', edit_id=cl.id) }}" class="btn btn-warning btn-sm">Izmeni</a></td>
+            <td><a href="{{ url_for('rent.list_clients', edit_id=cl.id) }}" class="btn btn-warning btn-sm">Izmeni</a></td>
         </tr>
         {% else %}
         <tr><td colspan="6" style="text-align:center;color:var(--text-muted);">Nema klijenata.</td></tr>
