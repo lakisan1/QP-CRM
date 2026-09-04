@@ -7,8 +7,11 @@ quirks:
 * pmt replicates Excel PMT with sign conventions: caller passes
   pv NEGATIVE, fv positive; pmt_type=1 (annuity due) multiplies the
   denominator by (1+rate), giving a LOWER payment.
-* nper == 0 raises ZeroDivisionError in BOTH branches -- live-contract
-  poison input.
+* nper <= 0 yields 0.0 in every branch -- deliberately re-baselined in
+  the phase-2 bug-fix stage (board card "BUG - rent pmt/calculate_rent:
+  ZeroDivisionError on period_months == 0 -> 500 on all contract PDFs"):
+  a zero-period contract now renders zero payments instead of crashing
+  the PDF pipeline.
 * zatvaranje (downpayment spread) is CONSTANT for every month:
   ucesce_bruto/period_months; rata_nakon never declines (the schedule
   prints the same value for month 1 and month 48).
@@ -44,17 +47,33 @@ class TestPmt:
         assert due == 370.26463058375145
         assert due < pmt(0.14 / 12, 48, -16000.0, 4000.0)
 
-    def test_nper_zero_raises_zero_division_error(self):
-        with pytest.raises(ZeroDivisionError):
-            pmt(0.0, 0, -16000.0)
-        with pytest.raises(ZeroDivisionError):
-            pmt(0.1, 0, -16000.0)
+    # Re-baselined deliberately in the phase-2 bug-fix stage (see module
+    # docstring + board BUG card): ZeroDivisionError -> 0.0.
+    def test_nper_zero_returns_zero_payment(self):
+        assert pmt(0.0, 0, -16000.0) == 0.0
+        assert pmt(0.1, 0, -16000.0) == 0.0
+        assert pmt(0.0, -5, -16000.0) == 0.0
 
 
 class TestCalculateRent:
     @pytest.fixture(scope="class")
     def calc(self):
         return calculate_rent(*CALC_ARGS)
+
+    # Regression for the same BUG card: zero-period contracts must not crash.
+    def test_period_months_zero_yields_zero_components(self):
+        calc = calculate_rent(20000.0, 0, 20.0, 20.0, 14.0, 1.13, 5.0, 20.0, 50.0)
+        assert calc["rata_fin"] == 0.0
+        assert calc["garancija"] == 0.0
+        assert calc["zatvaranje"] == 0.0
+        assert calc["rata_neto"] == calc["osiguranje"]  # only insurance remains
+        assert calc["rata_nakon"] == calc["rata_bruto"]  # nothing spread
+
+    def test_period_months_negative_yields_zero_components(self):
+        calc = calculate_rent(20000.0, -3, 20.0, 20.0, 14.0, 1.13, 5.0, 20.0, 50.0)
+        assert calc["rata_fin"] == 0.0
+        assert calc["garancija"] == 0.0
+        assert calc["zatvaranje"] == 0.0
 
     def test_downpayment_block(self, calc):
         assert calc["ucesce"] == 4000.0

@@ -13,7 +13,16 @@ from qp_crm.shared.utils import format_amount
 
 
 def pmt(rate, nper, pv, fv=0, pmt_type=0):
-    """Replicate Excel PMT. Returns the periodic payment (positive = outflow)."""
+    """Replicate Excel PMT. Returns the periodic payment (positive = outflow).
+
+    BUG fix (phase-2 bug-fix stage, card "rent pmt/calculate_rent:
+    ZeroDivisionError on period_months == 0"): nper <= 0 now yields 0.0
+    instead of raising ZeroDivisionError in both branches -- a contract
+    saved with period_months == 0 crashed /contracts/pdf/offer,
+    /contracts/pdf/schedule and the documents pipeline with a 500.
+    """
+    if nper <= 0:
+        return 0.0
     if rate == 0:
         return -(pv + fv) / nper
     factor = (1 + rate) ** nper
@@ -46,13 +55,15 @@ def calculate_rent(price, period_months, downpayment_pct, salvage_pct,
     rata_fin = pmt(monthly_rate, period_months, -(price - ucesce), ostatak, 0)
 
     osiguranje = insurance_rate / 100.0 * price / 12.0
-    garancija = price * guarantee_rate / 100.0 / period_months
+    # BUG fix (same card): period_months <= 0 must not crash -- zero-period
+    # contracts produce zero per-month components instead of ZeroDivisionError.
+    garancija = price * guarantee_rate / 100.0 / period_months if period_months > 0 else 0.0
 
     rata_neto = rata_fin + osiguranje + garancija
     rata_pdv = rata_neto * vat_pct / 100.0
     rata_bruto = rata_neto + rata_pdv
 
-    zatvaranje = ucesce_bruto / period_months
+    zatvaranje = ucesce_bruto / period_months if period_months > 0 else 0.0
     rata_nakon = rata_bruto - zatvaranje
 
     admin_pdv = admin_fee * vat_pct / 100.0
