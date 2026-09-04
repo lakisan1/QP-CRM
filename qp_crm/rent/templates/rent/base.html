@@ -20,6 +20,7 @@
     </div>
     <div class="nav-right">
         <a href="/">Početna</a>
+        <a href="{{ url_for('auth.change_password') }}">Moja lozinka</a>
         <a href="{{ url_for('rent.logout') }}" class="btn btn-danger" style="margin-right:15px;">Odjava</a>
         <div class="nav-logo-container">
             <img src="{{ url_for('static', filename='img/logo_company.jpg') }}" alt="Logo" class="nav-logo">

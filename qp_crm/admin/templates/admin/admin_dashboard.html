@@ -80,10 +80,12 @@
             <a href="{{ url_for('admin.index') }}" class="active">Dashboard</a>
             <a href="{{ url_for('admin.list_pdf_templates') }}">PDF Templates</a>
             <a href="{{ url_for('admin.list_rounding_rules') }}">Rounding Rules</a>
+            <a href="{{ url_for('admin.list_users') }}">Users</a>
             <a href="/admin/rent/templates">Rent Šabloni</a>
         </div>
         <div class="nav-right">
             <a href="/">{{ _('Landing Page') }}</a>
+            <a href="{{ url_for('auth.change_password') }}">My password</a>
             <a href="{{ url_for('admin.logout') }}" class="btn btn-danger" style="margin-right: 15px;">Logout</a>
             <div class="nav-logo-container">
                 <img src="{{ url_for('static', filename='img/logo_company.jpg') }}" alt="QP-CRM Logo" class="nav-logo">

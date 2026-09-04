@@ -98,7 +98,7 @@ def conn_factory(temp_db):
     return _conn
 
 
-def login_client(client, username):
+def login_client(client, username, password=None):
     """Log a test client in through the REAL unified login (Phase 3 step 3).
 
     POSTs /login with the seeded default password of that account, then
@@ -120,7 +120,7 @@ def login_client(client, username):
         "/login",
         data={
             "username": username,
-            "password": DEFAULT_PASSWORDS[username],
+            "password": password or DEFAULT_PASSWORDS[username],
             "_csrf_token": token,
         },
     )
@@ -133,6 +133,13 @@ def login_client(client, username):
     conn.close()
     with client.session_transaction() as session:
         session.pop("must_change_password", None)
+        # The login handler's session.clear() (step 3 session cycling) also
+        # wiped the CSRF token; a real browser re-mints it on the next page
+        # render (csrf_token() in the template). Tests that POST directly
+        # after login mint one here instead.
+        if not session.get("_csrf_token"):
+            import secrets as _secrets
+            session["_csrf_token"] = _secrets.token_hex(16)
     return client
 
 

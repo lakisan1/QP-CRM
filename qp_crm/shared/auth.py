@@ -1,4 +1,6 @@
+import re
 import secrets
+import sqlite3
 from datetime import datetime, timezone
 
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -287,6 +289,177 @@ LEGACY_PASSWORD_KEYS = (
     "offer_password",
     "rent_password",
 )
+
+
+# ---------------------------------------------------------------------------
+# User management (Phase 3 step 6) -- used by the admin Users UI. Sensitive
+# actions re-confirm the ACTING admin's own password via
+# confirm_current_password(); invariants: nobody deactivates/demotes
+# themselves, and the LAST ACTIVE admin cannot be deactivated or demoted
+# (lockout protection). Users are deactivated, never deleted.
+# ---------------------------------------------------------------------------
+
+USERNAME_RE = re.compile(r"^[a-zA-Z0-9._-]{3,32}$")
+MIN_PASSWORD_LEN = 8
+
+
+def confirm_current_password(user_id, password):
+    """True when the given password matches the ACTING user's own hash."""
+    if not password:
+        return False
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT password_hash FROM users WHERE id = ? AND is_active = 1;", (user_id,))
+    row = cur.fetchone()
+    conn.close()
+    if row is None:
+        return False
+    stored = row["password_hash"]
+    if _is_werkzeug_hash(stored):
+        return check_password_hash(stored, password)
+    return secrets.compare_digest(stored, password)
+
+
+def list_users():
+    """All user rows ordered by username (admin Users UI listing)."""
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM users ORDER BY username ASC;")
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+
+
+def count_active_admins():
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) AS n FROM users WHERE role = 'admin' AND is_active = 1;")
+    row = cur.fetchone()
+    conn.close()
+    return row["n"]
+
+
+def create_user(username, password, confirm_password, role="staff"):
+    """Create an account. Returns (ok, error_message_or_username).
+
+    New staff accounts must change their password on first login, exactly
+    like the migrated ones.
+    """
+    username = (username or "").strip()
+    if not USERNAME_RE.match(username or ""):
+        return False, "Username must be 3-32 characters (letters, digits, . _ -)."
+    if role not in ("admin", "staff"):
+        return False, "Role must be 'admin' or 'staff'."
+    if not password or len(password) < MIN_PASSWORD_LEN:
+        return False, f"Password must be at least {MIN_PASSWORD_LEN} characters."
+    if password != confirm_password:
+        return False, "Passwords did not match."
+
+    conn = get_db()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """
+            INSERT INTO users (username, password_hash, role, is_active,
+                               must_change_password, created_at)
+            VALUES (?, ?, ?, 1, ?, ?);
+            """,
+            (
+                username,
+                generate_password_hash(password),
+                role,
+                1 if role != "admin" else 0,
+                _utcnow_iso(),
+            ),
+        )
+        conn.commit()
+    except sqlite3.IntegrityError:
+        conn.close()
+        return False, f"Username '{username}' already exists."
+    conn.close()
+    return True, username
+
+
+def set_user_active(acting_user_id, target_user_id, active):
+    """Activate/deactivate an account. Returns (ok, error_message).
+
+    Guards: nobody deactivates themselves; the last active admin cannot be
+    deactivated.
+    """
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM users WHERE id = ?;", (target_user_id,))
+    target = cur.fetchone()
+    if target is None:
+        conn.close()
+        return False, "User not found."
+    if not active:
+        if target["id"] == acting_user_id:
+            conn.close()
+            return False, "You cannot deactivate your own account."
+        if target["role"] == "admin" and target["is_active"] and count_active_admins() <= 1:
+            conn.close()
+            return False, "Cannot deactivate the last active admin."
+    cur.execute("UPDATE users SET is_active = ? WHERE id = ?;", (1 if active else 0, target_user_id))
+    conn.commit()
+    conn.close()
+    return True, None
+
+
+def change_user_role(acting_user_id, target_user_id, role):
+    """Change an account's role. Returns (ok, error_message).
+
+    Guards: nobody changes their own role; the last active admin cannot be
+    demoted to staff.
+    """
+    if role not in ("admin", "staff"):
+        return False, "Role must be 'admin' or 'staff'."
+    if target_user_id == acting_user_id:
+        return False, "You cannot change your own role."
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM users WHERE id = ?;", (target_user_id,))
+    target = cur.fetchone()
+    if target is None:
+        conn.close()
+        return False, "User not found."
+    if (
+        target["role"] == "admin"
+        and target["is_active"]
+        and role != "admin"
+        and count_active_admins() <= 1
+    ):
+        conn.close()
+        return False, "Cannot demote the last active admin."
+    cur.execute("UPDATE users SET role = ? WHERE id = ?;", (role, target_user_id))
+    conn.commit()
+    conn.close()
+    return True, None
+
+
+def admin_reset_user_password(acting_user_id, target_user_id, new_password):
+    """Admin-set password for another account. Returns (ok, error_message).
+
+    The target must change the password again on next login -- EXCEPT when
+    the admin resets their own password (already authenticated).
+    """
+    if not new_password or len(new_password) < MIN_PASSWORD_LEN:
+        return False, f"Password must be at least {MIN_PASSWORD_LEN} characters."
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT id, username FROM users WHERE id = ?;", (target_user_id,))
+    target = cur.fetchone()
+    if target is None:
+        conn.close()
+        return False, "User not found."
+    must_change = 0 if target_user_id == acting_user_id else 1
+    cur.execute(
+        "UPDATE users SET password_hash = ?, must_change_password = ? WHERE id = ?;",
+        (generate_password_hash(new_password), must_change, target_user_id),
+    )
+    conn.commit()
+    conn.close()
+    return True, None
 
 
 def scrub_legacy_password_keys(cur):

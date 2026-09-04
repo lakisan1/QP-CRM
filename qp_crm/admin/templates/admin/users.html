@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Users Management</title>
+    <link rel="icon" type="image/png" href="/app_assets/favicon.png">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+</head>
+
+<body>
+    <nav>
+        <div class="nav-links">
+            <a href="{{ url_for('admin.index') }}">Dashboard</a>
+            <a href="{{ url_for('admin.list_pdf_templates') }}">PDF Templates</a>
+            <a href="{{ url_for('admin.list_rounding_rules') }}">Rounding Rules</a>
+            <a href="{{ url_for('admin.list_users') }}" class="active">Users</a>
+        </div>
+        <div class="nav-right">
+            <a href="/">{{ _('Landing Page') }}</a>
+            <a href="{{ url_for('auth.change_password') }}">My password</a>
+            <a href="{{ url_for('admin.logout') }}" class="btn btn-danger" style="margin-right: 15px;">Logout</a>
+            <div class="nav-logo-container">
+                <img src="{{ url_for('static', filename='img/logo_company.jpg') }}" alt="QP-CRM Logo" class="nav-logo">
+            </div>
+        </div>
+    </nav>
+
+    <div class="container" style="max-width: 1200px;">
+        <h1>Users Management</h1>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: -8px;">
+            One account list for the whole stack (pricing / offer / rent / admin share one login).
+            Users are deactivated, never deleted. Sensitive actions require your own password.
+        </p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ 'success' if category == 'success' else ('warning' if category == 'warning' else 'error') }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <div class="card">
+            <h3>Create user</h3>
+            <form action="{{ url_for('admin.create_user_action') }}" method="POST"
+                  style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <div style="flex: 1; min-width: 150px;">
+                    <label>Username</label>
+                    <input type="text" name="username" required pattern="[a-zA-Z0-9._-]{3,32}"
+                           title="3-32 characters: letters, digits, dot, underscore, hyphen">
+                </div>
+                <div style="flex: 1; min-width: 150px;">
+                    <label>Password (min. 8)</label>
+                    <input type="password" name="password" required minlength="8" autocomplete="new-password">
+                </div>
+                <div style="flex: 1; min-width: 150px;">
+                    <label>Confirm password</label>
+                    <input type="password" name="confirm_password" required minlength="8" autocomplete="new-password">
+                </div>
+                <div style="min-width: 110px;">
+                    <label>Role</label>
+                    <select name="role">
+                        <option value="staff">staff</option>
+                        <option value="admin">admin</option>
+                    </select>
+                </div>
+                <div style="min-width: 180px;">
+                    <label>Your current password</label>
+                    <input type="password" name="current_password" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn btn-primary">Create</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h3>All users</h3>
+            <table class="preset-table" style="width: 100%;">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Last login</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td><strong>{{ user.username }}</strong>{% if user.id == current_user_id %} <small style="color: var(--text-muted);">(you)</small>{% endif %}</td>
+                        <td>{{ user.role }}</td>
+                        <td>{{ 'active' if user.is_active else 'inactive' }}</td>
+                        <td>{{ user.created_at[:10] }}</td>
+                        <td>{{ user.last_login[:19].replace('T', ' ') if user.last_login else 'never' }}</td>
+                        <td>
+                            {% if user.id != current_user_id %}
+                            <form action="{{ url_for('admin.toggle_user_active_action', user_id=user.id) }}" method="POST"
+                                  style="display: inline-flex; gap: 6px; margin-bottom: 6px;">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="active" value="{{ '0' if user.is_active else '1' }}">
+                                <input type="password" name="current_password" placeholder="Your password" required
+                                       style="width: 130px;" autocomplete="current-password">
+                                <button type="submit" class="btn {{ 'btn-danger' if user.is_active else 'btn-secondary' }}">
+                                    {{ 'Deactivate' if user.is_active else 'Activate' }}
+                                </button>
+                            </form>
+                            <form action="{{ url_for('admin.change_user_role_action', user_id=user.id) }}" method="POST"
+                                  style="display: inline-flex; gap: 6px; margin-bottom: 6px;">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <select name="role">
+                                    <option value="staff" {{ 'selected' if user.role == 'staff' }}>staff</option>
+                                    <option value="admin" {{ 'selected' if user.role == 'admin' }}>admin</option>
+                                </select>
+                                <input type="password" name="current_password" placeholder="Your password" required
+                                       style="width: 130px;" autocomplete="current-password">
+                                <button type="submit" class="btn btn-secondary">Change role</button>
+                            </form>
+                            {% endif %}
+                            <form action="{{ url_for('admin.reset_user_password_action', user_id=user.id) }}" method="POST"
+                                  style="display: inline-flex; gap: 6px;">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="password" name="new_password" placeholder="New password (min. 8)" required
+                                       minlength="8" style="width: 170px;" autocomplete="new-password">
+                                <input type="password" name="current_password" placeholder="Your password" required
+                                       style="width: 130px;" autocomplete="current-password">
+                                <button type="submit" class="btn btn-secondary">Reset password</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <p style="color: var(--text-muted); font-size: 0.85rem;">
+                Deactivated users lose access on their next request. The last active admin cannot be deactivated or demoted.
+                Reset passwords force a change on the user\'s next login.
+            </p>
+        </div>
+    </div>
+</body>
+
+</html>
