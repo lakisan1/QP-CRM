@@ -48,8 +48,8 @@ def _custom_rule_targets(temp_db):
     "val, expected",
     [
         # seeded brackets for target 'price': captured exactly
-        (0, 0),                    # zero clamped, int in -> int 0 out
-        (-5, 0),                   # negative clamped to 0 (sign lost)
+        (0, 0),                    # zero returned as int 0 (sign-preserving path)
+        (-5, -5),                  # re-baselined (BUG card): sign preserved, no clamp to 0
         (0.01, 50.0),              # tiny value still rounds UP a full first step
         (12.5, 50.0),
         (499.99, 500.0),
@@ -69,6 +69,9 @@ def _custom_rule_targets(temp_db):
     ],
 )
 def test_seeded_price_brackets(val, expected):
+    # Bracket selection kept AS IS by decision (BUG card, item 3): smallest
+    # limit_val >= val selects the bracket -- 1000.01 jumps to the 100-step
+    # bracket. Tables are explicit admin config; see apply_rounding docstring.
     assert apply_rounding(val, "price") == expected
 
 
@@ -76,7 +79,7 @@ def test_seeded_price_brackets(val, expected):
     "val, expected",
     [
         (0, 0),
-        (-5, 0),
+        (-5, -5),  # re-baselined (BUG card): sign preserved, no silent clamp to 0
         (999.99, 1000.0),
         (12345.67, 12500.0),
         (1000000000.0, 1000000000.0),
@@ -103,17 +106,20 @@ def test_unknown_method_falls_back_to_up():
 @pytest.mark.parametrize(
     "val, expected",
     [
-        (0.5, 0.0),   # banker's rounding: half goes to EVEN
+        (0.5, 1.0),   # half away from zero (Excel ROUND)
         (1.5, 2.0),
-        (2.5, 2.0),
+        (2.5, 3.0),   # was 2.0 under banker's rounding
         (3.5, 4.0),
-        (4.5, 4.0),
+        (4.5, 5.0),   # was 4.0 under banker's rounding
         (2.675, 3.0),
     ],
 )
-def test_nearest_is_bankers_rounding(val, expected):
-    # Python round() semantics (pricing/app.py:397-398) -- NOT Excel's
-    # round-half-away-from-zero. Excel users would expect 0.5 -> 1.
+def test_nearest_is_half_away_from_zero(val, expected):
+    # Re-baselined deliberately in the phase-2 bug-fix stage (board card
+    # "BUG - pricing rounding semantics"): NEAREST now rounds half AWAY
+    # FROM ZERO via Decimal ROUND_HALF_UP, matching Excel's ROUND and the
+    # rent calculator's money path (was Python round()'s banker's
+    # rounding: 0.5 -> 0, 2.5 -> 2).
     assert apply_rounding(val, "p1t2_nearest") == expected
 
 
