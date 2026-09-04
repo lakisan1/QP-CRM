@@ -20,8 +20,12 @@ from flask import Blueprint, Flask, redirect, render_template, request, session,
 
 from qp_crm.shared.auth import (
     DEFAULT_PASSWORDS,
-    change_own_password,
     attempt_login,
+    change_own_password,
+    clear_login_failures,
+    is_login_locked,
+    log_login_attempt,
+    register_login_failure,
 )
 from qp_crm.shared.config import STATIC_DIR
 from qp_crm.shared.web import safe_next_url
@@ -35,19 +39,38 @@ def login():
     if request.method == "POST":
         username = (request.form.get("username") or "").strip()
         password = request.form.get("password") or ""
+        ip = request.remote_addr or "unknown"
+
+        # In-process lockout (Phase 3 step 8): after too many failures for
+        # this (ip, username) pair, the password is not even checked.
+        locked, remaining = is_login_locked(username, ip)
+        if locked:
+            log_login_attempt(username, ip, False,
+                              f"lockout: {remaining}s remaining")
+            error = (f"Previše neuspelih pokušaja. Pokušajte ponovo za "
+                     f"{max(remaining // 60 + 1, 1)} min.")
+            return render_template("auth/login.html", error=error)
+
         user = attempt_login(username, password)
         if user:
+            clear_login_failures(username, ip)
+            log_login_attempt(username, ip, True, "ok")
             # Session cycling: invalidate any pre-authentication session
             # state, then establish the new identity (fixation defence).
             session.clear()
             session["user_id"] = user["id"]
             session["username"] = user["username"]
             session["role"] = user["role"]
+            # Sliding 8h session: PERMANENT_SESSION_LIFETIME + refresh on
+            # every request keeps the cookie alive while the user works.
+            session.permanent = True
             if user["must_change_password"]:
                 session["must_change_password"] = True
                 return redirect(url_for("auth.change_password"))
             dest = safe_next_url()
             return redirect(dest or "/")
+        register_login_failure(username, ip)
+        log_login_attempt(username, ip, False, "bad credentials")
         error = "Pogrešno korisničko ime ili lozinka"
     return render_template("auth/login.html", error=error)
 

@@ -2,6 +2,8 @@ import hashlib
 import re
 import secrets
 import sqlite3
+import threading
+import time
 from datetime import datetime, timezone
 
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -350,13 +352,78 @@ def get_user_by_id(user_id):
     return row
 
 
+# ----------
+# Login audit + in-process rate limiting / lockout (Phase 3 step 8).
+#
+# No Redis, no extra services: failure tracking is a module-level dict keyed
+# by (ip, username) guarded by a threading.Lock (the WSGI server serves
+# requests on threads). Sliding window: LOGIN_WINDOW_SECONDS counts failures;
+# at LOGIN_MAX_FAILURES the (ip, username) pair is locked out for
+# LOGIN_LOCKOUT_SECONDS. Success clears the pair; stale entries are pruned
+# lazily so the dict cannot grow unboundedly.
+# ----------
+
+LOGIN_MAX_FAILURES = 5
+LOGIN_WINDOW_SECONDS = 15 * 60
+LOGIN_LOCKOUT_SECONDS = 15 * 60
+
+_login_failures = {}  # (ip, username) -> [timestamps of recent failures]
+_login_lock = threading.Lock()
+
+
+def _prune_failures(now, entries):
+    return [t for t in entries if now - t < LOGIN_WINDOW_SECONDS]
+
+
+def is_login_locked(username, ip):
+    """(locked, seconds_remaining) for this (ip, username) pair."""
+    now = time.time()
+    with _login_lock:
+        entries = _prune_failures(now, _login_failures.get((ip, username), []))
+        _login_failures[(ip, username)] = entries
+        if len(entries) >= LOGIN_MAX_FAILURES:
+            oldest = entries[0]
+            remaining = int(LOGIN_LOCKOUT_SECONDS - (now - oldest))
+            return True, max(remaining, 1)
+    return False, 0
+
+
+def register_login_failure(username, ip):
+    now = time.time()
+    with _login_lock:
+        key = (ip, username)
+        entries = _prune_failures(now, _login_failures.get(key, []))
+        entries.append(now)
+        _login_failures[key] = entries[-LOGIN_MAX_FAILURES:]
+
+
+def clear_login_failures(username, ip):
+    with _login_lock:
+        _login_failures.pop((ip, username), None)
+
+
+def log_login_attempt(username, ip, success, detail):
+    """Append one row to login_audit (Phase 3 step 8). Never raises."""
+    try:
+        conn = get_db()
+        conn.execute(
+            "INSERT INTO login_audit (ts, username, ip, success, detail) VALUES (?, ?, ?, ?, ?);",
+            (_utcnow_iso(), username, ip, 1 if success else 0, detail or ""),
+        )
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass  # auditing must never break the login response
+
+
 def attempt_login(username, password):
     """Verify credentials for the unified login; return the user row or None.
 
     Deactivated and unknown accounts are indistinguishable on purpose (no
-    user enumeration). Login audit + rate limiting wrap this in Phase 3
-    step 8; the password verification itself (including the transparent
-    legacy-plaintext rehash) lives in check_password.
+    user enumeration). The password verification itself (including the
+    transparent legacy-plaintext rehash) lives in check_password; audit and
+    lockout happen around this call in the login route, which owns the
+    request context (client IP).
     """
     if not username or not password:
         return None

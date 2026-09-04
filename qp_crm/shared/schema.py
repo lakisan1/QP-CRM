@@ -406,6 +406,21 @@ def create_users_table(cur):
         );
     """)
 
+    # Login audit log (Phase 3 step 8): every login attempt -- successful or
+    # not -- with the source IP. detail is a short reason code/message
+    # ('ok', 'bad password', 'unknown user', 'inactive account',
+    # 'lockout: NNs remaining', ...).
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS login_audit (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ts TEXT NOT NULL,
+            username TEXT,
+            ip TEXT,
+            success INTEGER NOT NULL,
+            detail TEXT
+        );
+    """)
+
 
 # ---------------------------------------------------------------------------
 # idempotent ALTER migrations

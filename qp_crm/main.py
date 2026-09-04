@@ -44,6 +44,13 @@ app.config['SESSION_COOKIE_NAME'] = 'qp_session'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_PATH'] = '/'
+# Session timeout (Phase 3 step 8): 8h sliding window. login sets
+# session.permanent = True; with SESSION_REFRESH_EACH_REQUEST (default True)
+# the cookie is re-issued on every response, so the 8h clock restarts on
+# activity and an idle browser is logged out after 8h.
+from datetime import timedelta
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=8)
+app.config['SESSION_REFRESH_EACH_REQUEST'] = True
 
 # Unified login (Phase 3 step 3): ONE /login + /logout for the whole stack on
 # the top-level app. The per-module login pages now redirect here (their
