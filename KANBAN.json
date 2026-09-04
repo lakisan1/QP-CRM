@@ -326,7 +326,7 @@
    "title": "P1-T4 · Characterization: rent pmt / calculate_rent / _add_months / generate_schedule",
    "description": "Step 4. Pin CURRENT behavior of the pure rent math: pmt (Excel PMT replication incl. rate=0 branch and pmt_type=1), calculate_rent full dict (ucesce/ucesce_pdv/ucesce_bruto, ostatak, rata_fin via pmt with pv=-(price-ucesce) fv=ostatak, osiguranje=monthly, garancija spread over months, rata_neto/pdv/bruto, zatvaranje=ucesce_bruto/months CONSTANT for every month, rata_nakon), _add_months end-of-month clamping, generate_schedule rows (0.1 admin fee + 0.2 downpayment on contract date, monthly Zakupnina rows dated LAST day of each month, bad date string → date.today() fallback). Exact float literals captured in container.",
    "rationale": "The lease calculator replicates Excel PMT against live contracts — any drift silently changes every customer's monthly payment; the schedule shape (row numbering, date rule) feeds the printed payment plan.",
-   "rejected": "Raising ValueError / 400-response instead: the card framed the crash as the bug; making the money functions total keeps every render deterministic without new error UX. Route-level input validation (H10 family) stays Phase 3.",
+   "rejected": "Keeping a logged fallback to contract_date or today(): the bug is non-determinism, any silent substitute keeps documents unreproducible. Route-level input validation at contract save stays Phase 3 (H10 family). Also fixed en route: stage-5 rent/routes/__init__.py omitted pdf.py so the 3 schedule/offer PDF routes were dead since the split (commit 1be2f58).",
    "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
    "status": "done",
    "tags": [
@@ -337,7 +337,7 @@
    ],
    "createdAt": 1788462764458,
    "updatedAt": 1788464193650,
-   "summary": "pmt returns 0.0 for nper<=0; calculate_rent garancija/zatvaranje guarded (>0 check). Zero/negative-period contracts now render zero components instead of 500 on all contract PDFs. Characterization re-baselined deliberately (test_nper_zero_returns_zero_payment + 2 regressions). Commit on phase-2-refactor; suite 123 passed."
+   "summary": "generate_schedule raises ValueError on unparsable/empty contract date; both schedule PDF routes return 400 with the message. Two renders of the same contract can no longer differ. Characterization re-baselined (test_bad_date_raises_value_error) + end-to-end route tests. Commit 99b99f3; suite 127 passed."
   },
   {
    "id": "card-4202b35e-7d72-445d-bbda-16ca8aefda9d",
@@ -472,9 +472,9 @@
    "title": "BUG · rent generate_schedule: bad contract date silently falls back to date.today() (non-deterministic documents)",
    "description": "Pinned by tests/characterization/test_rent_calc.py::test_bad_date_falls_back_to_today. generate_schedule (rent/app.py:126-132) silently substitutes date.today() when contract_date is unparsable/empty, so the printed payment plan (0.1/0.2 rows and, via the schedule PDF, the whole plan) gets DATES FROM THE DAY OF RENDERING — two renders of the same contract produce different documents. Related: H7/H6 contract-number/data hygiene family; new finding for the date path.",
    "rationale": "Non-deterministic business documents are a correctness issue, not a style issue; Phase 2 should decide between failing loudly and persisting a parse date, and the golden/characterization net must follow whatever is chosen.",
-   "rejected": "Making the fallback deterministic now (e.g. epoch date) — forbidden in Phase 1; would also silently change the pinned behavior the suite just captured.",
+   "rejected": "Keeping a logged fallback to contract_date or today(): the bug is non-determinism, any silent substitute keeps documents unreproducible. Route-level input validation at contract save stays Phase 3 (H10 family). Also fixed en route: stage-5 rent/routes/__init__.py omitted pdf.py so the 3 schedule/offer PDF routes were dead since the split (commit 1be2f58).",
    "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
-   "status": "todo",
+   "status": "done",
    "tags": [
     "qp-crm",
     "bug",
@@ -483,7 +483,8 @@
     "new-finding"
    ],
    "createdAt": 1788467646724,
-   "updatedAt": 1788467646724
+   "updatedAt": 1788467646724,
+   "summary": "generate_schedule raises ValueError on unparsable/empty contract date; both schedule PDF routes return 400 with the message. Two renders of the same contract can no longer differ. Characterization re-baselined (test_bad_date_raises_value_error) + end-to-end route tests. Commit 99b99f3; suite 127 passed."
   },
   {
    "id": "card-9c7f744d-f6cb-4c7b-9157-f98bd5d03941",
