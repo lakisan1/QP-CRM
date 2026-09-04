@@ -491,9 +491,9 @@
    "title": "BUG · offer discount storage: NULL (new_offer) vs 0.0 (edit_offer) for zero percentages + asymmetric recalc write-back",
    "description": "Pinned by tests/characterization/test_offer_recalc.py::test_null_discounts_behave_as_zero_and_are_partially_persisted. new_offer (offer/app.py:590-592) stores NULL for zero discount/vat inputs, edit_offer (offer/app.py:847-849) stores 0.0 for the same input; recalc_totals then coerces NULL/0 via 'or 0.0' and writes special/third back as floats while leaving discount_percent/vat_percent NULL (offer/app.py:788-800). Net effect is benign today (both read as no-discount) but the schema carries two encodings of the same fact and the asymmetric write-back makes DB state depend on which form last touched the row. Related: L11 (floats for money), L4 (schema created by two init paths with slightly different definitions).",
    "rationale": "Phase 2's single-schema/service-layer work needs the canonical encoding decided (NOT NULL DEFAULT 0.0 everywhere or explicit NULL semantics) before data migration; the pinned test will be re-baselined with that decision.",
-   "rejected": "Normalizing to 0.0 on save now — forbidden in Phase 1 (production-code change), and the write-back asymmetry interacts with recalc_totals which is exactly what Phase 2 restructures.",
+   "rejected": "One-time data migration (UPDATE offers SET ... WHERE IS NULL in migrate_offer_tables): legacy rows are already read as zero everywhere (\"or 0.0\"), recalc now normalizes them lazily on every recalculation -- a blanket migration would be a schema change beyond the bug scope. Decimal-based money storage stays Phase 3 (L11).",
    "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
-   "status": "todo",
+   "status": "done",
    "tags": [
     "qp-crm",
     "bug",
@@ -502,7 +502,8 @@
     "new-finding"
    ],
    "createdAt": 1788467646733,
-   "updatedAt": 1788467646733
+   "updatedAt": 1788467646733,
+   "summary": "recalc_totals now writes back all four percentage columns coerced to 0.0 (single encoding of no-discount). Probe showed new_offer/edit_offer already store 0.0; the live asymmetry was the recalc write-back. New route-level regression file + deliberate re-baseline of the partial-persistence pin. Suite 131 passed."
   },
   {
    "id": "card-e15eaa44-b3ca-4c38-aa60-7f34ebc53613",
