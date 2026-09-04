@@ -18,7 +18,7 @@ from qp_crm.shared.db import get_db
 from qp_crm.shared.auth import check_password, set_password, get_api_key, generate_api_key, revoke_api_key
 from qp_crm.shared.countries import get_country_list
 from qp_crm.shared.web import (
-    require_login,
+    require_role,
     fetch_mandatory_fields,
     fetch_rent_defaults,
     sort_rent_templates,
@@ -166,8 +166,9 @@ def init_db():
     init_rounding_rules_table()
     init_users_table()
 
-# Unified login gate (Phase 3 step 3); step 4 tightens this to role 'admin'.
-bp.before_request(require_login())
+# Role gate (Phase 3 step 4): admin-only. This covers every admin route
+# including the sandboxed PDF-template editor (audit C4 surface).
+bp.before_request(require_role("admin"))
 
 def generate_full_backup_zip():
     # Ensure DB is flushed

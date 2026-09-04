@@ -17,7 +17,7 @@ from qp_crm.shared.auth import check_password
 from qp_crm.shared.web import (
     get_date_format,
     get_theme,
-    require_login,
+    require_role,
     register_product_image,
     save_product_image,
     download_image_from_url,
@@ -45,9 +45,8 @@ from qp_crm.services.pricing_service import apply_rounding
 
 bp = Blueprint("pricing", __name__, template_folder="templates")
 
-# Unified login gate (Phase 3 step 3): any authenticated user reaches the
-# module; role separation lands with require_role in step 4.
-bp.before_request(require_login())
+# Role gate (Phase 3 step 4): staff and admin reach the business modules.
+bp.before_request(require_role("staff", "admin"))
 
 
 def init_db():

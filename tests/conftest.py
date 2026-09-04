@@ -101,19 +101,27 @@ def conn_factory(temp_db):
 def login_client(client, username):
     """Log a test client in through the REAL unified login (Phase 3 step 3).
 
-    POSTs /login with the seeded default password of that account, then pops
-    the must_change_password session flag -- simulating the completed
-    first-login change WITHOUT mutating the seeded password hashes, so other
-    tests keep authenticating with shared.auth.DEFAULT_PASSWORDS.
+    POSTs /login with the seeded default password of that account, then
+    simulates the completed first-login change: require_role (step 4)
+    re-reads must_change_password from the users row on every request, so
+    the seeded staff flag is cleared IN THE DB -- not just in the session --
+    while the password hashes stay at the seeded defaults (other tests keep
+    authenticating with shared.auth.DEFAULT_PASSWORDS).
     """
     from qp_crm.main import app  # noqa: F401  (app must be importable)
-    from qp_crm.shared.auth import DEFAULT_PASSWORDS
+    from qp_crm.shared.auth import DEFAULT_PASSWORDS, get_db
 
     resp = client.post(
         "/login",
         data={"username": username, "password": DEFAULT_PASSWORDS[username]},
     )
     assert resp.status_code == 302, f"login for {username} failed: {resp.status_code}"
+    conn = get_db()
+    conn.execute(
+        "UPDATE users SET must_change_password = 0 WHERE username = ?;", (username,)
+    )
+    conn.commit()
+    conn.close()
     with client.session_transaction() as session:
         session.pop("must_change_password", None)
     return client

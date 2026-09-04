@@ -19,7 +19,7 @@ import os
 import re
 
 import markdown
-from flask import redirect, request, send_from_directory, session, url_for
+from flask import abort, redirect, request, send_from_directory, session, url_for
 
 from qp_crm.shared.config import IMAGE_DIR
 from qp_crm.shared.db import get_db
@@ -131,29 +131,61 @@ def safe_next_url():
     return None
 
 
-def require_login(exempt_endpoints=()):
-    """Blueprint-level hook: any authenticated user (Phase 3 step 3).
+def require_role(*roles, exempt_endpoints=()):
+    """Blueprint-level role gate (Phase 3 step 4).
 
-    Replaces the per-module session-flag hooks: ONE unified login on the
-    top-level app establishes the session identity (user_id/username/role),
-    and every gated blueprint accepts it. A pending must_change_password
-    flag (first login of the migrated non-admin accounts) forces the
+    Replaces both the pre-Phase-3 per-module password flags and step 3's
+    plain require_login: ONE unified login establishes the session identity,
+    and each blueprint declares WHO may enter:
+
+        admin blueprint      -> require_role("admin")
+        pricing/offer/rent   -> require_role("staff", "admin")
+                                ('admin' is the superset role: an admin may
+                                open every business module)
+        sale / settings      -> public, no hook
+        /api/v1/health       -> public (API endpoints authenticate by key)
+
+    The user row is re-read from the DB on EVERY gated request, so a
+    deactivation or role change in the admin Users UI takes effect on the
+    user's next request (not just on their next login). Anonymous users are
+    redirected to the unified login with a safe ?next=; authenticated users
+    without a permitted role get 403; a pending must_change_password flag
+    (seeded staff accounts, or an admin-forced reset) forces the
     self-service password change before anything else is reachable.
     exempt_endpoints: full endpoint names (e.g. 'offer.api_nbs_eur_rate')
     that stay reachable without a session, exactly as before Phase 3.
     """
+    from qp_crm.shared.auth import get_user_by_id
+
     exempt = frozenset(exempt_endpoints)
 
     def check_auth():
         if request.endpoint in exempt:
             return None
-        if not session.get("user_id"):
+        user_id = session.get("user_id")
+        if not user_id:
             next_url = safe_next_url() or request.path
             if next_url and next_url != "/":
                 return redirect(url_for("auth.login", next=next_url))
             return redirect(url_for("auth.login"))
+
+        user = get_user_by_id(user_id)
+        if user is None:
+            # Deactivated or deleted while logged in: kill the session.
+            session.clear()
+            return redirect(url_for("auth.login"))
+
+        if user["must_change_password"] and not session.get("must_change_password"):
+            session["must_change_password"] = True
         if session.get("must_change_password"):
             return redirect(url_for("auth.change_password"))
+
+        if roles and user["role"] not in roles:
+            abort(403, description="Nemate dozvolu za ovu stranicu. (Your account role does not permit this page.)")
+
+        # A role changed while logged in takes effect immediately.
+        if session.get("role") != user["role"]:
+            session["role"] = user["role"]
 
     return check_auth
 

@@ -14,7 +14,7 @@ from qp_crm.shared.auth import check_password
 from qp_crm.shared.utils import format_amount
 from qp_crm.shared.web import (
     get_theme,
-    require_login,
+    require_role,
     fetch_rent_defaults,
     sort_rent_templates,
     DEFAULT_RENT_EMAIL,
@@ -47,8 +47,8 @@ bp = Blueprint("rent", __name__, template_folder="templates")
 CSV_DIR = os.path.join(BASE_DIR, "excell Rent calc")
 
 
-# Unified login gate (Phase 3 step 3).
-bp.before_request(require_login())
+# Role gate (Phase 3 step 4).
+bp.before_request(require_role("staff", "admin"))
 
 
 

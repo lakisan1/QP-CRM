@@ -42,12 +42,24 @@ def test_seeded_hashes_preserve_legacy_passwords(conn_factory):
         assert check_password_hash(row["password_hash"], DEFAULT_PASSWORDS[username])
 
 
-def test_non_admin_accounts_must_change_password_on_first_login(conn_factory):
-    with conn_factory() as conn:
-        users = _users(conn)
+def test_non_admin_accounts_must_change_password_on_first_login():
+    # Isolated in-memory users table: other tests legitimately clear the
+    # seeded first-login flag on the shared session DB (simulating the
+    # completed onboarding), so the seeding CONTRACT is pinned against a
+    # fresh seed run instead of mutable shared state.
+    import sqlite3
+
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+    cur.execute("CREATE TABLE global_settings (key TEXT PRIMARY KEY, value TEXT);")
+    create_users_table(cur)
+    seed_users_from_legacy(cur)
+    users = _users(conn)
     assert users["admin"]["must_change_password"] == 0
     for staff in ("pricing", "offer", "rent"):
         assert users[staff]["must_change_password"] == 1
+    conn.close()
 
 
 def test_seeding_is_idempotent(conn_factory):
