@@ -435,9 +435,9 @@
    "title": "BUG · pricing rounding semantics: banker's NEAREST + val<=0 clamp to 0 + bracket-boundary jump",
    "description": "Pinned as-is by tests/characterization/test_pricing_rounding.py. Three semantics questions for Phase 2/3 (money-touching, needs a product decision, not a blind fix): (1) NEAREST uses Python round() = banker's rounding — 0.5->0, 2.5->2, 3.5->4 — while Excel's ROUND goes half-away-from-zero (0.5->1); the rent calculator replicates Excel, so the two money paths disagree on rounding philosophy. (2) apply_rounding clamps val<=0 to 0 — a negative price/discount silently becomes 0 instead of keeping its sign. (3) Bracket selection takes the smallest limit_val >= val, so 1000.01 jumps from the 50-step bracket to the 100-step bracket — one cent above a limit changes the step. Related audit codes: L9 (fresh connection per call), L11 (floats for money).",
    "rationale": "Phase-1 discipline: quirks get logged, not fixed. These change real invoice numbers; Phase 2 must decide the intended semantics BEFORE refactoring so the safety net can be re-pinned deliberately.",
-   "rejected": "Fixing banker's rounding to Excel semantics now — forbidden in Phase 1 and possibly intentional (Serbian price-list practice may want even-rounding); changing clamp behavior without knowing whether negative prices can occur.",
+   "rejected": "Changing bracket selection to interval-based buckets (limit_val > val exclusive): would alter every seeded price and contradicts the admin-facing table semantics -- deferred to a product decision. Migrating pricing to Decimal end-to-end (audit L11, fresh-connection L9) stays Phase 3.",
    "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
-   "status": "todo",
+   "status": "done",
    "tags": [
     "qp-crm",
     "bug",
@@ -446,7 +446,8 @@
     "new-finding"
    ],
    "createdAt": 1788467646702,
-   "updatedAt": 1788467646702
+   "updatedAt": 1788467646702,
+   "summary": "apply_rounding: NEAREST = half-away-from-zero (Decimal ROUND_HALF_UP, matches Excel/rent); val<=0 returns val with sign preserved; bracket selection deliberately unchanged (admin-config table semantics). Characterization re-baselined with bug-card references. Suite 131 passed."
   },
   {
    "id": "card-088dd7a9-70e8-4bdd-9ca6-6199483e6dc4",
