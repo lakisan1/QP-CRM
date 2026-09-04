@@ -2,7 +2,7 @@ import os
 import sys
 import math
 import html
-from flask import Flask, render_template, request, redirect, url_for, send_from_directory, session, abort
+from flask import Blueprint, Flask, render_template, request, redirect, url_for, send_from_directory, session, abort
 import markdown
 
 # Ensure shared modules can be imported
@@ -15,43 +15,49 @@ from shared.config import STATIC_DIR, IMAGE_DIR
 from shared.db import get_db
 from shared.utils import format_amount
 
-app = Flask(
-    __name__,
-    static_folder=STATIC_DIR,
-    static_url_path="/static",
-    template_folder="templates"
-)
-app.secret_key = os.environ.get("SALE_SECRET_KEY", "sale_readonly_secret_change_me")
-app.config['SESSION_COOKIE_NAME'] = 'sale_readonly_session'
+# ---------------------------------------------------------------------------
+# Phase 2 stage 1: sale is a Blueprint on the single QP-CRM app.
+#
+# The Flask(...) instance, secret key and SESSION_COOKIE_NAME moved to
+# main.py (one session/secret/cookie for the whole stack; SALE_SECRET_KEY
+# and the sale_readonly_session cookie are no longer used). Routes keep the
+# same URLs via the blueprint's /sale prefix in main.py; endpoints are
+# namespaced (sale.list_sale, ...) in Python and templates. Templates live
+# under sale/templates/sale/ because the unified Jinja environment resolves
+# same-name templates by blueprint registration order (every module ships a
+# base.html).
+# ---------------------------------------------------------------------------
+
+bp = Blueprint("sale", __name__, template_folder="templates")
 
 def get_theme():
     """Fetch the theme setting from cookies."""
     from flask import request
     return request.cookies.get("theme", "dark")
 
-@app.context_processor
+@bp.context_processor
 def inject_helpers():
     return dict(
         format_amount=format_amount,
         theme=get_theme()
     )
 
-@app.route("/product-image/<path:filename>")
+@bp.route("/product-image/<path:filename>")
 def product_image(filename):
     return send_from_directory(IMAGE_DIR, filename)
 
-@app.route("/")
+@bp.route("/")
 def index():
-    return redirect(url_for("list_sale"))
+    return redirect(url_for("sale.list_sale"))
 
-@app.route("/pricelist")
+@bp.route("/pricelist")
 def list_sale():
     # Check if we should clear filters
     if request.args.get("clear"):
         session.pop("sale_filter_brand", None)
         session.pop("sale_filter_category", None)
         session.pop("sale_filter_search", None)
-        return redirect(url_for("list_sale"))
+        return redirect(url_for("sale.list_sale"))
 
     # Load from request or fallback to session
     brand_filter = request.args.get("brand")
@@ -167,7 +173,7 @@ def list_sale():
     conn.close()
 
     return render_template(
-        "sale.html",
+        "sale/sale.html",
         products=products,
         brand_filter=brand_filter,
         category_filter=category_filter,
@@ -180,7 +186,7 @@ def list_sale():
         total_count=total_count
     )
 
-@app.route("/product/<int:product_id>")
+@bp.route("/product/<int:product_id>")
 def view_product(product_id):
     conn = get_db()
     cur = conn.cursor()
@@ -210,10 +216,17 @@ def view_product(product_id):
         description_html = markdown.markdown(html.escape(product["description"]))
 
     return render_template(
-        "view_product.html",
+        "sale/view_product.html",
         product=product,
         description_html=description_html
     )
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5001, debug=True)
+    # Standalone dev run (python sale/app.py) -- previously this module's own
+    # Flask instance; now the blueprint mounted on a throwaway app with the
+    # same URL prefix and port.
+    standalone = Flask(__name__, static_folder=STATIC_DIR, static_url_path="/static")
+    standalone.register_blueprint(bp, url_prefix="/sale")
+    standalone.secret_key = os.environ.get("SALE_SECRET_KEY", "sale_readonly_secret_change_me")
+    standalone.config['SESSION_COOKIE_NAME'] = 'sale_readonly_session'
+    standalone.run(host="0.0.0.0", port=5001, debug=True)

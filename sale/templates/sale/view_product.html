@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "sale/base.html" %}
 {% block title %}{{ product.name }}{% endblock %}
 
 {% block content %}
@@ -105,14 +105,14 @@
 
 <div class="header-row">
     <h1>{{ product.name }}</h1>
-    <a href="{{ url_for('list_sale') }}" class="back-btn">&larr; {{ _('Back to Sale')|default('Nazad') }}</a>
+    <a href="{{ url_for('sale.list_sale') }}" class="back-btn">&larr; {{ _('Back to Sale')|default('Nazad') }}</a>
 </div>
 
 <div class="admin-card">
     <div class="row">
         {% if product.photo_path %}
         <div class="half-width product-image-container">
-            <img src="{{ url_for('product_image', filename=product.photo_path) }}" alt="{{ product.name }}" class="product-image">
+            <img src="{{ url_for('sale.product_image', filename=product.photo_path) }}" alt="{{ product.name }}" class="product-image">
         </div>
         {% endif %}
         

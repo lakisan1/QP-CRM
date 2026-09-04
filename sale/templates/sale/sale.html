@@ -1,10 +1,10 @@
-{% extends "base.html" %}
+{% extends "sale/base.html" %}
 {% block title %}Sale{% endblock %}
 {% block content %}
 <h1>{{ _('Sale')|default('Prodaja') }}</h1>
 
 <div class="card">
-    <form method="get" action="{{ url_for('list_sale') }}">
+    <form method="get" action="{{ url_for('sale.list_sale') }}">
         <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end;">
             <label style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
                 <span style="font-weight: 500; font-size: 14px; white-space: nowrap;">Brand:</span>
@@ -57,7 +57,7 @@
             <div style="display: flex; flex-direction: column;">
                 <span style="margin-bottom: 8px; font-weight: 500; font-size: 14px; visibility: hidden;">.</span>
                 <div style="display: flex; align-items: center; gap: 10px;">
-                    <a href="{{ url_for('list_sale', clear=1) }}" class="btn btn-secondary"
+                    <a href="{{ url_for('sale.list_sale', clear=1) }}" class="btn btn-secondary"
                         style="margin-bottom: 0px; padding: 10px 20px; font-size: 14px;">Reset pretrage</a>
                     <span
                         style="background: var(--accent-primary, #3498db); color: white; padding: 4px 12px; border-radius: 20px; font-weight: bold; font-size: 14px;">
@@ -83,12 +83,12 @@
         <tr>
             <td style="text-align: center; width: 85px;">
                 {% if p.photo_path %}
-                <img src="{{ url_for('product_image', filename=p.photo_path) }}"
+                <img src="{{ url_for('sale.product_image', filename=p.photo_path) }}"
                     style="max-width: 80px; max-height: 80px;">
                 {% endif %}
             </td>
             <td>
-                <a href="{{ url_for('view_product', product_id=p.id) }}"
+                <a href="{{ url_for('sale.view_product', product_id=p.id) }}"
                     style="text-decoration: none; color: var(--accent-primary, #3498db); font-weight: 500;">{{ p.name
                     }}</a>
             </td>
@@ -112,14 +112,14 @@
 <!-- Pagination Controls -->
 <div style="margin-top: 20px; display: flex; justify-content: center; gap: 10px;">
     {% if current_page > 1 %}
-    <a href="{{ url_for('list_sale', page=current_page - 1, brand=brand_filter, category=category_filter, search=search_term, sort=sort_option) }}"
+    <a href="{{ url_for('sale.list_sale', page=current_page - 1, brand=brand_filter, category=category_filter, search=search_term, sort=sort_option) }}"
         class="btn btn-secondary">&laquo; Previous</a>
     {% endif %}
 
     <span style="padding: 10px; font-weight: 500;">Page {{ current_page }} of {{ total_pages }}</span>
 
     {% if current_page < total_pages %} <a
-        href="{{ url_for('list_sale', page=current_page + 1, brand=brand_filter, category=category_filter, search=search_term, sort=sort_option) }}"
+        href="{{ url_for('sale.list_sale', page=current_page + 1, brand=brand_filter, category=category_filter, search=search_term, sort=sort_option) }}"
         class="btn btn-secondary">Next &raquo;</a>
         {% endif %}
 </div>

@@ -9,9 +9,9 @@ from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from pricing.app import app as pricing_app, init_db as pricing_init_db, migrate_schema as pricing_migrate_schema
 from offer.app import app as offer_app, init_db as offer_init_db
 from admin.app import app as admin_app, init_db as admin_init_db
-from sale.app import app as sale_app
 from rent.app import app as rent_app, init_db as rent_init_db
 from settings.app import bp as settings_bp
+from sale.app import bp as sale_bp
 from pricing.api_v1 import api_v1
 from shared.config import STATIC_DIR, APP_ASSETS_DIR
 
@@ -21,9 +21,10 @@ from shared.config import STATIC_DIR, APP_ASSETS_DIR
 # The landing page, /static, the API v1 blueprint and the module blueprints
 # live on this single app; the remaining classic sub-apps are still merged
 # with DispatcherMiddleware until their blueprint migration lands
-# (settings is the pilot module). URL prefixes are preserved exactly:
-# /pricing /sale /offer /admin /rent stay DispatcherMiddleware mounts and
-# /settings is served by the settings blueprint registered below.
+# (settings and sale are ported; pricing/offer/admin/rent follow). URL
+# prefixes are preserved exactly: /pricing /offer /admin /rent stay
+# DispatcherMiddleware mounts and /settings /sale are served by their
+# blueprints registered below.
 #
 # Session unification: previously every sub-app had its own secret key and
 # its own session cookie (pricing_session, offer_session, rent_session,
@@ -52,6 +53,9 @@ app.register_blueprint(api_v1, url_prefix="/api/v1")
 # Pilot module blueprint (Phase 2 stage 1): settings at the same /settings prefix
 app.register_blueprint(settings_bp, url_prefix="/settings")
 
+# Sale module blueprint (Phase 2 stage 1): same /sale prefix, open access
+app.register_blueprint(sale_bp, url_prefix="/sale")
+
 @app.route("/")
 def index():
     return render_template("landing.html")
@@ -75,7 +79,7 @@ app.context_processor(inject_i18n)
 # the i18n helpers on their own Flask instances (as before this refactor) --
 # their templates resolve `_`/current_lang from their app's processors, not
 # from the new top-level app. This loop shrinks with every blueprint port.
-for _sub_app in (pricing_app, sale_app, offer_app, admin_app, rent_app):
+for _sub_app in (pricing_app, offer_app, admin_app, rent_app):
     _sub_app.context_processor(inject_i18n)
 
 # Merge the not-yet-ported classic sub-apps using DispatcherMiddleware.
@@ -83,7 +87,6 @@ for _sub_app in (pricing_app, sale_app, offer_app, admin_app, rent_app):
 # the admin port (last module).
 application = DispatcherMiddleware(app, {
     '/pricing': pricing_app,
-    '/sale': sale_app,
     '/offer': offer_app,
     '/admin': admin_app,
     '/rent': rent_app
