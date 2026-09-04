@@ -4,8 +4,9 @@ Single-container deployment: the Flask multi-app stack (pricing / offer / rent /
 admin / sale / settings, merged by `qp_crm/main.py` via DispatcherMiddleware and served
 by gunicorn through `qp_crm/wsgi.py`) runs in one container on **port 5000**.
 
-- Image: `qp-crm:phase1` — built from `./Dockerfile` (phase-1 adds the pytest
-test layer; `qp-crm:phase0` remains the rollback tag)
+- Image: `qp-crm:phase2` — built from `./Dockerfile` (phase-1 added the pytest
+test layer; phase-2 is the unified-app/package-layout image;
+`qp-crm:phase1` remains the rollback tag)
 - Container name: `qp-crm` — stack file: `docker-compose.yml`
 - Secrets: `.env` (see `.env.example`)
 

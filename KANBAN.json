@@ -107,10 +107,10 @@
    "id": "card-7933d2c7-e088-49f7-ad95-14a993dc7f71",
    "title": "Phase 2 — Structural refactor: single app + blueprints, single schema, service layer",
    "description": "The monolith-breaking program, done incrementally with Phase-1 tests green at every step and a Docker image rebuild + smoke test per merged step. Order within the phase: (1) consolidate 6 Flask instances → 1 Flask app + blueprints, URL prefixes preserved (/pricing, /offer, /rent, /admin, /sale, /settings), one session/secret/cookie, remove DispatcherMiddleware — validate the pattern on the smallest module (sale or settings) first, then pricing/offer/rent/admin; (2) deduplicate copy-pasted helpers (md filter, format_date, get_theme, check_auth → blueprint-level hooks) into shared/; (3) single-source the DB schema — one schema module consumed by all init_db calls, delete the stale offers/offer_items duplicate in pricing/app.py, keep idempotent ALTER migrations, add UNIQUE constraints where data permits; (4) extract service layer — pricing_service (cascade+rounding), offer_service (totals+numbering), rent_service (PMT+schedule+placeholders), pdf_service (shared WeasyPrint render helper with sandboxed Jinja → fixes SSTI during the move); (5) split 1.2–1.8k-line route files into per-domain modules; (6) proper package layout (qp_crm/), delete sys.path hacks, replace vendored custom_libs/markdown with pinned pip dependency Markdown==3.10.2; (7) CI running pytest. DISCIPLINE: zero behavior changes inside this phase — same URLs, same totals, byte-comparable PDFs; improvements go to the Phase-4 backlog. Exit criteria: single app, no DispatcherMiddleware, no sys.path hacks, no vendored libs, single schema source, tests green.",
-   "rationale": "Core of the user's 'break the monolithic code, clear technical debt' goal — this is what moves structure from D to B/B+. Sequenced after Phase 1 (tests) so every step is verifiable, and before users/auth so login/session/CSRF are written once against the final shape instead of twice.",
-   "rejected": "Doing users/auth before consolidation — rejected: auth is cross-cutting; landing it on the 6-realm structure then moving it into blueprints doubles the work. Big-bang rewrite into Django or a clean-room structure — rejected: re-derives verified business logic (see Architecture-direction card). Micro-optimizing performance — rejected: 5 concurrent users makes speed a non-issue; maintainability is the real optimization.",
+   "rationale": "Phase 2's contract was structural-only: make the codebase testable and safe without changing user-visible behavior (golden PDFs byte-identical), then fix the pinned bugs deliberately with referenced re-baselines. Delivered so the user can manually test before Phase 3 (users/auth/CSRF).",
+   "rejected": "Big-bang rewrite: rejected from the start (see architecture-direction card). Bundle-fixing the 5 bugs during the structural stages was also rejected — zero-behavior-change discipline during 1-6 kept every green suite a real regression gate; bugs were fixed only after the structure was byte-verified. Remaining known debt deliberately deferred to Phase 3+: H10 bare-numeric input validation, L9 fresh connection per call, L11 float money -> Decimal, bracket-selection product decision.",
    "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
-   "status": "todo",
+   "status": "done",
    "tags": [
     "qp-crm",
     "refactor",
@@ -118,7 +118,8 @@
     "phase-2"
    ],
    "createdAt": 1788446046578,
-   "updatedAt": 1788446046578
+   "updatedAt": 1788446046578,
+   "summary": "All 7 structural stages shipped on branch phase-2-refactor (single app+blueprints, shared/ dedupe, single schema, service layer + sandboxed Jinja closing audit C4, per-domain route modules, qp_crm/ package with sys.path hacks deleted and Markdown==3.10.2 devendored, GH Actions CI), then all 5 phase-2-candidate BUG cards fixed with one commit + regression test each (rent pmt zero-period, rent schedule bad-date 400, offer discount normalization, pricing rounding semantics decision, sale bare-schema empty state). Exit criteria met: single app, no DispatcherMiddleware, no sys.path hacks, no vendored libs, single schema source. Suite 133 passed; image tagged qp-crm:phase2 (docker-compose.yml + DOCKER.md updated); golden PDFs byte-identical throughout stages 1-6."
   },
   {
    "id": "card-70b8c383-02ec-4681-9070-83cf7e08e164",
@@ -510,55 +511,58 @@
   {
    "id": "card-e15eaa44-b3ca-4c38-aa60-7f34ebc53613",
    "title": "P2 stage 1 — single app + blueprints, no DispatcherMiddleware",
-   "summary": "All six modules (settings, sale, pricing, offer, rent, admin) converted to Blueprints registered on the single Flask app in main.py; URL prefixes unchanged; DispatcherMiddleware deleted; one session/secret/cookie with per-module login flags. 121 passed after every commit. Commits: settings/sale/pricing (pre-checkpoint), offer 99510ce, rent 075a4e8, admin+dispatcher-removal 1243930.",
-   "rationale": "Stage 1 of the phase-2 card: six Flask instances had to become one app + blueprints with identical URLs before any dedupe could land. Done across commits 1a-1f (settings pilot, sale, pricing, offer, rent, admin); DispatcherMiddleware removed at 1f. Rejected: keeping per-app session cookies (would have broken cross-module redirect flows on the shared app) — replaced with one qp_session cookie + per-module login flags, users logged out once, announced to user.",
+   "summary": "Six Flask instances collapsed into one app (qp_crm/main.py) registering api_v1(/api/v1), settings, sale, pricing, offer, rent, admin blueprints with unchanged prefixes; DispatcherMiddleware deleted; one qp_session cookie + QP_SECRET_KEY; per-module auth flags kept (pricing/offer/rent/admin_authenticated).",
+   "rationale": "First P2 stage: multiple app instances meant six secret configs, no shared session, and template-filter registration races. One app is the precondition for every later stage.",
    "sourceSessionId": "session-b5194f0d-71bf-4dc4-93d4-5af6afd8700b",
-   "status": "todo",
+   "status": "done",
    "tags": [
     "qp-crm",
     "refactor",
     "phase-2"
    ],
    "createdAt": 1788490540134,
-   "updatedAt": 1788490540134
+   "updatedAt": 1788490540134,
+   "rejected": "Keeping DispatcherMiddleware with shared secret config: still six template namespaces and six wsgi entry points; consolidation without the middleware deletion would have preserved the drift it exists to fix."
   },
   {
    "id": "card-67bd3118-5302-4f11-90ae-0b6293d41ffa",
    "title": "P2 stage 2 — dedupe helpers into shared/web.py",
-   "summary": "shared/web.py now single-sources get_theme, get_date_format, format_date filter (offer's superset signature), md filter + fix_markdown_lists, make_auth_hook per-module login hook, product-image route, save/download image helpers (EN/SR messages parameterized), mandatory-fields reader, rent defaults map, rent template sort order, default rent email/subject. format_date/md registered once app-wide in main.py. Commit 85e59f5, 121 passed.",
-   "rationale": "Stage 2 of the phase-2 card: the copy-pasted helpers drift apart over time (offer's md filter already had a dead branch); one shared source is the precondition for the service layer. Rejected: unifying pricing/api_v1 image-error language to one language (would change user-visible strings) — instead the shared helpers take the message strings as parameters.",
+   "summary": "Duplicated helpers consolidated into qp_crm/shared/web.py: get_theme/get_date_format/format_date_filter/fix_markdown_lists/render_markdown/make_auth_hook(session_flag, login_endpoint, exempt_endpoints)/register_product_image/save_product_image(+download_image_from_url with caller-supplied EN/SR errors)/fetch_mandatory_fields/fetch_rent_defaults/sort_rent_templates/DEFAULT_RENT_EMAIL*. format_date/md registered once app-wide in main.py.",
+   "rationale": "Six copies of the same helpers had drifted (error strings, sort orders); one shared module is the base for the routes split and the service layer.",
    "sourceSessionId": "session-b5194f0d-71bf-4dc4-93d4-5af6afd8700b",
-   "status": "todo",
+   "status": "done",
    "tags": [
     "qp-crm",
     "refactor",
     "phase-2"
    ],
    "createdAt": 1788490540154,
-   "updatedAt": 1788490540154
+   "updatedAt": 1788490540154,
+   "rejected": "A utils Mixin / flask Blueprint-level helpers: mixins hide dependencies and make per-module auth flags awkward; plain functions with explicit imports keep call sites greppable."
   },
   {
    "id": "card-5534e480-7fb2-4f56-9411-53db26bafdbb",
    "title": "P2 stage 3 — single schema source in shared/schema.py",
-   "summary": "shared/schema.py holds every CREATE TABLE/INDEX; module init_db functions are thin wrappers preserving boot order. pricing's stale offers/offer_items subset CREATEs deleted — canonical = offer supersets with client_pib/client_mb/discount_percent folded in. Idempotent ALTERs kept verbatim via one add_column_if_missing helper; prices legacy-UNIQUE rebuild untouched; one new guarded UNIQUE index products(name) COLLATE NOCASE. Commit fbf1706, 121 passed.",
-   "rationale": "Stage 3 of the phase-2 card: offers/offer_items had two competing definitions (pricing subset + offer superset + ALTERs); fresh-DB schema depended on init order. Rejected: adding UNIQUE constraints beyond products(name) — offer_number/price history/rounding brackets/contract numbers legally carry duplicates; guarded UNIQUE index instead of hard constraint so legacy dupes can't break boot.",
+   "summary": "Single DDL source qp_crm/shared/schema.py: create_pricing/offer/admin/rent_tables (canonical supersets incl. client_pib/client_mb/discount_percent in CREATE; REAL price_rounding_rules columns) + add_column_if_missing + migrate_pricing (guarded UNIQUE idx_products_name_unique COLLATE NOCASE + legacy-UNIQUE prices rebuild) + migrate_offer/rent_tables. All five init/migrate entry points route through it.",
+   "rationale": "Two init paths had slightly different table definitions (audit L4) — the canonical-superset DDL removes drift between fresh and migrated DBs.",
    "sourceSessionId": "session-b5194f0d-71bf-4dc4-93d4-5af6afd8700b",
-   "status": "todo",
+   "status": "done",
    "tags": [
     "qp-crm",
     "refactor",
     "phase-2"
    ],
    "createdAt": 1788490540174,
-   "updatedAt": 1788490540174
+   "updatedAt": 1788490540174,
+   "rejected": "Raw .sql schema files: string templates lose the guarded idempotent-migration helpers (add_column_if_missing) and dialect nuances (COLLATE NOCASE, partial indexes) that python can express precisely."
   },
   {
    "id": "card-268765af-736b-4b8a-ae81-48fd291cbf0a",
    "title": "P2 stage 4 — service layer + sandboxed Jinja (audit C4 closed)",
-   "summary": "services/ package: pricing_service (apply_rounding), offer_service (recalc_totals), rent_service (pmt, _add_months, calculate_rent, generate_schedule, _build_doc_context, format_document_html) moved verbatim; pdf_service.render_db_template_parts renders pdf_templates parts in a SandboxedEnvironment (pinned globals url_for/_/gettext/format_amount/format_date + app filters; request/session/config unreachable) — both offer golden PDFs byte-identical. Commit 34ea048, 121 passed.",
-   "rationale": "Stage 4 of the phase-2 card + audit C4: DB-stored Jinja templates rendered with the full app environment is an SSTI hole. Rejected: sandboxing rent document templates too — they are rendered by literal placeholder string substitution, not Jinja, so there is no injection surface there.",
+   "summary": "Pure calculation/business logic extracted to qp_crm/services/: pricing_service.apply_rounding, offer_service.recalc_totals, rent_service (pmt/_add_months/calculate_rent/generate_schedule/_build_doc_context/format_document_html), pdf_service.render_db_template_parts with jinja2.sandbox.SandboxedEnvironment (autoescape=True, filters copied from app jinja_env, pinned globals) — closing audit C4 (DB-template SSTI). Rent document rendering stays literal string substitution (no Jinja surface).",
+   "rationale": "Money logic was embedded in 1.2–1.8k-line route files, untestable without HTTP; DB-stored templates rendered with the full app Jinja env = arbitrary code execution via admin UI (C4).",
    "sourceSessionId": "session-b5194f0d-71bf-4dc4-93d4-5af6afd8700b",
-   "status": "todo",
+   "status": "done",
    "tags": [
     "qp-crm",
     "refactor",
@@ -566,22 +570,25 @@
     "security"
    ],
    "createdAt": 1788490540191,
-   "updatedAt": 1788490540191
+   "updatedAt": 1788490540191,
+   "rejected": "Jinja with disabled autoescape + strip filters for speed: reopens C4; sandbox autoescape measured no significant PDF-render slowdown in the golden tests."
   },
   {
    "id": "card-a25422b1-a4c4-4bd8-97f6-dc766b232b48",
    "title": "P2 stage 5 — split route files into per-domain modules",
    "description": "Four parallel subagents split pricing (19 routes → core/products/catalog/prices), offer (14 → core/offers/pdf), rent (20 → core/contracts/documents/catalogs), admin (29 → core/settings/presets/pdf_templates/backup/rounding/rent_templates). Route bodies move verbatim; routes import bp + helpers from ../app; app.py registers via `from . import routes` at the bottom. Zero behavior change; suite green per module commit.",
-   "rationale": "Stage 5 of the phase-2 card: 1.2-1.4k-line route files are unmaintainable and every edit risks unrelated-route regressions; per-domain files make review surfaces small. Delegated to 4 parallel subagents (user asked for subagent use; disjoint file trees).",
+   "rationale": "1.2–1.8k-line route files were unmaintainable and blocked review; per-domain modules map to the feature areas and set up the qp_crm/ package move.",
    "sourceSessionId": "session-b5194f0d-71bf-4dc4-93d4-5af6afd8700b",
-   "status": "in_progress",
+   "status": "done",
    "tags": [
     "qp-crm",
     "refactor",
     "phase-2"
    ],
    "createdAt": 1788490540209,
-   "updatedAt": 1788490540209
+   "updatedAt": 1788490540209,
+   "summary": "pricing/routes/{core,products,catalog,prices}, offer/routes/{core,offers,pdf}, rent/routes/{core,contracts,documents,catalogs,pdf}, admin/routes/{core,settings,presets,backup,pdf_templates,rounding,rent_templates} (api_key routes in settings.py). Pattern: route files import from ..app (bp + helpers); app.py bottoms out with 'from . import routes'. Standalone dev: python -m qp_crm.<module>.app.",
+   "rejected": "Splitting by HTTP verb or by auth level: neither matches how changes actually cluster (a feature touches form+list+pdf together); a follow-up bug in this stage showed the import-check risk — rent/routes/__init__.py must list every route module or its routes silently vanish (fixed by the bad-date regression tests)."
   },
   {
    "id": "card-d2ac53b9-7ad8-410d-b306-d04b04d86443",
