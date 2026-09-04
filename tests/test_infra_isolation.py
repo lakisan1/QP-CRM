@@ -12,7 +12,7 @@ from conftest import TEST_DATABASE, TEST_APP_DATA_DIR, TEST_ASSETS_DIR
 
 
 def test_config_paths_point_into_temp_tree():
-    import shared.config as config
+    import qp_crm.shared.config as config
 
     assert config.DATABASE == TEST_DATABASE
     assert config.APP_DATA_DIR == TEST_APP_DATA_DIR
@@ -20,10 +20,10 @@ def test_config_paths_point_into_temp_tree():
 
 
 def test_shared_db_reads_the_temp_database():
-    # shared.db binds DATABASE from shared.config at ITS import time - it
+    # shared.db binds DATABASE from qp_crm.shared.config at ITS import time - it
     # must have picked up the patched value, not the repo's app_data path.
-    import shared.db as db
-    import shared.config as config
+    import qp_crm.shared.db as db
+    import qp_crm.shared.config as config
 
     assert db.DATABASE == config.DATABASE
     assert "/tmp/qp-crm-tests/" in db.DATABASE

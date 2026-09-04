@@ -1,0 +1,617 @@
+{
+  "version": 1,
+  "cards": [
+    {
+      "id": "card-e20fb211-a088-4583-95c3-ba3cd08df668",
+      "title": "Familiarize with QP-CRM codebase and architecture",
+      "description": "Read all 4 docs (README_API/FEATURES/PROGRAM_DOCUMENTATION/API_INSTRUCTIONS), main.py, every module's routes/schema, and AUDIT_FINDINGS.md. Verified vs code this pass: 6 sub-apps merged via DispatcherMiddleware on :5000 + /api/v1 blueprint; single SQLite app_data/pricing.db (WAL) with ~16 tables incl. site_products (WP sync snapshot); module-level WeasyPrint imports (offer/app.py:8, rent/app.py:10) are the known boot blocker (missing libpango, needs root). NEW vs prior pass: undocumented site-sync feature (pricing/templates/product_sync.html + /api/v1/sync/{fetch,table,link,unlink,product_info,add_product} pulling from autoservisnaoprema.com WP REST API, 1:1 products.site_product_id link); rent lease calculator replicates Excel PMT; 'System Default' PDF template re-synced from filesystem at every admin boot; AUDIT_FINDINGS.md tracks C1-C5/H1-H10/M1-M11 issues (SSTI via stored PDF templates, no CSRF except settings app, plaintext passwords).",
+      "summary": "Re-surveyed docs + all 7 packages' entry points, route maps, DB schema (all CREATE TABLE blocks), rent PMT calculator, offer recalc_totals cascade, sync API, deploy scripts; wrote architecture summary for the user.",
+      "rationale": "Goal 1 of the session request — understand the app before running it; needed to predict the WeasyPrint boot blocker (module-level imports in offer/app.py:8 and rent/app.py:10).",
+      "rejected": "Skimming every route in the 1.2-1.8k-line app.py files — PROGRAM_DOCUMENTATION.md already enumerates all routes per module with implementation notes, so per-route reading was redundant for setup purposes.",
+      "sourceSessionId": "session-5cc94371-fc3f-4d12-a3cd-ea499a7f897c",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "familiarization"
+      ],
+      "createdAt": 1788442332644,
+      "updatedAt": 1788443324865
+    },
+    {
+      "id": "card-e61c6848-8617-4de6-bb61-07222cbb6666",
+      "title": "Set up QP-CRM Python environment (venv + deps)",
+      "description": "run_apps.sh aborted at its sudo apt step (sandbox: \"no new privileges\" flag blocks sudo; set -e killed the script), so app_data/, venv/ and pip install never ran from the script. Manual fallback: mkdir -p app_data/product_images; python3 -m venv failed because ensurepip/python3.12-venv is missing and there is no system pip3; recreated with `python3 -m venv --without-pip venv` + curl get-pip.py bootstrap; installed requirements.txt (Flask 3.1.3, Pillow 12.3.0, requests, WeasyPrint 69.0, pypdf 6.16.2, python-docx 1.2.0, mammoth 1.12.1, lxml 6.1.3) + Werkzeug 3.1.8. Note: `markdown` is intentionally NOT a pip dep — it is vendored in custom_libs/ and added to sys.path at runtime by the sub-apps.",
+      "summary": "Created app_data/product_images, venv (get-pip.py bootstrap since ensurepip missing), all requirements + Werkzeug installed and verified importable.",
+      "rationale": "Goal 2 prerequisite — the app cannot run without its Python dependencies; the sanctioned fallback path when run_apps.sh's apt step aborts.",
+      "rejected": "Editing run_apps.sh to skip the apt block — task said run it as-is and only do remaining steps manually; also rejected --system-site-packages venv (nothing useful installed system-side anyway).",
+      "sourceSessionId": "session-5cc94371-fc3f-4d12-a3cd-ea499a7f897c",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "setup"
+      ],
+      "createdAt": 1788442332656,
+      "updatedAt": 1788442332656
+    },
+    {
+      "id": "card-7fa8808b-2629-485c-beb1-256f3e36914b",
+      "title": "Phase 0 — Dockerize QP-CRM (image + compose + volumes + env secrets)",
+      "description": "PHASE 0 of the roadmap (first execution phase; runs in a dedicated chat). Dockerize for easy running/updating of the main instance. Steps: (1) pin requirements (pip freeze from working venv) + add gunicorn; (2) wsgi entrypoint `from main import application` + explicit init sequence (pricing_init_db, pricing_migrate_schema, offer_init_db, admin_init_db, rent_init_db) since those run only under `__main__` today; (3) Dockerfile python:3.12-slim + apt libs from run_apps.sh PKGS list (libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 libgdk-pixbuf-2.0-0 libcairo2 shared-mime-info fonts-dejavu-core) — also fixes the current libpango boot blocker on this machine; non-root user; gunicorn --workers 2 --threads 4 (debugger/reloader OFF, audit C1); switch pricing/offer/rent hardcoded secret keys to os.environ.get; (4) docker-compose.yml: volumes app_data/ + app_assets/ + static/img (logo upload writes into static/img — lost on rebuild without a volume), env-based secrets, TZ=Europe/Belgrade, healthcheck /api/v1/health, restart unless-stopped; (5) .dockerignore (venv, .git, README_Images, *.pdf, *.xlsx, main.log, scratch scripts); (6) smoke checklist: login each app, product+price, offer PDF, rent doc PDF, backup download; (7) replace run_apps.sh git-pull/pkill -f main.py update flow with image rebuild (audit M11); keep run_apps.sh for bare-metal users. HANDOVER PROTOCOL on completion: commit per step on a phase branch, tag the image, mark this card done with summary+rejected fields, write an Agent Note for the dockerization decisions — the next phase chat starts from the board.",
+      "rationale": "User confirmed the per-phase dedicated-chat workflow; the docker card is the entry point of the whole roadmap and must carry an explicit phase number and the handover protocol so a fresh chat with zero conversation memory can execute it from the board alone.",
+      "rejected": "Alpine base (musl breaks WeasyPrint), named volumes (bind mounts reuse host data, uid 1000 matches), schema creation at build time (data belongs in volumes), random token_hex secret fallbacks (invalidate sessions per restart — stable old literals kept as dev fallback), subagent-written Dockerfile (3 stall attempts — orchestrator wrote it directly).",
+      "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "docker",
+        "plan",
+        "phase-0"
+      ],
+      "createdAt": 1788443872528,
+      "updatedAt": 1788454022176,
+      "summary": "PHASE 0 COMPLETE on branch phase-0-docker (git tag phase-0), image qp-crm:phase0 (382MB), stack healthy. Executed via 8 task cards (P0-T1..T8) + 9 per-step commits: pinned requirements+gunicorn 26.2.0 (61080f1); wsgi.py entrypoint replaying main.py's init sequence fork-safely (cda297d); Dockerfile python:3.12-slim + WeasyPrint libs + non-root uid 1000 + gunicorn --preload (273826d + perms fix 867ca19); compose stack with bind-mount volumes (app_data/app_assets/static/img), env_file .env, TZ=Europe/Belgrade, restart unless-stopped, /api/v1/health healthcheck (f5196da); deploy.sh rebuild-and-wait flow + DOCKER.md, run_apps.sh kept for bare metal (1bd588d); custom_libs tracked for fresh-clone builds (3592f80). Smoke checklist ALL PASS: health, 4 app logins, product+price via UI, offer PDF (SMOKE-2026-001, 386KB), rent doc PDF (44.5KB), backup download (SQLite 221KB). .env with real generated secrets on host (git-ignored, chmod 600); .env.example checked in. Dev branch untouched."
+    },
+    {
+      "id": "card-475fcd46-206e-407f-ba11-76698862e40f",
+      "title": "Phase 3 — Users & user management (unified auth, roles, CSRF, hashing)",
+      "description": "Phase 3 of the roadmap — runs AFTER Phase 2 (single app + blueprints) so login/session/CSRF are written once against the final shape. (Env-based secrets for Docker stay in the dockerization phase — pricing/offer/rent hardcoded keys switch to os.environ.get there.) Content: users table (id, username, password_hash, role, is_active, created_at, last_login); single unified login on the top-level app; one shared session cookie (same secret via shared module reading env, same cookie name, path=/); replace per-app password gates (authenticated / admin_authenticated / rent_authenticated) with shared require_role() per blueprint (admin/staff/viewer); hashed passwords via werkzeug generate_password_hash with transparent rehash-on-login migration from plaintext; CSRF tokens on all state-changing routes (settings/app.py is the in-repo reference pattern, audit C5); PDF-template editing stays admin-only + render through sandboxed Jinja (audit C4, lands via pdf_service); admin Users management UI (create/deactivate/reset/roles), self-service password change, per-user API keys for /api/v1 replacing the single global key, login audit log; login rate-limit + session timeout. Exit criteria: single login, roles enforced per module, all POSTs CSRF-protected, no plaintext passwords at rest.",
+      "rationale": "User's milestone 2, repositioned in the no-time-pressure roadmap: after the Phase-2 blueprint consolidation to avoid double work, before features (roles gate who may create invoices, edit stock, manage templates).",
+      "rejected": "Heavy auth frameworks (Flask-User/OAuth) — overkill for LAN scale; per-app user tables — perpetuates the six-realm split; landing auth before consolidation — double work, see Phase-2 card.",
+      "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "users",
+        "auth",
+        "plan"
+      ],
+      "createdAt": 1788443872544,
+      "updatedAt": 1788446046591
+    },
+    {
+      "id": "card-a22cd307-a046-4204-adab-07a9cea46711",
+      "title": "Architecture direction: evolve QP-CRM (no rewrite) + new-module roadmap",
+      "description": "Strategic direction agreed in session: EVOLVE, do not rewrite. Keep verbatim: pricing engine (category defaults, rounding rules, 3-level discount cascade), offer pipeline + WeasyPrint PDF engine (DB templates + live editor), rent PMT calculator + document placeholder engine, admin backup/restore, existing app_data/pricing.db data. Rebuild around them: 6 Flask instances → 1 app + blueprints (unified session/auth, kills duplicated helpers and six cookie realms), unified users/roles/CSRF (existing board card), CSRF + money-math tests. New-module sequence (dependencies drive order): 1) Unified customers module — new `customers` table, backfill from offers.client_* history + rent_clients; unblocker for everything else. 2) Predračuni/invoices from quotations — new invoices/invoice_items tables, own numbering series, cloned PDF template via existing engine (user: 'basically the same, cosmetic changes, separate files'). 3) Payment tracker — invoice status + payments table + running balance. 4) Stock (on-hand / ordered / in-transit / reserved-per-customer) LAST: reservations reference customers AND invoices, so build it after those exist. Infrastructure verdict: web app + Docker on one box, stay SQLite (5 concurrent users fine on WAL; Postgres = escape hatch, not needed now); PWA for desktop feel (add missing manifest + service worker). Remote access later: WireGuard/Tailscale or TLS reverse proxy after auth phase.",
+      "rationale": "User stated future modules (stock, unified customers, predračuni from quotations, payment tracker, ~30 users max 5 concurrent) and asked for the keep-vs-rewrite and web-vs-desktop verdicts. The verdict and sequencing constrain every future card, so it must survive sessions.",
+      "rejected": "Full rewrite from zero — rejected: re-deriving verified business formulas (price cascade, PMT lease math, 3-level discounts) against live data is the highest-risk work and the existing PDF engine is the hardest part already built; user's own predračuni plan ('basically the same as quotation') reuses the offer pipeline. Desktop apps + central DB server — rejected: 30 client installs contradicts the ease-of-update goal, scatters DB credentials, and strands the server-side WeasyPrint pipeline; the PWA already gives the desktop feel. Postgres now — rejected: no load or multi-instance need at 5 concurrent users; migration deferred until a real trigger. Django migration — rejected: cost equals a rewrite; Flask blueprints + incremental structure preserve the investment.",
+      "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "architecture",
+        "roadmap",
+        "decision"
+      ],
+      "createdAt": 1788445110887,
+      "updatedAt": 1788445110887
+    },
+    {
+      "id": "card-0c1a2e53-6b19-4f87-b76d-56c2dfcfecd4",
+      "title": "Phase 1 — Test safety net: characterization + golden-PDF tests (before any refactor)",
+      "description": "Prerequisite for ALL structural work: the app has zero tests, so 'clear technical debt' without this is gambling with the price engine. Build a small, high-value pytest suite: (1) characterization tests for pure business logic — recalc_totals 3-level discount cascade, apply_rounding + rounding rules, calculate_rent/pmt/generate_schedule, format_amount/format_date, rent placeholder substitution; (2) golden-file PDF tests — render one fixed offer and one fixed rent document, compare against checked-in baselines (pin fonts in the image for byte-stability), re-baselined consciously only when a change is intended; (3) Flask test-client smoke tests per module (login → main pages → 200). Runs via `docker compose run app pytest`; wire into CI if a repo host exists. Exit criteria: suite green on main; every Phase-2 refactor step must keep it green.",
+      "rationale": "User's plan is to break the monolith and clear tech debt before features. Refactoring an untested price/lease/discount engine silently changes money — the safety net must exist before the first structural commit, and it is what makes 'time is no object' refactoring safe instead of brave.",
+      "rejected": "Host-venv test runs (WeasyPrint unimportable without libpango); compose-override test service (breaks the one plain command); fixing discovered bugs (forbidden — they are Phase-2 cards now); pushing to origin (user decides).",
+      "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "testing",
+        "roadmap",
+        "phase-1"
+      ],
+      "createdAt": 1788446046563,
+      "updatedAt": 1788467855564,
+      "summary": "DONE. Suite: 120 tests green on the UNMODIFIED app — 4 infra guards, 33 rounding, 6 recalc cascade, 22 rent math, 29 formatting+placeholders, 2 golden PDFs, 24 smoke. ONE command (documented on this card, in tests/README.md and DOCKER.md): docker compose build app && docker compose run --rm app pytest. Suite runs INSIDE the pinned image (fonts pinned, no host deps), fully isolated from the real app_data (throwaway /tmp/qp-crm-tests, guarded by tests/test_infra_isolation.py). Golden-PDF baselines for one fixed offer + one fixed rent document are checked in and byte-stable across containers (normalizer blanks PDF dates/trailer /ID only). Branch phase-1-tests (7+1 commits, per-step), image qp-crm:phase1 (phase0 = rollback), stack healthy. Characterization captured quirks AS-IS; 5 bug cards tagged bug/phase-2-candidate; zero production-code changes (test plumbing only: dev-requirements layer, .dockerignore, compose image tag, docs)."
+    },
+    {
+      "id": "card-7933d2c7-e088-49f7-ad95-14a993dc7f71",
+      "title": "Phase 2 — Structural refactor: single app + blueprints, single schema, service layer",
+      "description": "The monolith-breaking program, done incrementally with Phase-1 tests green at every step and a Docker image rebuild + smoke test per merged step. Order within the phase: (1) consolidate 6 Flask instances → 1 Flask app + blueprints, URL prefixes preserved (/pricing, /offer, /rent, /admin, /sale, /settings), one session/secret/cookie, remove DispatcherMiddleware — validate the pattern on the smallest module (sale or settings) first, then pricing/offer/rent/admin; (2) deduplicate copy-pasted helpers (md filter, format_date, get_theme, check_auth → blueprint-level hooks) into shared/; (3) single-source the DB schema — one schema module consumed by all init_db calls, delete the stale offers/offer_items duplicate in pricing/app.py, keep idempotent ALTER migrations, add UNIQUE constraints where data permits; (4) extract service layer — pricing_service (cascade+rounding), offer_service (totals+numbering), rent_service (PMT+schedule+placeholders), pdf_service (shared WeasyPrint render helper with sandboxed Jinja → fixes SSTI during the move); (5) split 1.2–1.8k-line route files into per-domain modules; (6) proper package layout (qp_crm/), delete sys.path hacks, replace vendored custom_libs/markdown with pinned pip dependency Markdown==3.10.2; (7) CI running pytest. DISCIPLINE: zero behavior changes inside this phase — same URLs, same totals, byte-comparable PDFs; improvements go to the Phase-4 backlog. Exit criteria: single app, no DispatcherMiddleware, no sys.path hacks, no vendored libs, single schema source, tests green.",
+      "rationale": "Core of the user's 'break the monolithic code, clear technical debt' goal — this is what moves structure from D to B/B+. Sequenced after Phase 1 (tests) so every step is verifiable, and before users/auth so login/session/CSRF are written once against the final shape instead of twice.",
+      "rejected": "Doing users/auth before consolidation — rejected: auth is cross-cutting; landing it on the 6-realm structure then moving it into blueprints doubles the work. Big-bang rewrite into Django or a clean-room structure — rejected: re-derives verified business logic (see Architecture-direction card). Micro-optimizing performance — rejected: 5 concurrent users makes speed a non-issue; maintainability is the real optimization.",
+      "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "refactor",
+        "roadmap",
+        "phase-2"
+      ],
+      "createdAt": 1788446046578,
+      "updatedAt": 1788446046578
+    },
+    {
+      "id": "card-70b8c383-02ec-4681-9070-83cf7e08e164",
+      "title": "P0-T1 · Pin requirements.txt from working venv + add gunicorn",
+      "description": "Step 1 of the Phase-0 card. Install gunicorn into the existing venv, then `venv/bin/pip freeze` and rewrite requirements.txt with exact pins. Keep a comment noting: `markdown` is intentionally NOT a pip dep — vendored in custom_libs/ and added to sys.path at runtime (Phase 2 replaces this).",
+      "rationale": "Reproducible image builds require exact versions; unpinned ranges would make rebuilds drift and later break Phase-1 golden-PDF baselines for non-code reasons.",
+      "rejected": "constraints file + loose top-level requirements — overkill for a single-image app; one pinned file is what the Dockerfile consumes.",
+      "sourceSessionId": "session-ffcc3e3a-6384-411f-8100-d723ee8c50c7",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "docker",
+        "phase-0",
+        "task"
+      ],
+      "createdAt": 1788448599921,
+      "updatedAt": 1788451744916,
+      "summary": "requirements.txt rewritten from venv pip freeze: 30 exact pins incl. gunicorn==26.2.0, Flask==3.1.3, weasyprint==69.0, Werkzeug==3.1.8; header documents the freeze procedure and that 'markdown' stays vendored in custom_libs (3.10.2) until Phase 2. pip check: no broken requirements. Committed as 'P0 step 1'."
+    },
+    {
+      "id": "card-832c412a-2331-417f-bfe6-c47e6eebb411",
+      "title": "P0-T2 · wsgi.py entrypoint + explicit DB init sequence",
+      "description": "Step 2. Create /home/dsh/QP-CRM/wsgi.py exposing `application` and running the init sequence (pricing_init_db → pricing_migrate_schema → offer_init_db → admin_init_db → rent_init_db — exact names verified from main.py) at import, ensuring app_data dirs exist and no SQLite connection stays open across gunicorn fork.",
+      "rationale": "Schema init ran only under main.py's __main__ block; gunicorn never triggers it, so a fresh volume would boot with no schema. Init at wsgi import makes any WSGI server boot self-initializing and idempotent (CREATE TABLE IF NOT EXISTS + guarded ALTERs).",
+      "rejected": "Schema creation at docker build time — data must live in volumes, created at runtime; try/except around init — silent empty-schema boots are worse than loud crashes; per-worker init without --preload — works (20s busy timeout) but --preload makes init run exactly once in the master, adopted in the Dockerfile CMD.",
+      "sourceSessionId": "session-ffcc3e3a-6384-411f-8100-d723ee8c50c7",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "docker",
+        "phase-0",
+        "task"
+      ],
+      "createdAt": 1788448599928,
+      "updatedAt": 1788451995682,
+      "summary": "Created wsgi.py: sys.path root insert, os.makedirs for APP_DATA_DIR/IMAGE_DIR/APP_ASSETS_DIR before imports, explicit init sequence pricing_init_db → pricing_migrate_schema → offer_init_db → admin_init_db → rent_init_db (verified same order + same source modules as main.py:66-70), then 'from main import application' (DispatcherMiddleware, main.py:52-59). No try/except around init — boot fails loud. Connection audit: no module-level sqlite connections anywhere (all function-local, init paths close before return) → fork-safe. Committed as 'P0 step 2'."
+    },
+    {
+      "id": "card-9ae34e31-ab83-45a5-9237-b4952c3c4829",
+      "title": "P0-T3 · Dockerfile: python:3.12-slim + WeasyPrint libs + non-root + gunicorn",
+      "description": "Step 3. python:3.12-slim base; apt packages from run_apps.sh PKGS (libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 libgdk-pixbuf-2.0-0 libcairo2 shared-mime-info fonts-dejavu-core) + tzdata — also fixes the host libpango boot blocker; WORKDIR /app; pip install -r requirements.txt; non-root uid/gid 1000 (matches host dsh uid for bind mounts); ENV TZ=Europe/Belgrade PYTHONUNBUFFERED=1; EXPOSE 5000; CMD gunicorn --workers 2 --threads 4 --bind 0.0.0.0:5000 wsgi:application (debugger/reloader OFF — audit C1). custom_libs/ MUST be copied (vendored markdown needed at runtime).",
+      "rationale": "The proven WeasyPrint lib set + slim base keeps PDF rendering working in a small image; uid 1000 matches the host owner of the compose bind mounts; --preload makes wsgi.py's init run exactly once in the master (T2 connection audit: no global conns, fork-safe).",
+      "rejected": "Alpine — musl breaks WeasyPrint/pango wheels; python:3.12 full — 1GB+ for nothing; root container — bind-mount permission mismatch; per-worker init without --preload — idempotent but races ALTER TABLE migrations on cold volumes.",
+      "sourceSessionId": "session-ffcc3e3a-6384-411f-8100-d723ee8c50c7",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "docker",
+        "phase-0",
+        "task"
+      ],
+      "createdAt": 1788448599935,
+      "updatedAt": 1788452381206,
+      "summary": "Dockerfile written by orchestrator (3 subagent attempts stalled): python:3.12-slim + apt PKGS from run_apps.sh (libpango, libpangoft2, libharfbuzz-subset0, libgdk-pixbuf, libcairo2, shared-mime-info, fonts-dejavu-core) + tzdata; ENV TZ=Europe/Belgrade; requirements layer cached; COPY . . incl. custom_libs; non-root appuser uid/gid 1000 with chown on data dirs only; gunicorn --workers 2 --threads 4 --preload --bind 0.0.0.0:5000 wsgi:application, reloader OFF (audit C1). Committed as 'P0 step 3'."
+    },
+    {
+      "id": "card-7705fc3a-2824-410d-bb62-bc097604f6ac",
+      "title": "P0-T4 · Env-based secret keys in pricing/offer/rent",
+      "description": "Step 3 security slice. Replace hardcoded `app.secret_key = \"crm_*_secret_key_change_me\"` in pricing/app.py, offer/app.py, rent/app.py with `os.environ.get(\"PRICING_SECRET_KEY\"/\"OFFER_SECRET_KEY\"/\"RENT_SECRET_KEY\", <old literal as dev fallback>)`, mirroring the existing admin/app.py pattern. settings/sale/admin are already env-aware — no change.",
+      "rationale": "Image-baked identical secret keys across installs violate the Phase-0 env-secrets requirement (audit); compose injects real values via .env while the old literal keeps bare-metal dev behavior unchanged.",
+      "rejected": "Random token_hex fallback (settings/app.py style) — would invalidate sessions on every restart; env-var-with-stable-fallback chosen instead.",
+      "sourceSessionId": "session-ffcc3e3a-6384-411f-8100-d723ee8c50c7",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "docker",
+        "phase-0",
+        "task",
+        "security"
+      ],
+      "createdAt": 1788448599941,
+      "updatedAt": 1788450512061,
+      "summary": "Replaced hardcoded crm_*_secret_key_change_me in pricing/app.py, offer/app.py, rent/app.py with os.environ.get('PRICING|OFFER|RENT_SECRET_KEY', <old literal>), mirroring admin/app.py; committed as 'P0 step 3 (secrets)'."
+    },
+    {
+      "id": "card-73c5c1ac-ff9f-4e8b-947e-14272a21349f",
+      "title": "P0-T5 · docker-compose.yml + .dockerignore",
+      "description": "Steps 4+5. Compose: build ., image qp-crm:phase0, port 5000:5000, bind mounts ./app_data ./app_assets ./static/img (logo upload writes into static/img — lost on rebuild without the volume), env_file .env, TZ=Europe/Belgrade, restart unless-stopped, healthcheck on /api/v1/health via python urllib (no curl in slim). .dockerignore: venv, .git, .agents, KANBAN.json, README_Images, *.pdf, *.xlsx, *.xlsb, logs, scratch scripts (download_pdf*, measure_pdf*, test_*), app_data/, .env — but NOT custom_libs/.",
+      "rationale": "Volumes keep all mutable state outside the image so rebuilds never lose data (card step 4); .dockerignore keeps secrets, DBs and scratch files out of image layers (step 5).",
+      "rejected": "Named volumes — bind mounts reuse existing host data and stay inspectable; curl in image for healthcheck — python stdlib is already present; obsolete compose version: key — removed per Compose v2.",
+      "sourceSessionId": "session-ffcc3e3a-6384-411f-8100-d723ee8c50c7",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "docker",
+        "phase-0",
+        "task"
+      ],
+      "createdAt": 1788448599947,
+      "updatedAt": 1788451508594,
+      "summary": "docker-compose.yml (qp-crm:phase0, port 5000, env_file .env, TZ=Europe/Belgrade, bind mounts app_data/app_assets/static/img, restart unless-stopped, python-stdlib healthcheck on /api/v1/health with 60s start_period), .dockerignore (venv/.git/app_data/.env/scratch junk with **/ depth variants; custom_libs deliberately NOT ignored), .env.example (six secret keys + generation hint). Verified with docker compose config."
+    },
+    {
+      "id": "card-a9cc70f9-a9c5-499f-b5e0-ef9bb37f1a2f",
+      "title": "P0-T6 · deploy.sh: image-rebuild update flow (replaces run_apps.sh update path, audit M11)",
+      "description": "Step 7. New deploy.sh: docker compose build → up -d → wait for /api/v1/health → show ps/logs. run_apps.sh stays untouched for bare-metal users. Short DOCKER.md documenting first run, update flow, volumes, backups.",
+      "rationale": "Replaces the run_apps.sh git-pull/pkill -f main.py update flow (audit M11) with image rebuild + recreate; data safety comes from the bind mounts.",
+      "rejected": "Editing run_apps.sh to auto-detect Docker — one script doing two jobs is unclear and the card says keep it for bare-metal; requiring --ff-only pull success — offline/diverged deploys should still proceed with a warning.",
+      "sourceSessionId": "session-ffcc3e3a-6384-411f-8100-d723ee8c50c7",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "docker",
+        "phase-0",
+        "task"
+      ],
+      "createdAt": 1788448599952,
+      "updatedAt": 1788451508608,
+      "summary": "deploy.sh (git pull --ff-only non-fatal → docker compose build → up -d → ~90s health poll via docker inspect, fail-fast on unhealthy with log dump) + DOCKER.md ops doc (first run, update, volumes, backups incl. WAL stop-and-copy warning, logs). run_apps.sh left untouched for bare-metal users. Committed per step."
+    },
+    {
+      "id": "card-33716e35-c3b0-4459-b8c7-4d305dbe1163",
+      "title": "P0-T7 · Build image + compose up + automated smoke checklist",
+      "description": "Step 6 smoke list, automated as far as curl allows: docker compose build, up -d, healthcheck green; login each app (creds discovered from code/docs), pricing product+price flow, offer PDF render (non-empty %PDF bytes), rent doc PDF, admin backup download; report per-item PASS/FAIL. Requires T1–T6 merged and Docker installed. RUN TWICE — both runs fully green (agent re-executed all form flows on request).",
+      "rationale": "Automating the phase-card smoke list proves the image is genuinely runnable before manual user testing; the offer/rent PDF checks additionally prove WeasyPrint works in-container (the host libpango blocker is bypassed entirely).",
+      "rejected": "Selenium UI checks — curl/form-level POSTs cover the checklist; deeper UI testing stays with the user's manual pass.",
+      "sourceSessionId": "session-ffcc3e3a-6384-411f-8100-d723ee8c50c7",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "docker",
+        "phase-0",
+        "task",
+        "verification"
+      ],
+      "createdAt": 1788448599958,
+      "updatedAt": 1788454328298,
+      "summary": "All 6 smoke items PASS — verified in TWO independent runs. (1) /api/v1/health → {success:true} + Docker healthcheck healthy in ~7s. (2) Logins admin/pricing/offer/rent (Admin1/Price1/Offer1/Rent1) → dashboards render. (3) Product via API + prices via UI (run1 final 14500.00/disc 13790.00; run2 final 14900.00/disc 14155.00). (4) Offer PDFs SMOKE-2026-001 + SMOKE-2026-002: %PDF-1.7, ~386KB each. (5) Rent doc PDFs Prilog_4_Plan_Placanja_010926/020926.pdf: %PDF-1.7, ~44.5KB — WeasyPrint renders in-container. (6) /admin/backup_db: 221,184 bytes, SQLite magic. deploy.sh exercised end-to-end twice incl. one failure+fix cycle (mode-600 COPY → chmod a+rX fix, 867ca19). TEST DATA NOW IN DB (runs 1+2): 2 price rows on product 1, offers SMOKE-2026-001/002 (+1 item each), 2 rent clients, 2 equipment, 2 contracts (010926, 020926) — user should delete/ignore before real use."
+    },
+    {
+      "id": "card-c3df30d1-349f-44f9-85d1-3610c95d1efa",
+      "title": "P0-T8 · Handover: commits per step, image tag, board + Agent Note",
+      "description": "Commit each task's files separately on phase-0-docker with step-numbered messages; tag image qp-crm:phase0; mark the parent Phase-0 card done with summary+rejected; write the Agent Note for dockerization decisions; leave Dev untouched.",
+      "rationale": "The parent card's handover protocol requires a tagged, rollback-able phase end state and a durable decision record so a fresh chat with zero conversation memory can continue from the board alone.",
+      "rejected": "One squash commit — defeats per-step rollback; pushing to origin — left to the user (remote push not part of the protocol, branch stays local until they decide).",
+      "sourceSessionId": "session-ffcc3e3a-6384-411f-8100-d723ee8c50c7",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "docker",
+        "phase-0",
+        "task",
+        "handover"
+      ],
+      "createdAt": 1788448599965,
+      "updatedAt": 1788454022184,
+      "summary": "Handover protocol executed: 9 per-step commits on phase-0-docker (step-numbered messages), git tag phase-0, image tagged qp-crm:phase0, parent card closed with summary+rejected, Agent Note 'qp-crm-dockerization' written under .agents/notes/implemented/feature/. Next phase chat starts from the board."
+    },
+    {
+      "id": "card-0abb8095-fdc3-4b27-b9df-b5e083639190",
+      "title": "P1-T1 · pytest infra: branch, dev-requirements, Dockerfile test layer, .dockerignore, pytest.ini, conftest isolation, one-command run",
+      "description": "Step 1 of the Phase-1 card. Branch phase-1-tests from phase-0-docker tip (origin REACHABLE, so Dev is left untouched per instructions). dev-requirements.txt with pinned pytest; Dockerfile installs it as a separate layer so production requirements.txt stays untouched; .dockerignore must NOT exclude tests/ (blanket test_*.py rule replaced by the named root scratch scripts, tests/** re-included so golden PDF baselines ship in the image); compose image bumped to qp-crm:phase1 (qp-crm:phase0 kept as rollback tag); pytest.ini with testpaths=tests (root scratch test_*.py files must never be collected) and cache_dir=/tmp (/app is read-only for appuser); tests/conftest.py patches shared.config APP_DATA_DIR/DATABASE/IMAGE_DIR/APP_ASSETS_DIR into a throwaway temp dir BEFORE any app module is imported (every module binds those names at import time), so the suite can never touch the bind-mounted real app_data/pricing.db; session fixture replays the production init sequence (pricing_init_db → pricing_migrate_schema → offer_init_db → admin_init_db → rent_init_db) into the temp DB. ONE command documented: docker compose build app && docker compose run --rm app pytest.",
+      "rationale": "Phase-1 card requires the suite to run with one command inside Docker (host venv has no pytest and host WeasyPrint is unimportable — no libpango); import-time path isolation is the only mechanism that keeps the real production DB out of test reach.",
+      "rejected": "Compose override test service (command stops being plain `docker compose run app pytest`); bind-mounting the repo into test runs (would not exercise the shipped image); host venv runs (host WeasyPrint unimportable, no pytest installed).",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "testing",
+        "phase-1",
+        "task"
+      ],
+      "createdAt": 1788462764435,
+      "updatedAt": 1788463565035,
+      "summary": "Branch phase-1-tests cut from phase-0 tip 867ca19 (origin REACHABLE, so Dev untouched). pytest==8.4.2 in dev-requirements.txt installed as a dedicated Dockerfile layer; .dockerignore no longer blanket-ignores test_*.py (root scratch scripts named individually, !tests/** re-includes the suite + golden baselines in the image); compose image bumped qp-crm:phase1 (qp-crm:phase0 = rollback tag); pytest.ini testpaths=tests + cache_dir=/tmp (appuser cannot write /app); tests/conftest.py patches shared.config APP_DATA_DIR/DATABASE/IMAGE_DIR/APP_ASSETS_DIR into a tempfile.mkdtemp tree BEFORE any app import (modules bind the names at import), session fixture replays pricing_init_db -> pricing_migrate_schema -> offer_init_db -> admin_init_db -> rent_init_db; tests/README.md documents the ONE command: docker compose build app && docker compose run --rm app pytest. Sanity run GREEN: 4/4 isolation-guard tests in 1.10s. Committed dd8abef."
+    },
+    {
+      "id": "card-77d520e0-fe50-4997-9522-a28fe8598713",
+      "title": "P1-T2 · Characterization: pricing apply_rounding + price_rounding_rules (UP/DOWN/NEAREST)",
+      "description": "Step 2. Pin CURRENT behavior of pricing/app.py apply_rounding(val, target) against the seeded price_rounding_rules table (admin init_rounding_rules_table defaults: limits 1000/10000/30000/999999999, steps 50/100/500/1000, method UP for both targets). Pin: val<=0 → 0; rule selection = smallest limit_val >= val; fallback to largest-limit rule when no limit >= val; no rules → value unchanged; NEAREST = Python round() (banker's rounding — round-half-even); unknown method → treated as UP (ceil); float artifacts pinned as exact literals captured from a container run.",
+      "rationale": "apply_rounding runs on every saved price/discount — a silent change here changes real invoices. Quirks (banker's rounding, 0-clamp, bracket-boundary selection) must be pinned AS-IS, not fixed, per phase discipline.",
+      "rejected": "Property-based fuzzing — characterization needs concrete literals reviewable against the price list; pytest.approx — would hide the float-exact behavior the suite exists to pin.",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "testing",
+        "phase-1",
+        "task"
+      ],
+      "createdAt": 1788462764443,
+      "updatedAt": 1788463835593,
+      "summary": "tests/characterization/test_pricing_rounding.py: 33 pinned cases. Seeded brackets for price+discount captured exactly (0.01->50.0, 1000.01->1100.0 bracket jump, 30000.01->31000.0, 1e9->1e9 largest-rule fallback); val<=0 clamped to 0 (sign lost); NEAREST pinned as Python banker's rounding (0.5->0.0, 2.5->2.0, 3.5->4.0) — NOT Excel half-away-from-zero; unknown method -> UP fallback; target without rules -> unchanged. All green in container. Committed as 'P1 step 2'."
+    },
+    {
+      "id": "card-b16a238f-c673-424a-b3cf-12f7e48c4d5b",
+      "title": "P1-T3 · Characterization: offer recalc_totals 3-level discount cascade → VAT → gross",
+      "description": "Step 3. Pin CURRENT behavior of offer/app.py recalc_totals(offer_id) on a fixture offer: sum(line_net) → level-1 discount → special discount → third discount → VAT → gross, percentages stored as FRACTIONS in DB (form input/100 at offer/app.py:524-526,642); recalc coerces NULL/0 discount to 0.0 via `or 0.0` and writes all totals back. Pin exact float readbacks from a container run. Route URL for PDFs: /offers/<id>/pdf.",
+      "rationale": "This is the money cascade the whole offer module depends on; any Phase-2 refactor must reproduce these exact totals including the NULL-coercion quirks.",
+      "rejected": "Driving the HTTP form endpoints instead of recalc_totals — form parsing noise (audit H10 bare float()) is Phase-2 material; money mutation itself is what needed pinning.",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "testing",
+        "phase-1",
+        "task"
+      ],
+      "createdAt": 1788462764451,
+      "updatedAt": 1788463835604,
+      "summary": "tests/characterization/test_offer_recalc.py: 6 tests pin recalc_totals exactly — cascade 29500.0 -> gross 29510.325 with the IEEE artifact total_vat == 4918.387500000001 pinned verbatim; NULL discounts behave as zero and are PERSISTED asymmetrically (special/third written back as 0.0, discount_percent/vat_percent stay NULL); item-level discount_percent ignored (only SUM(line_net) counts); unknown offer id = silent no-op; empty offer -> all-zero totals. Committed as 'P1 step 3'."
+    },
+    {
+      "id": "card-58158acc-6d60-4271-8701-e6bb2bccf750",
+      "title": "P1-T4 · Characterization: rent pmt / calculate_rent / _add_months / generate_schedule",
+      "description": "Step 4. Pin CURRENT behavior of the pure rent math: pmt (Excel PMT replication incl. rate=0 branch and pmt_type=1), calculate_rent full dict (ucesce/ucesce_pdv/ucesce_bruto, ostatak, rata_fin via pmt with pv=-(price-ucesce) fv=ostatak, osiguranje=monthly, garancija spread over months, rata_neto/pdv/bruto, zatvaranje=ucesce_bruto/months CONSTANT for every month, rata_nakon), _add_months end-of-month clamping, generate_schedule rows (0.1 admin fee + 0.2 downpayment on contract date, monthly Zakupnina rows dated LAST day of each month, bad date string → date.today() fallback). Exact float literals captured in container.",
+      "rationale": "The lease calculator replicates Excel PMT against live contracts — any drift silently changes every customer's monthly payment; the schedule shape (row numbering, date rule) feeds the printed payment plan.",
+      "rejected": "Comparing against an independent PMT implementation — characterization pins current behavior (incl. the constant rata_nakon quirk), not textbook math.",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "testing",
+        "phase-1",
+        "task"
+      ],
+      "createdAt": 1788462764458,
+      "updatedAt": 1788464193650,
+      "summary": "tests/characterization/test_rent_calc.py: 22 tests. pmt pinned incl. Excel literals (374.58438460722857 at 14%/12, 48m, pv -16000, fv 4000; annuity-due 370.26463058375145) and ZeroDivisionError on nper=0 in both branches; calculate_rent full dict exact (rata_neto 414.2510512738952, constant zatvaranje 100.0, rata_nakon 397.10126152867423); _add_months month-end clamping incl. leap year; generate_schedule: 0.1/0.2 header rows on contract date, monthly rows dated LAST day of month (28.02/31.03/30.04), constant per-month amounts, bad-date -> date.today() fallback pinned against runtime today(). Committed as 'P1 step 4'."
+    },
+    {
+      "id": "card-4202b35e-7d72-445d-bbda-16ca8aefda9d",
+      "title": "P1-T5 · Characterization: shared format_amount/format_date + rent doc placeholder context/substitution",
+      "description": "Step 5. Pin shared/utils.py format_amount (European 12.312,00 style, None → '0.00', non-numeric → '', negative formatting) and format_date (4 fmt branches, unparsable/None passthrough quirks). Pin rent/_build_doc_context placeholder mapping (contract fields, fmt_date DD.MM.YYYY, format_amount on all calc values, None → '' coercion) and format_document_html (Član N → h3.clan-header, section headers → h4.section-header). The {{ key }}/{{key}} double-replace + html.escape loop in document_pdf is covered end-to-end by the golden PDF test (it lives inline in the route).",
+      "rationale": "These format every money figure and date in both PDF pipelines; placeholder mapping drift produces wrong contracts, not crashes.",
+      "rejected": "Unit-pinning the duplicated substitution loop at rent/app.py:367-389 — it is route-inline code; the golden PDF test exercises it through the production route instead (dedup is Phase-2 work, audit L4).",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "testing",
+        "phase-1",
+        "task"
+      ],
+      "createdAt": 1788462764466,
+      "updatedAt": 1788464193663,
+      "summary": "test_formatting.py: 19 cases — format_amount (None -> '0,00', 'abc' -> '', numeric string '12.5' parsed, negatives, European grouping) and format_date (4 fmts, unknown fmt passthrough, '15-01-2026' parts silently RELABELED to '2026/01/15', garbage passthrough, None/'' -> ''). test_rent_placeholders.py: 10 cases — _build_doc_context full mapping (None -> '', fmt_date DD.MM.YYYY with passthrough, money values European-formatted) + format_document_html (lowercase Član -> h3 with dot appended, UPPERCASE ČLAN NOT matched, section-header whitelist, unknown/empty/None untouched). The {{key}} substitution loop itself is pinned end-to-end by T6 golden. Committed as 'P1 step 5'."
+    },
+    {
+      "id": "card-26dd7d52-4107-44a1-b591-583d75538b46",
+      "title": "P1-T6 · Golden-PDF tests: fixed offer + fixed rent document vs checked-in baselines",
+      "description": "Step 6. Render one fixed offer (filesystem pdf_offer.html template path — fresh fixture DB has no active_pdf_template_id) and one fixed rent document (slug ugovor-zakup, seeded from rent/rent_templates_defaults.json) through the PRODUCTION routes (/offers/<id>/pdf, /contracts/<id>/documents/<slug>/pdf) via the Flask test client, against fixed fixture rows and fixed fixture assets in APP_ASSETS_DIR (small deterministic logo/footer images checked into tests/golden/assets). Compare bytes against checked-in baselines after normalizing volatile regions (PDF /CreationDate + /ModDate, XMP timestamps, trailer /ID) — fonts are pinned in the image so everything else must be byte-identical. QP_UPDATE_GOLDEN=1 regenerates baselines (documented with the bind-mount command); any deliberate re-baseline must state the reason in the commit.",
+      "rationale": "WeasyPrint output is the hardest-to-verify surface (fonts, pagination, CSS) — byte-level golden files catch template/CSS/engine regressions that no assertion on totals can see.",
+      "rejected": "Raw byte hash without normalization (would break the moment WeasyPrint starts writing timestamps); pypdf text-only comparison (misses font/layout/pagination changes); monkeypatching WeasyPrint internals for name stability (fixed-path isolation achieves it without touching library behavior); re-baselining under full-suite DB state (fragile to any test-order change — explicit ids instead).",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "testing",
+        "phase-1",
+        "task"
+      ],
+      "createdAt": 1788462764475,
+      "updatedAt": 1788466934135,
+      "summary": "tests/golden/test_golden_pdf.py renders one fixed offer (filesystem pdf_offer.html path) and one fixed rent document (ugovor-zakup seeded from rent_templates_defaults.json) through the production routes with the Flask test client, and byte-compares (after normalizing PDF dates/XMP/trailer /ID on both sides) against checked-in tests/golden/baselines/*.pdf, with small deterministic fixture logo/footer images in tests/golden/assets. Two determinism root-causes fixed in test plumbing: (1) random mkdtemp path -> WeasyPrint image XObject names are i+md5(URL) -> fixed /tmp/qp-crm-tests root; (2) autoincrement ids leak into PDF anchors/destinations -> explicit ids 900001/900002 in fixtures. QP_UPDATE_GOLDEN=1 rebaseline flow documented (bind-mount command in tests/README.md). Verified: 3 consecutive fresh-container full runs 96 passed, baseline md5s unchanged. Committed as 'P1 step 6'."
+    },
+    {
+      "id": "card-6066b65c-b898-4bef-96ff-e67a2288c471",
+      "title": "P1-T7 · Smoke tests: login → main pages → 200 per module (pricing/offer/rent/admin/sale/settings)",
+      "description": "Step 7. Werkzeug test client over main.application (the DispatcherMiddleware stack as actually shipped): per-module login with the DEFAULT_PASSWORDS from shared/auth.py (fresh fixture DB stores no password rows → defaults active), then GET the module root → 200 (follow redirect): /pricing/ (Price1), /offer/ (Offer1), /rent/ (Rent1), /admin/ (Admin1); sale and settings have NO auth (pin that as current behavior) → GET /sale/, /settings/ → 200; landing GET / → 200; unauthenticated GET on the four gated modules → 302 to their login pages. Plus one key subpage per module where cheap.",
+      "rationale": "Routing/auth wiring across the 6-realm Dispatcher setup is exactly what Phase 2 restructures — the smoke set is the fastest full-stack regression net for it.",
+      "rejected": "Deep form-flow tests per module (Phase-0 smoke covered those against the live stack; money logic is pinned by T2-T6); asserting page content strings (brittle against template wording, the card asks for login->200 wiring).",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "testing",
+        "phase-1",
+        "task"
+      ],
+      "createdAt": 1788462764483,
+      "updatedAt": 1788467458561,
+      "summary": "tests/smoke/test_smoke_modules.py: 24 tests over main.application (real DispatcherMiddleware stack + werkzeug client). Pinned: landing 200; pricing/offer/rent/admin unauthenticated -> 302 to own login; login pages 200; wrong password re-renders (200) and stays locked; DEFAULT_PASSWORDS logins (Price1/Offer1/Rent1/Admin1) reach each module root 200 incl. /pricing/products, /offer/offers, /rent/contracts, /admin/; sale redirects to /sale/pricelist and serves it with NO auth; settings serves with NO auth; unknown prefix 404s. Bug found + logged as card: sale.list_sale 500s on uninitialized schema (no own init_db, unguarded global_settings read) — Phase-2 candidate, not fixed per phase discipline. Suite: 120 passed. Committed as 'P1 step 7'."
+    },
+    {
+      "id": "card-096fac1a-d1e8-4da2-a38e-f74fb0b78260",
+      "title": "P1-T8 · Phase-1 handover: full green run, bug cards, commits, image tag qp-crm:phase1, board + Agent Note",
+      "description": "Step 8. Run the complete suite green on the UNMODIFIED app via the one command; commit per step on phase-1-tests (step-numbered messages); build + tag image qp-crm:phase1 (qp-crm:phase0 kept for rollback), leave the running stack healthy; log every quirk/bug discovered during characterization as its own todo card tagged 'bug' with AUDIT_FINDINGS.md references (fixes stay OUT of this phase); close the parent Phase-1 card with summary+rejected; write the Agent Note for the test-infra decisions.",
+      "rationale": "Handover protocol from the parent card: the next phase chat must start from the board with a tagged, rollback-able end state and a durable decision record.",
+      "rejected": "Pushing to origin (stays local until the user decides — matches Phase-0 protocol); rolling the stack without verification (recreate + curl checks done instead); fixing any discovered bug in this phase.",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "testing",
+        "phase-1",
+        "task",
+        "handover"
+      ],
+      "createdAt": 1788462764490,
+      "updatedAt": 1788467855549,
+      "summary": "Handover complete. Final verification: full suite via the documented command = 120 passed (3 consecutive fresh-container runs during T6, plus this final run); baselines byte-stable. Stack rolled to image qp-crm:phase1 (container recreated, healthy, GET / and /pricing/login -> 200); qp-crm:phase0 kept as rollback tag. Commits on phase-1-tests: dd8abef infra, 1e1a60e rounding, b71bcd1 recalc, 95aa042 rent math, adcb1d2 formatting+placeholders, f8e8e33 golden PDFs, 9a7db28 smoke, + docs commit. 5 bug cards logged (sale schema ownership; pricing rounding semantics trio; rent pmt nper=0 crash; rent schedule today() fallback; offer NULL-vs-0.0 discount persistence) — all tagged phase-2-candidate, nothing fixed per phase discipline. Agent Note written for the test-infra decisions. Production code untouched (only Dockerfile dev-requirements layer, .dockerignore, compose image tag, DOCKER.md)."
+    },
+    {
+      "id": "card-dda3d805-a124-4071-912e-f05518fcb374",
+      "title": "BUG · sale module: list_sale 500s on uninitialized schema (no own init_db, unguarded global_settings read)",
+      "description": "Discovered by the Phase-1 smoke suite (tests/smoke/test_smoke_modules.py) during a smoke-only run on the throwaway fixture DB: GET /sale/pricelist raises sqlite3.OperationalError 'no such table: global_settings' -> 500. Root pattern: sale/app.py is the only sub-app with no init_db() and list_sale (sale/app.py:87) SELECTs global_settings without try/except, so it depends on pricing's init_db having created the shared table first. wsgi.py/main.py run ALL inits at boot, so the standard deployment never sees it — but any flow that (re)creates the schema without the full init sequence (restore_db/factory_reset edge cases, future split deployments, tests) hits a 500 instead of a clean empty-state page. Phase 2 should give sale its own init or a guarded read with a sane default (24 items per page).",
+      "rationale": "Phase-1 discipline: discovered quirks get logged as bug cards, NOT fixed. This one is a cross-module schema-ownership assumption that Phase 2's 'single schema, service layer' refactor must address explicitly.",
+      "rejected": "Fixing it now by adding try/except in sale/app.py — forbidden in Phase 1 (zero production-code changes); the smoke suite pins the guarded behavior via the initialized fixture DB.",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "bug",
+        "phase-2-candidate",
+        "sale",
+        "new-finding"
+      ],
+      "createdAt": 1788467458512,
+      "updatedAt": 1788467458512
+    },
+    {
+      "id": "card-aca70e04-fbae-41de-a4df-2df418bba7fb",
+      "title": "BUG · pricing rounding semantics: banker's NEAREST + val<=0 clamp to 0 + bracket-boundary jump",
+      "description": "Pinned as-is by tests/characterization/test_pricing_rounding.py. Three semantics questions for Phase 2/3 (money-touching, needs a product decision, not a blind fix): (1) NEAREST uses Python round() = banker's rounding — 0.5->0, 2.5->2, 3.5->4 — while Excel's ROUND goes half-away-from-zero (0.5->1); the rent calculator replicates Excel, so the two money paths disagree on rounding philosophy. (2) apply_rounding clamps val<=0 to 0 — a negative price/discount silently becomes 0 instead of keeping its sign. (3) Bracket selection takes the smallest limit_val >= val, so 1000.01 jumps from the 50-step bracket to the 100-step bracket — one cent above a limit changes the step. Related audit codes: L9 (fresh connection per call), L11 (floats for money).",
+      "rationale": "Phase-1 discipline: quirks get logged, not fixed. These change real invoice numbers; Phase 2 must decide the intended semantics BEFORE refactoring so the safety net can be re-pinned deliberately.",
+      "rejected": "Fixing banker's rounding to Excel semantics now — forbidden in Phase 1 and possibly intentional (Serbian price-list practice may want even-rounding); changing clamp behavior without knowing whether negative prices can occur.",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "bug",
+        "phase-2-candidate",
+        "pricing",
+        "new-finding"
+      ],
+      "createdAt": 1788467646702,
+      "updatedAt": 1788467646702
+    },
+    {
+      "id": "card-088dd7a9-70e8-4bdd-9ca6-6199483e6dc4",
+      "title": "BUG · rent pmt/calculate_rent: ZeroDivisionError on period_months == 0 -> 500 on all contract PDFs",
+      "description": "Pinned by tests/characterization/test_rent_calc.py::test_nper_zero_raises_zero_division_error. pmt raises ZeroDivisionError in BOTH branches when nper == 0 (rate==0 branch: -(pv+fv)/nper; rate>0 branch: (factor-1)/rate -> 0), and calculate_rent passes period_months straight through, so a rent contract saved with period_months = 0 crashes /contracts/pdf/offer, /contracts/pdf/schedule and the documents pipeline with a 500. Input validation is H10-adjacent (bare numeric parsing) but the crash itself is unrecorded in AUDIT_FINDINGS.md — new finding.",
+      "rationale": "Live-contract poison input: a single bad row takes down every PDF render for that contract. Phase 2 service layer should validate period_months >= 1 at the boundary and return a clean error.",
+      "rejected": "Guarding pmt now (e.g. return 0 for nper=0) — forbidden in Phase 1 and the 'right' zero-month behavior is a product decision, not an obvious fix.",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "bug",
+        "phase-2-candidate",
+        "rent",
+        "new-finding"
+      ],
+      "createdAt": 1788467646713,
+      "updatedAt": 1788467646713
+    },
+    {
+      "id": "card-f8759e61-7d85-4fda-89a0-acc8af12fa43",
+      "title": "BUG · rent generate_schedule: bad contract date silently falls back to date.today() (non-deterministic documents)",
+      "description": "Pinned by tests/characterization/test_rent_calc.py::test_bad_date_falls_back_to_today. generate_schedule (rent/app.py:126-132) silently substitutes date.today() when contract_date is unparsable/empty, so the printed payment plan (0.1/0.2 rows and, via the schedule PDF, the whole plan) gets DATES FROM THE DAY OF RENDERING — two renders of the same contract produce different documents. Related: H7/H6 contract-number/data hygiene family; new finding for the date path.",
+      "rationale": "Non-deterministic business documents are a correctness issue, not a style issue; Phase 2 should decide between failing loudly and persisting a parse date, and the golden/characterization net must follow whatever is chosen.",
+      "rejected": "Making the fallback deterministic now (e.g. epoch date) — forbidden in Phase 1; would also silently change the pinned behavior the suite just captured.",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "bug",
+        "phase-2-candidate",
+        "rent",
+        "new-finding"
+      ],
+      "createdAt": 1788467646724,
+      "updatedAt": 1788467646724
+    },
+    {
+      "id": "card-9c7f744d-f6cb-4c7b-9157-f98bd5d03941",
+      "title": "BUG · offer discount storage: NULL (new_offer) vs 0.0 (edit_offer) for zero percentages + asymmetric recalc write-back",
+      "description": "Pinned by tests/characterization/test_offer_recalc.py::test_null_discounts_behave_as_zero_and_are_partially_persisted. new_offer (offer/app.py:590-592) stores NULL for zero discount/vat inputs, edit_offer (offer/app.py:847-849) stores 0.0 for the same input; recalc_totals then coerces NULL/0 via 'or 0.0' and writes special/third back as floats while leaving discount_percent/vat_percent NULL (offer/app.py:788-800). Net effect is benign today (both read as no-discount) but the schema carries two encodings of the same fact and the asymmetric write-back makes DB state depend on which form last touched the row. Related: L11 (floats for money), L4 (schema created by two init paths with slightly different definitions).",
+      "rationale": "Phase 2's single-schema/service-layer work needs the canonical encoding decided (NOT NULL DEFAULT 0.0 everywhere or explicit NULL semantics) before data migration; the pinned test will be re-baselined with that decision.",
+      "rejected": "Normalizing to 0.0 on save now — forbidden in Phase 1 (production-code change), and the write-back asymmetry interacts with recalc_totals which is exactly what Phase 2 restructures.",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "bug",
+        "phase-2-candidate",
+        "offer",
+        "new-finding"
+      ],
+      "createdAt": 1788467646733,
+      "updatedAt": 1788467646733
+    },
+    {
+      "id": "card-e15eaa44-b3ca-4c38-aa60-7f34ebc53613",
+      "title": "P2 stage 1 — single app + blueprints, no DispatcherMiddleware",
+      "summary": "All six modules (settings, sale, pricing, offer, rent, admin) converted to Blueprints registered on the single Flask app in main.py; URL prefixes unchanged; DispatcherMiddleware deleted; one session/secret/cookie with per-module login flags. 121 passed after every commit. Commits: settings/sale/pricing (pre-checkpoint), offer 99510ce, rent 075a4e8, admin+dispatcher-removal 1243930.",
+      "rationale": "Stage 1 of the phase-2 card: six Flask instances had to become one app + blueprints with identical URLs before any dedupe could land. Done across commits 1a-1f (settings pilot, sale, pricing, offer, rent, admin); DispatcherMiddleware removed at 1f. Rejected: keeping per-app session cookies (would have broken cross-module redirect flows on the shared app) — replaced with one qp_session cookie + per-module login flags, users logged out once, announced to user.",
+      "sourceSessionId": "session-b5194f0d-71bf-4dc4-93d4-5af6afd8700b",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "refactor",
+        "phase-2"
+      ],
+      "createdAt": 1788490540134,
+      "updatedAt": 1788490540134
+    },
+    {
+      "id": "card-67bd3118-5302-4f11-90ae-0b6293d41ffa",
+      "title": "P2 stage 2 — dedupe helpers into shared/web.py",
+      "summary": "shared/web.py now single-sources get_theme, get_date_format, format_date filter (offer's superset signature), md filter + fix_markdown_lists, make_auth_hook per-module login hook, product-image route, save/download image helpers (EN/SR messages parameterized), mandatory-fields reader, rent defaults map, rent template sort order, default rent email/subject. format_date/md registered once app-wide in main.py. Commit 85e59f5, 121 passed.",
+      "rationale": "Stage 2 of the phase-2 card: the copy-pasted helpers drift apart over time (offer's md filter already had a dead branch); one shared source is the precondition for the service layer. Rejected: unifying pricing/api_v1 image-error language to one language (would change user-visible strings) — instead the shared helpers take the message strings as parameters.",
+      "sourceSessionId": "session-b5194f0d-71bf-4dc4-93d4-5af6afd8700b",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "refactor",
+        "phase-2"
+      ],
+      "createdAt": 1788490540154,
+      "updatedAt": 1788490540154
+    },
+    {
+      "id": "card-5534e480-7fb2-4f56-9411-53db26bafdbb",
+      "title": "P2 stage 3 — single schema source in shared/schema.py",
+      "summary": "shared/schema.py holds every CREATE TABLE/INDEX; module init_db functions are thin wrappers preserving boot order. pricing's stale offers/offer_items subset CREATEs deleted — canonical = offer supersets with client_pib/client_mb/discount_percent folded in. Idempotent ALTERs kept verbatim via one add_column_if_missing helper; prices legacy-UNIQUE rebuild untouched; one new guarded UNIQUE index products(name) COLLATE NOCASE. Commit fbf1706, 121 passed.",
+      "rationale": "Stage 3 of the phase-2 card: offers/offer_items had two competing definitions (pricing subset + offer superset + ALTERs); fresh-DB schema depended on init order. Rejected: adding UNIQUE constraints beyond products(name) — offer_number/price history/rounding brackets/contract numbers legally carry duplicates; guarded UNIQUE index instead of hard constraint so legacy dupes can't break boot.",
+      "sourceSessionId": "session-b5194f0d-71bf-4dc4-93d4-5af6afd8700b",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "refactor",
+        "phase-2"
+      ],
+      "createdAt": 1788490540174,
+      "updatedAt": 1788490540174
+    },
+    {
+      "id": "card-268765af-736b-4b8a-ae81-48fd291cbf0a",
+      "title": "P2 stage 4 — service layer + sandboxed Jinja (audit C4 closed)",
+      "summary": "services/ package: pricing_service (apply_rounding), offer_service (recalc_totals), rent_service (pmt, _add_months, calculate_rent, generate_schedule, _build_doc_context, format_document_html) moved verbatim; pdf_service.render_db_template_parts renders pdf_templates parts in a SandboxedEnvironment (pinned globals url_for/_/gettext/format_amount/format_date + app filters; request/session/config unreachable) — both offer golden PDFs byte-identical. Commit 34ea048, 121 passed.",
+      "rationale": "Stage 4 of the phase-2 card + audit C4: DB-stored Jinja templates rendered with the full app environment is an SSTI hole. Rejected: sandboxing rent document templates too — they are rendered by literal placeholder string substitution, not Jinja, so there is no injection surface there.",
+      "sourceSessionId": "session-b5194f0d-71bf-4dc4-93d4-5af6afd8700b",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "refactor",
+        "phase-2",
+        "security"
+      ],
+      "createdAt": 1788490540191,
+      "updatedAt": 1788490540191
+    },
+    {
+      "id": "card-a25422b1-a4c4-4bd8-97f6-dc766b232b48",
+      "title": "P2 stage 5 — split route files into per-domain modules",
+      "description": "Four parallel subagents split pricing (19 routes → core/products/catalog/prices), offer (14 → core/offers/pdf), rent (20 → core/contracts/documents/catalogs), admin (29 → core/settings/presets/pdf_templates/backup/rounding/rent_templates). Route bodies move verbatim; routes import bp + helpers from ../app; app.py registers via `from . import routes` at the bottom. Zero behavior change; suite green per module commit.",
+      "rationale": "Stage 5 of the phase-2 card: 1.2-1.4k-line route files are unmaintainable and every edit risks unrelated-route regressions; per-domain files make review surfaces small. Delegated to 4 parallel subagents (user asked for subagent use; disjoint file trees).",
+      "sourceSessionId": "session-b5194f0d-71bf-4dc4-93d4-5af6afd8700b",
+      "status": "in_progress",
+      "tags": [
+        "qp-crm",
+        "refactor",
+        "phase-2"
+      ],
+      "createdAt": 1788490540209,
+      "updatedAt": 1788490540209
+    },
+    {
+      "id": "card-d2ac53b9-7ad8-410d-b306-d04b04d86443",
+      "title": "P2 stage 5 (admin) — split admin/app.py into admin/routes/* domain modules",
+      "summary": "Created admin/routes/ package (__init__.py + core, settings, presets, pdf_templates, backup, rounding, rent_templates; 1109 lines total) holding all 29 @bp.route functions byte-verbatim; admin/app.py cut from 1296 to 186 lines (keeps bp, before_request hook, 4 init fns, generate_full_backup_zip, ends with `from . import routes`). Verified: AST-parse, 29-decorator tally (0 left in app.py), route multiset identical to HEAD, per-module name coverage (no undefined/unused), verbatim-tail diff vs git HEAD, import smoke test registering the blueprint (29 endpoints, identical URL rules, auth hook present). api_key_generate/api_key_revoke placed in settings.py (missing from the task's per-module list but required by the 29-route invariant). Full pytest/docker run not done here (venv lacks `markdown`; runtime verification belongs to the docker env).",
+      "rationale": "Stage 5 requires per-domain route modules with zero behavior change; admin was the module assigned to this task in an already-green codebase, so the split had to be byte-verbatim to keep the Phase-1 test safety net valid.",
+      "rejected": "Moving generate_full_backup_zip() into routes/backup.py — rejected to keep non-route helpers in app.py per plan and to avoid breaking `from admin.app import` consumers (main.py, wsgi.py, tests). Pruning now-unused imports from app.py — rejected, the plan requires everything else left exactly as is.",
+      "sourceSessionId": "7dc540f4-8ace-4a40-b82f-80f0ea50060a",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "refactor",
+        "phase-2",
+        "admin"
+      ],
+      "createdAt": 1788500849905,
+      "updatedAt": 1788500849905
+    },
+    {
+      "id": "card-4b199c3a-5749-43e5-aa09-1ca87554d2ce",
+      "title": "P2 stage 6b — move app code into qp_crm/ package, delete sys.path hacks, rewrite imports",
+      "description": "git mv (history preserved) of main.py, wsgi.py, shared/, services/, pricing/, offer/, rent/, admin/, sale/, settings/ into qp_crm/ + new qp_crm/__init__.py. Imports rewritten to qp_crm.* everywhere (app code + tests, module-level AND lazy function-level). Repo root keeps templates/, static/, app_data/, app_assets/, tests/, Docker files — docker-compose bind mounts and URLs unchanged.",
+      "summary": "Moved all app code under qp_crm/ via git mv (93 paths: 69 byte-identical, 24 with import edits); rewrote 124 old-form imports (71 from shared.*, 4 from services.*, 35 cross-module, 6 import shared.*, 7 main, 1 bare from services import); deleted 8 sys.path hack blocks; re-anchored BASE_DIR (3 dirnames), main.py template_folder (BASE_DIR/templates), admin System-Default PDF seeding (PACKAGE_DIR + STATIC_DIR), rent legacy DOCX_DIR (BASE_DIR); Dockerfile CMD -> qp_crm.wsgi:application; run_apps.sh/restart_app.sh -> python -m qp_crm.main. Docker suite: 121 passed.",
+      "rationale": "Phase 2 stage 6b: proper package layout kills the last sys.path hacks and makes imports unambiguous before Phase 3. BASE_DIR must keep resolving to the repo root because docker-compose bind-mounts ./app_data, ./app_assets, ./static/img at fixed container paths.",
+      "rejected": "Adding __init__.py to pricing/offer/admin/settings (they were namespace dirs pre-move and keep working as nested namespace subpackages inside the regular qp_crm package — no need). Moving templates/, static/, app_data/ into the package (rejected: breaks compose bind mounts and shared/config BASE_DIR anchoring). sys.modules aliasing old top-level names for backward compat (rejected: dead weight, zero external consumers).",
+      "sourceSessionId": "a852caa0-f331-4fb7-9b87-a8e4bf636157",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "refactor",
+        "phase-2",
+        "stage-6b"
+      ],
+      "createdAt": 1788505252168,
+      "updatedAt": 1788505252168
+    }
+  ]
+}

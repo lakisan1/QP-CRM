@@ -1,8 +1,8 @@
 # QP-CRM — Phase 0 compose stack (P0-T5).
 #
-# One container runs the whole multi-app stack: main.py merges
+# One container runs the whole multi-app stack: qp_crm/main.py merges
 # pricing/offer/rent/admin/sale/settings via DispatcherMiddleware and is
-# served by gunicorn through wsgi.py (P0-T2), on port 5000.
+# served by gunicorn through qp_crm/wsgi.py (P0-T2), on port 5000.
 #
 # Runtime concerns wired here:
 #   * image: qp-crm:phase1, built from ./Dockerfile (P0-T3; phase-1 adds the

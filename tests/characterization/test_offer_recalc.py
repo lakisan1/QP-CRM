@@ -19,7 +19,7 @@ against offer/app.py:750-802. Pinned quirks:
 * Unknown offer id is a silent no-op (no exception, no write).
 """
 
-from offer.app import recalc_totals
+from qp_crm.offer.app import recalc_totals
 
 
 def _insert_offer(conn, number, discount, special, third, vat):

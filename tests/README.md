@@ -21,14 +21,14 @@ Run one file / one test:
 | Pricing rounding | `tests/characterization/test_pricing_rounding.py` | `apply_rounding` UP/DOWN/NEAREST against the seeded `price_rounding_rules`, bracket selection, 0-clamp, fallback, banker's-rounding quirk |
 | Offer totals | `tests/characterization/test_offer_recalc.py` | `recalc_totals` 3-level discount cascade → VAT → gross, exact float readbacks, NULL/0 coercion + write-back |
 | Rent math | `tests/characterization/test_rent_calc.py` | `pmt`, `calculate_rent`, `_add_months`, `generate_schedule` (incl. end-of-month rule and bad-date fallback) |
-| Formatting | `tests/characterization/test_formatting.py` | `shared.utils.format_amount` / `format_date` |
+| Formatting | `tests/characterization/test_formatting.py` | `qp_crm.shared.utils.format_amount` / `format_date` |
 | Rent placeholders | `tests/characterization/test_rent_placeholders.py` | `_build_doc_context`, `format_document_html` |
 | Golden PDFs | `tests/golden/test_golden_pdf.py` | byte comparison (after timestamp/ID normalization) of one fixed offer + one fixed rent document against `tests/golden/baselines/*.pdf` |
 | Smoke | `tests/smoke/test_smoke_modules.py` | login → main page → 200 for pricing/offer/rent/admin, open access for sale/settings, landing page, unauthenticated redirects |
 
 ## Isolation (read this before adding tests)
 
-`tests/conftest.py` patches `shared.config` (`APP_DATA_DIR`, `DATABASE`,
+`tests/conftest.py` patches `qp_crm.shared.config` (`APP_DATA_DIR`, `DATABASE`,
 `IMAGE_DIR`, `APP_ASSETS_DIR`) into the fixed throwaway tree
 `/tmp/qp-crm-tests` **before any app module is imported** — every sub-app
 binds those names at import time, so this is the only safe moment. The suite

@@ -1,6 +1,6 @@
 """P1-T7 smoke tests: login -> main page -> 200 through the REAL stack.
 
-These run against main.application -- the single Flask app exactly as
+These run against qp_crm.main.application -- the single Flask app exactly as
 gunicorn serves it (pre-Phase-2: the DispatcherMiddleware stack) -- with the
 throwaway fixture DB from conftest (fresh
 schemas, seeded defaults, NO password rows in global_settings, so
@@ -16,8 +16,8 @@ Pinned current behavior (Phase 1 discipline -- do not fix here):
 import pytest
 from werkzeug.test import Client
 
-import main
-from shared.auth import DEFAULT_PASSWORDS
+import qp_crm.main
+from qp_crm.shared.auth import DEFAULT_PASSWORDS
 
 GATED_MODULES = ("pricing", "offer", "rent", "admin")
 
@@ -35,7 +35,7 @@ def _initialized_db(temp_db):
 
 def fresh_client():
     """A clean cookie jar -- no session."""
-    return Client(main.application)
+    return Client(qp_crm.main.application)
 
 
 def test_landing_page_serves_200():

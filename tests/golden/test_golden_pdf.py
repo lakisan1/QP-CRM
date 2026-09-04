@@ -28,7 +28,7 @@ import re
 
 import pytest
 
-from offer.app import recalc_totals
+from qp_crm.offer.app import recalc_totals
 
 BASELINES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "baselines")
 UPDATE_GOLDEN = os.environ.get("QP_UPDATE_GOLDEN") == "1"

@@ -18,7 +18,7 @@ Captured from the unmodified app via tests/_capture.py. Pinned quirks:
   whitelist; everything else passes through untouched.
 """
 
-from rent.app import _build_doc_context, calculate_rent, format_document_html
+from qp_crm.rent.app import _build_doc_context, calculate_rent, format_document_html
 
 CALC_ARGS = (20000.0, 48, 20.0, 20.0, 14.0, 1.13, 5.0, 20.0, 50.0)
 

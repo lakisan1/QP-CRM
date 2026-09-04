@@ -103,12 +103,12 @@ venv/bin/python -m pip install Werkzeug
 #############################################
 
 echo "Stopping any old instances (if running)..."
-pkill -f "main.py" || true
+pkill -f "qp_crm.main" || true
 sleep 2  # Allow port 5000 to be fully released
 
 echo "Starting merged app on port 5000..."
 # We use nohup to keep it running after shell closes
-nohup venv/bin/python main.py > main.log 2>&1 &
+nohup venv/bin/python -m qp_crm.main > main.log 2>&1 &
 
 echo "All done. App should now be up:"
 echo "  - QP-CRM : http://localhost:5000/"

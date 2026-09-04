@@ -22,7 +22,7 @@ from datetime import date, datetime
 
 import pytest
 
-from rent.app import _add_months, calculate_rent, generate_schedule, pmt
+from qp_crm.rent.app import _add_months, calculate_rent, generate_schedule, pmt
 
 # Signature used by rent/_contract_form defaults and the golden contract:
 # price 20 000, 48 months, 20% down, 20% salvage, 14% interest,

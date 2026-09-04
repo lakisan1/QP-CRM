@@ -1,8 +1,8 @@
 # QP-CRM — Docker operations (Phase 0)
 
 Single-container deployment: the Flask multi-app stack (pricing / offer / rent /
-admin / sale / settings, merged by `main.py` via DispatcherMiddleware and served
-by gunicorn through `wsgi.py`) runs in one container on **port 5000**.
+admin / sale / settings, merged by `qp_crm/main.py` via DispatcherMiddleware and served
+by gunicorn through `qp_crm/wsgi.py`) runs in one container on **port 5000**.
 
 - Image: `qp-crm:phase1` — built from `./Dockerfile` (phase-1 adds the pytest
 test layer; `qp-crm:phase0` remains the rollback tag)
@@ -33,7 +33,7 @@ SQLite schema, so the healthcheck has `start_period: 60s`; wait for
 `docker compose ps` to show `healthy`.
 
 Note: docker containers get their secret keys from `.env` (compose injects
-them). Bare-metal runs (`./run_apps.sh`, `python main.py`) do not read
+them). Bare-metal runs (`./run_apps.sh`, `python -m qp_crm.main`) do not read
 `.env` — they fall back to the in-code default keys.
 
 ## Updating
@@ -44,13 +44,13 @@ SKIP_PULL=1 ./deploy.sh   # same, but skip the git pull
 ```
 
 `deploy.sh` replaces the old `run_apps.sh` update flow (git pull + `pkill`
-main.py`, audit finding M11): instead of killing processes it rebuilds the
+qp_crm.main`, audit finding M11): instead of killing processes it rebuilds the
 image, recreates the container, then polls
 `docker inspect --format '{{.State.Health.Status}}' qp-crm` for up to ~90 s and
 prints the last 50 log lines if the container never turns healthy.
 
-`run_apps.sh` still exists unchanged for bare-metal users (no Docker): it
-creates the venv, installs requirements and runs `python main.py` directly.
+`run_apps.sh` still exists for bare-metal users (no Docker): it
+creates the venv, installs requirements and runs `python -m qp_crm.main` directly.
 
 ## Volumes — what lives where
 

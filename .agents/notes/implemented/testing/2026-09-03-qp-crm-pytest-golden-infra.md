@@ -1,0 +1,18 @@
+# Agent Note: qp-crm-pytest-golden-infra
+
+Status: implemented
+
+## Problem
+
+QP-CRM had no automated tests: the money paths (offer recalc cascade, pricing rounding rules, rent PMT calculator, shared formatters, rent document placeholders) and the two WeasyPrint PDF pipelines could change silently before the Phase-2 structural refactor. The host cannot even import WeasyPrint (no libpango) and had no pytest, so any test runner had to live inside the pinned Docker image; the suite also had to be impossible to aim at the live app_data/pricing.db and had to run with one command.
+
+## Decision
+
+The suite ships IN the image (tests/ re-included in .dockerignore; pytest==8.4.2 in dev-requirements.txt installed as a dedicated Dockerfile layer) and runs via `docker compose build app && docker compose run --rm app pytest` (pytest.ini: testpaths=tests so root scratch test_*.py scripts are never collected; cache_dir=/tmp because /app is read-only for appuser). tests/conftest.py patches shared.config APP_DATA_DIR/DATABASE/IMAGE_DIR/APP_ASSETS_DIR into the FIXED tree /tmp/qp-crm-tests BEFORE any app module import — the only guaranteed-early moment, because every sub-app binds those names at import time — then replays the production init sequence (pricing init+migrate -> offer -> admin -> rent) into the throwaway DB; tests/test_infra_isolation.py guards that contract. Golden-PDF tests render one fixed offer (filesystem pdf_offer.html path) and one fixed rent document (ugovor-zakup) through the production routes with fixed fixture assets, and byte-compare after normalizing only PDF dates/XMP timestamps/trailer /ID on both sides; QP_UPDATE_GOLDEN=1 with tests/ bind-mounted regenerates baselines deliberately. Characterization tests pin exact float literals (e.g. total_vat == 4918.387500000001, pmt == 374.58438460722857) captured via tests/_capture.py from the unmodified app. Negative guarantees: the suite never touches the bind-mounted app_data; no production file was modified (plumbing = Dockerfile layer, .dockerignore, compose image tag qp-crm:phase1, DOCKER.md); discovered bugs were logged as board cards, never fixed.
+## Alternatives considered
+
+**tempfile.mkdtemp isolation root** — lost: WeasyPrint names image XObjects 'i'+md5(image URL), so the random path changed the offer golden bytes on every run (rent was immune only because it embeds the logo as a base64 data URI); the fixed /tmp/qp-crm-tests root made renders byte-stable, at the cost of 'no two parallel suites on one image'. **Autoincrement fixture ids** — lost: PDFs carry id-derived anchors/destinations, so offers inserted by other test modules shifted the golden bytes; golden fixtures now pin explicit ids 900001/900002. **Compose override test service** — lost: the command stops being the plain `docker compose run app pytest` the card names and a second service duplicates build config. **Bind-mounting the repo for test runs** — lost: tests must exercise the image the user actually ships. **pypdf text-level comparison for goldens** — lost: it cannot see font subsetting, pagination or CSS drift, which is exactly what the golden files exist to pin.
+## Consequences
+
+Bought: a 120-test safety net that runs in ~3 s inside the pinned image, byte-stable golden PDFs across container recreations, and a deliberate re-baselining protocol (any baseline change must be explained in a commit). Cost: pytest (~a few MB) now ships in the production image; parallel suite runs against the same image would share /tmp/qp-crm-tests and collide; float literals pin current IEEE behavior, so ANY change to money math (including the Phase-2 Decimal/cents migration logged in AUDIT L11) will require conscious re-baselining of the characterization tests rather than silent green.
+

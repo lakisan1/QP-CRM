@@ -4,7 +4,7 @@
 cd /home/lazar/Desktop/Posao/Programs/QP-CRM
 
 echo "Stopping old instances..."
-for pid in $(pgrep -f "[p]ython main.py"); do
+for pid in $(pgrep -f "[p]ython -m qp_crm\.main"); do
   echo "Killing PID $pid"
   kill "$pid" 2>/dev/null || true
 done
@@ -17,7 +17,7 @@ fi
 sleep 1
 
 echo "Starting app..."
-setsid ./venv/bin/python main.py > main.log 2>&1 &
+setsid ./venv/bin/python -m qp_crm.main > main.log 2>&1 &
 disown
 
 sleep 4

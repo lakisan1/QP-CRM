@@ -14,7 +14,7 @@ Captured from the unmodified app via tests/_capture.py. Pinned quirks:
 
 import pytest
 
-from shared.utils import format_amount, format_date
+from qp_crm.shared.utils import format_amount, format_date
 
 
 class TestFormatAmount:

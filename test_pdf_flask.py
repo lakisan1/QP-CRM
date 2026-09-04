@@ -1,6 +1,6 @@
 import io
 import pypdf
-from main import app
+from qp_crm.main import app
 
 with app.test_client() as client:
     # Use session transaction to bypass login

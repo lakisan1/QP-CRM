@@ -20,13 +20,13 @@ pricing/app.py:357-400. They pin quirks, they do not judge them:
 
 import pytest
 
-from pricing.app import apply_rounding
+from qp_crm.pricing.app import apply_rounding
 
 
 @pytest.fixture(scope="module", autouse=True)
 def _custom_rule_targets(temp_db):
     """Insert dedicated targets for method-specific pins (run once)."""
-    from shared.db import get_db
+    from qp_crm.shared.db import get_db
 
     conn = get_db()
     cur = conn.cursor()

@@ -3,11 +3,11 @@
 Every test run gets a throwaway app_data tree. shared/config.py computes
 APP_DATA_DIR / DATABASE / IMAGE_DIR from BASE_DIR at import time, and every
 sub-app binds those names into its own namespace at import time
-(``from shared.config import ... DATABASE ...``). The patch below therefore
+(``from qp_crm.shared.config import ... DATABASE ...``). The patch below therefore
 MUST run before any app module is imported: pytest imports conftest.py
 before collecting test modules, so doing it at conftest top level is the one
 guaranteed-early moment. After this, shared.db.get_db() (which reads
-shared.db.DATABASE -- itself bound from shared.config) opens connections
+shared.db.DATABASE -- itself bound from qp_crm.shared.config) opens connections
 against the temp DB, and the real app_data/pricing.db bind-mount is never
 touched by the suite.
 
@@ -49,7 +49,7 @@ for _directory in (TEST_APP_DATA_DIR, TEST_IMAGE_DIR, TEST_ASSETS_DIR):
 # BASE_DIR stays real on purpose: template folders, static/ (incl. the offer
 # PDF css) are code, not state, and rent's document renderer
 # uses BASE_DIR as the WeasyPrint base_url.
-import shared.config as _config  # noqa: E402
+import qp_crm.shared.config as _config  # noqa: E402
 
 _config.APP_DATA_DIR = TEST_APP_DATA_DIR
 _config.DATABASE = TEST_DATABASE
@@ -67,10 +67,10 @@ def temp_db():
     idempotent and seed deterministic defaults (rounding rules, "System
     Default" PDF template, rent templates from rent_templates_defaults.json).
     """
-    from pricing.app import init_db as pricing_init_db, migrate_schema as pricing_migrate_schema
-    from offer.app import init_db as offer_init_db
-    from admin.app import init_db as admin_init_db
-    from rent.app import init_db as rent_init_db
+    from qp_crm.pricing.app import init_db as pricing_init_db, migrate_schema as pricing_migrate_schema
+    from qp_crm.offer.app import init_db as offer_init_db
+    from qp_crm.admin.app import init_db as admin_init_db
+    from qp_crm.rent.app import init_db as rent_init_db
 
     pricing_init_db()
     pricing_migrate_schema()
@@ -84,7 +84,7 @@ def temp_db():
 def conn_factory(temp_db):
     """Context-manager factory for connections against the throwaway DB."""
     import contextlib
-    from shared.db import get_db
+    from qp_crm.shared.db import get_db
 
     @contextlib.contextmanager
     def _conn():
@@ -103,9 +103,9 @@ def offer_client(temp_db):
     """Flask test client for the offer module, pre-authenticated.
 
     Since the Phase-2 consolidation offer is a blueprint on the single app
-    (main.app); its session flag is namespaced to offer_authenticated.
+    (qp_crm.main.app); its session flag is namespaced to offer_authenticated.
     """
-    from main import app
+    from qp_crm.main import app
 
     client = app.test_client()
     with client.session_transaction() as session:
@@ -118,10 +118,10 @@ def rent_client(temp_db):
     """Flask test client for the rent module, pre-authenticated.
 
     Since the Phase-2 consolidation rent is a blueprint on the single app
-    (main.app); its session flag keeps the rent_authenticated name it had
+    (qp_crm.main.app); its session flag keeps the rent_authenticated name it had
     before the merge.
     """
-    from main import app
+    from qp_crm.main import app
 
     client = app.test_client()
     with client.session_transaction() as session:
@@ -131,14 +131,14 @@ def rent_client(temp_db):
 
 @pytest.fixture(scope="session")
 def stack_client(temp_db):
-    """Werkzeug client over main.application -- the real WSGI stack exactly as
+    """Werkzeug client over qp_crm.main.application -- the real WSGI stack exactly as
     gunicorn serves it (single Flask app with real URL prefixes; pre-Phase-2
     this was the DispatcherMiddleware merge of six sub-apps).
     """
     from werkzeug.test import Client
-    import main
+    import qp_crm.main
 
-    return Client(main.application)
+    return Client(qp_crm.main.application)
 
 
 @pytest.fixture(scope="session")

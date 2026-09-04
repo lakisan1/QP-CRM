@@ -28,7 +28,7 @@ os.makedirs(TEST_APP_DATA, exist_ok=True)
 os.makedirs(os.path.join(TEST_APP_DATA, "product_images"), exist_ok=True)
 os.makedirs(TEST_ASSETS, exist_ok=True)
 
-import shared.config as _config
+import qp_crm.shared.config as _config
 
 _config.APP_DATA_DIR = TEST_APP_DATA
 _config.DATABASE = os.path.join(TEST_APP_DATA, "pricing.db")
@@ -42,10 +42,10 @@ for name in os.listdir(os.path.join(PROJECT_ROOT, "tests", "golden", "assets")):
     shutil.copy2(os.path.join(PROJECT_ROOT, "tests", "golden", "assets", name),
                  os.path.join(TEST_ASSETS, name))
 
-from pricing.app import init_db as pricing_init_db, migrate_schema as pricing_migrate_schema
-from offer.app import init_db as offer_init_db
-from admin.app import init_db as admin_init_db
-from rent.app import init_db as rent_init_db
+from qp_crm.pricing.app import init_db as pricing_init_db, migrate_schema as pricing_migrate_schema
+from qp_crm.offer.app import init_db as offer_init_db
+from qp_crm.admin.app import init_db as admin_init_db
+from qp_crm.rent.app import init_db as rent_init_db
 
 pricing_init_db()
 pricing_migrate_schema()
@@ -53,8 +53,8 @@ offer_init_db()
 admin_init_db()
 rent_init_db()
 
-from shared.db import get_db
-from offer.app import recalc_totals
+from qp_crm.shared.db import get_db
+from qp_crm.offer.app import recalc_totals
 
 conn = get_db()
 cur = conn.cursor()
@@ -103,13 +103,13 @@ cid = cur.lastrowid
 conn.commit()
 conn.close()
 
-import main  # Phase 2: one app; offer/rent are blueprints under prefixes
+import qp_crm.main  # Phase 2: one app; offer/rent are blueprints under prefixes
 
-oc = main.app.test_client()
+oc = qp_crm.main.app.test_client()
 with oc.session_transaction() as s:
     s["offer_authenticated"] = True
 
-rc = main.app.test_client()
+rc = qp_crm.main.app.test_client()
 with rc.session_transaction() as s:
     s["rent_authenticated"] = True
 

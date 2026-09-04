@@ -1,7 +1,7 @@
 # QP-CRM — production image (Phase 0, P0-T3).
 #
-# One image serves the whole multi-app stack: gunicorn runs wsgi.py
-# (wsgi:application), whose DispatcherMiddleware merges pricing / offer /
+# One image serves the whole multi-app stack: gunicorn runs qp_crm/wsgi.py
+# (qp_crm.wsgi:application), whose DispatcherMiddleware merges pricing / offer /
 # rent / admin / sale / settings on port 5000.
 FROM python:3.12-slim
 
@@ -44,7 +44,7 @@ COPY . .
 
 # COPY preserves the source file modes, and some files may carry mode 600
 # (created by tooling) — the non-root app user then cannot read them and
-# gunicorn fails with 'Permission denied: /app/wsgi.py'. Grant read +
+# gunicorn fails with 'Permission denied: /app/qp_crm/wsgi.py'. Grant read +
 # directory traversal to everyone; writes go to the bind-mounted dirs only.
 RUN chmod -R a+rX /app
 
@@ -60,8 +60,8 @@ USER appuser
 
 EXPOSE 5000
 
-# --preload: wsgi.py's DB init sequence then runs exactly once in the master
+# --preload: qp_crm/wsgi.py's DB init sequence then runs exactly once in the master
 # process instead of racing between workers on a fresh volume (the init is
 # idempotent, but ALTER TABLE migrations + SQLite would rather not race).
 # Debugger/reloader stay OFF — production server (audit C1).
-CMD ["gunicorn", "--workers", "2", "--threads", "4", "--preload", "--bind", "0.0.0.0:5000", "wsgi:application"]
+CMD ["gunicorn", "--workers", "2", "--threads", "4", "--preload", "--bind", "0.0.0.0:5000", "qp_crm.wsgi:application"]

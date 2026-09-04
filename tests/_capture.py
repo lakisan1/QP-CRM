@@ -33,17 +33,17 @@ for _d in (TEST_APP_DATA_DIR, os.path.join(TEST_APP_DATA_DIR, "product_images"),
            os.path.join(TEST_ROOT, "app_assets")):
     os.makedirs(_d, exist_ok=True)
 
-import shared.config as _config
+import qp_crm.shared.config as _config
 
 _config.APP_DATA_DIR = TEST_APP_DATA_DIR
 _config.DATABASE = TEST_DATABASE
 _config.IMAGE_DIR = os.path.join(TEST_APP_DATA_DIR, "product_images")
 _config.APP_ASSETS_DIR = os.path.join(TEST_ROOT, "app_assets")
 
-from pricing.app import init_db as pricing_init_db, migrate_schema as pricing_migrate_schema
-from offer.app import init_db as offer_init_db
-from admin.app import init_db as admin_init_db
-from rent.app import init_db as rent_init_db
+from qp_crm.pricing.app import init_db as pricing_init_db, migrate_schema as pricing_migrate_schema
+from qp_crm.offer.app import init_db as offer_init_db
+from qp_crm.admin.app import init_db as admin_init_db
+from qp_crm.rent.app import init_db as rent_init_db
 
 pricing_init_db()
 pricing_migrate_schema()
@@ -51,8 +51,8 @@ offer_init_db()
 admin_init_db()
 rent_init_db()
 
-from pricing.app import apply_rounding
-from shared.db import get_db
+from qp_crm.pricing.app import apply_rounding
+from qp_crm.shared.db import get_db
 
 
 def section(title):
@@ -107,7 +107,7 @@ for line_net in (10000.0, 19000.0, 500.0):
 conn.commit()
 conn.close()
 
-from offer.app import recalc_totals
+from qp_crm.offer.app import recalc_totals
 
 recalc_totals(offer_id)
 conn = get_db()
@@ -175,7 +175,7 @@ conn.close()
 
 # ---------------------------------------------------------------- rent math
 section("C. rent pmt / calculate_rent")
-from rent.app import pmt, calculate_rent, _add_months, generate_schedule
+from qp_crm.rent.app import pmt, calculate_rent, _add_months, generate_schedule
 
 print(f"pmt(0.0, 48, -16000, 4000)       = {pmt(0.0, 48, -16000, 4000)!r}")
 print(f"pmt(0.14/12, 48, -16000, 4000)   = {pmt(0.14 / 12, 48, -16000, 4000)!r}")
@@ -213,7 +213,7 @@ print(f"first row datum = {rows_bad[0]['datum']!r}  (date.today() = {date.today(
 
 # --------------------------------------------------------------- formatting
 section("D. shared format_amount / format_date")
-from shared.utils import format_amount, format_date
+from qp_crm.shared.utils import format_amount, format_date
 
 for val in (None, 0, 12312, 1234.5, -1234.5, "abc", "12.5", 1234567.891, 0.005, 1e6):
     print(f"format_amount({val!r}) = {format_amount(val)!r}")
@@ -225,7 +225,7 @@ for date_str, fmt in (("2026-01-15", "DD/MM/YYYY"), ("2026-01-15", "MM/DD/YYYY")
 
 # --------------------------------------------------------- doc placeholders
 section("E. rent _build_doc_context + format_document_html")
-from rent.app import _build_doc_context, format_document_html
+from qp_crm.rent.app import _build_doc_context, format_document_html
 
 contract = {
     "contract_number": "UGOVOR-2026-007",
