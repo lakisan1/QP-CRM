@@ -373,6 +373,39 @@ def create_users_table(cur):
         );
     """)
 
+    # Per-user API keys (Phase 3 step 7). The RAW key is shown exactly once
+    # at issue time and never stored -- only its SHA-256 hash plus a short
+    # display prefix. Revocation is is_active = 0 (rows are kept for the
+    # audit trail). The legacy global api_key in global_settings stays valid
+    # during the transition and is deprecated (see API_INSTRUCTIONS.md).
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS api_keys (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            key_hash TEXT NOT NULL UNIQUE,
+            key_prefix TEXT NOT NULL,
+            label TEXT DEFAULT '',
+            is_active INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL,
+            last_used TEXT
+        );
+    """)
+
+    # API audit log (Phase 3 step 7): one row per authenticated /api/v1
+    # request. kind='user' carries the username attribution; kind='global'
+    # marks the legacy shared key (no per-user attribution possible).
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS api_audit (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ts TEXT NOT NULL,
+            method TEXT NOT NULL,
+            path TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            username TEXT,
+            status INTEGER NOT NULL
+        );
+    """)
+
 
 # ---------------------------------------------------------------------------
 # idempotent ALTER migrations

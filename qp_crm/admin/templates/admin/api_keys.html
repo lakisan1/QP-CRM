@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <title>API Keys Management</title>
+    <link rel="icon" type="image/png" href="/app_assets/favicon.png">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+</head>
+
+<body>
+    <nav>
+        <div class="nav-links">
+            <a href="{{ url_for('admin.index') }}">Dashboard</a>
+            <a href="{{ url_for('admin.list_pdf_templates') }}">PDF Templates</a>
+            <a href="{{ url_for('admin.list_rounding_rules') }}">Rounding Rules</a>
+            <a href="{{ url_for('admin.list_users') }}">Users</a>
+            <a href="{{ url_for('admin.list_api_keys') }}" class="active">API Keys</a>
+        </div>
+        <div class="nav-right">
+            <a href="/">Landing Page</a>
+            <a href="{{ url_for('auth.change_password') }}">My password</a>
+            <a href="{{ url_for('admin.logout') }}" class="btn btn-danger" style="margin-right: 15px;">Logout</a>
+            <div class="nav-logo-container">
+                <img src="{{ url_for('static', filename='img/logo_company.jpg') }}" alt="QP-CRM Logo" class="nav-logo">
+            </div>
+        </div>
+    </nav>
+
+    <div class="container" style="max-width: 1100px;">
+        <h1>API Keys Management</h1>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: -8px;">
+            Per-user keys for <code>/api/v1</code> — every request is audited with the holder\'s username.
+            The legacy <em>global</em> key on the dashboard still works but is deprecated: issue per-user keys instead.
+        </p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ 'success' if category == 'success' else ('warning' if category == 'warning' else 'error') }}"
+             {% if 'shown only once' in message %}style="font-family: monospace; word-break: break-all;"{% endif %}>
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <div class="card">
+            <h3>Issue new key</h3>
+            <form action="{{ url_for('admin.issue_api_key_action') }}" method="POST"
+                  style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <div style="flex: 1; min-width: 160px;">
+                    <label>User</label>
+                    <select name="user_id" required>
+                        {% for u in users %}
+                        <option value="{{ u.id }}">{{ u.username }} ({{ u.role }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div style="flex: 1; min-width: 180px;">
+                    <label>Label (what is it for)</label>
+                    <input type="text" name="label" maxlength="80" placeholder="e.g. webshop sync">
+                </div>
+                <div style="min-width: 180px;">
+                    <label>Your current password</label>
+                    <input type="password" name="current_password" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn btn-primary"
+                        onclick="return confirm('Issue a new API key for the selected user?');">Issue</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h3>Issued keys</h3>
+            {% if keys %}
+            <table class="preset-table" style="width: 100%;">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Label</th>
+                        <th>Key (prefix…)</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Last used</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for k in keys %}
+                    <tr>
+                        <td><strong>{{ k.username or "(deleted user)" }}</strong></td>
+                        <td>{{ k.label or "—" }}</td>
+                        <td><code>{{ k.key_prefix }}…</code></td>
+                        <td>{{ 'active' if k.is_active else 'revoked' }}</td>
+                        <td>{{ k.created_at[:19].replace('T', ' ') }}</td>
+                        <td>{{ k.last_used[:19].replace('T', ' ') if k.last_used else 'never' }}</td>
+                        <td>
+                            <form action="{{ url_for('admin.toggle_api_key_action', key_id=k.id) }}" method="POST"
+                                  style="display: inline-flex; gap: 6px;">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="active" value="{{ '0' if k.is_active else '1' }}">
+                                <input type="password" name="current_password" placeholder="Your password" required
+                                       style="width: 130px;" autocomplete="current-password">
+                                <button type="submit" class="btn {{ 'btn-danger' if k.is_active else 'btn-secondary' }}">
+                                    {{ 'Revoke' if k.is_active else 'Re-enable' }}
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p style="color: var(--text-muted);">No per-user keys issued yet. The global key (dashboard) still works for existing integrations.</p>
+            {% endif %}
+        </div>
+    </div>
+</body>
+
+</html>

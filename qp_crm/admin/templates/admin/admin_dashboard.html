@@ -81,6 +81,7 @@
             <a href="{{ url_for('admin.list_pdf_templates') }}">PDF Templates</a>
             <a href="{{ url_for('admin.list_rounding_rules') }}">Rounding Rules</a>
             <a href="{{ url_for('admin.list_users') }}">Users</a>
+            <a href="{{ url_for('admin.list_api_keys') }}">API Keys</a>
             <a href="/admin/rent/templates">Rent Šabloni</a>
         </div>
         <div class="nav-right">
@@ -161,6 +162,10 @@
             <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px;">
                 Manage the API key used by AI agents and external integrations to access the product/category/brand API.
                 The key is passed as <code>Authorization: Bearer <key></code> header.
+                <strong style="color: var(--warning, #e6b800);">DEPRECATED (Phase 3):</strong> this shared key
+                identifies nobody in the audit log — prefer
+                <a href="{{ url_for('admin.list_api_keys') }}">per-user API keys</a>, which stay valid during the
+                transition but will be retired later.
             </p>
 
             <div style="display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap;">

@@ -10,10 +10,10 @@ import io
 import html as _html
 from functools import wraps
 from concurrent.futures import ThreadPoolExecutor
-from flask import Blueprint, request, jsonify, url_for
+from flask import Blueprint, g, request, jsonify, url_for
 
 from qp_crm.shared.db import get_db
-from qp_crm.shared.auth import validate_api_key
+from qp_crm.shared.auth import log_api_call, resolve_api_identity
 from qp_crm.shared.config import IMAGE_DIR
 from qp_crm.shared.web import save_product_image, download_image_from_url
 
@@ -28,17 +28,48 @@ api_v1 = Blueprint("api_v1", __name__)
 # ---------- Auth Decorator ----------
 
 def require_api_key(f):
-    """Decorator that checks for a valid Bearer token in the Authorization header."""
+    """Decorator checking the Bearer token (Phase 3 step 7).
+
+    Accepts a per-user API key (resolved to ('user', username, user_id) and
+    stamped on flask.g for the audit log) or, during the transition, the
+    legacy global api_key (('global', None, None) -- deprecated, see
+    API_INSTRUCTIONS.md). Everything else is 401/403.
+    """
     @wraps(f)
     def decorated(*args, **kwargs):
         auth_header = request.headers.get("Authorization", "")
         if not auth_header.startswith("Bearer "):
             return jsonify({"success": False, "error": "Missing or invalid Authorization header. Use: Bearer <api_key>"}), 401
         token = auth_header[7:]  # Strip "Bearer "
-        if not validate_api_key(token):
+        identity = resolve_api_identity(token)
+        if identity is None:
+            return jsonify({"success": False, "error": "Invalid API key."}), 403
+        g.api_key_kind = identity[0]
+        g.api_key_username = identity[1]
+        if identity[0] == "user-denied":
+            # The key hashes to a revoked key / deactivated holder: refuse,
+            # but still audit it with the holder's username (security signal).
             return jsonify({"success": False, "error": "Invalid API key."}), 403
         return f(*args, **kwargs)
     return decorated
+
+
+@api_v1.after_request
+def _audit_api_call(response):
+    """Audit every AUTHENTICATED /api/v1 request (Phase 3 step 7).
+
+    require_api_key stamps g.api_key_kind / g.api_key_username; requests
+    that never reached an authenticated endpoint (401 before the decorator
+    ran, /health) leave no attribution and are not audited.
+    """
+    kind = g.get("api_key_kind")
+    if kind:
+        try:
+            log_api_call(request.method, request.path, kind,
+                         g.get("api_key_username"), response.status_code)
+        except Exception:
+            pass  # auditing must never break the API response
+    return response
 
 
 # ---------- Health ----------

@@ -1,3 +1,4 @@
+import hashlib
 import re
 import secrets
 import sqlite3
@@ -124,6 +125,137 @@ def revoke_api_key():
     conn = get_db()
     cur = conn.cursor()
     cur.execute("DELETE FROM global_settings WHERE key = 'api_key';")
+    conn.commit()
+    conn.close()
+
+
+# ----------
+# Per-user API keys (Phase 3 step 7). The raw key exists only at issue time
+# (shown once to the issuing admin); storage is sha256(key) + a display
+# prefix. resolve_api_identity() checks user keys FIRST, then the legacy
+# global key (transition). The key holder's account must be active for the
+# key to authenticate -- deactivation revokes access instantly.
+# ----------
+
+API_KEY_PREFIX_LEN = 12
+
+
+def _hash_api_key(raw_key):
+    return hashlib.sha256(raw_key.encode("utf-8")).hexdigest()
+
+
+def issue_user_api_key(user_id, label=""):
+    """Create a per-user API key. Returns (raw_key, row_id) or (None, error).
+
+    raw_key is returned exactly once -- only its hash is stored.
+    """
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT id, username FROM users WHERE id = ? AND is_active = 1;", (user_id,))
+    user = cur.fetchone()
+    if user is None:
+        conn.close()
+        return None, "User not found or inactive."
+    raw_key = secrets.token_hex(24)  # 48 hex chars, same shape as the global key
+    cur.execute(
+        """
+        INSERT INTO api_keys (user_id, key_hash, key_prefix, label, is_active, created_at)
+        VALUES (?, ?, ?, ?, 1, ?);
+        """,
+        (
+            user_id,
+            _hash_api_key(raw_key),
+            raw_key[:API_KEY_PREFIX_LEN],
+            (label or "").strip()[:80],
+            _utcnow_iso(),
+        ),
+    )
+    conn.commit()
+    row_id = cur.lastrowid
+    conn.close()
+    return raw_key, row_id
+
+
+def list_user_api_keys():
+    """All per-user keys with their holder's username, newest first."""
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT k.id, k.user_id, u.username, k.key_prefix, k.label, k.is_active,
+               k.created_at, k.last_used
+        FROM api_keys k LEFT JOIN users u ON u.id = k.user_id
+        ORDER BY k.id DESC;
+        """
+    )
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+
+
+def set_user_api_key_active(key_id, active):
+    """Revoke (0) or re-enable (1) a per-user key. Returns (ok, error)."""
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM api_keys WHERE id = ?;", (key_id,))
+    if cur.fetchone() is None:
+        conn.close()
+        return False, "API key not found."
+    cur.execute("UPDATE api_keys SET is_active = ? WHERE id = ?;", (1 if active else 0, key_id))
+    conn.commit()
+    conn.close()
+    return True, None
+
+
+def resolve_api_identity(raw_key):
+    """Map a Bearer key to an identity.
+
+    Returns ('user', username, user_id) for a valid, active per-user key;
+    ('user-denied', username, user_id) when the hash matches a key that is
+    revoked or whose holder is deactivated (audited as refused, then 403);
+    ('global', None, None) for the legacy global api_key (transition);
+    None when the key matches nothing. Updates last_used only on success.
+    """
+    if not raw_key:
+        return None
+    digest = _hash_api_key(raw_key)
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT k.id, k.user_id, u.username, k.is_active AS key_active,
+               u.is_active AS user_active
+        FROM api_keys k JOIN users u ON u.id = k.user_id
+        WHERE k.key_hash = ?;
+        """,
+        (digest,),
+    )
+    row = cur.fetchone()
+    if row is not None:
+        if not row["key_active"] or not row["user_active"]:
+            conn.close()
+            return ("user-denied", row["username"], row["user_id"])
+        cur.execute("UPDATE api_keys SET last_used = ? WHERE id = ?;", (_utcnow_iso(), row["id"]))
+        conn.commit()
+        conn.close()
+        return ("user", row["username"], row["user_id"])
+    conn.close()
+    # Legacy global key (transition; deprecated -- see API_INSTRUCTIONS.md).
+    stored = get_api_key()
+    if stored and secrets.compare_digest(raw_key, stored):
+        return ("global", None, None)
+    return None
+
+
+def log_api_call(method, path, kind, username, status):
+    """Append one row to the api_audit log (per-user attribution for
+    kind='user'; username is NULL for kind='global')."""
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO api_audit (ts, method, path, kind, username, status) VALUES (?, ?, ?, ?, ?, ?);",
+        (_utcnow_iso(), method, path, kind, username, status),
+    )
     conn.commit()
     conn.close()
 
