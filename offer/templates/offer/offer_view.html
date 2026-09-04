@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "offer/base.html" %}
 {% block title %}Ponuda {{ offer.offer_number or offer.id }}{% endblock %}
 
 {% block content %}
@@ -78,7 +78,7 @@
                 <td style="text-align: center;">{{ it.line_order }}</td>
                 <td style="text-align: center;">
                     {% if it.item_photo_path %}
-                    <img src="{{ url_for('product_image', filename=it.item_photo_path) }}" style="max-width: 100px;">
+                    <img src="{{ url_for('offer.product_image', filename=it.item_photo_path) }}" style="max-width: 100px;">
                     {% endif %}
                 </td>
                 <td>
@@ -121,8 +121,8 @@
 </div>
 
 <div style="display: flex; gap: 10px; margin-top: 20px;">
-    <a href="{{ url_for('edit_offer', offer_id=offer.id) }}" class="btn btn-primary">Izmeni</a>
-    <a href="{{ url_for('offer_pdf', offer_id=offer.id) }}" target="_blank" class="btn btn-success">PDF</a>
-    <a href="{{ url_for('list_offers') }}" class="btn btn-secondary">Nazad</a>
+    <a href="{{ url_for('offer.edit_offer', offer_id=offer.id) }}" class="btn btn-primary">Izmeni</a>
+    <a href="{{ url_for('offer.offer_pdf', offer_id=offer.id) }}" target="_blank" class="btn btn-success">PDF</a>
+    <a href="{{ url_for('offer.list_offers') }}" class="btn btn-secondary">Nazad</a>
 </div>
 {% endblock %}

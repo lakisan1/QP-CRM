@@ -103,16 +103,13 @@ cid = cur.lastrowid
 conn.commit()
 conn.close()
 
-from offer.app import app as offer_app
-from rent.app import app as rent_app
+import main  # Phase 2: one app; offer/rent are blueprints under prefixes
 
-offer_app.config["TESTING"] = True
-oc = offer_app.test_client()
+oc = main.app.test_client()
 with oc.session_transaction() as s:
-    s["authenticated"] = True
+    s["offer_authenticated"] = True
 
-rent_app.config["TESTING"] = True
-rc = rent_app.test_client()
+rc = main.app.test_client()
 with rc.session_transaction() as s:
     s["rent_authenticated"] = True
 
@@ -135,8 +132,8 @@ def normalize(data):
     return data
 
 
-for label, client, url in (("OFFER", oc, f"/offers/{oid}/pdf"),
-                           ("RENT", rc, f"/contracts/{cid}/documents/ugovor-zakup/pdf")):
+for label, client, url in (("OFFER", oc, f"/offer/offers/{oid}/pdf"),
+                           ("RENT", rc, f"/rent/contracts/{cid}/documents/ugovor-zakup/pdf")):
     r1 = client.get(url)
     r2 = client.get(url)
     b1, b2 = r1.data, r2.data

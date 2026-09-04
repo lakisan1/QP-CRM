@@ -59,7 +59,8 @@ def init_pdf_templates_table():
     """)
     
     # Try to read current filesystem templates
-    templates_dir = os.path.join(PARENT_DIR, "offer", "templates")
+    # (Phase 2: offer templates are namespaced under offer/templates/offer/)
+    templates_dir = os.path.join(PARENT_DIR, "offer", "templates", "offer")
     css_path = os.path.join(PARENT_DIR, "static", "css", "pdf.css")
     
     header_html, body_html, footer_html, pdf_css = "", "", "", ""

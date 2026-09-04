@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "offer/base.html" %}
 {% block content %}
 <h1>{% if offer %}Izmeni ponudu{% else %}New offer{% endif %}</h1>
 
@@ -223,7 +223,7 @@
             style="margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 20px; display: flex; gap: 15px;">
             <button type="submit" class="btn btn-success">Sacuvaj podatke</button>
             {% if offer %}
-            <a href="{{ url_for('offer_pdf', offer_id=offer.id) }}" id="btn-print-pdf" class="btn btn-primary"
+            <a href="{{ url_for('offer.offer_pdf', offer_id=offer.id) }}" id="btn-print-pdf" class="btn btn-primary"
                 target="_blank">Print
                 PDF</a>
             <button type="button" id="btn-print-send" class="btn btn-secondary" style="margin-left: 10px;"
@@ -243,7 +243,7 @@
             <h2>Artikli</h2>
 
             <!-- Filter for products (brand, category, name) -->
-            <form method="get" action="{{ url_for('edit_offer', offer_id=offer.id) }}">
+            <form method="get" action="{{ url_for('offer.edit_offer', offer_id=offer.id) }}">
                 <p>
                     <label>Brand:
                         <select name="brand" class="searchable-select" onchange="this.form.submit()">
@@ -266,7 +266,7 @@
                 </p>
 
                 <p>
-                    <a href="{{ url_for('edit_offer', offer_id=offer.id, clear=1) }}" class="btn btn-secondary btn-sm"
+                    <a href="{{ url_for('offer.edit_offer', offer_id=offer.id, clear=1) }}" class="btn btn-secondary btn-sm"
                         id="btn-reset-filter">Reset pretrage</a>
                 </p>
             </form>
@@ -383,7 +383,7 @@
                     <td style="text-align: center;" class="row-index">{{ it.line_order }}</td>
                     <td style="text-align: center;">
                         {% if it.item_photo_path %}
-                        <img src="{{ url_for('product_image', filename=it.item_photo_path) }}"
+                        <img src="{{ url_for('offer.product_image', filename=it.item_photo_path) }}"
                             style="max-width: 100px;">
                         {% endif %}
                     </td>
@@ -691,7 +691,7 @@
         const btnFetchRate = document.getElementById('btn_fetch_rate');
         const exchangeInput = document.getElementById('exchange_rate');
         const rateStatus = document.getElementById('rate_status');
-        const nbsUrl = "{{ url_for('api_nbs_eur_rate') }}";
+        const nbsUrl = "{{ url_for('offer.api_nbs_eur_rate') }}";
 
         if (btnFetchRate && exchangeInput && rateStatus) {
             btnFetchRate.addEventListener('click', function () {
@@ -731,7 +731,7 @@
                         if (idxCell) idxCell.textContent = index + 1;
                     });
 
-                    fetch("{{ url_for('update_item_order', offer_id=offer.id) if offer else '#' }}", {
+                    fetch("{{ url_for('offer.update_item_order', offer_id=offer.id) if offer else '#' }}", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ item_ids: itemIds })

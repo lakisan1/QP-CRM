@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "offer/base.html" %}
 
 {% block title %}Settings{% endblock %}
 
@@ -34,7 +34,7 @@
 
 <div class="card">
     <div style="display: flex; justify-content: flex-end;">
-        <a href="{{ url_for('logout') }}" class="btn btn-danger">
+        <a href="{{ url_for('offer.logout') }}" class="btn btn-danger">
             Odjavi se
         </a>
     </div>

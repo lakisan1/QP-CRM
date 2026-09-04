@@ -22,16 +22,16 @@
     {% if pdf_mode is not defined or not pdf_mode %}
     <nav>
         <div class="nav-links">
-            <a href="{{ url_for('list_offers') }}" {% if request.endpoint=='list_offers' %}class="active" {% endif %}>{{
+            <a href="{{ url_for('offer.list_offers') }}" {% if request.endpoint=='offer.list_offers' %}class="active" {% endif %}>{{
                 _('Offers') }}</a>
-            <a href="{{ url_for('compare_offers') }}" {% if request.endpoint=='compare_offers' %}class="active" {% endif
+            <a href="{{ url_for('offer.compare_offers') }}" {% if request.endpoint=='offer.compare_offers' %}class="active" {% endif
                 %}>{{ _('Compare Offers') }}</a>
         </div>
         <div class="nav-right">
 
             <a href="/" {% if request.endpoint=='index' and not request.path.startswith('/offer') %}class="active" {%
                 endif %}>{{ _('Landing Page') }}</a>
-            <a href="{{ url_for('logout') }}" class="btn btn-danger" style="margin-right: 15px;">Logout</a>
+            <a href="{{ url_for('offer.logout') }}" class="btn btn-danger" style="margin-right: 15px;">Logout</a>
             <div class="nav-logo-container">
                 <img src="{{ url_for('static', filename='img/logo_company.jpg') }}" alt="QP-CRM Logo" class="nav-logo">
             </div>

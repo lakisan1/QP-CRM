@@ -64,7 +64,7 @@
             <img src="{{ it.item_photo_uri }}" style="max-width: 80px; max-height: 80px;">
             {% endif %}
             {% else %}
-            <img src="{{ url_for('product_image', filename=it.item_photo_path) }}"
+            <img src="{{ url_for('offer.product_image', filename=it.item_photo_path) }}"
                 style="max-width: 120px; max-height: 120px;">
             {% endif %}
             {% endif %}

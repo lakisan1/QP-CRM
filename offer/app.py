@@ -1,4 +1,4 @@
-from flask import Flask, render_template, render_template_string, request, redirect, url_for, send_from_directory, send_file, jsonify, session
+from flask import Blueprint, Flask, render_template, render_template_string, request, redirect, url_for, send_from_directory, send_file, jsonify, session
 import sqlite3
 import os
 import sys
@@ -34,22 +34,31 @@ from shared.countries import get_country_list
 # it's in PARENT_DIR which is already in sys.path
 from shared.utils import format_amount, format_date, get_nbs_rate
 
-app = Flask(
-    __name__,
-    static_folder=STATIC_DIR,
-    static_url_path="/static"
-)
-app.secret_key = os.environ.get("OFFER_SECRET_KEY", "crm_offer_secret_key_change_me")
-app.config['SESSION_COOKIE_NAME'] = 'offer_session'
+# ---------------------------------------------------------------------------
+# Phase 2 stage 1: offer is a Blueprint on the single QP-CRM app.
+#
+# The Flask(...) instance, secret key and SESSION_COOKIE_NAME moved to
+# main.py (one session/secret/cookie; OFFER_SECRET_KEY and the offer_session
+# cookie are no longer read). Routes keep the same URLs via the blueprint's
+# /offer prefix in main.py. Session flag renamed 'authenticated' ->
+# 'offer_authenticated': with the shared cookie, the old shared flag name
+# would let an offer login unlock other modules (pricing already got its
+# own flag; rent/admin had one all along). Templates live under
+# offer/templates/offer/ (same-name collision safety on the unified env).
+# ---------------------------------------------------------------------------
 
-@app.before_request
+bp = Blueprint("offer", __name__, template_folder="templates")
+
+@bp.before_request
 def check_auth():
-    # Exempt login page, static files, and NBS API from authentication
-    if request.endpoint in ('login', 'static', 'api_nbs_eur_rate'):
+    # Exempt login page and the NBS rate endpoint from authentication
+    # ('static' was exempt when this app served its own /static; on the
+    # single app /static is top-level and never enters blueprint hooks).
+    if request.endpoint in ('offer.login', 'offer.api_nbs_eur_rate'):
         return None
-    
-    if not session.get('authenticated'):
-        return redirect(url_for('login'))
+
+    if not session.get("offer_authenticated"):
+        return redirect(url_for('offer.login'))
 
 def init_db():
     conn = get_db()
@@ -186,7 +195,7 @@ def init_db():
 
 
 
-@app.template_filter('format_date')
+@bp.app_template_filter('format_date')
 def _format_date_filter(date_str, fmt=None):
     if fmt is None:
         fmt = get_date_format()
@@ -215,14 +224,14 @@ def fix_markdown_lists(text):
             in_list = True
     return '\n'.join(fixed_lines)
 
-@app.template_filter('md')
+@bp.app_template_filter('md')
 def render_markdown(text):
     if not text:
         return ""
     text = fix_markdown_lists(text)
     return markdown.markdown(text, extensions=['extra', 'nl2br'])
 
-@app.context_processor
+@bp.context_processor
 def inject_helpers():
     return dict(
         format_amount=format_amount,
@@ -230,37 +239,37 @@ def inject_helpers():
         enable_product_discount=get_enable_product_discount()
     )
 
-@app.route("/api/nbs_eur_rate")
+@bp.route("/api/nbs_eur_rate")
 def api_nbs_eur_rate():
     rate = get_nbs_rate("eur")
     if rate is None:
         return jsonify({"success": False, "message": "Neuspešno preuzimanje kursa sa NBS."}), 500
     return jsonify({"success": True, "rate": rate})
 
-@app.route("/product-image/<path:filename>")
+@bp.route("/product-image/<path:filename>")
 def product_image(filename):
     return send_from_directory(IMAGE_DIR, filename)
 
-@app.route("/asset/<path:filename>")
+@bp.route("/asset/<path:filename>")
 def app_asset(filename):
     return send_from_directory(APP_ASSETS_DIR, filename)
 
-@app.route("/")
+@bp.route("/")
 def index():
-    return redirect(url_for("list_offers"))
+    return redirect(url_for("offer.list_offers"))
 
-@app.route("/login", methods=["GET", "POST"])
+@bp.route("/login", methods=["GET", "POST"])
 def login():
     error = None
     if request.method == "POST":
         if check_password("offer", request.form.get("password")):
-            session['authenticated'] = True
-            return redirect(url_for('index'))
+            session["offer_authenticated"] = True
+            return redirect(url_for('offer.index'))
         else:
             error = "Pogrešna lozinka"
-    return render_template("login.html", error=error)
+    return render_template("offer/login.html", error=error)
 
-@app.route("/logout")
+@bp.route("/logout")
 def logout():
     session.pop('authenticated', None)
     return redirect('/')
@@ -308,7 +317,7 @@ def get_mandatory_fields():
     conn.close()
     return settings
 
-@app.route("/offers")
+@bp.route("/offers")
 def list_offers():
     # Check if we should clear filters
     if request.args.get("clear"):
@@ -318,7 +327,7 @@ def list_offers():
         session.pop("offers_filter_item", None)
         session.pop("offers_filter_view", None)
         session.pop("offers_filter_country", None)
-        return redirect(url_for("list_offers"))
+        return redirect(url_for("offer.list_offers"))
 
     # Load from request or fallback to session
     view = request.args.get("view")
@@ -482,7 +491,7 @@ def list_offers():
     conn.close()
 
     return render_template(
-        "offers.html",
+        "offer/offers.html",
         offers=offers,
         search_term=search_term,
         date_from=date_from,
@@ -499,7 +508,7 @@ def list_offers():
     )
 
 
-@app.route("/offers/new", methods=["GET", "POST"])
+@bp.route("/offers/new", methods=["GET", "POST"])
 def new_offer():
     if request.method == "POST":
         date_str = request.form.get("date") or date.today().isoformat()
@@ -598,7 +607,7 @@ def new_offer():
                 "napomena": napomena,
                 "country": country
             }
-            return render_template("offer_form.html", offer=preserved_offer, today=date.today().isoformat(), 
+            return render_template("offer/offer_form.html", offer=preserved_offer, today=date.today().isoformat(), 
                                    error=" ".join(errors), mandatory_fields=mandatory, presets_by_cat=presets_by_cat,
                                    countries=get_country_list(),
                                    email_offer_subject=email_offer_subject, email_offer_body=email_offer_body,
@@ -647,7 +656,7 @@ def new_offer():
             "napomena": napomena,
             "country": country
         }
-                return render_template("offer_form.html", offer=preserved_offer, today=date.today().isoformat(), 
+                return render_template("offer/offer_form.html", offer=preserved_offer, today=date.today().isoformat(), 
                                        email_offer_subject=email_offer_subject, email_offer_body=email_offer_body,
                                        countries=get_country_list(),
                                        current_language=current_language)
@@ -676,7 +685,7 @@ def new_offer():
         conn.commit()
         conn.close()
 
-        return redirect(url_for("edit_offer", offer_id=offer_id))
+        return redirect(url_for("offer.edit_offer", offer_id=offer_id))
 
     # GET
     # Fetch default presets if they exist
@@ -729,7 +738,7 @@ def new_offer():
     default_extra = defaults.get('extra', '')
     default_payment = defaults.get('payment', '')
 
-    return render_template("offer_form.html", 
+    return render_template("offer/offer_form.html", 
                            offer=None, 
                            today=date.today().isoformat(),
                            default_delivery=default_delivery,
@@ -802,7 +811,7 @@ def recalc_totals(offer_id):
     conn.close()
 
 
-@app.route("/offers/<int:offer_id>/edit", methods=["GET", "POST"])
+@bp.route("/offers/<int:offer_id>/edit", methods=["GET", "POST"])
 def edit_offer(offer_id):
     conn = get_db()
     cur = conn.cursor()
@@ -820,7 +829,7 @@ def edit_offer(offer_id):
         session.pop("offer_edit_filter_brand", None)
         session.pop("offer_edit_filter_category", None)
         session.pop("offer_edit_filter_search", None)
-        return redirect(url_for("edit_offer", offer_id=offer_id))
+        return redirect(url_for("offer.edit_offer", offer_id=offer_id))
 
     if request.method == "POST":
         action = request.form.get("action")
@@ -872,7 +881,7 @@ def edit_offer(offer_id):
 
             if errors:
                 session["error_message"] = " ".join(errors)
-                return redirect(url_for("edit_offer", offer_id=offer_id))
+                return redirect(url_for("offer.edit_offer", offer_id=offer_id))
 
             # Validate duplicates if not allowed
             cur.execute("SELECT value FROM global_settings WHERE key = 'allow_duplicate_names';")
@@ -886,7 +895,7 @@ def edit_offer(offer_id):
                     conn.close()
                     # For edit, we must use session to persist error across redirect
                     session["error_message"] = "Duplicate Offer Number not allowed."
-                    return redirect(url_for("edit_offer", offer_id=offer_id))
+                    return redirect(url_for("offer.edit_offer", offer_id=offer_id))
 
             cur.execute("""
                 UPDATE offers
@@ -985,7 +994,7 @@ def edit_offer(offer_id):
 
             # IMPORTANT: redirect to GET so we reload fresh offer + items
             conn.close()
-            return redirect(url_for("edit_offer", offer_id=offer_id))
+            return redirect(url_for("offer.edit_offer", offer_id=offer_id))
 
         elif action == "create_temp_product":
             # Quick-create a minimal product with TEMP brand/category
@@ -1022,15 +1031,15 @@ def edit_offer(offer_id):
             recalc_totals(offer_id)
 
             conn.close()
-            return redirect(url_for("edit_offer", offer_id=offer_id))
+            return redirect(url_for("offer.edit_offer", offer_id=offer_id))
 
         # Redirect so that GET can preselect this product in the dropdown
         if new_prod_id:
-            return redirect(url_for("edit_offer",
+            return redirect(url_for("offer.edit_offer",
                                     offer_id=offer_id,
                                     product_id=new_prod_id))
         else:
-            return redirect(url_for("edit_offer", offer_id=offer_id))
+            return redirect(url_for("offer.edit_offer", offer_id=offer_id))
 
     # GET or after POST: load items
     cur.execute("""
@@ -1147,7 +1156,7 @@ def edit_offer(offer_id):
 
     conn.close()
     return render_template(
-        "offer_form.html",
+        "offer/offer_form.html",
         offer=offer,
         items=items,
         products=products,
@@ -1168,7 +1177,7 @@ def edit_offer(offer_id):
     )
 
 
-@app.route("/offers/<int:offer_id>/view")
+@bp.route("/offers/<int:offer_id>/view")
 def view_offer(offer_id):
     conn = get_db()
     cur = conn.cursor()
@@ -1191,7 +1200,7 @@ def view_offer(offer_id):
 
     conn.close()
     return render_template(
-        "offer_view.html", 
+        "offer/offer_view.html", 
         offer=offer, 
         items=items,
         countries=get_country_list(),
@@ -1203,7 +1212,7 @@ from flask import send_file, request
 
 from pathlib import Path
 
-@app.route("/offers/<int:offer_id>/pdf")
+@bp.route("/offers/<int:offer_id>/pdf")
 def offer_pdf(offer_id):
     conn = get_db()
     cur = conn.cursor()
@@ -1315,7 +1324,7 @@ def offer_pdf(offer_id):
     else:
         # Fallback to filesystem
         html_string = render_template(
-            "pdf_offer.html",
+            "offer/pdf_offer.html",
             **ctx
         )
         pdf_css_path = os.path.join(BASE_DIR, "static", "css", "pdf.css")
@@ -1333,7 +1342,7 @@ def offer_pdf(offer_id):
         download_name=filename
     )
 
-@app.route("/offers/<int:offer_id>/duplicate", methods=["POST"])
+@bp.route("/offers/<int:offer_id>/duplicate", methods=["POST"])
 def duplicate_offer(offer_id):
     conn = get_db()
     cur = conn.cursor()
@@ -1396,9 +1405,9 @@ def duplicate_offer(offer_id):
     conn.commit()
     conn.close()
 
-    return redirect(url_for("edit_offer", offer_id=new_offer_id))
+    return redirect(url_for("offer.edit_offer", offer_id=new_offer_id))
 
-@app.route("/offers/<int:offer_id>/delete", methods=["POST"])
+@bp.route("/offers/<int:offer_id>/delete", methods=["POST"])
 def delete_offer(offer_id):
     conn = get_db()
     cur = conn.cursor()
@@ -1411,9 +1420,9 @@ def delete_offer(offer_id):
 
     conn.commit()
     conn.close()
-    return redirect(url_for("list_offers"))
+    return redirect(url_for("offer.list_offers"))
 
-@app.route("/offers/<int:offer_id>/reorder", methods=["POST"])
+@bp.route("/offers/<int:offer_id>/reorder", methods=["POST"])
 def update_item_order(offer_id):
     data = request.json
     item_ids = data.get("item_ids", [])
@@ -1438,7 +1447,7 @@ def update_item_order(offer_id):
 
     return jsonify({"success": True})
 
-@app.route("/compare")
+@bp.route("/compare")
 def compare_offers():
     """Comparison tool - pure JS based, no DB saving."""
     conn = get_db()
@@ -1488,14 +1497,14 @@ def compare_offers():
 
     conn.close()
     
-    return render_template("compare.html", 
+    return render_template("offer/compare.html", 
                            products=products, 
                            brand_options=brand_options, 
                            category_options=category_options)
 
 
 
-@app.context_processor
+@bp.context_processor
 def inject_helpers():
     fmt = get_date_format()
     return dict(
@@ -1504,5 +1513,12 @@ def inject_helpers():
     )
 
 if __name__ == "__main__":
+    # Standalone dev run (python offer/app.py) -- previously this module's own
+    # Flask instance; now the blueprint mounted on a throwaway app with the
+    # same URL prefix and port.
+    standalone = Flask(__name__, static_folder=STATIC_DIR, static_url_path="/static")
+    standalone.register_blueprint(bp, url_prefix="/offer")
+    standalone.secret_key = os.environ.get("OFFER_SECRET_KEY", "crm_offer_secret_key_change_me")
+    standalone.config['SESSION_COOKIE_NAME'] = 'offer_session'
     init_db()
-    app.run(host="0.0.0.0", debug=True, port=5001)
+    standalone.run(host="0.0.0.0", debug=True, port=5001)

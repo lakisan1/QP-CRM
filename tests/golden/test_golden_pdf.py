@@ -146,7 +146,7 @@ def contract_id(temp_db, conn_factory):
 
 def test_offer_pdf_matches_golden_baseline(temp_db, conn_factory, offer_client, assets_dir, offer_id):
     """Filesystem-template path (fresh fixture DB has no active_pdf_template_id)."""
-    response = offer_client.get(f"/offers/{offer_id}/pdf")
+    response = offer_client.get(f"/offer/offers/{offer_id}/pdf")
     assert response.status_code == 200
     assert response.mimetype == "application/pdf"
     _assert_golden("offer_golden.pdf", response.data)
@@ -180,7 +180,7 @@ def test_offer_pdf_custom_template_matches_golden_baseline(
     """DB-template path: render_template_string of the seeded System Default
     header/body/footer with the same explicit context dict (logo/rig file://
     URIs, format helpers) the production route builds."""
-    response = offer_client.get(f"/offers/{offer_id}/pdf")
+    response = offer_client.get(f"/offer/offers/{offer_id}/pdf")
     assert response.status_code == 200
     assert response.mimetype == "application/pdf"
     _assert_golden("offer_custom_template_golden.pdf", response.data)

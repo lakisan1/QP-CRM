@@ -100,13 +100,16 @@ def conn_factory(temp_db):
 
 @pytest.fixture(scope="session")
 def offer_client(temp_db):
-    """Flask test client for the offer sub-app, pre-authenticated."""
-    from offer.app import app
+    """Flask test client for the offer module, pre-authenticated.
 
-    app.config["TESTING"] = True
+    Since the Phase-2 consolidation offer is a blueprint on the single app
+    (main.app); its session flag is namespaced to offer_authenticated.
+    """
+    from main import app
+
     client = app.test_client()
     with client.session_transaction() as session:
-        session["authenticated"] = True
+        session["offer_authenticated"] = True
     return client
 
 
