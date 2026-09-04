@@ -44,6 +44,7 @@ from shared.web import (
 # we already added PARENT_DIR to sys.path above
 from shared.utils import format_amount, format_date, get_nbs_rate
 from shared.auth import get_api_key, generate_api_key
+from services.pricing_service import apply_rounding
 
 # ---------------------------------------------------------------------------
 # Phase 2 stage 1: pricing is a Blueprint on the single QP-CRM app.
@@ -90,51 +91,6 @@ def migrate_schema():
     conn.commit()
     conn.close()
 
-
-def apply_rounding(val, target='price'):
-    if val <= 0:
-        return 0
-    
-    conn = get_db()
-    cur = conn.cursor()
-    # Find the matching rule: smallest limit >= val
-    cur.execute("""
-        SELECT step_val, method 
-        FROM price_rounding_rules 
-        WHERE target = ? AND limit_val >= ? 
-        ORDER BY limit_val ASC 
-        LIMIT 1;
-    """, (target, val))
-    rule = cur.fetchone()
-    
-    if not rule:
-        # Fallback to the largest limit rule for this target
-        cur.execute("""
-            SELECT step_val, method 
-            FROM price_rounding_rules 
-            WHERE target = ? 
-            ORDER BY limit_val DESC 
-            LIMIT 1;
-        """, (target,))
-        rule = cur.fetchone()
-    
-    conn.close()
-    
-    if not rule:
-        return val # No rules defined
-        
-    step = rule["step_val"]
-    method = rule["method"]
-    
-    import math
-    if method == 'UP':
-        return math.ceil(val / step) * step
-    elif method == 'DOWN':
-        return math.floor(val / step) * step
-    elif method == 'NEAREST':
-        return round(val / step) * step
-    else:
-        return math.ceil(val / step) * step
 
 import requests
 

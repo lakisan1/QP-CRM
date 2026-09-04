@@ -1,4 +1,4 @@
-from flask import Blueprint, Flask, render_template, render_template_string, request, redirect, url_for, send_from_directory, send_file, jsonify, session
+from flask import Blueprint, Flask, render_template, request, redirect, url_for, send_from_directory, send_file, jsonify, session
 import sqlite3
 import os
 import sys
@@ -40,6 +40,7 @@ from shared.web import (
     register_product_image,
     fetch_mandatory_fields,
 )
+from services.offer_service import recalc_totals
 
 # ---------------------------------------------------------------------------
 # Phase 2 stage 1: offer is a Blueprint on the single QP-CRM app.
@@ -573,60 +574,6 @@ def new_offer():
                            current_language=current_language)
 
 
-def recalc_totals(offer_id):
-    """Recalculate totals for an offer based on its items and discount/VAT."""
-    conn = get_db()
-    cur = conn.cursor()
-
-    # Load offer
-    cur.execute("SELECT * FROM offers WHERE id = ?;", (offer_id,))
-    offer = cur.fetchone()
-    if offer is None:
-        conn.close()
-        return
-
-    discount_percent = offer["discount_percent"] or 0.0
-    special_discount_percent = offer["special_discount_percent"] or 0.0
-    third_discount_percent = offer["third_discount_percent"] or 0.0
-    vat_percent = offer["vat_percent"] or 0.0
-
-    # Sum line_net
-    cur.execute("""
-        SELECT COALESCE(SUM(line_net), 0) AS sum_net
-        FROM offer_items
-        WHERE offer_id = ?;
-    """, (offer_id,))
-    row = cur.fetchone()
-    total_net = row["sum_net"] or 0.0
-
-    total_discount = total_net * discount_percent
-    total_net_after_discount = total_net - total_discount
-    
-    total_special_discount = total_net_after_discount * special_discount_percent
-    total_net_after_special_discount = total_net_after_discount - total_special_discount
-    
-    total_third_discount = total_net_after_special_discount * third_discount_percent
-    total_net_after_third_discount = total_net_after_special_discount - total_third_discount
-    
-    total_vat = total_net_after_third_discount * vat_percent
-    total_gross = total_net_after_third_discount + total_vat
-
-    cur.execute("""
-        UPDATE offers
-        SET total_net = ?, total_discount = ?, total_net_after_discount = ?,
-            special_discount_percent = ?, total_special_discount = ?, total_net_after_special_discount = ?,
-            third_discount_percent = ?, total_third_discount = ?, total_net_after_third_discount = ?,
-            total_vat = ?, total_gross = ?
-        WHERE id = ?;
-    """, (
-        total_net, total_discount, total_net_after_discount,
-        special_discount_percent, total_special_discount, total_net_after_special_discount,
-        third_discount_percent, total_third_discount, total_net_after_third_discount,
-        total_vat, total_gross, offer_id
-    ))
-    conn.commit()
-    conn.close()
-
 
 @bp.route("/offers/<int:offer_id>/edit", methods=["GET", "POST"])
 def edit_offer(offer_id):
@@ -1117,10 +1064,22 @@ def offer_pdf(offer_id):
     ctx["gettext"] = lambda x: x
 
     if custom_tpl:
-        # Render parts from DB
-        header_html = render_template_string(custom_tpl["header_html"], **ctx)
-        body_html = render_template_string(custom_tpl["body_html"], **ctx)
-        footer_html = render_template_string(custom_tpl["footer_html"], **ctx)
+        # Render parts from DB -- sandboxed Jinja (audit C4): DB-stored
+        # templates only reach the explicit context plus the pinned globals
+        # (url_for, _, gettext, format_amount, format_date) and the app's
+        # filters; request/session/config internals are off limits. Output
+        # for the seeded System Default template is byte-identical to the
+        # previous render_template_string call.
+        from flask import current_app
+
+        from services.pdf_service import render_db_template_parts
+
+        header_html, body_html, footer_html = render_db_template_parts(
+            custom_tpl["header_html"], custom_tpl["body_html"], custom_tpl["footer_html"],
+            ctx,
+            app_filters=current_app.jinja_env.filters,
+            url_for_func=url_for,
+        )
         custom_css = custom_tpl["css"]
         
         # We still use a basic wrapper to position header/footer running elements
