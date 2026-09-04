@@ -538,11 +538,95 @@ def count_active_admins():
     return row["n"]
 
 
-def create_user(username, password, confirm_password, role="staff"):
+# ----------
+# Per-user app access (user request after the phase-3 handover): WHICH
+# business module a staff user may open, managed from Admin -> Users.
+# admin-role users bypass the check entirely. MODULE_CHOICES is the single
+# list the UI checkboxes and the gate both use; new modules append here.
+# ----------
+
+MODULE_CHOICES = ("pricing", "offer", "rent")
+
+
+def get_user_modules(user_id):
+    """Sorted list of module names granted to the user (may be empty)."""
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT module FROM user_modules WHERE user_id = ?;", (user_id,))
+    rows = [r["module"] for r in cur.fetchall()]
+    conn.close()
+    return sorted(rows)
+
+
+def set_user_modules(user_id, modules):
+    """Replace the user's module grants (Admin -> Users save).
+
+    Accepts only known names; unknown ones are ignored. Marks the row
+    modules_set=1 so the one-time all-modules default seed never re-grants
+    behind the admin's back -- an explicitly emptied set stays empty.
+    """
+    clean = sorted({m for m in (modules or []) if m in MODULE_CHOICES})
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM users WHERE id = ?;", (user_id,))
+    if cur.fetchone() is None:
+        conn.close()
+        return False, "User not found."
+    cur.execute("DELETE FROM user_modules WHERE user_id = ?;", (user_id,))
+    for m in clean:
+        cur.execute(
+            "INSERT OR IGNORE INTO user_modules (user_id, module) VALUES (?, ?);",
+            (user_id, m),
+        )
+    cur.execute("UPDATE users SET modules_set = 1 WHERE id = ?;", (user_id,))
+    conn.commit()
+    conn.close()
+    return True, clean
+
+
+def user_has_module(user_id, module):
+    """True when the user row exists, is active, and holds the grant."""
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT 1 FROM users u
+        WHERE u.id = ? AND u.is_active = 1
+          AND EXISTS (SELECT 1 FROM user_modules um
+                      WHERE um.user_id = u.id AND um.module = ?);
+        """,
+        (user_id, module),
+    )
+    row = cur.fetchone()
+    conn.close()
+    return row is not None
+
+
+def seed_default_user_modules(cur):
+    """One-time default: every staff user without materialized grants gets
+    ALL modules (preserves pre-granular behavior; nobody loses access).
+    Users with modules_set=1 are never touched again."""
+    placeholders = ",".join("?" for _ in MODULE_CHOICES)
+    cur.execute(
+        f"SELECT id FROM users WHERE role = 'staff' AND is_active = 1 AND modules_set = 0;"
+    )
+    ids = [r["id"] for r in cur.fetchall()]
+    for uid in ids:
+        for m in MODULE_CHOICES:
+            cur.execute(
+                "INSERT OR IGNORE INTO user_modules (user_id, module) VALUES (?, ?);",
+                (uid, m),
+            )
+        cur.execute("UPDATE users SET modules_set = 1 WHERE id = ?;", (uid,))
+
+
+def create_user(username, password, confirm_password, role="staff", modules=None):
     """Create an account. Returns (ok, error_message_or_username).
 
     New staff accounts must change their password on first login, exactly
-    like the migrated ones.
+    like the migrated ones. `modules` lists the app grants for staff
+    (default: all MODULE_CHOICES, matching the migrated accounts); admins
+    bypass module gates entirely, so the list is ignored for them.
     """
     username = (username or "").strip()
     if not USERNAME_RE.match(username or ""):
@@ -553,6 +637,8 @@ def create_user(username, password, confirm_password, role="staff"):
         return False, f"Password must be at least {MIN_PASSWORD_LEN} characters."
     if password != confirm_password:
         return False, "Passwords did not match."
+    clean_modules = sorted({m for m in (modules if modules is not None else MODULE_CHOICES)
+                            if m in MODULE_CHOICES})
 
     conn = get_db()
     cur = conn.cursor()
@@ -560,8 +646,8 @@ def create_user(username, password, confirm_password, role="staff"):
         cur.execute(
             """
             INSERT INTO users (username, password_hash, role, is_active,
-                               must_change_password, created_at)
-            VALUES (?, ?, ?, 1, ?, ?);
+                               must_change_password, created_at, modules_set)
+            VALUES (?, ?, ?, 1, ?, ?, 1);
             """,
             (
                 username,
@@ -571,6 +657,13 @@ def create_user(username, password, confirm_password, role="staff"):
                 _utcnow_iso(),
             ),
         )
+        user_id = cur.lastrowid
+        if role == "staff":
+            for m in clean_modules:
+                cur.execute(
+                    "INSERT OR IGNORE INTO user_modules (user_id, module) VALUES (?, ?);",
+                    (user_id, m),
+                )
         conn.commit()
     except sqlite3.IntegrityError:
         conn.close()

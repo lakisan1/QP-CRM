@@ -241,6 +241,65 @@ def require_role(*roles, exempt_endpoints=()):
     return check_auth
 
 
+def require_module(module, exempt_endpoints=()):
+    """Blueprint-level PER-USER APP-ACCESS gate (post-Phase-3 request).
+
+    Replaces require_role("staff", "admin") on the business modules:
+    which apps a STAFF user may open is now a per-user list managed in
+    Admin -> Users (user_modules table, checkboxes). Behavior:
+
+        no session          -> unified login with a safe ?next=
+        inactive/deleted    -> session cleared, login
+        must_change_password-> forced /change-password first
+        role == 'admin'     -> always allowed (superset, bypasses grants)
+        staff WITH the grant-> allowed
+        staff WITHOUT it    -> 403 (message names the missing app)
+
+    The grant is re-read from the DB on EVERY request (same freshness rule
+    as require_role): revoking an app hits the user on their next click.
+    `module` must be a name from shared.auth.MODULE_CHOICES.
+    """
+    from qp_crm.shared.auth import get_user_by_id, user_has_module
+
+    exempt = frozenset(exempt_endpoints)
+
+    def check_auth():
+        if request.endpoint in exempt:
+            return None
+        user_id = session.get("user_id")
+        if not user_id:
+            next_url = safe_next_url() or request.path
+            if next_url and next_url != "/":
+                return redirect(url_for("auth.login", next=next_url))
+            return redirect(url_for("auth.login"))
+
+        user = get_user_by_id(user_id)
+        if user is None:
+            session.clear()
+            return redirect(url_for("auth.login"))
+
+        if user["must_change_password"] and not session.get("must_change_password"):
+            session["must_change_password"] = True
+        if session.get("must_change_password"):
+            return redirect(url_for("auth.change_password"))
+
+        # A role changed while logged in takes effect immediately.
+        if session.get("role") != user["role"]:
+            session["role"] = user["role"]
+
+        if user["role"] == "admin":
+            return None  # admins open every app
+        if user_has_module(user_id, module):
+            return None
+        abort(403, description=(
+            f"Nemate pristup modulu '{module}'. (Your account does not have "
+            f"access to the {module} app -- ask an admin to grant it in "
+            "Admin -> Users.)"
+        ))
+
+    return check_auth
+
+
 # ---------- product image route ----------
 
 def register_product_image(bp):

@@ -98,6 +98,7 @@ def test_create_user_requires_admins_own_password(admin):
 
 def test_create_staff_user_forces_first_login_change(admin):
     conn = get_db()
+    conn.execute("DELETE FROM user_modules WHERE user_id IN (SELECT id FROM users WHERE username = 'newbie');")
     conn.execute("DELETE FROM users WHERE username = 'newbie';")
     conn.commit()
     conn.close()
@@ -107,6 +108,8 @@ def test_create_staff_user_forces_first_login_change(admin):
         "password": "Newbie-Pass-1",
         "confirm_password": "Newbie-Pass-1",
         "role": "staff",
+        # the UI create form ships with all app checkboxes pre-checked
+        "modules": ["pricing", "offer", "rent"],
         "current_password": DEFAULT_PASSWORDS["admin"],
     })
     assert resp.status_code == 302
@@ -121,6 +124,7 @@ def test_create_staff_user_forces_first_login_change(admin):
     fresh = login_client(app.test_client(), "newbie", password="Newbie-Pass-1")
     assert fresh.get("/pricing/products").status_code == 200
     conn = get_db()
+    conn.execute("DELETE FROM user_modules WHERE user_id IN (SELECT id FROM users WHERE username = 'newbie');")
     conn.execute("DELETE FROM users WHERE username = 'newbie';")
     conn.commit()
     conn.close()
@@ -128,6 +132,7 @@ def test_create_staff_user_forces_first_login_change(admin):
 
 def test_create_user_rejects_duplicate_and_weak_password(admin):
     conn = get_db()
+    conn.execute("DELETE FROM user_modules WHERE user_id IN (SELECT id FROM users WHERE username IN ('dup', 'mismatch', 'no-such'));")
     conn.execute("DELETE FROM users WHERE username IN ('dup', 'mismatch', 'no-such');")
     conn.commit()
     conn.close()
@@ -179,6 +184,7 @@ def test_last_active_admin_cannot_be_deactivated_or_demoted():
 
     # Fresh second admin (the temp DB persists across pytest invocations).
     conn = get_db()
+    conn.execute("DELETE FROM user_modules WHERE user_id IN (SELECT id FROM users WHERE username = 'admin2');")
     conn.execute("DELETE FROM users WHERE username = 'admin2';")
     conn.commit()
     conn.close()
@@ -204,8 +210,9 @@ def test_last_active_admin_cannot_be_deactivated_or_demoted():
     assert conn.execute("SELECT role FROM users WHERE username='admin'").fetchone()[0] == "admin"
     conn.close()
 
-    # Cleanup for the rest of the suite.
+    # Cleanup for the rest of the suite (module rows first: FK).
     conn = get_db()
+    conn.execute("DELETE FROM user_modules WHERE user_id IN (SELECT id FROM users WHERE username IN ('admin2', 'newbie', 'dup'));")
     conn.execute("DELETE FROM users WHERE username IN ('admin2', 'newbie', 'dup');")
     conn.commit()
     conn.close()

@@ -421,6 +421,18 @@ def create_users_table(cur):
         );
     """)
 
+    # Per-user app access (post-Phase-3 user request): WHICH business module
+    # a staff user may open. admin-role users bypass this check entirely
+    # (superset). Seeding grants existing staff all three modules so the
+    # migration never removes access; the admin trims from the Users UI.
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS user_modules (
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            module TEXT NOT NULL,
+            UNIQUE(user_id, module)
+        );
+    """)
+
 
 # ---------------------------------------------------------------------------
 # idempotent ALTER migrations
@@ -434,6 +446,18 @@ def add_column_if_missing(cur, table, column_ddl):
     except sqlite3.OperationalError:
         # Already exists (or table missing on an exotic legacy DB) - no-op.
         pass
+
+
+def migrate_users(cur):
+    """Auth-side idempotent migrations (post-Phase-3 evolution).
+
+    users.modules_set marks that a user's module grants have been
+    MATERIALIZED once (either by the one-time all-modules default seed or by
+    an explicit admin save in the Users UI). Without the marker, a user
+    whose grants the admin deliberately emptied would be re-granted all
+    modules on the next boot.
+    """
+    add_column_if_missing(cur, "users", "modules_set INTEGER NOT NULL DEFAULT 0")
 
 
 def migrate_pricing(cur):

@@ -145,13 +145,22 @@ def init_users_table():
     the boot sequence), because the legacy '{app}_password' rows are read
     from there.
     """
-    from qp_crm.shared.schema import create_users_table
-    from qp_crm.shared.auth import scrub_legacy_password_keys, seed_users_from_legacy
+    from qp_crm.shared.schema import create_users_table, migrate_users
+    from qp_crm.shared.auth import (
+        scrub_legacy_password_keys,
+        seed_default_user_modules,
+        seed_users_from_legacy,
+    )
 
     conn = get_db()
     cur = conn.cursor()
     create_users_table(cur)
+    migrate_users(cur)
     seed_users_from_legacy(cur)
+    # Per-user app access: materialize the all-modules default exactly once
+    # per user (users.modules_set marker), so the admin's later trims are
+    # never undone by a reboot.
+    seed_default_user_modules(cur)
     # End state 'no plaintext passwords at rest': the legacy '{app}_password'
     # rows are removed on EVERY boot, not only when seeding new accounts, so
     # they cannot survive a restore of a pre-Phase-3 backup either.

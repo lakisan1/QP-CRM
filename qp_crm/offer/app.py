@@ -19,7 +19,7 @@ from qp_crm.shared.utils import format_amount, format_date, get_nbs_rate
 from qp_crm.shared.web import (
     get_date_format,
     get_theme,
-    require_role,
+    require_module,
     register_product_image,
     fetch_mandatory_fields,
 )
@@ -40,9 +40,9 @@ from qp_crm.services.offer_service import recalc_totals
 
 bp = Blueprint("offer", __name__, template_folder="templates")
 
-# Role gate (Phase 3 step 4); the NBS rate endpoint stays publicly
-# reachable exactly as before the consolidation.
-bp.before_request(require_role("staff", "admin", exempt_endpoints=("offer.api_nbs_eur_rate",)))
+# Per-user app access gate (post-Phase-3 request); the NBS rate endpoint
+# stays publicly reachable exactly as before the consolidation.
+bp.before_request(require_module("offer", exempt_endpoints=("offer.api_nbs_eur_rate",)))
 
 def init_db():
     """Thin wrapper -- the DDL lives in shared/schema.py (single source).

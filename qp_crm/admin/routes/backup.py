@@ -302,15 +302,23 @@ def factory_reset():
         except Exception as rules_e:
             print(f"[factory_reset] Warning: Could not re-seed rounding rules: {rules_e}")
 
-        # Phase 3: reset user accounts to the four hashed defaults (the
-        # legacy plaintext '{app}_password' keys are no longer written).
+        # Phase 3 + per-user app access: reset user accounts to the four
+        # hashed defaults AND materialize their module grants (the same
+        # contract as admin.init_users_table), so post-reset staff keep all
+        # three apps until the admin trims them again.
         try:
             from qp_crm.shared.auth import (
                 scrub_legacy_password_keys,
+                seed_default_user_modules,
                 seed_users_from_legacy,
             )
+            from qp_crm.shared.schema import migrate_users
+            cur.execute("DELETE FROM user_modules;")
+            cur.execute("DELETE FROM api_keys;")
             cur.execute("DELETE FROM users;")
+            migrate_users(cur)
             seed_users_from_legacy(cur)
+            seed_default_user_modules(cur)
             scrub_legacy_password_keys(cur)
         except Exception as users_e:
             print(f"[factory_reset] Warning: Could not reset user accounts: {users_e}")

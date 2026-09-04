@@ -86,20 +86,35 @@ def test_deactivated_user_loses_access_immediately():
 
 
 def test_role_change_takes_effect_while_logged_in():
+    """Since per-user app access, the role gate is binary: 'admin' opens
+    everything, ANY other role falls through to the module grants. A role
+    change therefore hits the admin panel immediately, while business-module
+    access follows the grants, not the role name."""
     client = login_client(app.test_client(), "pricing")
     conn = get_db()
     conn.execute("UPDATE users SET role = 'staff' WHERE username = 'pricing';")
     conn.commit()
     conn.close()
-    assert client.get("/pricing/products").status_code == 200  # staff: allowed
+    assert client.get("/pricing/products").status_code == 200  # granted staff
+    assert client.get("/admin/").status_code == 403
 
+    # role renamed to something else while logged in: business access is
+    # unchanged (grants decide), admin panel still closed
     conn = get_db()
     conn.execute("UPDATE users SET role = 'viewer' WHERE username = 'pricing';")
     conn.commit()
     conn.close()
-    # A role outside the allowed set is rejected on the next request.
-    assert client.get("/pricing/products").status_code == 403
+    assert client.get("/pricing/products").status_code == 200
+    assert client.get("/admin/").status_code == 403
 
+    # promote to admin while logged in: admin panel opens on the next request
+    conn = get_db()
+    conn.execute("UPDATE users SET role = 'admin' WHERE username = 'pricing';")
+    conn.commit()
+    conn.close()
+    assert client.get("/admin/").status_code == 200
+
+    # restore the seeded role
     conn = get_db()
     conn.execute("UPDATE users SET role = 'staff' WHERE username = 'pricing';")
     conn.commit()

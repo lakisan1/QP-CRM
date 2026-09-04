@@ -68,6 +68,16 @@
                         <option value="admin">admin</option>
                     </select>
                 </div>
+                <div style="min-width: 260px;">
+                    <label>App access (staff)</label>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        {% for m in module_choices %}
+                        <label style="font-weight: normal; text-transform: capitalize;">
+                            <input type="checkbox" name="modules" value="{{ m }}" checked> {{ m }}
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
                 <div style="min-width: 180px;">
                     <label>Your current password</label>
                     <input type="password" name="current_password" required autocomplete="current-password">
@@ -94,6 +104,25 @@
                     <tr>
                         <td><strong>{{ user.username }}</strong>{% if user.id == current_user_id %} <small style="color: var(--text-muted);">(you)</small>{% endif %}</td>
                         <td>{{ user.role }}</td>
+                        <td>
+                            {% if user.role == 'admin' %}
+                            <span style="color: var(--text-muted);">all apps</span>
+                            {% else %}
+                            <form action="{{ url_for('admin.change_user_modules_action', user_id=user.id) }}" method="POST"
+                                  style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                {% for m in module_choices %}
+                                <label style="font-weight: normal; text-transform: capitalize;">
+                                    <input type="checkbox" name="modules" value="{{ m }}"
+                                           {{ 'checked' if m in user.modules }}> {{ m }}
+                                </label>
+                                {% endfor %}
+                                <input type="password" name="current_password" placeholder="Your password" required
+                                       style="width: 130px;" autocomplete="current-password">
+                                <button type="submit" class="btn btn-secondary">Save access</button>
+                            </form>
+                            {% endif %}
+                        </td>
                         <td>{{ 'active' if user.is_active else 'inactive' }}</td>
                         <td>{{ user.created_at[:10] }}</td>
                         <td>{{ user.last_login[:19].replace('T', ' ') if user.last_login else 'never' }}</td>
@@ -138,6 +167,8 @@
             <p style="color: var(--text-muted); font-size: 0.85rem;">
                 Deactivated users lose access on their next request. The last active admin cannot be deactivated or demoted.
                 Reset passwords force a change on the user\'s next login.
+                App access: admins open every app; staff only the checked apps (re-read on every request — changes hit instantly).
+                An explicitly emptied set stays empty across reboots.
             </p>
         </div>
     </div>

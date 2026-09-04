@@ -17,7 +17,7 @@ from qp_crm.shared.auth import check_password
 from qp_crm.shared.web import (
     get_date_format,
     get_theme,
-    require_role,
+    require_module,
     register_product_image,
     save_product_image,
     download_image_from_url,
@@ -45,8 +45,10 @@ from qp_crm.services.pricing_service import apply_rounding
 
 bp = Blueprint("pricing", __name__, template_folder="templates")
 
-# Role gate (Phase 3 step 4): staff and admin reach the business modules.
-bp.before_request(require_role("staff", "admin"))
+# Per-user app access gate (post-Phase-3 request): staff reach pricing
+# only if the admin granted the 'pricing' module (Admin -> Users); admins
+# open every app.
+bp.before_request(require_module("pricing"))
 
 
 def init_db():

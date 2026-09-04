@@ -16,12 +16,15 @@ from flask import flash, redirect, render_template, request, session, url_for
 
 from ..app import bp
 from qp_crm.shared.auth import (
+    MODULE_CHOICES,
     admin_reset_user_password,
     change_user_role,
     confirm_current_password,
     create_user,
+    get_user_modules,
     list_users as list_users_rows,
     set_user_active,
+    set_user_modules,
 )
 
 
@@ -40,7 +43,15 @@ def _guard_sensitive():
 
 @bp.route("/users")
 def list_users():
-    return render_template("admin/users.html", users=list_users_rows(), current_user_id=session.get("user_id"))
+    users = [dict(u) for u in list_users_rows()]
+    for u in users:
+        u["modules"] = get_user_modules(u["id"])
+    return render_template(
+        "admin/users.html",
+        users=users,
+        module_choices=MODULE_CHOICES,
+        current_user_id=session.get("user_id"),
+    )
 
 
 @bp.route("/users/create", methods=["POST"])
@@ -53,6 +64,7 @@ def create_user_action():
         request.form.get("password") or "",
         request.form.get("confirm_password") or "",
         request.form.get("role") or "staff",
+        modules=request.form.getlist("modules"),
     )
     if ok:
         flash(f"User '{result}' created. They must change the password on first login.", "success")
@@ -85,6 +97,23 @@ def change_user_role_action(user_id):
         flash("Role updated.", "success")
     else:
         flash(error, "error")
+    return redirect(url_for("admin.list_users"))
+
+
+@bp.route("/users/<int:user_id>/modules", methods=["POST"])
+def change_user_modules_action(user_id):
+    """Save the app-access checkboxes for one user (own password confirm)."""
+    acting_id, err = _guard_sensitive()
+    if err:
+        return err
+    ok, result = set_user_modules(user_id, request.form.getlist("modules"))
+    if ok:
+        if result:
+            flash(f"App access updated: {', '.join(result)}.", "success")
+        else:
+            flash("App access updated: this user can open no business apps now.", "success")
+    else:
+        flash(result, "error")
     return redirect(url_for("admin.list_users"))
 
 
