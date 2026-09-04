@@ -152,6 +152,40 @@ def test_offer_pdf_matches_golden_baseline(temp_db, conn_factory, offer_client, 
     _assert_golden("offer_golden.pdf", response.data)
 
 
+@pytest.fixture(scope="module")
+def offer_custom_template_id(temp_db, conn_factory):
+    """Activate the seeded 'System Default' DB template (is_readonly=1).
+
+    Switches offer_pdf onto the render_template_string branch (header/body/
+    footer rendered from pdf_templates rows + CSS as a string) -- the branch
+    that differs from the filesystem-template path pinned by
+    test_offer_pdf_matches_golden_baseline. Phase 2 moves this branch behind
+    the sandboxed pdf_service, so its bytes must be pinned BEFORE the move.
+    """
+    with conn_factory() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT id FROM pdf_templates WHERE name = 'System Default';")
+        row = cur.fetchone()
+        assert row, "System Default pdf_template must be seeded by admin init_db"
+        cur.execute(
+            "INSERT OR REPLACE INTO global_settings (key, value) VALUES ('active_pdf_template_id', ?);",
+            (str(row["id"]),),
+        )
+    return row["id"]
+
+
+def test_offer_pdf_custom_template_matches_golden_baseline(
+    temp_db, conn_factory, offer_client, assets_dir, offer_id, offer_custom_template_id
+):
+    """DB-template path: render_template_string of the seeded System Default
+    header/body/footer with the same explicit context dict (logo/rig file://
+    URIs, format helpers) the production route builds."""
+    response = offer_client.get(f"/offers/{offer_id}/pdf")
+    assert response.status_code == 200
+    assert response.mimetype == "application/pdf"
+    _assert_golden("offer_custom_template_golden.pdf", response.data)
+
+
 def test_rent_document_pdf_matches_golden_baseline(temp_db, rent_client, assets_dir, contract_id):
     """ugovor-zakup is seeded from rent/rent_templates_defaults.json and filled
     through the {{ key }}/{{key}} + html.escape substitution loop."""
