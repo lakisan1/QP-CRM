@@ -75,20 +75,48 @@ Ovi moduli su **zajednički** za sve podaplikacije — dele se preko `shared.*` 
   - `PRAGMA synchronous = NORMAL` — bolje performanse sa WAL.
   - **Vraća otvorenu konekciju** — pozivaoc je dužan da je zatvori.
 
-### 2.3 `shared/auth.py` — Autentifikacija i API ključ
+### 2.3 `shared/auth.py` — Autentifikacija, korisnici, API ključevi (Phase 3)
 
-**Uloga:** Upravljanje lozinkama podaplikacija i API ključem.
+**Uloga:** Jedinstveni korisnički nalog za ceo stack (tabela `users`), heširanje
+lozinki, per-user API ključevi, login audit i lockout. Legacy per-app lozinke
+iz `global_settings` su pri Phase 3 migrirane u `users` redove i obrisane.
 
-- `DEFAULT_PASSWORDS` — podrazumevane lozinke: admin/Admin1, pricing/Price1, offer/Offer1, rent/Rent1.
-- **API ključ:**
-  - `generate_api_key()` → pravi 48-znak heks ključ i čuva ga u tabeli `global_settings` (ključ `api_key`).
-  - `get_api_key()` → čita API ključ iz `global_settings`.
-  - `validate_api_key(key)` → sigurna provera (constant-time `compare_digest`).
-  - `revoke_api_key()` → briše API ključ (ukida pristup).
-- **Lozinke:**
-  - `get_password(app_name)` → čita lozinku aplikacije iz `global_settings` (ako nema, vraća podrazumevanu).
-  - `check_password(app_name, input_password)` → proverava lozinku (obično poređenje).
-  - `set_password(app_name, new_password)` → menja lozinku aplikacije.
+- **Korisnici (tabela `users`):** `username` (unique), `password_hash`
+  (werkzeug scrypt — nikad čist tekst), `role` (`admin` | `staff`),
+  `is_active`, `must_change_password` (prisilna promena pri prvom loginu),
+  `created_at`, `last_login`.
+  - `seed_users_from_legacy()` — idempotentno pravi 4 naloga (admin→admin,
+    pricing/offer/rent→staff) od legacy lozinki iz `global_settings` (te
+    vrednosti imaju prednost nad `DEFAULT_PASSWORDS`), odmah heširane; staff
+    nalozi dobijaju `must_change_password=1`. Legacy `{app}_password` ključevi
+    se brišu (`scrub_legacy_password_keys`) pri svakom bootu.
+  - `attempt_login(username, password)` → user red ili None (bez
+    enumeracije korisnika: nepoznat i deaktiviran nalog su isti odgovor).
+  - `check_password(app_name, input)` → verifikacija preko `users`; red koji
+    još nosi legacy čist tekst se pri prvom uspešnom loginu **transparentno
+    rehash-ira** (`set_password`).
+  - `change_own_password(user_id, current, new, confirm)` → self-service
+    promena (traži trenutnu lozinku, min. 8 znakova, potvrdu).
+- **User management (Admin → Users):** `create_user`, `set_user_active`,
+  `change_user_role`, `admin_reset_user_password` — sve uz potvrdu sopstvene
+  lozinke admina (`confirm_current_password`) i čuvare: ne možeš deaktivirati
+  samog sebe, menjati svoju rolu, ni deaktivirati/demovati POSLEDNJEG aktivnog
+  admina. Reset lozinke postavlja `must_change_password=1`.
+- **Per-user API ključevi (`api_keys`):** `issue_user_api_key(user_id, label)`
+  vraća sirovi ključ **tačno jednom** (čuva se samo SHA-256 heš + prefix za
+  prikaz), `resolve_api_identity(raw)` → `('user', username, user_id)` /
+  `('global', None, None)` (legacy ključ — DEPRECATED, tranzicija) /
+  `('user-denied', ...)` (revoke ili neaktivan vlasnik — audited, pa 403) /
+  None. `log_api_call()` piše `api_audit` (metoda, putanja, kind, username,
+  status) za svaki autentifikovani API poziv.
+- **Login audit + lockout (Phase 3 step 8, bez Redis-a):** `log_login_attempt()`
+  piše `login_audit` (ts, username, ip, success, detail); brojač neuspeha je
+  in-process dict po `(ip, username)` paru pod `threading.Lock` —
+  `LOGIN_MAX_FAILURES=5` u `LOGIN_WINDOW_SECONDS=15min` → lockout
+  `LOGIN_LOCKOUT_SECONDS=15min` (`is_login_locked`), uspešan login briše brojač.
+- **Legacy API ključ:** `generate_api_key()`/`get_api_key()`/`revoke_api_key()`
+  rade nad `global_settings.api_key` — i dalje važi za `/api/v1` (tranzicija),
+  ali je deprecated (vidi `API_INSTRUCTIONS.md`).
 
 ### 2.4 `shared/utils.py` — Pomoćne funkcije i prevodi
 
@@ -371,6 +399,39 @@ Upravlja ugovorima o zakupu, dokumentima, PDF šablonima i obračunom rata.
   - `_docx_to_html(docx_path)` — koristi `mammoth` biblioteku za konverziju.
   - Zahteva `mammoth` (ako nije instaliran → preskače sa upozorenjem).
 - **Templates:** `TEMPLATES` — lista (fajl, slug, prikazni naziv) za 8 dokumenata.
+
+---
+
+## 11. Autentifikacija i bezbednost — Phase 3 (pregled celog sistema)
+
+**Jedan login za ceo stack.** `qp_crm/auth/app.py` drži `/login`, `/logout` i
+`/change-password` na glavnoj aplikaciji (`main.py` registruje auth blueprint
+na vrhu). Stari per-app login URL-ovi (`/pricing/login` itd.) su sada
+redirecti na jedinstveni login. Jedan cookie `qp_session` (path=/, HttpOnly,
+SameSite=Lax); login radi **session.clear()** pre upisa identiteta (zaštita od
+session fixation) i postavlja `session.permanent = True` — sesija ističe posle
+8h neaktivnosti (`PERMANENT_SESSION_LIFETIME` u `main.py`; cookie se osvežava
+na svaki zahtev, pa 8h sat kreće iznova dok korisnik radi).
+
+**Role i čuvanje ruta (`shared/web.py`):** `require_role(*roles)` je
+before_request hook po blueprintu — admin → `"admin"`, pricing/offer/rent →
+`"staff", "admin"` (admin je superset), sale/settings javni (read-only /
+CSRF-zaštićeni), `/api/v1/health` javan. Hook **ponovo čita users red iz baze
+na svaki zahtev**: deaktivacija ili promena role pogađa korisnika odmah;
+`must_change_password=1` forsira redirect na `/change-password` pre bilo
+čega drugog.
+
+**CSRF (Phase 3 step 5):** `shared/web.py` drži opšti mehanizam
+(`csrf_token()`, `check_csrf()` — form polje `_csrf_token` ili header
+`X-CSRF-Token`, metode POST/PUT/PATCH/DELETE). `main.py` kači `check_csrf`
+na nivou cele aplikacije; svih ~54 POST formi nosi hidden token; AJAX
+pozivi šalju header. `api_v1.*` je izuzet (Bearer auth, ne cookie).
+
+**Šta je „state of the world“ posle Phase 3:** nema čistih lozinki u bazi
+(test `test_no_plaintext_passwords_at_rest_after_full_init` to pinuje);
+legacy per-app lozinke su migrirane i obrisane; svaki login/API poziv je
+audited (`login_audit` / `api_audit`); brute-force je usporen in-process
+lockoutom (5 neuspeha / 15 min po IP+username paru → 15 min lockout).
 
 
 

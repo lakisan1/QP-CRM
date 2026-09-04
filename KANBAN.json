@@ -55,10 +55,10 @@
       "id": "card-475fcd46-206e-407f-ba11-76698862e40f",
       "title": "Phase 3 — Users & user management (unified auth, roles, CSRF, hashing)",
       "description": "Phase 3 of the roadmap — runs AFTER Phase 2 (single app + blueprints) so login/session/CSRF are written once against the final shape. (Env-based secrets for Docker stay in the dockerization phase — pricing/offer/rent hardcoded keys switch to os.environ.get there.) Content: users table (id, username, password_hash, role, is_active, created_at, last_login); single unified login on the top-level app; one shared session cookie (same secret via shared module reading env, same cookie name, path=/); replace per-app password gates (authenticated / admin_authenticated / rent_authenticated) with shared require_role() per blueprint (admin/staff/viewer); hashed passwords via werkzeug generate_password_hash with transparent rehash-on-login migration from plaintext; CSRF tokens on all state-changing routes (settings/app.py is the in-repo reference pattern, audit C5); PDF-template editing stays admin-only + render through sandboxed Jinja (audit C4, lands via pdf_service); admin Users management UI (create/deactivate/reset/roles), self-service password change, per-user API keys for /api/v1 replacing the single global key, login audit log; login rate-limit + session timeout. Exit criteria: single login, roles enforced per module, all POSTs CSRF-protected, no plaintext passwords at rest.",
-      "rationale": "User's milestone 2, repositioned in the no-time-pressure roadmap: after the Phase-2 blueprint consolidation to avoid double work, before features (roles gate who may create invoices, edit stock, manage templates).",
-      "rejected": "Heavy auth frameworks (Flask-User/OAuth) — overkill for LAN scale; per-app user tables — perpetuates the six-realm split; landing auth before consolidation — double work, see Phase-2 card.",
+      "rationale": "Phase-3 board card: the CRM had four independent plaintext per-app passwords, no roles, no CSRF and no audit — the agreed pre-Phase-4 security milestone the user tests manually.",
+      "rejected": "Flask-Login/Flask-WTF extensions rejected (no new framework deps allowed — hand-rolled session identity + shared/web.py CSRF kept the footprint minimal and matched the existing settings-app token pattern). Redis-backed rate limiting rejected (no new services — in-process dict with threading.Lock per the card). Werkzeug check_password_hash alone rejected for legacy rows (transparent rehash needed for pre-Phase-3 plaintext restores). Deleting deactivated users rejected (deactivate-only keeps audit trails and offer/contract authorship intact).",
       "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
-      "status": "in_progress",
+      "status": "done",
       "tags": [
         "qp-crm",
         "users",
@@ -66,7 +66,8 @@
         "plan"
       ],
       "createdAt": 1788443872544,
-      "updatedAt": 1788512351840
+      "updatedAt": 1788539514606,
+      "summary": "Shipped the unified auth layer on branch phase-3-auth (10 commits cb3da82..2e12c4f, image qp-crm:phase3, suite 218 passed incl. untouched money-math characterization + golden PDFs): single users table + 4 migrated accounts (legacy global_settings passwords won over defaults, seeded hashed, staff forced change on first login, legacy keys scrubbed every boot); werkzeug scrypt hashing with transparent rehash on legacy plaintext at login; unified /login + /logout + /change-password with session cycling and one qp_session cookie; require_role per blueprint (admin→admin, pricing/offer/rent→staff superset, sale/settings public, api_v1/health public); app-wide CSRF on all state-changing routes (54 forms + AJAX headers tokenized, api_v1 Bearer exempt); Admin Users UI (create/deactivate/role/reset with own-password confirmation, last-active-admin + self-action guards); per-user API keys (sha256 + prefix storage, shown once, api_audit log with per-user attribution, legacy global key deprecated but valid); login_audit + in-process (ip,username) lockout 5/15min→15min; 8h sliding permanent session; docs in DOCKER.md, API_INSTRUCTIONS.md, PROGRAM_DOCUMENTATION.md."
     },
     {
       "id": "card-a22cd307-a046-4204-adab-07a9cea46711",

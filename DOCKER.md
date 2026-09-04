@@ -4,9 +4,9 @@ Single-container deployment: the Flask multi-app stack (pricing / offer / rent /
 admin / sale / settings, merged by `qp_crm/main.py` via DispatcherMiddleware and served
 by gunicorn through `qp_crm/wsgi.py`) runs in one container on **port 5000**.
 
-- Image: `qp-crm:phase2` — built from `./Dockerfile` (phase-1 added the pytest
-test layer; phase-2 is the unified-app/package-layout image;
-`qp-crm:phase1` remains the rollback tag)
+- Image: `qp-crm:phase3` — built from `./Dockerfile` (phase-1 added the pytest
+test layer; phase-2 is the unified-app/package-layout image; phase-3 adds the
+unified auth/roles/CSRF layer; `qp-crm:phase2` remains the rollback tag)
 - Container name: `qp-crm` — stack file: `docker-compose.yml`
 - Secrets: `.env` (see `.env.example`)
 
@@ -99,6 +99,37 @@ The suite is fully isolated from the live stack: it patches the data paths
 into a throwaway `/tmp/qp-crm-tests` tree inside the container and never
 touches the bind-mounted `app_data/pricing.db`. Details, golden-PDF
 re-baselining and the characterization discipline live in `tests/README.md`.
+
+## Accounts & login (Phase 3)
+
+ONE login for the whole stack: `http://<host>:5000/login` (the old per-app
+login URLs `/pricing/login`, `/offer/login`, `/rent/login`, `/admin/login`
+redirect there). One `qp_session` cookie (path=/), HttpOnly, SameSite=Lax;
+the session expires after 8h of inactivity (sliding — activity refreshes it).
+
+Seeded accounts (usernames = the legacy module names): `admin` (role admin —
+everything, incl. the Users/API-Keys admin), `pricing`, `offer`, `rent`
+(role staff — pricing/offer/rent business modules). Initial passwords:
+
+- the legacy per-app password from `global_settings` (`{app}_password`) if it
+  was set at migration time — otherwise the phase-0 defaults (`Admin1`,
+  `Price1`, `Offer1`, `Rent1`);
+- **change on first login is forced** for migrated staff accounts (`pricing`,
+  `offer`, `rent`) and for staff accounts created in the Users UI.
+
+Manage accounts in **Admin → Users** (create / deactivate / role change /
+password reset; every sensitive action asks for the acting admin's own
+password). Users self-service their password via **"Moja lozinka" /
+My password** in any module nav. The legacy per-app password fields on the
+admin dashboard are transitional leftovers — the users table is the source of
+truth now.
+
+Security posture since Phase 3: passwords stored only as werkzeug scrypt
+hashes (legacy plaintext is rehashed transparently at first login); CSRF
+token on every state-changing form (including AJAX); per-user API keys with
+an API audit log (the shared global API key is deprecated but still works);
+login audit log + in-process lockout (5 failed attempts / 15 min per
+IP+username pair → 15 min lockout).
 
 ## Quick reference
 
