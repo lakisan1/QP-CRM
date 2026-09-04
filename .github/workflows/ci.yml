@@ -1,0 +1,38 @@
+# QP-CRM CI (Phase 2 stage 7): run the pytest suite in the same Docker image
+# the deployment uses, exactly like the local gate:
+#   docker compose build app && docker compose run --rm app pytest
+#
+# The compose file requires .env (env_file is mandatory); CI generates a
+# throwaway .env with random secrets — tests run against a throwaway fixture
+# DB in /tmp inside the container, never real data, and the values only sign
+# sessions during the test run.
+
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate throwaway .env (test-only secrets)
+        run: |
+          python3 - <<'EOF'
+          import secrets
+          keys = ["PRICING_SECRET_KEY", "OFFER_SECRET_KEY", "RENT_SECRET_KEY",
+                  "ADMIN_SECRET_KEY", "SALE_SECRET_KEY", "SETTINGS_SECRET_KEY"]
+          with open(".env", "w") as f:
+              for k in keys:
+                  f.write(f"{k}={secrets.token_hex(32)}\n")
+          EOF
+
+      - name: Build image
+        run: docker compose build app
+
+      - name: Run pytest suite
+        run: docker compose run --rm app pytest
