@@ -344,6 +344,37 @@ def create_rent_tables(cur):
 
 
 # ---------------------------------------------------------------------------
+# auth subsystem tables (Phase 3)
+# ---------------------------------------------------------------------------
+
+def create_users_table(cur):
+    """Single user-account table for the whole stack (Phase 3 step 1).
+
+    Replaces the four legacy per-app passwords stored in global_settings
+    (keys admin_password / pricing_password / offer_password / rent_password,
+    with shared.auth.DEFAULT_PASSWORDS as the fallback when no row existed).
+    Roles: 'admin' (everything) and 'staff' (pricing/offer/rent business
+    modules); sale/settings and /api/v1/health stay public.
+    password_hash is a werkzeug generate_password_hash() serialization
+    (scrypt:"..." for rows created/changed on and after Phase 3).
+    must_change_password forces the self-service change on next login --
+    set at seed time for the migrated non-admin accounts.
+    """
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'staff',
+            is_active INTEGER NOT NULL DEFAULT 1,
+            must_change_password INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            last_login TEXT
+        );
+    """)
+
+
+# ---------------------------------------------------------------------------
 # idempotent ALTER migrations
 # ---------------------------------------------------------------------------
 

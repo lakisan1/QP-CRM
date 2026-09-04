@@ -1,4 +1,8 @@
 import secrets
+from datetime import datetime, timezone
+
+from werkzeug.security import generate_password_hash
+
 from .db import get_db
 
 DEFAULT_PASSWORDS = {
@@ -7,6 +11,62 @@ DEFAULT_PASSWORDS = {
     "offer": "Offer1",
     "rent": "Rent1"
 }
+
+# ---------------------------------------------------------------------------
+# Users (Phase 3 step 1): single account table replacing the four legacy
+# per-app passwords. The legacy plaintext values -- global_settings
+# '{app}_password' rows when present, shared DEFAULT_PASSWORDS otherwise --
+# are preserved as the INITIAL passwords of the migrated accounts, but seeded
+# directly as werkzeug hashes so no plaintext is ever written at rest.
+# admin -> role 'admin'; pricing/offer/rent -> role 'staff' and must change
+# their password on first login.
+# ---------------------------------------------------------------------------
+
+LEGACY_ACCOUNT_SEEDS = (
+    ("admin", "admin"),
+    ("pricing", "staff"),
+    ("offer", "staff"),
+    ("rent", "staff"),
+)
+
+
+def _utcnow_iso():
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def seed_users_from_legacy(cur):
+    """Create the four accounts from the legacy password sources, idempotently.
+
+    Runs inside admin.init_db (after pricing's global_settings exist). A
+    username that already exists is left untouched, so re-running boot or
+    restoring old volumes never resets a changed password.
+    """
+    for username, role in LEGACY_ACCOUNT_SEEDS:
+        cur.execute("SELECT id FROM users WHERE username = ?;", (username,))
+        if cur.fetchone():
+            continue
+        cur.execute(
+            "SELECT value FROM global_settings WHERE key = ?;",
+            (f"{username}_password",),
+        )
+        row = cur.fetchone()
+        legacy = row["value"] if row and row["value"] else DEFAULT_PASSWORDS.get(username)
+        if not legacy:
+            continue
+        cur.execute(
+            """
+            INSERT INTO users (username, password_hash, role, is_active,
+                               must_change_password, created_at)
+            VALUES (?, ?, ?, 1, ?, ?);
+            """,
+            (
+                username,
+                generate_password_hash(legacy),
+                role,
+                1 if role != "admin" else 0,
+                _utcnow_iso(),
+            ),
+        )
 
 # ---------- API Key Management ----------
 

@@ -136,10 +136,31 @@ def init_rounding_rules_table():
     conn.commit()
     conn.close()
 
+def init_users_table():
+    """Phase 3: the single users table + legacy password migration.
+
+    DDL lives in shared/schema.py (single source); the seeding of the four
+    legacy accounts lives in shared/auth.py. Must run AFTER pricing's
+    global_settings exist (admin.init_db is called after pricing_init_db in
+    the boot sequence), because the legacy '{app}_password' rows are read
+    from there.
+    """
+    from qp_crm.shared.schema import create_users_table
+    from qp_crm.shared.auth import seed_users_from_legacy
+
+    conn = get_db()
+    cur = conn.cursor()
+    create_users_table(cur)
+    seed_users_from_legacy(cur)
+    conn.commit()
+    conn.close()
+
+
 def init_db():
     init_presets_table()
     init_pdf_templates_table()
     init_rounding_rules_table()
+    init_users_table()
 
 # Per-module login hook from shared/web.py (admin_authenticated keeps its
 # pre-consolidation module-scoped name).
