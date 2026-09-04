@@ -1,5 +1,6 @@
 import os
 import math
+import sqlite3
 import html
 from flask import Blueprint, Flask, render_template, request, redirect, url_for, send_from_directory, session, abort
 import markdown
@@ -77,88 +78,104 @@ def list_sale():
     conn = get_db()
     cur = conn.cursor()
 
-    # Fetch default items per page
-    cur.execute("SELECT value FROM global_settings WHERE key = 'default_items_per_page';")
-    row = cur.fetchone()
-    items_per_page = int(row["value"]) if row else 25
-    offset = (page - 1) * items_per_page
+    # BUG fix (phase-2 bug-fix stage, card "BUG - sale module:
+    # list_sale 500s on uninitialized schema"): a bare/recreated schema
+    # (restore_db edge cases, future split deployments, fresh test DBs)
+    # used to 500 with sqlite3.OperationalError; render a clean empty
+    # state instead. Sane defaults: 25 items/page, empty filters.
+    try:
+        cur = conn.cursor()
 
-    # Base query: count total
-    count_query = "SELECT COUNT(*) AS total_count FROM products p"
+        # Fetch default items per page
+        cur.execute("SELECT value FROM global_settings WHERE key = 'default_items_per_page';")
+        row = cur.fetchone()
+        items_per_page = int(row["value"]) if row else 25
+        offset = (page - 1) * items_per_page
 
-    # Base query: products + latest price
-    query = """
-        SELECT p.*,
-               pr.final_price AS current_price,
-               pr.discount_price AS current_discount_price
-        FROM products p
-        LEFT JOIN prices pr
-          ON pr.id = (
-              SELECT MAX(id) FROM prices WHERE product_id = p.id
-          )
-    """
-    params = []
+        # Base query: count total
+        count_query = "SELECT COUNT(*) AS total_count FROM products p"
 
-    where_clauses = []
-    if brand_filter:
-        where_clauses.append("p.brand = ?")
-        params.append(brand_filter)
-    if category_filter:
-        where_clauses.append("p.category = ?")
-        params.append(category_filter)
-    if search_term:
-        where_clauses.append("p.name LIKE ?")
-        params.append(f"%{search_term}%")
+        # Base query: products + latest price
+        query = """
+            SELECT p.*,
+                   pr.final_price AS current_price,
+                   pr.discount_price AS current_discount_price
+            FROM products p
+            LEFT JOIN prices pr
+              ON pr.id = (
+                  SELECT MAX(id) FROM prices WHERE product_id = p.id
+              )
+        """
+        params = []
 
-    if where_clauses:
-        where_stmt = " WHERE " + " AND ".join(where_clauses)
-        count_query += where_stmt
-        query += where_stmt
+        where_clauses = []
+        if brand_filter:
+            where_clauses.append("p.brand = ?")
+            params.append(brand_filter)
+        if category_filter:
+            where_clauses.append("p.category = ?")
+            params.append(category_filter)
+        if search_term:
+            where_clauses.append("p.name LIKE ?")
+            params.append(f"%{search_term}%")
 
-    # Execute count before applying sort/limit
-    cur.execute(count_query, params)
-    total_count = cur.fetchone()["total_count"]
+        if where_clauses:
+            where_stmt = " WHERE " + " AND ".join(where_clauses)
+            count_query += where_stmt
+            query += where_stmt
 
-    total_pages = math.ceil(total_count / items_per_page) if total_count > 0 else 1
+        # Execute count before applying sort/limit
+        cur.execute(count_query, params)
+        total_count = cur.fetchone()["total_count"]
 
-    # Sorting Logic
-    if sort_option == "name_asc":
-        query += " ORDER BY p.name ASC"
-    elif sort_option == "name_desc":
-        query += " ORDER BY p.name DESC"
-    elif sort_option == "price_asc":
-        query += " ORDER BY COALESCE(pr.final_price, 0) ASC"
-    elif sort_option == "price_desc":
-        query += " ORDER BY COALESCE(pr.final_price, 0) DESC"
-    else:
-        # Fallback
-        query += " ORDER BY p.name ASC"
+        total_pages = math.ceil(total_count / items_per_page) if total_count > 0 else 1
 
-    query += f" LIMIT {items_per_page} OFFSET {offset};"
+        # Sorting Logic
+        if sort_option == "name_asc":
+            query += " ORDER BY p.name ASC"
+        elif sort_option == "name_desc":
+            query += " ORDER BY p.name DESC"
+        elif sort_option == "price_asc":
+            query += " ORDER BY COALESCE(pr.final_price, 0) ASC"
+        elif sort_option == "price_desc":
+            query += " ORDER BY COALESCE(pr.final_price, 0) DESC"
+        else:
+            # Fallback
+            query += " ORDER BY p.name ASC"
 
-    cur.execute(query, params)
-    products = cur.fetchall()
+        query += f" LIMIT {items_per_page} OFFSET {offset};"
 
-    # Distinct brands for dropdown
-    cur.execute("""
-        SELECT DISTINCT brand
-        FROM products
-        WHERE brand IS NOT NULL AND brand != ''
-        ORDER BY brand;
-    """)
-    brand_rows = cur.fetchall()
-    brand_options = [row["brand"] for row in brand_rows]
+        cur.execute(query, params)
+        products = cur.fetchall()
 
-    # Categories for dropdown (from category defaults)
-    cur.execute("""
-        SELECT category
-        FROM category_pricing_defaults
-        ORDER BY category;
-    """)
-    cat_rows = cur.fetchall()
-    category_options = [row["category"] for row in cat_rows]
+        # Distinct brands for dropdown
+        cur.execute("""
+            SELECT DISTINCT brand
+            FROM products
+            WHERE brand IS NOT NULL AND brand != ''
+            ORDER BY brand;
+        """)
+        brand_rows = cur.fetchall()
+        brand_options = [row["brand"] for row in brand_rows]
 
-    conn.close()
+        # Categories for dropdown (from category defaults)
+        cur.execute("""
+            SELECT category
+            FROM category_pricing_defaults
+            ORDER BY category;
+        """)
+        cat_rows = cur.fetchall()
+        category_options = [row["category"] for row in cat_rows]
+
+
+    except sqlite3.OperationalError:
+        products = []
+        total_count = 0
+        total_pages = 1
+        brand_options = []
+        category_options = []
+    finally:
+        conn.close()
 
     return render_template(
         "sale/sale.html",
@@ -190,9 +207,14 @@ def view_product(product_id):
           )
         WHERE p.id = ?
     """
-    cur.execute(query, (product_id,))
-    product = cur.fetchone()
-    conn.close()
+    try:
+        cur.execute(query, (product_id,))
+        product = cur.fetchone()
+    except sqlite3.OperationalError:
+        # BUG fix (same card): bare schema degrades to not-found, not 500.
+        product = None
+    finally:
+        conn.close()
 
     if not product:
         abort(404)
