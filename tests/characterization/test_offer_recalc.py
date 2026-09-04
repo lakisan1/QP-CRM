@@ -73,7 +73,7 @@ def test_three_level_cascade_exact(temp_db, conn_factory):
     assert row["total_gross"] == 29510.325
 
 
-def test_null_discounts_behave_as_zero_and_are_partially_persisted(temp_db, conn_factory):
+def test_null_discounts_behave_as_zero_and_are_normalized_on_writeback(temp_db, conn_factory):
     with conn_factory() as conn:
         oid = _insert_offer(conn, "P1T3-NULLS", None, None, None, None)
         _insert_item(conn, oid, "Item", 100.0)
@@ -88,12 +88,14 @@ def test_null_discounts_behave_as_zero_and_are_partially_persisted(temp_db, conn
     assert row["total_net_after_discount"] == 100.0
     assert row["total_vat"] == 0.0
     assert row["total_gross"] == 100.0
-    # asymmetric write-back: special/third coerced to 0.0 and PERSISTED,
-    # discount_percent / vat_percent stay NULL (offer/app.py:788-800)
+    # Re-baselined deliberately in the phase-2 bug-fix stage (board card
+    # "BUG - offer discount storage: NULL (new_offer) vs 0.0 (edit_offer)
+    # + asymmetric recalc write-back"): recalc now persists ALL four
+    # percentage columns coerced to 0.0 -- one encoding of "no discount".
     assert row["special_discount_percent"] == 0.0
     assert row["third_discount_percent"] == 0.0
-    assert row["discount_percent"] is None
-    assert row["vat_percent"] is None
+    assert row["discount_percent"] == 0.0
+    assert row["vat_percent"] == 0.0
 
 
 def test_recalc_ignores_item_level_discount_column(temp_db, conn_factory):

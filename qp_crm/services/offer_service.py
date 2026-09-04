@@ -45,15 +45,26 @@ def recalc_totals(offer_id):
     total_vat = total_net_after_third_discount * vat_percent
     total_gross = total_net_after_third_discount + total_vat
 
+    # BUG fix (phase-2 bug-fix stage, card "offer discount storage: NULL
+    # (new_offer) vs 0.0 (edit_offer) + asymmetric recalc write-back"):
+    # the four input percentage columns are written back coerced to 0.0 so
+    # the schema carries ONE encoding of "no discount" -- recalc used to
+    # persist special/third coerced while leaving discount_percent /
+    # vat_percent NULL on legacy rows.
+    discount_percent = float(offer["discount_percent"] or 0.0)
+    vat_percent = float(offer["vat_percent"] or 0.0)
+
     cur.execute("""
         UPDATE offers
         SET total_net = ?, total_discount = ?, total_net_after_discount = ?,
+            discount_percent = ?, vat_percent = ?,
             special_discount_percent = ?, total_special_discount = ?, total_net_after_special_discount = ?,
             third_discount_percent = ?, total_third_discount = ?, total_net_after_third_discount = ?,
             total_vat = ?, total_gross = ?
         WHERE id = ?;
     """, (
         total_net, total_discount, total_net_after_discount,
+        discount_percent, vat_percent,
         special_discount_percent, total_special_discount, total_net_after_special_discount,
         third_discount_percent, total_third_discount, total_net_after_third_discount,
         total_vat, total_gross, offer_id
