@@ -625,6 +625,23 @@
       ],
       "createdAt": 1788505252168,
       "updatedAt": 1788505252168
+    },
+    {
+      "id": "card-b77b2116-eb97-47de-9874-6f00422c3a56",
+      "title": "Per-user app access (Admin -> Users): which apps each user may open",
+      "description": "User request after the phase-3 handover: drop the blanket staff-sees-everything model; the admin controls per user which business apps (pricing/offer/rent) they can open, from the admin panel.",
+      "rationale": "Owner asked for admin-panel control of which apps each user may open, replacing the blanket staff-sees-everything phase-3 model, without reintroducing per-app passwords.",
+      "rejected": "Separate per-app passwords (the pre-phase-3 problem, explicitly not wanted back); a JSON/CSV modules column (junction table is FK-enforced and extends to Phase-4 modules by appending to MODULE_CHOICES); caching grants in the session (per-request re-read keeps revocation instant); role-per-module combos like 'offer-only role' (roles stay admin/staff binary, grants carry the per-user nuance).",
+      "sourceSessionId": "session-4ca59a53-7afb-4d0d-85e0-276e1d187fdb",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "auth",
+        "users"
+      ],
+      "createdAt": 1788546342560,
+      "updatedAt": 1788546685919,
+      "summary": "Shipped and deployed (commit 94ee464, image rebuilt, container recreated, grants live): user_modules table (UNIQUE(user_id,module)), users.modules_set marker, shared/web.py require_module(module) gate on pricing/offer/rent blueprints (re-reads grants per request; admin role bypasses), Admin -> Users UI with pricing/offer/rent checkboxes per staff row (own-password confirmed POST /admin/users/<id>/modules) and pre-checked boxes on the create form; one-time boot migration seed_default_user_modules grants existing staff all three apps (marker prevents re-granting deliberately emptied sets); factory reset re-seeds users+grants via the init_users_table contract; role gate is now binary admin/not-admin. 7 new tests in tests/auth/test_module_access.py, suite 225 passed."
     }
   ]
 }
