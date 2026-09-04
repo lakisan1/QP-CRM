@@ -91,6 +91,7 @@
 
             <!-- Update Form for this row -->
             <form method="POST" action="{{ url_for('pricing.quick_update_save', product_id=p.id) }}">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="ref_brand" value="{{ brand_filter or '' }}">
                 <input type="hidden" name="ref_category" value="{{ category_filter or '' }}">
                 <input type="hidden" name="ref_search" value="{{ search_term or '' }}">

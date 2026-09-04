@@ -200,20 +200,35 @@ def test_pre_phase3_db_migrates_on_auth_reinit(tmp_path, monkeypatch):
     assert check_password_hash(admin_hash, "Old-Secret-admin")
 
 
-def test_factory_reset_resets_hashed_accounts_without_plaintext_keys():
+def test_factory_reset_resets_hashed_accounts_without_plaintext_keys(temp_db):
     """factory_reset used to write admin/pricing/offer plaintext passwords
     into global_settings; now it re-seeds the four hashed default accounts
     and leaves no '{app}_password' keys behind."""
-    client = Client(qp_crm.main.application)
-    # unified login (the old /admin/login URLs are plain redirects now)
+    client = qp_crm.main.app.test_client()
+    # unified login (the old /admin/login URLs are plain redirects now),
+    # CSRF-protected like every POST since step 5
+    client.get("/login")
+    with client.session_transaction() as session:
+        token = session.get("_csrf_token")
     resp = client.post(
         "/login",
-        data={"username": "admin", "password": DEFAULT_PASSWORDS["admin"]},
+        data={
+            "username": "admin",
+            "password": DEFAULT_PASSWORDS["admin"],
+            "_csrf_token": token,
+        },
     )
     assert resp.status_code == 302
 
+    # Session cycling (login handler does session.clear()) invalidated the
+    # pre-login CSRF token -- the post-login session mints a fresh one on
+    # the next page render.
+    client.get("/admin/")
+    with client.session_transaction() as session:
+        token = session.get("_csrf_token")
     resp = client.post(
-        "/admin/factory_reset", data={"current_admin_password": DEFAULT_PASSWORDS["admin"]}
+        "/admin/factory_reset",
+        data={"current_admin_password": DEFAULT_PASSWORDS["admin"], "_csrf_token": token},
     )
     assert resp.status_code == 200  # backup zip download
 

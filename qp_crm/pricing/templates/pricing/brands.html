@@ -14,6 +14,7 @@
 <div class="split-layout">
     <div class="form-section card">
         <form method="post" class="compact-form">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
             <p>
                 <label>Brand name:<br>
                     <input type="text" name="name" id="brand_name" required>
@@ -55,6 +56,7 @@
                         <form action="{{ url_for('pricing.delete_brand') }}" method="post"
                             onsubmit="return confirm('Are you sure you want to delete brand \'{{ b.name }}\'?');"
                             style="display:inline;">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                             <input type="hidden" name="brand_to_delete" value="{{ b.name }}">
                             <button type="submit" class="btn btn-danger btn-sm">Delete</button>
                         </form>

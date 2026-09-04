@@ -133,6 +133,7 @@
             <td style="text-align: center; width: 220px;">
                 <form method="post" action="{{ url_for('offer.duplicate_offer', offer_id=o.id) }}" style="display:inline;"
                     onsubmit="return confirm('Duplirati ovu ponudu?');">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn btn-warning btn-sm">Duplicate</button>
                 </form>
 
@@ -143,6 +144,7 @@
 
                 <form method="post" action="{{ url_for('offer.delete_offer', offer_id=o.id) }}" style="display:inline;"
                     onsubmit="return prompt('DA LI STE SIGURNI?\nBRISANJE ponude!!! NIJE moguce vracanje nakon BRISANJA!!!\nUnesite reč DELETE da biste potvrdili brisanje:') === 'DELETE';">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn btn-danger btn-sm">Delete</button>
                 </form>
             </td>

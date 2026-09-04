@@ -4,6 +4,7 @@
 
 <div class="card">
     <form method="post">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="action" value="update_header">
 
         {% if error %}
@@ -275,6 +276,7 @@
 
             <!-- Add item form -->
             <form method="post">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="action" value="add_item">
                 <p>
                     <label>Product:<br>
@@ -335,6 +337,7 @@
                 <div
                     style="margin-top: 15px; padding: 15px; border: 1px solid var(--border-color); border-radius: 6px;">
                     <form method="post" id="new-product-form">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                         <input type="hidden" name="action" value="create_temp_product">
                         <p>
                             <input type="text" name="new_product_name" id="new_product_name" required
@@ -375,6 +378,7 @@
                     <td class="drag-handle" style="text-align: center;">☰</td>
                     <td style="text-align: center;">
                         <form method="post" onsubmit="return confirm('Delete this item?');">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                             <input type="hidden" name="action" value="delete_item">
                             <input type="hidden" name="item_id" value="{{ it.id }}">
                             <button type="submit" class="btn btn-danger btn-sm">Delete</button>
@@ -733,7 +737,7 @@
 
                     fetch("{{ url_for('offer.update_item_order', offer_id=offer.id) if offer else '#' }}", {
                         method: "POST",
-                        headers: { "Content-Type": "application/json" },
+                        headers: { "Content-Type": "application/json", "X-CSRF-Token": "{{ csrf_token() }}" },
                         body: JSON.stringify({ item_ids: itemIds })
                     })
                         .then(resp => resp.json())

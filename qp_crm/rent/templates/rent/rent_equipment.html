@@ -9,6 +9,7 @@
 <div class="card">
     <h3>{{ 'Izmeni opremu' if edit_eq else 'Dodaj opremu' }}</h3>
     <form method="post">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="action" value="save">
         {% if edit_eq %}<input type="hidden" name="eq_id" value="{{ edit_eq.id }}">{% endif %}
         <label>Naziv (maks 255 znakova) *
@@ -33,6 +34,7 @@
     </form>
     {% if edit_eq %}
     <form method="post" style="margin-top:12px;" onsubmit="return confirm('Obrisati opremu?');">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="action" value="delete">
         <input type="hidden" name="eq_id" value="{{ edit_eq.id }}">
         <button type="submit" class="btn btn-danger btn-sm">🗑 Obriši</button>

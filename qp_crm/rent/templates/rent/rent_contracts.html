@@ -192,7 +192,7 @@ function toggleSigned(contractId, el) {
     var isCurrentlySigned = el.textContent.indexOf('Potpisan') !== -1 && el.textContent.indexOf('✓') !== -1;
     var msg = isCurrentlySigned ? 'Da li ste sigurni da želite da poništite potpis?' : 'Da li ste sigurni da želite da označite ugovor kao potpisan?';
     if (!confirm(msg)) return;
-    fetch('/rent/contracts/toggle_signed/' + contractId, { method: 'POST' })
+    fetch('/rent/contracts/toggle_signed/' + contractId, { method: 'POST', headers: { 'X-CSRF-Token': '{{ csrf_token() }}' } })
         .then(r => r.json())
         .then(data => {
             location.reload();

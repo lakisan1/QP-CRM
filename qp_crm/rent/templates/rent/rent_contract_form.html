@@ -50,6 +50,7 @@ details > summary::-webkit-details-marker { display:none; }
 <!-- ════════════════════ LEFT: FORM ═════════════════════════════ -->
 <div>
 <form method="post" id="contractForm">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
 
 <!-- ── Ugovor ── -->
 <div class="card">

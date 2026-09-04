@@ -90,11 +90,19 @@ def test_old_logout_url_clears_session(module):
     assert client.get(GATED_PAGES[module]).status_code == 302  # locked again
 
 
+def _session_token(client):
+    with client.session_transaction() as session:
+        return session.get("_csrf_token")
+
+
 def test_wrong_password_stays_locked_out():
     client = fresh_client()
+    client.get("/login")                     # establish the session CSRF token
+    token = _session_token(client)
     response = client.post(
         "/login",
-        data={"username": "admin", "password": "definitely-wrong-42"},
+        data={"username": "admin", "password": "definitely-wrong-42",
+              "_csrf_token": token},
     )
     assert response.status_code == 200                   # login page re-rendered
     assert client.get("/admin/").status_code == 302      # still locked out
@@ -102,9 +110,12 @@ def test_wrong_password_stays_locked_out():
 
 def test_unknown_username_stays_locked_out():
     client = fresh_client()
+    client.get("/login")
+    token = _session_token(client)
     response = client.post(
         "/login",
-        data={"username": "no-such-user", "password": "whatever-1"},
+        data={"username": "no-such-user", "password": "whatever-1",
+              "_csrf_token": token},
     )
     assert response.status_code == 200
     assert client.get("/pricing/").status_code == 302

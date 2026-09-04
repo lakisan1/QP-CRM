@@ -80,6 +80,15 @@ app.register_blueprint(rent_bp, url_prefix="/rent")
 # Last module port -- DispatcherMiddleware is gone from here on.
 app.register_blueprint(admin_bp, url_prefix="/admin")
 
+# CSRF on ALL state-changing routes (Phase 3 step 5): the settings app's
+# per-session token pattern generalized into shared/web.py and wired once at
+# the app level -- every POST/PUT/PATCH/DELETE on every blueprint (auth,
+# settings, sale, pricing, offer, rent, admin) must carry the session token
+# (form field or X-CSRF-Token header). api_v1 is exempt: it authenticates via
+# the Bearer header, not ambient cookies.
+from qp_crm.shared.web import check_csrf, csrf_token
+app.before_request(check_csrf)
+
 @app.route("/")
 def index():
     return render_template("landing.html")
@@ -95,7 +104,9 @@ from qp_crm.shared.utils import _, get_current_language
 # registered the same loop on all six sub-apps, so this preserves behavior).
 def inject_i18n():
     lang = get_current_language()
-    return dict(_=lambda text: _(text, lang), current_lang=lang)
+    # csrf_token: available in EVERY template (Phase 3 step 5) -- the
+    # settings blueprint keeps its identical local copy (same session key).
+    return dict(_=lambda text: _(text, lang), current_lang=lang, csrf_token=csrf_token)
 
 app.context_processor(inject_i18n)
 

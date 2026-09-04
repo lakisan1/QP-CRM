@@ -10,6 +10,8 @@ tolerance for legacy NULL rows.
 
 import sqlite3
 
+from conftest import csrf_token_for
+
 
 def _offer_row(conn_factory, offer_id):
     with conn_factory() as conn:
@@ -42,6 +44,7 @@ def test_new_offer_with_zero_discounts_stores_floats(
         "third_discount_percent": "",
         "vat_percent": "0",
     }
+    form["_csrf_token"] = csrf_token_for(offer_client)
     response = offer_client.post("/offer/offers/new", data=form)
     # new_offer redirects to the edit page on success
     assert response.status_code == 302, response.data[:200]
@@ -67,6 +70,7 @@ def test_new_offer_empty_vat_uses_20_percent_default(
         "third_discount_percent": "",
         "vat_percent": "",
     }
+    form["_csrf_token"] = csrf_token_for(offer_client)
     response = offer_client.post("/offer/offers/new", data=form)
     assert response.status_code == 302, response.data[:200]
 
@@ -103,6 +107,7 @@ def test_edit_offer_with_zero_discounts_stores_floats(
         "special_discount_percent": "",
         "third_discount_percent": "",
         "vat_percent": "0",
+        "_csrf_token": csrf_token_for(offer_client),
     })
     assert response.status_code == 302, response.data[:200]
 

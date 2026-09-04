@@ -40,6 +40,7 @@
         {% endif %}
 
         <form method="POST" action="{{ url_for('auth.login', next=request.args.get('next')) }}">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
             <label>Korisničko ime</label>
             <input type="text" name="username" required autofocus autocomplete="username">
 

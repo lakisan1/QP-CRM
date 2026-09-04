@@ -9,6 +9,7 @@
 <div class="calc-card card">
     <h3>{{ 'Izmeni klijenta' if edit_client else 'Dodaj klijenta' }}</h3>
     <form method="post">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="action" value="save">
         {% if edit_client %}<input type="hidden" name="client_id" value="{{ edit_client.id }}">{% endif %}
         <label>Ime Firme *<input type="text" name="name" value="{{ edit_client.name if edit_client else '' }}" required></label>
@@ -27,6 +28,7 @@
     </form>
     {% if edit_client %}
     <form method="post" style="margin-top:12px;" onsubmit="return confirm('Obrisati klijenta?');">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="action" value="delete">
         <input type="hidden" name="client_id" value="{{ edit_client.id }}">
         <button type="submit" class="btn btn-danger btn-sm">🗑 Obriši klijenta</button>

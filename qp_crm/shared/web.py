@@ -117,6 +117,57 @@ def make_auth_hook(session_flag, login_endpoint, exempt_endpoints=()):
     return check_auth
 
 
+# ---------- CSRF (Phase 3 step 5, generalized from the settings app) ----------
+
+CSRF_FIELD = "_csrf_token"
+CSRF_SESSION_KEY = "_csrf_token"
+CSRF_METHODS = ("POST", "PUT", "PATCH", "DELETE")
+
+# Endpoints exempt from CSRF checks. api_v1 authenticates via the
+# Authorization: Bearer header (per-user API keys / global key) -- a request
+# that authenticates WITHOUT ambient cookie credentials cannot be abused by
+# cross-site form posts, so the token check does not apply there.
+CSRF_EXEMPT_ENDPOINT_PREFIXES = ("api_v1.",)
+
+
+def csrf_token():
+    """Return (and create if needed) the per-session CSRF token.
+
+    The settings app's token pattern, generalized: one token per SESSION,
+    created lazily on first render and verified on every state-changing
+    request across ALL blueprints.
+    """
+    import secrets
+
+    if CSRF_SESSION_KEY not in session:
+        session[CSRF_SESSION_KEY] = secrets.token_hex(16)
+    return session[CSRF_SESSION_KEY]
+
+
+def check_csrf():
+    """App-level before_request hook: enforce the CSRF token on every
+    state-changing request (POST/PUT/PATCH/DELETE) of every blueprint.
+
+    Returns None when the request may proceed, else a 400 response (the
+    settings app's exact 'CSRF token mismatch' body). The token is accepted
+    from the form field (server-rendered forms) or the X-CSRF-Token header
+    (AJAX fetch posts).
+    """
+    import secrets
+
+    if request.method not in CSRF_METHODS:
+        return None
+    endpoint = request.endpoint or ""
+    if any(endpoint.startswith(prefix) for prefix in CSRF_EXEMPT_ENDPOINT_PREFIXES):
+        return None
+
+    session_token = session.get(CSRF_SESSION_KEY)
+    supplied = request.form.get(CSRF_FIELD) or request.headers.get("X-CSRF-Token") or ""
+    if not session_token or not supplied or not secrets.compare_digest(supplied, session_token):
+        return "CSRF token mismatch", 400
+    return None
+
+
 # ---------- unified auth (Phase 3) ----------
 
 def safe_next_url():

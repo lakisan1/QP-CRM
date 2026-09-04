@@ -111,9 +111,18 @@ def login_client(client, username):
     from qp_crm.main import app  # noqa: F401  (app must be importable)
     from qp_crm.shared.auth import DEFAULT_PASSWORDS, get_db
 
+    # Establish the session CSRF token via the login page render (Phase 3
+    # step 5: the unified login POST is CSRF-protected like every other).
+    client.get("/login")
+    with client.session_transaction() as session:
+        token = session.get("_csrf_token")
     resp = client.post(
         "/login",
-        data={"username": username, "password": DEFAULT_PASSWORDS[username]},
+        data={
+            "username": username,
+            "password": DEFAULT_PASSWORDS[username],
+            "_csrf_token": token,
+        },
     )
     assert resp.status_code == 302, f"login for {username} failed: {resp.status_code}"
     conn = get_db()
@@ -125,6 +134,16 @@ def login_client(client, username):
     with client.session_transaction() as session:
         session.pop("must_change_password", None)
     return client
+
+
+def csrf_token_for(client):
+    """The session CSRF token of a Flask test client (Phase 3 step 5).
+
+    Tests that POST forms directly through an authenticated fixture client
+    include this in their form data (the app-level check_csrf enforces it).
+    """
+    with client.session_transaction() as session:
+        return session.get("_csrf_token")
 
 
 @pytest.fixture(scope="session")

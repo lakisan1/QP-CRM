@@ -221,6 +221,7 @@
 <!-- Hidden save form -->
 <form id="save-form" method="post"
       action="{{ url_for('rent.document_editor', contract_id=contract.id, slug=template.slug) }}">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" id="hidden-content" name="content">
 </form>
 

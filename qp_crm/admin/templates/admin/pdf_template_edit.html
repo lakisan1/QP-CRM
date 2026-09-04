@@ -78,6 +78,7 @@
             <!-- Left: Editors -->
             <div>
                 <form action="{{ url_for('admin.edit_pdf_template', template_id=template.id) }}" method="POST">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                     <div class="card">
                         <label>Template Name</label>
                         <input type="text" name="name" value="{{ template.name }}" required {{ 'readonly' if

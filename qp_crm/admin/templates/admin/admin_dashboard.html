@@ -113,6 +113,7 @@
             </p>
 
             <form action="{{ url_for('admin.update_passwords') }}" method="POST">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                 <div class="grid-2-col-asymmetric" style="grid-template-columns: 1fr 1fr;">
                     <div>
                         <label>New Admin Password</label>
@@ -186,6 +187,7 @@
                 <!-- Actions -->
                 <div style="display: flex; flex-direction: column; gap: 10px; min-width: 220px;">
                     <form action="{{ url_for('admin.api_key_generate') }}" method="POST" onsubmit="return confirm('Generating a new key will replace the existing one. All current API integrations will need the new key. Continue?');">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                         <div style="margin-bottom: 8px;">
                             <input type="password" name="current_admin_password" placeholder="Admin Password" required
                                 style="width: 100%; margin-bottom: 0;">
@@ -197,6 +199,7 @@
 
                     {% if api_key_exists %}
                     <form action="{{ url_for('admin.api_key_revoke') }}" method="POST" onsubmit="return confirm('Revoking the API key will immediately disable ALL API access. Are you sure?');">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                         <div style="margin-bottom: 8px;">
                             <input type="password" name="current_admin_password" placeholder="Admin Password" required
                                 style="width: 100%; margin-bottom: 0;">
@@ -246,6 +249,7 @@
                             style="max-height: 60px; width: auto;">
                     </div>
                     <form action="{{ url_for('admin.upload_logo') }}" method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                         <div class="file-upload-wrapper">
                             <input type="file" name="logo_file" accept=".jpg,.jpeg,.png" required>
                             <span class="file-upload-text">Upload Logo</span>
@@ -271,6 +275,7 @@
                             </div>
                             <form action="{{ url_for('admin.upload_footer') }}" method="POST" enctype="multipart/form-data"
                                 style="flex-grow: 1;">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                                 <div class="file-upload-wrapper" style="padding: 5px;">
                                     <input type="file" name="footer_file" accept=".jpg,.jpeg,.png" required>
                                     <span class="file-upload-text" style="font-size: 0.8rem;">Upload Footer</span>
@@ -296,6 +301,7 @@
                             </div>
                             <form action="{{ url_for('admin.upload_favicon') }}" method="POST" enctype="multipart/form-data"
                                 style="flex-grow: 1;">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                                 <div class="file-upload-wrapper" style="padding: 5px;">
                                     <input type="file" name="favicon_file" accept=".png" required>
                                     <span class="file-upload-text" style="font-size: 0.8rem;">Upload Favicon</span>
@@ -317,6 +323,7 @@
         <div class="card">
             <h3>Default Settings</h3>
             <form action="{{ url_for('admin.update_settings') }}" method="POST">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                 <div class="grid-2-col-asymmetric" style="grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
                     <div>
                         <label>Date Format</label>
@@ -455,6 +462,7 @@
                 Mogu se izmeniti pojedinačno po ugovoru.
             </p>
             <form action="{{ url_for('admin.update_settings') }}" method="POST">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                 <div class="grid-2-col-asymmetric" style="grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px;">
                     <label>Godišnja kamata (%)
                         <input type="number" name="rent_default_interest_rate" step="0.01" min="0"
@@ -507,6 +515,7 @@
                 <code>{offer_date}</code>
             </p>
             <form action="{{ url_for('admin.update_settings') }}" method="POST">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                 <div style="margin-bottom: 15px;">
                     <label>Email Subject</label>
                     <input type="text" name="email_offer_subject" value="{{ email_offer_subject }}"
@@ -558,6 +567,7 @@
                         </p>
 
                         <form action="{{ url_for('admin.restore_full') }}" method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                             <div class="file-upload-wrapper" style="margin-bottom: 10px;">
                                 <input type="file" name="backup_file" accept=".zip" required>
                                 <span class="file-upload-text">Select .zip file</span>
@@ -600,6 +610,7 @@
                     </p>
 
                     <form action="{{ url_for('admin.restore_db') }}" method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                         <div class="file-upload-wrapper" style="margin-bottom: 10px;">
                             <input type="file" name="db_file" accept=".db,.sqlite" required>
                             <span class="file-upload-text">Select .db file</span>
@@ -630,6 +641,7 @@
                 </p>
                 <form action="{{ url_for('admin.cleanup_images') }}" method="POST"
                     style="display: flex; gap: 15px; align-items: flex-end;">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                     <div style="flex-grow: 1; max-width: 300px;">
                         <label style="color: var(--accent-warning); font-size: 0.85rem;">Admin Password Required</label>
                         <input type="password" name="current_admin_password" required
@@ -689,6 +701,7 @@
                                 {% else %}
                                 <form action="{{ url_for('admin.set_default_preset') }}" method="POST"
                                     style="display:inline;">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                                     <input type="hidden" name="category" value="{{ cat_key }}">
                                     <input type="hidden" name="preset_id" value="{{ p.id }}">
                                     <button type="submit" class="btn btn-sm btn-secondary"
@@ -699,6 +712,7 @@
                             <td>
                                 <form action="{{ url_for('admin.delete_preset') }}" method="POST" style="display:inline;"
                                     onsubmit="return confirm('Delete this preset?');">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                                     <input type="hidden" name="preset_id" value="{{ p.id }}">
                                     <button type="submit" class="btn btn-sm btn-danger">Delete</button>
                                 </form>
@@ -717,6 +731,7 @@
                 <div style="background: var(--bg-input); padding: 15px; border-radius: 6px;">
                     <h5>Add New {{ cat_label }}</h5>
                     <form action="{{ url_for('admin.add_preset') }}" method="POST">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                         <input type="hidden" name="category" value="{{ cat_key }}">
                         <div class="grid-2-col-asymmetric" style="grid-template-columns: 1fr 2fr; gap: 10px;">
                             <div>
@@ -753,6 +768,7 @@
             </p>
 
             <form id="factoryResetForm" action="{{ url_for('admin.factory_reset') }}" method="POST">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                 <div style="margin-bottom: 15px; max-width: 400px;">
                     <label style="color: var(--accent-error); font-weight: 600;">Confirm Admin Password to
                         Proceed</label>

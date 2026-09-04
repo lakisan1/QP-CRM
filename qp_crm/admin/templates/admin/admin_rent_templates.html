@@ -147,6 +147,7 @@
                 </p>
 
                 <form id="editor-form" method="post">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                     <textarea id="template-editor" name="content_html">{{ selected['content_html'] | e }}</textarea>
                     <div style="display:flex;justify-content:flex-end;">
                         <button type="submit" class="btn btn-primary">💾 Sačuvaj šablon</button>
@@ -178,6 +179,7 @@
             Možete koristiti <code>{{ '{{ client_name }}' }}</code> i <code>{{ '{{ contract_number }}' }}</code> kao placeholder-e.
         </p>
         <form action="/admin/update_settings" method="POST">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="redirect_to" value="/admin/rent/templates">
             <div style="margin-bottom:12px;">
                 <label style="font-weight:600;font-size:0.85rem;">Naslov emaila (Subject)</label>

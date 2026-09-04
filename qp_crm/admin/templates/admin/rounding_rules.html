@@ -108,6 +108,7 @@
                         <td style="text-align: right;">
                             <form action="{{ url_for('admin.delete_rounding_rule') }}" method="POST" style="display:inline;"
                                 onsubmit="return confirm('Delete this rule?');">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                                 <input type="hidden" name="rule_id" value="{{ rule.id }}">
                                 <button type="submit" class="btn btn-sm btn-danger">Delete</button>
                             </form>
@@ -122,6 +123,7 @@
                 <h4 style="margin-top: 0;">Add New Rule for {{ target }}</h4>
                 <form action="{{ url_for('admin.add_rounding_rule') }}" method="POST" class="grid-layout"
                     style="grid-template-columns: 1fr 1fr 1fr auto; align-items: flex-end; gap: 15px;">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="target" value="{{ target }}">
                     <div>
                         <label>Limit Value</label>

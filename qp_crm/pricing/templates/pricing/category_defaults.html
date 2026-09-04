@@ -13,6 +13,7 @@
 <div class="split-layout" style="grid-template-columns: 280px 1fr;">
     <div class="form-section card">
         <form method="post" class="compact-form">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
             <p>
                 <label>Naziv kategorije:<br>
                     <input type="text" name="category" id="category_input" required>
@@ -128,6 +129,7 @@
                         <form action="{{ url_for('pricing.delete_category_default') }}" method="post"
                             onsubmit="return confirm('Are you sure you want to delete category \'{{ d.category }}\'?');"
                             style="display:inline;">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                             <input type="hidden" name="category_to_delete" value="{{ d.category }}">
                             <button type="submit" class="btn btn-danger btn-sm">Delete</button>
                         </form>
