@@ -63,142 +63,19 @@ bp.before_request(make_auth_hook(
     exempt_endpoints=("offer.api_nbs_eur_rate",)))
 
 def init_db():
+    """Thin wrapper -- the DDL lives in shared/schema.py (single source).
+    The canonical offers/offer_items definitions are the offer supersets;
+    the legacy-DB ALTERs (kept idempotent) run afterwards."""
+    from shared.schema import create_offer_tables, migrate_offer_tables
+
     conn = get_db()
     cur = conn.cursor()
-
-    # Offers table
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS offers (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            offer_number TEXT,
-            date TEXT,
-            client_name TEXT,
-            client_address TEXT,
-            client_email TEXT,
-            client_phone TEXT,
-            country TEXT,
-
-            currency TEXT,
-            exchange_rate REAL,
-
-            discount_percent REAL,
-            vat_percent REAL,
-
-            total_net REAL,
-            total_discount REAL,
-            total_net_after_discount REAL,
-            special_discount_percent REAL DEFAULT 0.0,
-            total_special_discount REAL DEFAULT 0.0,
-            total_net_after_special_discount REAL DEFAULT 0.0,
-            third_discount_percent REAL DEFAULT 0.0,
-            total_third_discount REAL DEFAULT 0.0,
-            total_net_after_third_discount REAL DEFAULT 0.0,
-            total_vat REAL,
-            total_gross REAL,
-
-            payment_terms TEXT,
-            delivery_terms TEXT,
-            validity_days INTEGER,
-            notes TEXT,
-            napomena TEXT,
-            is_template INTEGER DEFAULT 0
-        );
-    """)
-
-    # --- Migration for existing databases ---
-    try:
-        cur.execute("ALTER TABLE offers ADD COLUMN napomena TEXT;")
-    except sqlite3.OperationalError:
-        # Already exists
-        pass
-
-    try:
-        cur.execute("ALTER TABLE offers ADD COLUMN is_template INTEGER DEFAULT 0;")
-    except sqlite3.OperationalError:
-        # Already exists
-        pass
-
-    try:
-        cur.execute("ALTER TABLE offers ADD COLUMN client_pib TEXT;")
-    except sqlite3.OperationalError:
-        # Already exists
-        pass
-
-    try:
-        cur.execute("ALTER TABLE offers ADD COLUMN client_mb TEXT;")
-    except sqlite3.OperationalError:
-        # Already exists
-        pass
-
-    try:
-        cur.execute("ALTER TABLE offers ADD COLUMN country TEXT DEFAULT 'Srbija';")
-    except sqlite3.OperationalError:
-        # Already exists
-        pass
-
-    try:
-        cur.execute("ALTER TABLE offers ADD COLUMN special_discount_percent REAL DEFAULT 0.0;")
-    except sqlite3.OperationalError:
-        pass
-
-    try:
-        cur.execute("ALTER TABLE offers ADD COLUMN total_special_discount REAL DEFAULT 0.0;")
-    except sqlite3.OperationalError:
-        pass
-
-    try:
-        cur.execute("ALTER TABLE offers ADD COLUMN total_net_after_special_discount REAL DEFAULT 0.0;")
-    except sqlite3.OperationalError:
-        pass
-
-    try:
-        cur.execute("ALTER TABLE offers ADD COLUMN third_discount_percent REAL DEFAULT 0.0;")
-    except sqlite3.OperationalError:
-        pass
-
-    try:
-        cur.execute("ALTER TABLE offers ADD COLUMN total_third_discount REAL DEFAULT 0.0;")
-    except sqlite3.OperationalError:
-        pass
-
-    try:
-        cur.execute("ALTER TABLE offers ADD COLUMN total_net_after_third_discount REAL DEFAULT 0.0;")
-    except sqlite3.OperationalError:
-        pass
-
-    # Offer items table
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS offer_items (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            offer_id INTEGER NOT NULL,
-            product_id INTEGER,
-            line_order INTEGER,
-            item_name TEXT NOT NULL,
-            item_description TEXT,
-            item_photo_path TEXT,
-            quantity REAL NOT NULL,
-            unit_price REAL NOT NULL,
-            discount_percent REAL DEFAULT 0.0,
-            line_net REAL NOT NULL,
-            FOREIGN KEY (offer_id) REFERENCES offers(id),
-            FOREIGN KEY (product_id) REFERENCES products(id)
-        );
-    """)
-
-    try:
-        cur.execute("ALTER TABLE offer_items ADD COLUMN discount_percent REAL DEFAULT 0.0;")
-    except sqlite3.OperationalError:
-        pass
-
+    create_offer_tables(cur)
+    migrate_offer_tables(cur)
     conn.commit()
     conn.close()
 
 
-
-
-
-@bp.app_template_filter('format_date')
-@bp.context_processor
 def inject_helpers():
     return dict(
         format_amount=format_amount,

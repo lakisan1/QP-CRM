@@ -45,34 +45,23 @@ from shared.web import (
 bp = Blueprint("admin", __name__, template_folder="templates")
 
 def init_presets_table():
+    """DDL lives in shared/schema.py (single source)."""
+    from shared.schema import create_admin_tables
+
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS text_presets (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            category TEXT NOT NULL, -- 'delivery', 'note', 'extra'
-            name TEXT NOT NULL,
-            content TEXT,
-            is_default INTEGER DEFAULT 0
-        );
-    """)
+    create_admin_tables(cur)
     conn.commit()
     conn.close()
 
 def init_pdf_templates_table():
+    """DDL lives in shared/schema.py (single source); the System Default
+    row is seeded/refreshed from the filesystem templates as before."""
+    from shared.schema import create_admin_tables
+
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS pdf_templates (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            header_html TEXT,
-            body_html TEXT,
-            footer_html TEXT,
-            css TEXT,
-            is_readonly INTEGER DEFAULT 0
-        );
-    """)
+    create_admin_tables(cur)
     
     # Try to read current filesystem templates
     # (Phase 2: offer templates are namespaced under offer/templates/offer/)
@@ -116,17 +105,13 @@ def init_pdf_templates_table():
     conn.close()
 
 def init_rounding_rules_table():
+    """DDL lives in shared/schema.py (single source); default rules seeded
+    as before."""
+    from shared.schema import create_admin_tables
+
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS price_rounding_rules (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            target TEXT NOT NULL, -- 'price' or 'discount'
-            limit_val REAL NOT NULL,
-            step_val REAL NOT NULL,
-            method TEXT DEFAULT 'UP' -- 'UP', 'DOWN', 'NEAREST'
-        );
-    """)
+    create_admin_tables(cur)
     
     # Seed if empty
     cur.execute("SELECT COUNT(*) as count FROM price_rounding_rules;")

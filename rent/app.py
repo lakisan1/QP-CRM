@@ -170,88 +170,18 @@ def generate_schedule(calc, contract_date_str, period_months):
 
 # ─── DB init ───────────────────────────────────────────────────────────────────
 def init_db():
+    """Thin wrapper -- the DDL lives in shared/schema.py (single source).
+    Seeding (clients/equipment CSV, rent templates) stays here: it is data,
+    not schema."""
+    from shared.schema import create_rent_tables, migrate_rent_tables
+
     conn = get_db()
     cur = conn.cursor()
-
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS rent_clients (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            mb TEXT,
-            pib TEXT,
-            account TEXT,
-            address TEXT,
-            representative TEXT,
-            email TEXT,
-            rent_address TEXT,
-            guarantor TEXT
-        );
-    """)
-
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS rent_equipment (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            price REAL NOT NULL DEFAULT 0,
-            default_rent_months INTEGER DEFAULT 48,
-            default_guarantee_rate REAL DEFAULT 5.0,
-            default_downpayment_percent REAL DEFAULT 20.0
-        );
-    """)
-
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS rent_contracts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            contract_number TEXT,
-            contract_date TEXT,
-            client_name TEXT,
-            client_mb TEXT,
-            client_pib TEXT,
-            client_account TEXT,
-            client_address TEXT,
-            client_representative TEXT,
-            client_email TEXT,
-            rent_address TEXT,
-            guarantor TEXT,
-            delivery_time TEXT,
-            delivery_date TEXT,
-            equipment_model TEXT,
-            price REAL DEFAULT 0,
-            vat_percent REAL DEFAULT 20.0,
-            period_months INTEGER DEFAULT 48,
-            downpayment_percent REAL DEFAULT 20.0,
-            salvage_value_percent REAL DEFAULT 20.0,
-            interest_rate REAL DEFAULT 14.0,
-            insurance_rate REAL DEFAULT 1.13,
-            guarantee_rate REAL DEFAULT 5.0,
-            admin_fee REAL DEFAULT 50.0
-        );
-    """)
-
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS rent_templates (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            slug TEXT UNIQUE NOT NULL,
-            name TEXT NOT NULL,
-            content_html TEXT NOT NULL DEFAULT ''
-        );
-    """)
-
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS rent_contract_documents (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            contract_id INTEGER NOT NULL,
-            template_slug TEXT NOT NULL,
-            custom_content_html TEXT NOT NULL DEFAULT '',
-            updated_at TEXT,
-            UNIQUE(contract_id, template_slug)
-        );
-    """)
-
+    create_rent_tables(cur)
     conn.commit()
 
     # Migration: add is_signed column if it doesn't exist (backward compatible)
-    _migrate_add_column_if_not_exists(cur, "rent_contracts", "is_signed", "INTEGER DEFAULT 0")
+    migrate_rent_tables(cur)
     conn.commit()
 
     # Seed from CSV if tables are empty
@@ -261,13 +191,6 @@ def init_db():
 
     conn.close()
 
-
-def _migrate_add_column_if_not_exists(cur, table, column, col_def):
-    """Add a column if it doesn't already exist (backward compatible migration)."""
-    try:
-        cur.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_def};")
-    except sqlite3.OperationalError:
-        pass  # column already exists
 
 
 def _clean_num(s):
