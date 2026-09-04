@@ -57,7 +57,12 @@ def pdf_schedule(contract_id):
         c["salvage_value_percent"], c["interest_rate"], c["insurance_rate"],
         c["guarantee_rate"], c["vat_percent"], c["admin_fee"]
     )
-    schedule = generate_schedule(calc, c["contract_date"], c["period_months"])
+    try:
+        schedule = generate_schedule(calc, c["contract_date"], c["period_months"])
+    except ValueError as e:
+        # BUG fix: unparsable contract date must not silently render with
+        # today's dates (nor 500) -- tell the user to fix the date.
+        return str(e), 400
 
     logo_path = os.path.join(APP_ASSETS_DIR, "logo_company.jpg")
     logo_url = f"file://{logo_path}" if os.path.exists(logo_path) else ""
@@ -103,7 +108,12 @@ def pdf_schedule_fillable(contract_id):
         c["salvage_value_percent"], c["interest_rate"], c["insurance_rate"],
         c["guarantee_rate"], c["vat_percent"], c["admin_fee"]
     )
-    schedule = generate_schedule(calc, c["contract_date"], c["period_months"])
+    try:
+        schedule = generate_schedule(calc, c["contract_date"], c["period_months"])
+    except ValueError as e:
+        # BUG fix: unparsable contract date must not silently render with
+        # today's dates (nor 500) -- tell the user to fix the date.
+        return str(e), 400
 
     logo_path = os.path.join(APP_ASSETS_DIR, "logo_company.jpg")
     logo_url = f"file://{logo_path}" if os.path.exists(logo_path) else ""

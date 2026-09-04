@@ -17,8 +17,11 @@ quirks:
   prints the same value for month 1 and month 48).
 * generate_schedule dates monthly rows on the LAST DAY of each month
   (contract date day is discarded); rows 0.1/0.2 sit on the contract date.
-* An unparsable contract date silently falls back to date.today() --
-  non-deterministic by design; pinned against date.today() at test time.
+* An unparsable contract date raises ValueError -- deliberately
+  re-baselined in the phase-2 bug-fix stage (board card "BUG - rent
+  generate_schedule: bad contract date silently falls back to
+  date.today()"): the schedule PDF routes return 400 with a clear
+  message instead of rendering non-deterministic documents.
 """
 
 from datetime import date, datetime
@@ -157,13 +160,22 @@ class TestGenerateSchedule:
             assert row["zatvaranje"] == 100.0          # constant every month
             assert row["suma_nakon"] == 397.10126152867423
 
-    def test_bad_date_falls_back_to_today(self):
-        # rent/app.py:129-132 -- silent date.today() fallback
+    # Re-baselined deliberately in the phase-2 bug-fix stage (see module
+    # docstring + board BUG card): silent date.today() fallback -> ValueError.
+    def test_bad_date_raises_value_error(self):
         calc = calculate_rent(*CALC_ARGS)
-        rows = generate_schedule(calc, "not-a-date", 1)
-        expected_today = date.today().strftime("%d.%m.%Y")
-        assert rows[0]["datum"] == expected_today
-        assert rows[2]["datum"] != expected_today  # +1 month, month-end shifted
+        with pytest.raises(ValueError, match="Neispravan datum ugovora"):
+            generate_schedule(calc, "not-a-date", 3)
+        with pytest.raises(ValueError, match="Neispravan datum ugovora"):
+            generate_schedule(calc, "", 3)
+        with pytest.raises(ValueError, match="Neispravan datum ugovora"):
+            generate_schedule(calc, None, 3)
+
+    def test_zero_period_schedule_is_only_header_rows(self):
+        # Companions to the pmt/zero-period BUG fix: no monthly rows.
+        calc = calculate_rent(20000.0, 0, 20.0, 20.0, 14.0, 1.13, 5.0, 20.0, 50.0)
+        rows = generate_schedule(calc, "2026-01-15", 0)
+        assert [r["nr"] for r in rows] == ["0.1", "0.2"]
 
 
 def test_schedule_dates_parse_as_dd_mm_yyyy():

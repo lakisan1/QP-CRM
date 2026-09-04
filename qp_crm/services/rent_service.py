@@ -89,12 +89,23 @@ def calculate_rent(price, period_months, downpayment_pct, salvage_pct,
 
 
 def generate_schedule(calc, contract_date_str, period_months):
-    """Generate payment schedule rows."""
+    """Generate payment schedule rows.
+
+    BUG fix (phase-2 bug-fix stage, card "rent generate_schedule: bad
+    contract date silently falls back to date.today()"): an unparsable or
+    empty contract date now raises ValueError instead of silently dating
+    the plan from the day of rendering (two renders of the same contract
+    produced different documents). The PDF routes turn this into a 400
+    with a clear message; fixing the contract date is the remedy.
+    """
     rows = []
     try:
         d = datetime.strptime(contract_date_str, "%Y-%m-%d").date()
-    except Exception:
-        d = date.today()
+    except (TypeError, ValueError):
+        raise ValueError(
+            "Neispravan datum ugovora: %r -- datum je obavezan za Plan placanja."
+            % (contract_date_str,)
+        )
 
     rows.append({
         "nr": "0.1", "neto": None, "avans": None,
