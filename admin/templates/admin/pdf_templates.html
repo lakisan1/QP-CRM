@@ -10,14 +10,14 @@
 <body>
     <nav>
         <div class="nav-links">
-            <a href="{{ url_for('index') }}">Dashboard</a>
-            <a href="{{ url_for('list_pdf_templates') }}" class="active">PDF Templates</a>
-            <a href="{{ url_for('list_rounding_rules') }}">Rounding Rules</a>
+            <a href="{{ url_for('admin.index') }}">Dashboard</a>
+            <a href="{{ url_for('admin.list_pdf_templates') }}" class="active">PDF Templates</a>
+            <a href="{{ url_for('admin.list_rounding_rules') }}">Rounding Rules</a>
             <a href="/admin/rent/templates">Rent Šabloni</a>
         </div>
         <div class="nav-right">
             <a href="/">{{ _('Landing Page') }}</a>
-            <a href="{{ url_for('logout') }}" class="btn btn-danger" style="margin-right: 15px;">Logout</a>
+            <a href="{{ url_for('admin.logout') }}" class="btn btn-danger" style="margin-right: 15px;">Logout</a>
             <div class="nav-logo-container">
                 <img src="{{ url_for('static', filename='img/logo_company.jpg') }}" alt="QP-CRM Logo" class="nav-logo">
             </div>
@@ -69,7 +69,7 @@
                             {% if t.id == active_id or (t.name == 'System Default' and active_id == 0) %}
                             <span style="color: var(--accent-success); font-weight: bold;">● Active</span>
                             {% else %}
-                            <form action="{{ url_for('set_active_pdf_template') }}" method="POST"
+                            <form action="{{ url_for('admin.set_active_pdf_template') }}" method="POST"
                                 style="display:inline;">
                                 <input type="hidden" name="template_id" value="{{ t.id }}">
                                 <button type="submit" class="btn btn-sm btn-secondary">Set Active</button>
@@ -77,10 +77,10 @@
                             {% endif %}
                         </td>
                         <td>
-                            <a href="{{ url_for('edit_pdf_template', template_id=t.id) }}"
+                            <a href="{{ url_for('admin.edit_pdf_template', template_id=t.id) }}"
                                 class="btn btn-sm btn-primary">Edit</a>
                             {% if not t.is_readonly %}
-                            <form action="{{ url_for('delete_pdf_template') }}" method="POST" style="display:inline;"
+                            <form action="{{ url_for('admin.delete_pdf_template') }}" method="POST" style="display:inline;"
                                 onsubmit="return confirm('Delete this template?')">
                                 <input type="hidden" name="template_id" value="{{ t.id }}">
                                 <button type="submit" class="btn btn-sm btn-danger">Delete</button>
@@ -97,7 +97,7 @@
             <h3>Create New Template</h3>
             <p style="color: var(--text-muted); font-size: 0.9rem;">Create a copy of an existing template or start
                 blank.</p>
-            <form action="{{ url_for('add_pdf_template') }}" method="POST"
+            <form action="{{ url_for('admin.add_pdf_template') }}" method="POST"
                 style="display: flex; gap: 10px; align-items: flex-end;">
                 <div style="flex: 1;">
                     <label>Template Name</label>

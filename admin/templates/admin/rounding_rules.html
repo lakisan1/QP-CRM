@@ -50,14 +50,14 @@
 <body>
     <nav>
         <div class="nav-links">
-            <a href="{{ url_for('index') }}">Dashboard</a>
-            <a href="{{ url_for('list_pdf_templates') }}">PDF Templates</a>
-            <a href="{{ url_for('list_rounding_rules') }}" class="active">Rounding Rules</a>
+            <a href="{{ url_for('admin.index') }}">Dashboard</a>
+            <a href="{{ url_for('admin.list_pdf_templates') }}">PDF Templates</a>
+            <a href="{{ url_for('admin.list_rounding_rules') }}" class="active">Rounding Rules</a>
             <a href="/admin/rent/templates">Rent Šabloni</a>
         </div>
         <div class="nav-right">
             <a href="/">{{ _('Landing Page') }}</a>
-            <a href="{{ url_for('logout') }}" class="btn btn-danger" style="margin-right: 15px;">Logout</a>
+            <a href="{{ url_for('admin.logout') }}" class="btn btn-danger" style="margin-right: 15px;">Logout</a>
             <div class="nav-logo-container">
                 <img src="{{ url_for('static', filename='img/logo_company.jpg') }}" alt="QP-CRM Logo" class="nav-logo">
             </div>
@@ -106,7 +106,7 @@
                         <td>{{ rule.step_val }}</td>
                         <td><span class="method-badge">{{ rule.method }}</span></td>
                         <td style="text-align: right;">
-                            <form action="{{ url_for('delete_rounding_rule') }}" method="POST" style="display:inline;"
+                            <form action="{{ url_for('admin.delete_rounding_rule') }}" method="POST" style="display:inline;"
                                 onsubmit="return confirm('Delete this rule?');">
                                 <input type="hidden" name="rule_id" value="{{ rule.id }}">
                                 <button type="submit" class="btn btn-sm btn-danger">Delete</button>
@@ -120,7 +120,7 @@
             <div
                 style="background: rgba(255,255,255,0.03); padding: 20px; border-radius: 8px; border: 1px dashed var(--border-color);">
                 <h4 style="margin-top: 0;">Add New Rule for {{ target }}</h4>
-                <form action="{{ url_for('add_rounding_rule') }}" method="POST" class="grid-layout"
+                <form action="{{ url_for('admin.add_rounding_rule') }}" method="POST" class="grid-layout"
                     style="grid-template-columns: 1fr 1fr 1fr auto; align-items: flex-end; gap: 15px;">
                     <input type="hidden" name="target" value="{{ target }}">
                     <div>

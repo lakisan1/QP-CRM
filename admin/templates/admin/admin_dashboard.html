@@ -77,14 +77,14 @@
 <body>
     <nav>
         <div class="nav-links">
-            <a href="{{ url_for('index') }}" class="active">Dashboard</a>
-            <a href="{{ url_for('list_pdf_templates') }}">PDF Templates</a>
-            <a href="{{ url_for('list_rounding_rules') }}">Rounding Rules</a>
+            <a href="{{ url_for('admin.index') }}" class="active">Dashboard</a>
+            <a href="{{ url_for('admin.list_pdf_templates') }}">PDF Templates</a>
+            <a href="{{ url_for('admin.list_rounding_rules') }}">Rounding Rules</a>
             <a href="/admin/rent/templates">Rent Šabloni</a>
         </div>
         <div class="nav-right">
             <a href="/">{{ _('Landing Page') }}</a>
-            <a href="{{ url_for('logout') }}" class="btn btn-danger" style="margin-right: 15px;">Logout</a>
+            <a href="{{ url_for('admin.logout') }}" class="btn btn-danger" style="margin-right: 15px;">Logout</a>
             <div class="nav-logo-container">
                 <img src="{{ url_for('static', filename='img/logo_company.jpg') }}" alt="QP-CRM Logo" class="nav-logo">
             </div>
@@ -112,7 +112,7 @@
                 <br><strong>You must enter the current Admin password to apply changes.</strong>
             </p>
 
-            <form action="{{ url_for('update_passwords') }}" method="POST">
+            <form action="{{ url_for('admin.update_passwords') }}" method="POST">
                 <div class="grid-2-col-asymmetric" style="grid-template-columns: 1fr 1fr;">
                     <div>
                         <label>New Admin Password</label>
@@ -185,7 +185,7 @@
 
                 <!-- Actions -->
                 <div style="display: flex; flex-direction: column; gap: 10px; min-width: 220px;">
-                    <form action="{{ url_for('api_key_generate') }}" method="POST" onsubmit="return confirm('Generating a new key will replace the existing one. All current API integrations will need the new key. Continue?');">
+                    <form action="{{ url_for('admin.api_key_generate') }}" method="POST" onsubmit="return confirm('Generating a new key will replace the existing one. All current API integrations will need the new key. Continue?');">
                         <div style="margin-bottom: 8px;">
                             <input type="password" name="current_admin_password" placeholder="Admin Password" required
                                 style="width: 100%; margin-bottom: 0;">
@@ -196,7 +196,7 @@
                     </form>
 
                     {% if api_key_exists %}
-                    <form action="{{ url_for('api_key_revoke') }}" method="POST" onsubmit="return confirm('Revoking the API key will immediately disable ALL API access. Are you sure?');">
+                    <form action="{{ url_for('admin.api_key_revoke') }}" method="POST" onsubmit="return confirm('Revoking the API key will immediately disable ALL API access. Are you sure?');">
                         <div style="margin-bottom: 8px;">
                             <input type="password" name="current_admin_password" placeholder="Admin Password" required
                                 style="width: 100%; margin-bottom: 0;">
@@ -245,7 +245,7 @@
                         <img src="{{ url_for('static', filename='img/logo_company.jpg') }}?t={{ timestamp }}" alt="Logo"
                             style="max-height: 60px; width: auto;">
                     </div>
-                    <form action="{{ url_for('upload_logo') }}" method="POST" enctype="multipart/form-data">
+                    <form action="{{ url_for('admin.upload_logo') }}" method="POST" enctype="multipart/form-data">
                         <div class="file-upload-wrapper">
                             <input type="file" name="logo_file" accept=".jpg,.jpeg,.png" required>
                             <span class="file-upload-text">Upload Logo</span>
@@ -269,7 +269,7 @@
                                 <img src="/app_assets/pdf_footer_image.png?t={{ timestamp }}"
                                     style="max-height: 30px; width: auto;">
                             </div>
-                            <form action="{{ url_for('upload_footer') }}" method="POST" enctype="multipart/form-data"
+                            <form action="{{ url_for('admin.upload_footer') }}" method="POST" enctype="multipart/form-data"
                                 style="flex-grow: 1;">
                                 <div class="file-upload-wrapper" style="padding: 5px;">
                                     <input type="file" name="footer_file" accept=".jpg,.jpeg,.png" required>
@@ -294,7 +294,7 @@
                                 <img src="/app_assets/favicon.png?t={{ timestamp }}"
                                     style="max-height: 30px; width: auto;">
                             </div>
-                            <form action="{{ url_for('upload_favicon') }}" method="POST" enctype="multipart/form-data"
+                            <form action="{{ url_for('admin.upload_favicon') }}" method="POST" enctype="multipart/form-data"
                                 style="flex-grow: 1;">
                                 <div class="file-upload-wrapper" style="padding: 5px;">
                                     <input type="file" name="favicon_file" accept=".png" required>
@@ -316,7 +316,7 @@
         <!-- Defaults -->
         <div class="card">
             <h3>Default Settings</h3>
-            <form action="{{ url_for('update_settings') }}" method="POST">
+            <form action="{{ url_for('admin.update_settings') }}" method="POST">
                 <div class="grid-2-col-asymmetric" style="grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
                     <div>
                         <label>Date Format</label>
@@ -454,7 +454,7 @@
                 Ove vrednosti se automatski učitavaju pri kreiranju novog ugovora o zakupu.
                 Mogu se izmeniti pojedinačno po ugovoru.
             </p>
-            <form action="{{ url_for('update_settings') }}" method="POST">
+            <form action="{{ url_for('admin.update_settings') }}" method="POST">
                 <div class="grid-2-col-asymmetric" style="grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px;">
                     <label>Godišnja kamata (%)
                         <input type="number" name="rent_default_interest_rate" step="0.01" min="0"
@@ -506,7 +506,7 @@
                 <br>Available placeholders: <code>{offer_number}</code>, <code>{client_name}</code>,
                 <code>{offer_date}</code>
             </p>
-            <form action="{{ url_for('update_settings') }}" method="POST">
+            <form action="{{ url_for('admin.update_settings') }}" method="POST">
                 <div style="margin-bottom: 15px;">
                     <label>Email Subject</label>
                     <input type="text" name="email_offer_subject" value="{{ email_offer_subject }}"
@@ -543,7 +543,7 @@
                             Download a .zip archive containing <strong>Database</strong>, <strong>Product
                                 Images</strong>, and <strong>Assets</strong>.
                         </p>
-                        <a href="{{ url_for('backup_full') }}" class="btn btn-primary"
+                        <a href="{{ url_for('admin.backup_full') }}" class="btn btn-primary"
                             style="text-decoration: none; display: inline-block;">
                             Download Full System Backup (.zip)
                         </a>
@@ -557,7 +557,7 @@
                                 images!</strong>
                         </p>
 
-                        <form action="{{ url_for('restore_full') }}" method="POST" enctype="multipart/form-data">
+                        <form action="{{ url_for('admin.restore_full') }}" method="POST" enctype="multipart/form-data">
                             <div class="file-upload-wrapper" style="margin-bottom: 10px;">
                                 <input type="file" name="backup_file" accept=".zip" required>
                                 <span class="file-upload-text">Select .zip file</span>
@@ -586,7 +586,7 @@
                     <h5 style="margin-top: 0;">Backup</h5>
                     <p style="font-size: 0.85rem; color: var(--text-muted);">Download only the .db file (faster, but no
                         images).</p>
-                    <a href="{{ url_for('backup_db') }}" class="btn btn-secondary"
+                    <a href="{{ url_for('admin.backup_db') }}" class="btn btn-secondary"
                         style="text-decoration: none; display: inline-block;">
                         Download DB Only
                     </a>
@@ -599,7 +599,7 @@
                         Restores only the database file.
                     </p>
 
-                    <form action="{{ url_for('restore_db') }}" method="POST" enctype="multipart/form-data">
+                    <form action="{{ url_for('admin.restore_db') }}" method="POST" enctype="multipart/form-data">
                         <div class="file-upload-wrapper" style="margin-bottom: 10px;">
                             <input type="file" name="db_file" accept=".db,.sqlite" required>
                             <span class="file-upload-text">Select .db file</span>
@@ -628,7 +628,7 @@
                     attached to any product,
                     and fixes mismatched file names (e.g. from older data) to match standard formatting.
                 </p>
-                <form action="{{ url_for('cleanup_images') }}" method="POST"
+                <form action="{{ url_for('admin.cleanup_images') }}" method="POST"
                     style="display: flex; gap: 15px; align-items: flex-end;">
                     <div style="flex-grow: 1; max-width: 300px;">
                         <label style="color: var(--accent-warning); font-size: 0.85rem;">Admin Password Required</label>
@@ -687,7 +687,7 @@
                                 {% if p.is_default %}
                                 <span style="color: var(--accent-success); font-weight: bold;">✓ Default</span>
                                 {% else %}
-                                <form action="{{ url_for('set_default_preset') }}" method="POST"
+                                <form action="{{ url_for('admin.set_default_preset') }}" method="POST"
                                     style="display:inline;">
                                     <input type="hidden" name="category" value="{{ cat_key }}">
                                     <input type="hidden" name="preset_id" value="{{ p.id }}">
@@ -697,7 +697,7 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <form action="{{ url_for('delete_preset') }}" method="POST" style="display:inline;"
+                                <form action="{{ url_for('admin.delete_preset') }}" method="POST" style="display:inline;"
                                     onsubmit="return confirm('Delete this preset?');">
                                     <input type="hidden" name="preset_id" value="{{ p.id }}">
                                     <button type="submit" class="btn btn-sm btn-danger">Delete</button>
@@ -716,7 +716,7 @@
 
                 <div style="background: var(--bg-input); padding: 15px; border-radius: 6px;">
                     <h5>Add New {{ cat_label }}</h5>
-                    <form action="{{ url_for('add_preset') }}" method="POST">
+                    <form action="{{ url_for('admin.add_preset') }}" method="POST">
                         <input type="hidden" name="category" value="{{ cat_key }}">
                         <div class="grid-2-col-asymmetric" style="grid-template-columns: 1fr 2fr; gap: 10px;">
                             <div>
@@ -752,7 +752,7 @@
                 <strong>NON-REVERSIBLE</strong>.
             </p>
 
-            <form id="factoryResetForm" action="{{ url_for('factory_reset') }}" method="POST">
+            <form id="factoryResetForm" action="{{ url_for('admin.factory_reset') }}" method="POST">
                 <div style="margin-bottom: 15px; max-width: 400px;">
                     <label style="color: var(--accent-error); font-weight: 600;">Confirm Admin Password to
                         Proceed</label>
@@ -784,7 +784,7 @@
                     // We'll show a message or redirect manually after a timeout.
                     setTimeout(() => {
                         alert("Reset initiated. If the download doesn't start, please check your password. You will now be redirected to the login page.");
-                        window.location.href = "{{ url_for('logout') }}";
+                        window.location.href = "{{ url_for('admin.logout') }}";
                     }, 3000);
                 }
             }

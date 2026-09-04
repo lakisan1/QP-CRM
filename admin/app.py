@@ -1,5 +1,5 @@
 # pyrefly: ignore [missing-import]
-from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file
+from flask import Blueprint, Flask, render_template, request, redirect, url_for, session, flash, send_file
 import os
 import sys
 import time
@@ -20,13 +20,20 @@ from shared.db import get_db
 from shared.auth import check_password, set_password, get_password, get_api_key, generate_api_key, revoke_api_key
 from shared.countries import get_country_list
 
-app = Flask(
-    __name__,
-    static_folder=STATIC_DIR,
-    static_url_path="/static"
-)
-app.secret_key = os.environ.get("ADMIN_SECRET_KEY", "crm_admin_secret_key_change_me")
-app.config['SESSION_COOKIE_NAME'] = 'admin_session'
+# ---------------------------------------------------------------------------
+# Phase 2 stage 1: admin is a Blueprint on the single QP-CRM app -- the last
+# classic sub-app, whose port removes DispatcherMiddleware entirely.
+#
+# The Flask(...) instance, secret key and SESSION_COOKIE_NAME moved to
+# main.py (one session/secret/cookie; ADMIN_SECRET_KEY and the admin_session
+# cookie are no longer read). The admin_authenticated session flag keeps its
+# pre-consolidation name -- it was already module-scoped. Routes keep the
+# same URLs via the blueprint's /admin prefix in main.py; endpoints are
+# namespaced (admin.index, ...) and templates live under
+# admin/templates/admin/.
+# ---------------------------------------------------------------------------
+
+bp = Blueprint("admin", __name__, template_folder="templates")
 
 def init_presets_table():
     conn = get_db()
@@ -140,14 +147,14 @@ def init_db():
     init_pdf_templates_table()
     init_rounding_rules_table()
 
-@app.before_request
+@bp.before_request
 def check_auth():
-    if request.endpoint in ('login', 'static'):
+    if request.endpoint in ('admin.login',):
         return None
     if not session.get('admin_authenticated'):
-        return redirect(url_for('login'))
+        return redirect(url_for('admin.login'))
 
-@app.route("/login", methods=["GET", "POST"])
+@bp.route("/login", methods=["GET", "POST"])
 def login():
     error = None
     if request.method == "POST":
@@ -155,17 +162,17 @@ def login():
         # Check against 'admin' password
         if check_password("admin", pwd):
             session['admin_authenticated'] = True
-            return redirect(url_for('index'))
+            return redirect(url_for('admin.index'))
         else:
             error = "Invalid Admin Password"
-    return render_template("admin_login.html", error=error)
+    return render_template("admin/admin_login.html", error=error)
 
-@app.route("/logout")
+@bp.route("/logout")
 def logout():
     session.pop('admin_authenticated', None)
     return redirect('/')
 
-@app.route("/")
+@bp.route("/")
 def index():
     conn = get_db()
     cur = conn.cursor()
@@ -270,7 +277,7 @@ def index():
     conn.close()
 
     return render_template(
-        "admin_dashboard.html",
+        "admin/admin_dashboard.html",
         current_date_format=current_date_format,
         current_theme=current_theme,
         allow_duplicate_names=allow_duplicate_names,
@@ -293,7 +300,7 @@ def index():
         api_key_value=api_key_value
     )
 
-@app.route("/add_preset", methods=["POST"])
+@bp.route("/add_preset", methods=["POST"])
 def add_preset():
     category = request.form.get("category")
     name = request.form.get("name")
@@ -302,7 +309,7 @@ def add_preset():
 
     if not category or not name:
         flash("Category and Name are required.", "error")
-        return redirect(url_for("index"))
+        return redirect(url_for("admin.index"))
 
     conn = get_db()
     cur = conn.cursor()
@@ -320,13 +327,13 @@ def add_preset():
     conn.close()
     
     flash("Preset added successfully.", "success")
-    return redirect(url_for("index"))
+    return redirect(url_for("admin.index"))
 
-@app.route("/delete_preset", methods=["POST"])
+@bp.route("/delete_preset", methods=["POST"])
 def delete_preset():
     preset_id = request.form.get("preset_id")
     if not preset_id:
-        return redirect(url_for("index"))
+        return redirect(url_for("admin.index"))
 
     conn = get_db()
     cur = conn.cursor()
@@ -335,15 +342,15 @@ def delete_preset():
     conn.close()
     
     flash("Preset deleted.", "success")
-    return redirect(url_for("index"))
+    return redirect(url_for("admin.index"))
 
-@app.route("/set_default_preset", methods=["POST"])
+@bp.route("/set_default_preset", methods=["POST"])
 def set_default_preset():
     category = request.form.get("category")
     preset_id = request.form.get("preset_id")
     
     if not category or not preset_id:
-        return redirect(url_for("index"))
+        return redirect(url_for("admin.index"))
 
     conn = get_db()
     cur = conn.cursor()
@@ -355,16 +362,16 @@ def set_default_preset():
     conn.close()
     
     flash("Default preset updated.", "success")
-    return redirect(url_for("index"))
+    return redirect(url_for("admin.index"))
 
-@app.route("/update_passwords", methods=["POST"])
+@bp.route("/update_passwords", methods=["POST"])
 def update_passwords():
     current_admin_pass = request.form.get("current_admin_password")
     
     # Security check setup
     if not check_password("admin", current_admin_pass):
         flash("Incorrect Request: Invalid current Admin password.", "error")
-        return redirect(url_for("index"))
+        return redirect(url_for("admin.index"))
 
     # Helpers to process changes
     # Each app has new_pass and confirm_pass
@@ -381,10 +388,10 @@ def update_passwords():
         if new_p: # if not empty
             if len(new_p) < 8:
                 flash(f"Error: Password for {app_name} must be at least 8 characters.", "error")
-                return redirect(url_for("index"))
+                return redirect(url_for("admin.index"))
             if new_p != confirm_p:
                 flash(f"Error: Passwords for {app_name} did not match.", "error")
-                return redirect(url_for("index"))
+                return redirect(url_for("admin.index"))
             set_password(app_name, new_p)
             updated_count += 1
             
@@ -393,15 +400,15 @@ def update_passwords():
     else:
         flash("No password changes requested.", "success")
         
-    return redirect(url_for("index"))
+    return redirect(url_for("admin.index"))
         
-@app.route("/upload_logo", methods=["POST"])
+@bp.route("/upload_logo", methods=["POST"])
 def upload_logo():
     current_admin_pass = request.form.get("current_admin_password")
     
     if not check_password("admin", current_admin_pass):
         flash("Invalid current Admin password.", "error")
-        return redirect(url_for("index"))
+        return redirect(url_for("admin.index"))
         
     f = request.files.get("logo_file")
     if f and f.filename:
@@ -410,7 +417,7 @@ def upload_logo():
         ext = os.path.splitext(f.filename)[1].lower()
         if ext not in ['.jpg', '.jpeg', '.png']:
             flash("Logo must be JPG or PNG.", "error")
-            return redirect(url_for("index"))
+            return redirect(url_for("admin.index"))
             
         target_dir = os.path.join(STATIC_DIR, "img")
         os.makedirs(target_dir, exist_ok=True)
@@ -437,22 +444,22 @@ def upload_logo():
     else:
         flash("No file selected.", "error")
 
-    return redirect(url_for("index"))
+    return redirect(url_for("admin.index"))
 
-@app.route("/upload_footer", methods=["POST"])
+@bp.route("/upload_footer", methods=["POST"])
 def upload_footer():
     current_admin_pass = request.form.get("current_admin_password")
     
     if not check_password("admin", current_admin_pass):
         flash("Invalid current Admin password.", "error")
-        return redirect(url_for("index"))
+        return redirect(url_for("admin.index"))
         
     f = request.files.get("footer_file")
     if f and f.filename:
         ext = os.path.splitext(f.filename)[1].lower()
         if ext not in ['.jpg', '.jpeg', '.png']:
             flash("Footer image must be JPG or PNG.", "error")
-            return redirect(url_for("index"))
+            return redirect(url_for("admin.index"))
             
         target_path = os.path.join(APP_ASSETS_DIR, "pdf_footer_image.png")
         
@@ -464,22 +471,22 @@ def upload_footer():
     else:
         flash("No file selected.", "error")
 
-    return redirect(url_for("index"))
+    return redirect(url_for("admin.index"))
 
-@app.route("/upload_favicon", methods=["POST"])
+@bp.route("/upload_favicon", methods=["POST"])
 def upload_favicon():
     current_admin_pass = request.form.get("current_admin_password")
     
     if not check_password("admin", current_admin_pass):
         flash("Invalid current Admin password.", "error")
-        return redirect(url_for("index"))
+        return redirect(url_for("admin.index"))
         
     f = request.files.get("favicon_file")
     if f and f.filename:
         ext = os.path.splitext(f.filename)[1].lower()
         if ext not in ['.png']:
             flash("Favicon must be PNG.", "error")
-            return redirect(url_for("index"))
+            return redirect(url_for("admin.index"))
             
         target_path = os.path.join(APP_ASSETS_DIR, "favicon.png")
         
@@ -491,15 +498,15 @@ def upload_favicon():
     else:
         flash("No file selected.", "error")
 
-    return redirect(url_for("index"))
+    return redirect(url_for("admin.index"))
 
-@app.route("/update_settings", methods=["POST"])
+@bp.route("/update_settings", methods=["POST"])
 def update_settings():
     current_admin_pass = request.form.get("current_admin_password")
     
     if not check_password("admin", current_admin_pass):
         flash("Invalid current Admin password.", "error")
-        return redirect(url_for("index"))
+        return redirect(url_for("admin.index"))
         
     date_fmt = request.form.get("date_format")
     theme = request.form.get("theme")
@@ -585,12 +592,12 @@ def update_settings():
     redirect_to = request.form.get("redirect_to")
     if redirect_to:
         return redirect(redirect_to)
-    return redirect(url_for("index"))
+    return redirect(url_for("admin.index"))
 
-@app.route("/backup_db")
+@bp.route("/backup_db")
 def backup_db():
     if not session.get('admin_authenticated'):
-        return redirect(url_for('login'))
+        return redirect(url_for('admin.login'))
 
     # G36: Use sqlite3.backup() for a WAL-safe snapshot instead of reading the raw file.
     try:
@@ -629,9 +636,9 @@ def backup_db():
         )
     except Exception as e:
         flash(f"Error creating backup: {e}", "error")
-        return redirect(url_for("index"))
+        return redirect(url_for("admin.index"))
 
-@app.route("/pdf_templates")
+@bp.route("/pdf_templates")
 def list_pdf_templates():
     conn = get_db()
     cur = conn.cursor()
@@ -643,9 +650,9 @@ def list_pdf_templates():
     active_id = int(row["value"]) if row else 0
     
     conn.close()
-    return render_template("pdf_templates.html", templates=templates, active_id=active_id)
+    return render_template("admin/pdf_templates.html", templates=templates, active_id=active_id)
 
-@app.route("/add_pdf_template", methods=["POST"])
+@bp.route("/add_pdf_template", methods=["POST"])
 def add_pdf_template():
     name = request.form.get("name", "New Template")
     source_id = request.form.get("source_id") # Clone from existing
@@ -669,9 +676,9 @@ def add_pdf_template():
     conn.close()
     
     flash("Template created.", "success")
-    return redirect(url_for("edit_pdf_template", template_id=new_id))
+    return redirect(url_for("admin.edit_pdf_template", template_id=new_id))
 
-@app.route("/edit_pdf_template/<int:template_id>", methods=["GET", "POST"])
+@bp.route("/edit_pdf_template/<int:template_id>", methods=["GET", "POST"])
 def edit_pdf_template(template_id):
     conn = get_db()
     cur = conn.cursor()
@@ -707,16 +714,16 @@ def edit_pdf_template(template_id):
     if not template:
         return "Template not found", 404
         
-    return render_template("pdf_template_edit.html", template=template, offers=offers)
+    return render_template("admin/pdf_template_edit.html", template=template, offers=offers)
 
 import re
 
-@app.route("/cleanup_images", methods=["POST"])
+@bp.route("/cleanup_images", methods=["POST"])
 def cleanup_images():
     current_admin_pass = request.form.get("current_admin_password")
     if not check_password("admin", current_admin_pass):
         flash("Invalid Admin Password", "error")
-        return redirect(url_for('index'))
+        return redirect(url_for('admin.index'))
 
     conn = get_db()
     cur = conn.cursor()
@@ -803,9 +810,9 @@ def cleanup_images():
     conn.close()
 
     flash(f"Image Cleanup Complete: {renamed_count} renamed/fixed, {deleted_count} orphaned files deleted, {missing_count} DB records pointing to missing files.", "success")
-    return redirect(url_for("index"))
+    return redirect(url_for("admin.index"))
 
-@app.route("/delete_pdf_template", methods=["POST"])
+@bp.route("/delete_pdf_template", methods=["POST"])
 def delete_pdf_template():
     tpl_id = request.form.get("template_id")
     conn = get_db()
@@ -826,9 +833,9 @@ def delete_pdf_template():
         flash("Template deleted.", "success")
         
     conn.close()
-    return redirect(url_for("list_pdf_templates"))
+    return redirect(url_for("admin.list_pdf_templates"))
 
-@app.route("/set_active_pdf_template", methods=["POST"])
+@bp.route("/set_active_pdf_template", methods=["POST"])
 def set_active_pdf_template():
     tpl_id = request.form.get("template_id")
     conn = get_db()
@@ -837,22 +844,22 @@ def set_active_pdf_template():
     conn.commit()
     conn.close()
     flash("Active template updated.", "success")
-    return redirect(url_for("list_pdf_templates"))
+    return redirect(url_for("admin.list_pdf_templates"))
 
-@app.route("/restore_db", methods=["POST"])
+@bp.route("/restore_db", methods=["POST"])
 def restore_db():
     current_admin_pass = request.form.get("current_admin_password")
     
     if not check_password("admin", current_admin_pass):
         flash("Invalid current Admin password.", "error")
-        return redirect(url_for("index"))
+        return redirect(url_for("admin.index"))
         
     f = request.files.get("db_file")
     if f and f.filename:
         # Basic check
         if not f.filename.endswith(".db") and not f.filename.endswith(".sqlite"):
             flash("Invalid file extension. Please upload a .db file.", "error")
-            return redirect(url_for("index"))
+            return redirect(url_for("admin.index"))
             
         # G30: Restore safely by loading into a temp DB, then swapping in
         #       with an exclusive lock. This avoids corrupting the live DB
@@ -887,7 +894,7 @@ def restore_db():
     else:
         flash("No file selected.", "error")
 
-    return redirect(url_for("index"))
+    return redirect(url_for("admin.index"))
 def generate_full_backup_zip():
     # Ensure DB is flushed
     conn = get_db()
@@ -924,10 +931,10 @@ def generate_full_backup_zip():
     memory_file.seek(0)
     return memory_file
 
-@app.route("/backup_full")
+@bp.route("/backup_full")
 def backup_full():
     if not session.get('admin_authenticated'):
-        return redirect(url_for('login'))
+        return redirect(url_for('admin.login'))
         
     memory_file = generate_full_backup_zip()
     
@@ -939,22 +946,22 @@ def backup_full():
         mimetype="application/zip"
     )
 
-@app.route("/restore_full", methods=["POST"])
+@bp.route("/restore_full", methods=["POST"])
 def restore_full():
     current_admin_pass = request.form.get("current_admin_password")
     
     if not check_password("admin", current_admin_pass):
         flash("Invalid current Admin password.", "error")
-        return redirect(url_for("index"))
+        return redirect(url_for("admin.index"))
         
     f = request.files.get("backup_file")
     if not f or not f.filename:
         flash("No file selected.", "error")
-        return redirect(url_for("index"))
+        return redirect(url_for("admin.index"))
         
     if not f.filename.endswith(".zip"):
         flash("Invalid file extension. Please upload a .zip file.", "error")
-        return redirect(url_for("index"))
+        return redirect(url_for("admin.index"))
         
     try:
         # Create temp file to extract from
@@ -966,7 +973,7 @@ def restore_full():
             # Check for pricing.db
             if "pricing.db" not in zf.namelist():
                 flash("Invalid Backup: pricing.db not found in archive.", "error")
-                return redirect(url_for("index"))
+                return redirect(url_for("admin.index"))
             
             # 1. Restore Database
             # We enforce the target to be DATABASE path
@@ -1016,22 +1023,22 @@ def restore_full():
         flash(f"Error restoring backup: {e}", "error")
         print(f"Restore Error: {e}")
         
-    return redirect(url_for("index"))
+    return redirect(url_for("admin.index"))
 
-@app.route("/factory_reset", methods=["POST"])
+@bp.route("/factory_reset", methods=["POST"])
 def factory_reset():
     current_admin_pass = request.form.get("current_admin_password")
     
     if not check_password("admin", current_admin_pass):
         flash("Invalid current Admin password. Factory reset aborted.", "error")
-        return redirect(url_for("index"))
+        return redirect(url_for("admin.index"))
         
     # 1. Create FULL Backup in memory using the helper
     try:
         memory_file = generate_full_backup_zip()
     except Exception as e:
         flash(f"Error creating backup before reset: {e}", "error")
-        return redirect(url_for("index"))
+        return redirect(url_for("admin.index"))
 
     # 2. Reset Database
     try:
@@ -1160,7 +1167,7 @@ def factory_reset():
         mimetype="application/zip"
     )
 
-@app.route("/rounding_rules")
+@bp.route("/rounding_rules")
 def list_rounding_rules():
     conn = get_db()
     cur = conn.cursor()
@@ -1173,9 +1180,9 @@ def list_rounding_rules():
             rules_by_target[r['target']].append(r)
             
     conn.close()
-    return render_template("rounding_rules.html", rules_by_target=rules_by_target)
+    return render_template("admin/rounding_rules.html", rules_by_target=rules_by_target)
 
-@app.route("/add_rounding_rule", methods=["POST"])
+@bp.route("/add_rounding_rule", methods=["POST"])
 def add_rounding_rule():
     target = request.form.get("target")
     limit_val = float(request.form.get("limit_val") or 0)
@@ -1184,7 +1191,7 @@ def add_rounding_rule():
     
     if not target or limit_val <= 0 or step_val <= 0:
         flash("Invalid rule data.", "error")
-        return redirect(url_for("list_rounding_rules"))
+        return redirect(url_for("admin.list_rounding_rules"))
         
     conn = get_db()
     cur = conn.cursor()
@@ -1196,13 +1203,13 @@ def add_rounding_rule():
     conn.close()
     
     flash("Rounding rule added.", "success")
-    return redirect(url_for("list_rounding_rules"))
+    return redirect(url_for("admin.list_rounding_rules"))
 
-@app.route("/delete_rounding_rule", methods=["POST"])
+@bp.route("/delete_rounding_rule", methods=["POST"])
 def delete_rounding_rule():
     rule_id = request.form.get("rule_id")
     if not rule_id:
-        return redirect(url_for("list_rounding_rules"))
+        return redirect(url_for("admin.list_rounding_rules"))
         
     conn = get_db()
     cur = conn.cursor()
@@ -1211,35 +1218,35 @@ def delete_rounding_rule():
     conn.close()
     
     flash("Rounding rule deleted.", "success")
-    return redirect(url_for("list_rounding_rules"))
+    return redirect(url_for("admin.list_rounding_rules"))
 
 # ─────────────────────────────────────────────────────────────────────────────
 # API Key Management
 # ─────────────────────────────────────────────────────────────────────────────
 
-@app.route("/api_key/generate", methods=["POST"])
+@bp.route("/api_key/generate", methods=["POST"])
 def api_key_generate():
     """Generate a new API key (requires admin password)."""
     current_admin_pass = request.form.get("current_admin_password")
     if not check_password("admin", current_admin_pass):
         flash("Invalid Admin Password.", "error")
-        return redirect(url_for("index"))
+        return redirect(url_for("admin.index"))
 
     new_key = generate_api_key()
     flash(f"New API key generated.", "success")
-    return redirect(url_for("index"))
+    return redirect(url_for("admin.index"))
 
-@app.route("/api_key/revoke", methods=["POST"])
+@bp.route("/api_key/revoke", methods=["POST"])
 def api_key_revoke():
     """Revoke (delete) the current API key (requires admin password)."""
     current_admin_pass = request.form.get("current_admin_password")
     if not check_password("admin", current_admin_pass):
         flash("Invalid Admin Password.", "error")
-        return redirect(url_for("index"))
+        return redirect(url_for("admin.index"))
 
     revoke_api_key()
     flash("API key revoked. All existing API integrations will stop working.", "warning")
-    return redirect(url_for("index"))
+    return redirect(url_for("admin.index"))
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Rent Master Template Editor (Admin)
@@ -1262,10 +1269,10 @@ def _sort_rent_templates(templates):
     order_map = {slug: i for i, slug in enumerate(_TEMPLATE_SORT_ORDER)}
     return sorted(templates, key=lambda t: order_map.get(t["slug"], 999))
 
-@app.route("/rent/templates")
+@bp.route("/rent/templates")
 def admin_rent_templates():
     if not session.get("admin_authenticated"):
-        return redirect(url_for("login"))
+        return redirect(url_for("admin.login"))
     conn = get_db()
     cur = conn.cursor()
     cur.execute("SELECT id, slug, name FROM rent_templates ORDER BY id;")
@@ -1287,15 +1294,15 @@ def admin_rent_templates():
     subj_row = cur.fetchone()
     rent_email_subject = subj_row["value"] if subj_row else "Ugovor i prilozi za zakup opreme - {{ contract_number }} - {{ client_name }}"
     conn.close()
-    return render_template("admin_rent_templates.html", templates=templates, selected=None, msg=None,
+    return render_template("admin/admin_rent_templates.html", templates=templates, selected=None, msg=None,
                            rent_email_preset=rent_email_preset,
                            rent_email_subject=rent_email_subject)
 
 
-@app.route("/rent/templates/<slug>", methods=["GET", "POST"])
+@bp.route("/rent/templates/<slug>", methods=["GET", "POST"])
 def admin_rent_template_edit(slug):
     if not session.get("admin_authenticated"):
-        return redirect(url_for("login"))
+        return redirect(url_for("admin.login"))
     conn = get_db()
     cur = conn.cursor()
     cur.execute("SELECT id, slug, name FROM rent_templates ORDER BY id;")
@@ -1336,7 +1343,7 @@ def admin_rent_template_edit(slug):
     rent_email_subject = subj_row2["value"] if subj_row2 else "Ugovor i prilozi za zakup opreme - {{ contract_number }} - {{ client_name }}"
 
     conn.close()
-    return render_template("admin_rent_templates.html",
+    return render_template("admin/admin_rent_templates.html",
                            templates=templates,
                            selected=selected,
                            msg=msg,

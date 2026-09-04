@@ -41,15 +41,15 @@
 <body>
     <nav>
         <div class="nav-links">
-            <a href="{{ url_for('index') }}">Dashboard</a>
-            <a href="{{ url_for('list_pdf_templates') }}">PDF Templates</a>
-            <a href="{{ url_for('list_rounding_rules') }}">Rounding Rules</a>
+            <a href="{{ url_for('admin.index') }}">Dashboard</a>
+            <a href="{{ url_for('admin.list_pdf_templates') }}">PDF Templates</a>
+            <a href="{{ url_for('admin.list_rounding_rules') }}">Rounding Rules</a>
             <a href="/admin/rent/templates">Rent Šabloni</a>
             <span style="color: var(--text-muted);">/ Edit: {{ template.name }}</span>
         </div>
         <div class="nav-right">
             <a href="/">{{ _('Landing Page') }}</a>
-            <a href="{{ url_for('logout') }}" class="btn btn-danger" style="margin-right: 15px;">Logout</a>
+            <a href="{{ url_for('admin.logout') }}" class="btn btn-danger" style="margin-right: 15px;">Logout</a>
             <div class="nav-logo-container">
                 <img src="{{ url_for('static', filename='img/logo_company.jpg') }}" alt="QP-CRM Logo" class="nav-logo">
             </div>
@@ -60,7 +60,7 @@
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <h1>Edit PDF Template: {{ template.name }}</h1>
             <div style="display: flex; gap: 10px;">
-                <a href="{{ url_for('list_pdf_templates') }}" class="btn btn-secondary">Back to List</a>
+                <a href="{{ url_for('admin.list_pdf_templates') }}" class="btn btn-secondary">Back to List</a>
             </div>
         </div>
 
@@ -77,7 +77,7 @@
         <div class="grid-2-col-asymmetric" style="grid-template-columns: 2fr 1fr; gap: 40px;">
             <!-- Left: Editors -->
             <div>
-                <form action="{{ url_for('edit_pdf_template', template_id=template.id) }}" method="POST">
+                <form action="{{ url_for('admin.edit_pdf_template', template_id=template.id) }}" method="POST">
                     <div class="card">
                         <label>Template Name</label>
                         <input type="text" name="name" value="{{ template.name }}" required {{ 'readonly' if
