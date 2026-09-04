@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "pricing/base.html" %}
 
 {% block title %}Settings{% endblock %}
 
@@ -35,7 +35,7 @@
 
 <div class="card">
     <div style="display: flex; justify-content: flex-end; align-items: flex-end;">
-        <a href="{{ url_for('logout') }}" class="btn btn-danger">
+        <a href="{{ url_for('pricing.logout') }}" class="btn btn-danger">
             Odjavi se
         </a>
     </div>

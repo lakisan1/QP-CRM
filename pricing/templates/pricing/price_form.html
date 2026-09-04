@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "pricing/base.html" %}
 {% block title %}
 {% if price %}Edit Price - {{ product.name }}{% else %}New Price - {{ product.name }}{% endif %}
 {% endblock %}
@@ -408,7 +408,7 @@
         btn.textContent = "...";
         btn.disabled = true;
 
-        const urlPattern = "{{ url_for('api_nbs_rate', currency='__CURR__') }}";
+        const urlPattern = "{{ url_for('pricing.api_nbs_rate', currency='__CURR__') }}";
         fetch(urlPattern.replace('__CURR__', curr))
             .then(resp => resp.json())
             .then(data => {
@@ -436,8 +436,8 @@
         btn.disabled = true;
 
         // Fetch both and calculate cross rate: EUR_RSD / USD_RSD
-        const eurUrl = "{{ url_for('api_nbs_rate', currency='eur') }}";
-        const usdUrl = "{{ url_for('api_nbs_rate', currency='usd') }}";
+        const eurUrl = "{{ url_for('pricing.api_nbs_rate', currency='eur') }}";
+        const usdUrl = "{{ url_for('pricing.api_nbs_rate', currency='usd') }}";
         Promise.all([
             fetch(eurUrl).then(r => r.json()),
             fetch(usdUrl).then(r => r.json())

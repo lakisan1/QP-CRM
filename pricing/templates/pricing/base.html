@@ -14,23 +14,23 @@
 <body>
     <nav>
         <div class="nav-links">
-            <a href="{{ url_for('list_products') }}" {% if request.endpoint=='list_products' %}class="active" {% endif
+            <a href="{{ url_for('pricing.list_products') }}" {% if request.endpoint=='pricing.list_products' %}class="active" {% endif
                 %}>{{ _('Product List') }}</a>
-            <a href="{{ url_for('category_defaults') }}" {% if request.endpoint=='category_defaults' %}class="active" {%
+            <a href="{{ url_for('pricing.category_defaults') }}" {% if request.endpoint=='pricing.category_defaults' %}class="active" {%
                 endif %}>{{ _('Categories') }}</a>
-            <a href="{{ url_for('brands') }}" {% if request.endpoint=='brands' %}class="active" {% endif %}>{{
+            <a href="{{ url_for('pricing.brands') }}" {% if request.endpoint=='pricing.brands' %}class="active" {% endif %}>{{
                 _('Brands') }}</a>
-            <a href="{{ url_for('quick_update_products') }}"
-                class="{% if request.endpoint=='quick_update_products' %}active{% endif %}">{{ _('Quick
+            <a href="{{ url_for('pricing.quick_update_products') }}"
+                class="{% if request.endpoint=='pricing.quick_update_products' %}active{% endif %}">{{ _('Quick
                 Update') }}</a>
-            <a href="{{ url_for('product_sync') }}" {% if request.endpoint=='product_sync' %}class="active" {%
+            <a href="{{ url_for('pricing.product_sync') }}" {% if request.endpoint=='pricing.product_sync' %}class="active" {%
                 endif %}>{{ _('Sync Sajt') }}</a>
         </div>
         <div class="nav-right">
 
             <a href="/" {% if request.endpoint=='index' and not request.path.startswith('/pricing') %}class="active" {%
                 endif %}>{{ _('Landing Page') }}</a>
-            <a href="{{ url_for('logout') }}" class="btn btn-danger" style="margin-right: 15px;">Logout</a>
+            <a href="{{ url_for('pricing.logout') }}" class="btn btn-danger" style="margin-right: 15px;">Logout</a>
             <div class="nav-logo-container">
                 <img src="{{ url_for('static', filename='img/logo_company.jpg') }}" alt="QP-CRM Logo" class="nav-logo">
             </div>

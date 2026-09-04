@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "pricing/base.html" %}
 {% block title %}Category Defaults{% endblock %}
 {% block content %}
 <h1>Kategorije</h1>
@@ -125,7 +125,7 @@
                     <td>{{ d.traning }}</td>
                     <td>{{ d.other }}</td>
                     <td style="text-align: center;">
-                        <form action="{{ url_for('delete_category_default') }}" method="post"
+                        <form action="{{ url_for('pricing.delete_category_default') }}" method="post"
                             onsubmit="return confirm('Are you sure you want to delete category \'{{ d.category }}\'?');"
                             style="display:inline;">
                             <input type="hidden" name="category_to_delete" value="{{ d.category }}">

@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "pricing/base.html" %}
 
 {% block title %}
 {% if product and product.id %}Izmeni proizvod{% else %}Dodaj proizvod{% endif %}
@@ -28,7 +28,7 @@
                     {% endfor %}
                 </select>
                 </select>
-                <a href="{{ url_for('brands') }}" class="btn btn-sm btn-primary" style="margin-top:5px;">Dodaj novi
+                <a href="{{ url_for('pricing.brands') }}" class="btn btn-sm btn-primary" style="margin-top:5px;">Dodaj novi
                     brend</a>
             </label>
             {% else %}
@@ -51,7 +51,7 @@
                     {% endfor %}
                 </select>
                 </select>
-                <a href="{{ url_for('category_defaults') }}" class="btn btn-sm btn-primary"
+                <a href="{{ url_for('pricing.category_defaults') }}" class="btn btn-sm btn-primary"
                     style="margin-top:5px;">Dodaj
                     novu kategoriju</a>
             </label>
@@ -81,7 +81,7 @@
                     {% if product and product.photo_path %}
                     <div style="margin-bottom: 10px;">
                         <p>Trenutna fotografija: {{ product.photo_path }}</p>
-                        <img src="{{ url_for('product_image', filename=product.photo_path) }}"
+                        <img src="{{ url_for('pricing.product_image', filename=product.photo_path) }}"
                             style="max-width:200px; max-height:200px; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
                     </div>
                     {% endif %}
@@ -109,7 +109,7 @@
                 Sačuvaj i dodaj cenu
             </button>
             {% else %}
-            <a href="{{ url_for('price_history', product_id=product.id) }}" class="btn"
+            <a href="{{ url_for('pricing.price_history', product_id=product.id) }}" class="btn"
                 style="margin-left: 10px; border:1px solid #ccc; text-decoration:none; padding: 6px 12px; color: var(--text-main);">
                 Istorija cena
             </a>

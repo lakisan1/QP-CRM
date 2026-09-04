@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, send_from_directory, send_file, session, jsonify
+from flask import Blueprint, Flask, render_template, request, redirect, url_for, send_from_directory, send_file, session, jsonify
 import requests
 import sqlite3
 import os
@@ -37,26 +37,37 @@ from shared.auth import check_password
 from shared.utils import format_amount, format_date, get_nbs_rate
 from shared.auth import get_api_key, generate_api_key
 
-app = Flask(
-    __name__,
-    static_folder=STATIC_DIR,
-    static_url_path="/static"
-)
-app.secret_key = os.environ.get("PRICING_SECRET_KEY", "crm_pricing_secret_key_change_me")
-app.config['SESSION_COOKIE_NAME'] = 'pricing_session'
+# ---------------------------------------------------------------------------
+# Phase 2 stage 1: pricing is a Blueprint on the single QP-CRM app.
+#
+# The Flask(...) instance, secret key and SESSION_COOKIE_NAME moved to
+# main.py (one session/secret/cookie for the whole stack; PRICING_SECRET_KEY
+# and the pricing_session cookie are no longer read). Routes keep the same
+# URLs via the blueprint's /pricing prefix in main.py; endpoints are
+# namespaced (pricing.list_products, ...) in Python and templates, and
+# templates live under pricing/templates/pricing/.
+#
+# Session flag renamed with the consolidation: the shared cookie would
+# otherwise let a pricing login unlock other modules that still read the
+# plain 'authenticated' flag (offer). rent/admin already used their own
+# flags before the merge.
+# ---------------------------------------------------------------------------
 
-@app.before_request
+bp = Blueprint("pricing", __name__, template_folder="templates")
+
+@bp.before_request
 def check_auth():
-    # Exempt login page, static files, and API blueprint from authentication
-    if request.endpoint in ('login', 'static'):
+    # Exempt login page from authentication.
+    # NOTE: in the pre-consolidation code this hook also exempted 'static'
+    # (this app served its own /static) and endpoints starting with
+    # 'api_v1.' (in case the API blueprint was registered here); on the
+    # single app /static and /api/v1/* are top-level routes whose requests
+    # never enter blueprint hooks, so only the login exemption remains.
+    if request.endpoint in ('pricing.login',):
         return None
-    
-    # Allow API blueprint routes to use their own auth (Bearer token)
-    if request.endpoint and request.endpoint.startswith('api_v1.'):
-        return None
-    
-    if not session.get('authenticated'):
-        return redirect(url_for('login'))
+
+    if not session.get("pricing_authenticated"):
+        return redirect(url_for('pricing.login'))
 
 
 def init_db():
@@ -499,39 +510,39 @@ def download_image_from_url(url):
 
 
 
-@app.route("/api/nbs_rate/<currency>")
+@bp.route("/api/nbs_rate/<currency>")
 def api_nbs_rate(currency):
     rate = get_nbs_rate(currency)
     if rate is None:
         return jsonify({"success": False, "message": f"Neuspešno preuzimanje kursa za {currency} sa NBS."}), 500
     return jsonify({"success": True, "rate": rate})
-@app.route("/")
+@bp.route("/")
 def index():
-    return redirect(url_for("list_products"))
+    return redirect(url_for("pricing.list_products"))
 
-@app.route("/login", methods=["GET", "POST"])
+@bp.route("/login", methods=["GET", "POST"])
 def login():
     error = None
     if request.method == "POST":
         if check_password("pricing", request.form.get("password")):
-            session['authenticated'] = True
-            return redirect(url_for('index'))
+            session["pricing_authenticated"] = True
+            return redirect(url_for('pricing.index'))
         else:
             error = "Pogrešna lozinka"
-    return render_template("login.html", error=error)
+    return render_template("pricing/login.html", error=error)
 
-@app.route("/logout")
+@bp.route("/logout")
 def logout():
     session.pop('authenticated', None)
     return redirect('/')
 
-@app.route("/product-image/<path:filename>")
+@bp.route("/product-image/<path:filename>")
 def product_image(filename):
     return send_from_directory(IMAGE_DIR, filename)
 
 
 
-@app.template_filter('format_date')
+@bp.app_template_filter('format_date')
 def _format_date_filter(date_str):
     fmt = get_date_format()
     return format_date(date_str, fmt)
@@ -556,7 +567,7 @@ def fix_markdown_lists(text):
             in_list = True
     return '\n'.join(fixed_lines)
 
-@app.template_filter('md')
+@bp.app_template_filter('md')
 def render_markdown(text):
     if not text:
         return ""
@@ -569,7 +580,7 @@ def _(text):
     return translate(text, get_current_language())
 
 
-@app.context_processor
+@bp.context_processor
 def inject_helpers():
     return dict(
         format_amount=format_amount,
@@ -579,22 +590,22 @@ def inject_helpers():
 
 # ---------- PRODUCTS ----------
 
-@app.route("/products/product_sync")
+@bp.route("/products/product_sync")
 def product_sync():
     """Sajt <-> CRM product comparison/sync page (manual sync only)."""
     return render_template(
-        "product_sync.html",
+        "pricing/product_sync.html",
         api_key=get_api_key(),
     )
 
-@app.route("/products")
+@bp.route("/products")
 def list_products():
     # Check if we should clear filters
     if request.args.get("clear"):
         session.pop("products_filter_brand", None)
         session.pop("products_filter_category", None)
         session.pop("products_filter_search", None)
-        return redirect(url_for("list_products"))
+        return redirect(url_for("pricing.list_products"))
 
     # Load from request or fallback to session
     brand_filter = request.args.get("brand")
@@ -712,7 +723,7 @@ def list_products():
     conn.close()
 
     return render_template(
-        "products.html",
+        "pricing/products.html",
         products=products,
         brand_filter=brand_filter,
         category_filter=category_filter,
@@ -724,14 +735,14 @@ def list_products():
         total_pages=total_pages,
         total_count=total_count
     )
-@app.route("/products/quick_update")
+@bp.route("/products/quick_update")
 def quick_update_products():
     # Check if we should clear filters
     if request.args.get("clear"):
         session.pop("products_filter_brand", None)
         session.pop("products_filter_category", None)
         session.pop("products_filter_search", None)
-        return redirect(url_for("quick_update_products"))
+        return redirect(url_for("pricing.quick_update_products"))
 
     # Load from request or fallback to session
     brand_filter = request.args.get("brand")
@@ -831,7 +842,7 @@ def quick_update_products():
     conn.close()
 
     return render_template(
-        "quick_update.html",
+        "pricing/quick_update.html",
         products=products,
         brand_filter=brand_filter,
         category_filter=category_filter,
@@ -843,10 +854,10 @@ def quick_update_products():
         total_count=total_count
     )
 
-@app.route("/products/<int:product_id>/quick_update_save", methods=["POST"])
+@bp.route("/products/<int:product_id>/quick_update_save", methods=["POST"])
 def quick_update_save(product_id):
     if request.method != "POST":
-        return redirect(url_for("quick_update_products"))
+        return redirect(url_for("pricing.quick_update_products"))
         
     conn = get_db()
     cur = conn.cursor()
@@ -962,9 +973,9 @@ def quick_update_save(product_id):
     ref_category = request.form.get("ref_category", "")
     ref_search = request.form.get("ref_search", "")
     
-    return redirect(url_for("quick_update_products", brand=ref_brand, category=ref_category, search=ref_search))
+    return redirect(url_for("pricing.quick_update_products", brand=ref_brand, category=ref_category, search=ref_search))
 
-@app.route("/products/add", methods=["GET", "POST"])
+@bp.route("/products/add", methods=["GET", "POST"])
 def add_product():
     conn = get_db()
     cur = conn.cursor()
@@ -995,7 +1006,7 @@ def add_product():
         if existing:
             conn.close()
             return render_template(
-                "product_form.html",
+                "pricing/product_form.html",
                 categories=categories,
                 brand_options=brand_options,
                 product=None,
@@ -1027,7 +1038,7 @@ def add_product():
             }
             conn.close()
             return render_template(
-                "product_form.html",
+                "pricing/product_form.html",
                 categories=categories,
                 brand_options=brand_options,
                 product=temp_product,
@@ -1046,9 +1057,9 @@ def add_product():
         # Check which button was clicked
         action = request.form.get("action")
         if action == "save_add_price":
-            return redirect(url_for("new_price", product_id=new_product_id))
+            return redirect(url_for("pricing.new_price", product_id=new_product_id))
 
-        return redirect(url_for("list_products"))
+        return redirect(url_for("pricing.list_products"))
 
     # GET – load existing categories and brands
     cur.execute("SELECT category FROM category_pricing_defaults ORDER BY category;")
@@ -1074,13 +1085,13 @@ def add_product():
     brand_options = [row["name"] for row in brand_rows]
 
     return render_template(
-        "product_form.html",
+        "pricing/product_form.html",
         categories=categories,
         brand_options=brand_options,
         product=product
     )
 
-@app.route("/products/<int:product_id>/edit", methods=["GET", "POST"])
+@bp.route("/products/<int:product_id>/edit", methods=["GET", "POST"])
 def edit_product(product_id):
     conn = get_db()
     cur = conn.cursor()
@@ -1126,7 +1137,7 @@ def edit_product(product_id):
             product_dict["brand"] = brand
             
             return render_template(
-                "product_form.html",
+                "pricing/product_form.html",
                 categories=categories,
                 brand_options=brand_options,
                 product=product_dict,
@@ -1182,7 +1193,7 @@ def edit_product(product_id):
             
             conn.close()
             return render_template(
-                "product_form.html",
+                "pricing/product_form.html",
                 categories=categories,
                 brand_options=brand_options,
                 product=product,
@@ -1209,9 +1220,9 @@ def edit_product(product_id):
         # Check which button was clicked
         action = request.form.get("action")
         if action == "save_add_price":
-            return redirect(url_for("new_price", product_id=product_id))
+            return redirect(url_for("pricing.new_price", product_id=product_id))
 
-        return redirect(url_for("list_products"))
+        return redirect(url_for("pricing.list_products"))
 
     # GET – load categories and brands for dropdowns
     cur.execute("SELECT category FROM category_pricing_defaults ORDER BY category;")
@@ -1225,14 +1236,14 @@ def edit_product(product_id):
     conn.close()
 
     return render_template(
-        "product_form.html",
+        "pricing/product_form.html",
         categories=categories,
         brand_options=brand_options,
         product=product
     )
 
 
-@app.route("/products/<int:product_id>/delete", methods=["POST"])
+@bp.route("/products/<int:product_id>/delete", methods=["POST"])
 def delete_product(product_id):
     conn = get_db()
     cur = conn.cursor()
@@ -1270,11 +1281,11 @@ def delete_product(product_id):
             except Exception as e:
                 print(f"Error removing image {file_path}: {e}")
 
-    return redirect(url_for("list_products"))  # or whatever your products list endpoint is called
+    return redirect(url_for("pricing.list_products"))  # or whatever your products list endpoint is called
 
 # ---------- CATEGORY DEFAULTS ----------
 
-@app.route("/category-defaults", methods=["GET", "POST"])
+@bp.route("/category-defaults", methods=["GET", "POST"])
 def category_defaults():
     conn = get_db()
     cur = conn.cursor()
@@ -1365,13 +1376,13 @@ def category_defaults():
     defaults = cur.fetchall()
     conn.close()
 
-    return render_template("category_defaults.html", defaults=defaults, error=request.args.get("error"))
+    return render_template("pricing/category_defaults.html", defaults=defaults, error=request.args.get("error"))
 
-@app.route("/category-defaults/delete", methods=["POST"])
+@bp.route("/category-defaults/delete", methods=["POST"])
 def delete_category_default():
     cat_to_delete = request.form.get("category_to_delete")
     if not cat_to_delete:
-        return redirect(url_for("category_defaults"))
+        return redirect(url_for("pricing.category_defaults"))
     
     conn = get_db()
     cur = conn.cursor()
@@ -1382,15 +1393,15 @@ def delete_category_default():
 
     if in_use:
         conn.close()
-        return redirect(url_for("category_defaults", error=f"Cannot delete category '{cat_to_delete}' because it is used by one or more products."))
+        return redirect(url_for("pricing.category_defaults", error=f"Cannot delete category '{cat_to_delete}' because it is used by one or more products."))
 
     cur.execute("DELETE FROM category_pricing_defaults WHERE category = ?;", (cat_to_delete,))
     conn.commit()
     conn.close()
     
-    return redirect(url_for("category_defaults"))
+    return redirect(url_for("pricing.category_defaults"))
 
-@app.route("/brands", methods=["GET", "POST"])
+@bp.route("/brands", methods=["GET", "POST"])
 def brands():
     conn = get_db()
     cur = conn.cursor()
@@ -1424,13 +1435,13 @@ def brands():
     rows = cur.fetchall()
     conn.close()
 
-    return render_template("brands.html", brands=rows, error=request.args.get("error"))
+    return render_template("pricing/brands.html", brands=rows, error=request.args.get("error"))
 
-@app.route("/brands/delete", methods=["POST"])
+@bp.route("/brands/delete", methods=["POST"])
 def delete_brand():
     brand_to_delete = request.form.get("brand_to_delete")
     if not brand_to_delete:
-        return redirect(url_for("brands"))
+        return redirect(url_for("pricing.brands"))
 
     conn = get_db()
     cur = conn.cursor()
@@ -1441,17 +1452,17 @@ def delete_brand():
 
     if in_use:
         conn.close()
-        return redirect(url_for("brands", error=f"Cannot delete brand '{brand_to_delete}' because it is used by one or more products."))
+        return redirect(url_for("pricing.brands", error=f"Cannot delete brand '{brand_to_delete}' because it is used by one or more products."))
 
     cur.execute("DELETE FROM brands WHERE name = ?;", (brand_to_delete,))
     conn.commit()
     conn.close()
 
-    return redirect(url_for("brands"))
+    return redirect(url_for("pricing.brands"))
 
 # ---------- PRICES ----------
 
-@app.route("/products/<int:product_id>/prices")
+@bp.route("/products/<int:product_id>/prices")
 def price_history(product_id):
     conn = get_db()
     cur = conn.cursor()
@@ -1471,10 +1482,10 @@ def price_history(product_id):
     prices = cur.fetchall()
 
     conn.close()
-    return render_template("price_history.html", product=product, prices=prices)
+    return render_template("pricing/price_history.html", product=product, prices=prices)
 
 
-@app.route("/products/<int:product_id>/prices/new", methods=["GET", "POST"])
+@bp.route("/products/<int:product_id>/prices/new", methods=["GET", "POST"])
 def new_price(product_id):
     conn = get_db()
     cur = conn.cursor()
@@ -1609,7 +1620,7 @@ def new_price(product_id):
 
         conn.commit()
         conn.close()
-        return redirect(url_for("list_products"))
+        return redirect(url_for("pricing.list_products"))
 
     # Load rounding rules for JS
     cur.execute("SELECT * FROM price_rounding_rules ORDER BY target, limit_val ASC;")
@@ -1621,7 +1632,7 @@ def new_price(product_id):
     conn.close()
     # When rendering form, show percents as "x 100"
     return render_template(
-        "price_form.html",
+        "pricing/price_form.html",
         product=product,
         defaults={
             "import_percent": defaults["import_percent"] * 100,
@@ -1639,7 +1650,7 @@ def new_price(product_id):
         rounding_rules=rules_json
     )
 
-@app.route("/products/<int:product_id>/prices/<int:price_id>/edit", methods=["GET", "POST"])
+@bp.route("/products/<int:product_id>/prices/<int:price_id>/edit", methods=["GET", "POST"])
 def edit_price(product_id, price_id):
     conn = get_db()
     cur = conn.cursor()
@@ -1745,7 +1756,7 @@ def edit_price(product_id, price_id):
         ))
         conn.commit()
         conn.close()
-        return redirect(url_for("list_products"))
+        return redirect(url_for("pricing.list_products"))
 
     # GET – load category defaults (not critical for edit, but ok)
     defaults = {
@@ -1787,7 +1798,7 @@ def edit_price(product_id, price_id):
 
     conn.close()
     return render_template(
-        "price_form.html",
+        "pricing/price_form.html",
         product=product,
         defaults={
             "import_percent": defaults["import_percent"] * 100,
@@ -1805,7 +1816,7 @@ def edit_price(product_id, price_id):
         rounding_rules=rules_json
     )
 
-@app.route("/products/<int:product_id>/prices/<int:price_id>/delete", methods=["POST"])
+@bp.route("/products/<int:product_id>/prices/<int:price_id>/delete", methods=["POST"])
 def delete_price(product_id, price_id):
     conn = get_db()
     cur = conn.cursor()
@@ -1824,7 +1835,7 @@ def delete_price(product_id, price_id):
     conn.commit()
     conn.close()
 
-    return redirect(url_for("price_history", product_id=product_id))
+    return redirect(url_for("pricing.price_history", product_id=product_id))
 
 # ---------- END ----------
 if __name__ == "__main__":
@@ -1844,4 +1855,8 @@ if __name__ == "__main__":
     else:
         print(f"\n  🔑 API v1 key loaded. Manage in Admin Panel → API Key Management\n")
 
+    app = Flask(__name__, static_folder=STATIC_DIR, static_url_path="/static")
+    app.register_blueprint(bp, url_prefix="/pricing")
+    app.secret_key = os.environ.get("PRICING_SECRET_KEY", "crm_pricing_secret_key_change_me")
+    app.config['SESSION_COOKIE_NAME'] = 'pricing_session'
     app.run(host="0.0.0.0", port=5000, debug=True)

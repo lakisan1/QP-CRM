@@ -1,10 +1,10 @@
-{% extends "base.html" %}
+{% extends "pricing/base.html" %}
 {% block title %}Quick Price Update{% endblock %}
 {% block content %}
 <h1>Brzo Ažuriranje Cena</h1>
 
 <div class="card">
-    <form method="get" action="{{ url_for('quick_update_products') }}">
+    <form method="get" action="{{ url_for('pricing.quick_update_products') }}">
         <p style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end;">
             <label style="display: flex; flex-direction: column;">
                 <span style="margin-bottom: 8px; font-weight: 500; font-size: 14px;">Brand:</span>
@@ -37,7 +37,7 @@
         <div style="display: flex; flex-direction: column;">
             <span style="margin-bottom: 8px; font-weight: 500; font-size: 14px; visibility: hidden;">.</span>
             <div style="display: flex; align-items: center; gap: 10px;">
-                <a href="{{ url_for('quick_update_products', clear=1) }}" class="btn btn-secondary"
+                <a href="{{ url_for('pricing.quick_update_products', clear=1) }}" class="btn btn-secondary"
                     style="margin-bottom: 0px; padding: 10px 20px; font-size: 14px;">Reset pretrage</a>
                 <span
                     style="background: var(--accent-primary, #3498db); color: white; padding: 4px 12px; border-radius: 20px; font-weight: bold; font-size: 14px;">
@@ -66,12 +66,12 @@
         <tr>
             <td style="text-align: center; width: 85px;">
                 {% if p.photo_path %}
-                <img src="{{ url_for('product_image', filename=p.photo_path) }}"
+                <img src="{{ url_for('pricing.product_image', filename=p.photo_path) }}"
                     style="max-width: 80px; max-height: 80px;">
                 {% endif %}
             </td>
             <td>
-                <a href="{{ url_for('price_history', product_id=p.id) }}" target="_blank">
+                <a href="{{ url_for('pricing.price_history', product_id=p.id) }}" target="_blank">
                     {{ p.name }}
                 </a>
             </td>
@@ -90,7 +90,7 @@
             </td>
 
             <!-- Update Form for this row -->
-            <form method="POST" action="{{ url_for('quick_update_save', product_id=p.id) }}">
+            <form method="POST" action="{{ url_for('pricing.quick_update_save', product_id=p.id) }}">
                 <input type="hidden" name="ref_brand" value="{{ brand_filter or '' }}">
                 <input type="hidden" name="ref_category" value="{{ category_filter or '' }}">
                 <input type="hidden" name="ref_search" value="{{ search_term or '' }}">
@@ -115,14 +115,14 @@
 <!-- Pagination Controls -->
 <div style="margin-top: 20px; display: flex; justify-content: center; gap: 10px;">
     {% if current_page > 1 %}
-    <a href="{{ url_for('quick_update_products', page=current_page - 1, brand=brand_filter, category=category_filter, search=search_term) }}"
+    <a href="{{ url_for('pricing.quick_update_products', page=current_page - 1, brand=brand_filter, category=category_filter, search=search_term) }}"
         class="btn btn-secondary">&laquo; Previous</a>
     {% endif %}
 
     <span style="padding: 10px; font-weight: 500;">Page {{ current_page }} of {{ total_pages }}</span>
 
     {% if current_page < total_pages %} <a
-        href="{{ url_for('quick_update_products', page=current_page + 1, brand=brand_filter, category=category_filter, search=search_term) }}"
+        href="{{ url_for('pricing.quick_update_products', page=current_page + 1, brand=brand_filter, category=category_filter, search=search_term) }}"
         class="btn btn-secondary">Next &raquo;</a>
         {% endif %}
 </div>
