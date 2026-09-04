@@ -15,7 +15,7 @@ PACKAGE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 from qp_crm.shared.config import STATIC_DIR, DATABASE, APP_ASSETS_DIR, IMAGE_DIR
 from qp_crm.shared.db import get_db
-from qp_crm.shared.auth import check_password, set_password, get_password, get_api_key, generate_api_key, revoke_api_key
+from qp_crm.shared.auth import check_password, set_password, get_api_key, generate_api_key, revoke_api_key
 from qp_crm.shared.countries import get_country_list
 from qp_crm.shared.web import (
     make_auth_hook,
@@ -146,12 +146,16 @@ def init_users_table():
     from there.
     """
     from qp_crm.shared.schema import create_users_table
-    from qp_crm.shared.auth import seed_users_from_legacy
+    from qp_crm.shared.auth import scrub_legacy_password_keys, seed_users_from_legacy
 
     conn = get_db()
     cur = conn.cursor()
     create_users_table(cur)
     seed_users_from_legacy(cur)
+    # End state 'no plaintext passwords at rest': the legacy '{app}_password'
+    # rows are removed on EVERY boot, not only when seeding new accounts, so
+    # they cannot survive a restore of a pre-Phase-3 backup either.
+    scrub_legacy_password_keys(cur)
     conn.commit()
     conn.close()
 

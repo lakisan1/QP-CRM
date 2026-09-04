@@ -98,6 +98,15 @@ def restore_db():
             # 4. Clean up temp file
             os.remove(tmp_name)
 
+            # Phase 3: the restored file may predate the users table (or carry
+            # legacy plaintext password keys) -- re-run the auth init so the
+            # accounts are seeded/migrated and the legacy keys are scrubbed.
+            try:
+                from ..app import init_users_table
+                init_users_table()
+            except Exception as auth_e:
+                flash(f"Database restored, but auth re-init failed: {auth_e}", "warning")
+
             flash("Database restored successfully.", "success")
         except Exception as e:
             flash(f"Error restoring database: {e}", "error")
@@ -192,6 +201,14 @@ def restore_full():
                         with open(target_abs_path, "wb") as out_f:
                             out_f.write(zf.read(member))
                             
+        # Phase 3: same auth re-init as /restore_db -- the restored pricing.db
+        # may predate the users table or carry legacy plaintext password keys.
+        try:
+            from ..app import init_users_table
+            init_users_table()
+        except Exception as auth_e:
+            flash(f"Backup restored, but auth re-init failed: {auth_e}", "warning")
+
         flash("Full System Restore successful.", "success")
         
     except Exception as e:
@@ -254,9 +271,6 @@ def factory_reset():
             'email_offer_subject': 'Ponuda br. {offer_number}',
             'email_offer_body': 'Postovani,\n\nU prilogu vam saljemo ponudu br. {offer_number}.\n\nSrdacan pozdrav,\nVas Tim',
             'default_items_per_page': '25',
-            'admin_password': 'Admin1',
-            'pricing_password': 'Price1',
-            'offer_password': 'Offer1',
             'active_pdf_template_id': '0',
             'rent_default_interest_rate': '14.0',
             'rent_default_insurance_rate': '1.13',
@@ -277,6 +291,29 @@ def factory_reset():
             seed_templates(conn)
         except Exception as seed_e:
             print(f"[factory_reset] Warning: Could not re-seed rent templates: {seed_e}")
+
+        # Re-seed the default price rounding rules -- a fresh boot seeds them
+        # when the table is empty (admin.init_rounding_rules_table), so a
+        # 'factory reset' must end in the same state (Phase 3: caught by the
+        # auth test suite running a reset on the shared test DB).
+        try:
+            from ..app import init_rounding_rules_table
+            init_rounding_rules_table()
+        except Exception as rules_e:
+            print(f"[factory_reset] Warning: Could not re-seed rounding rules: {rules_e}")
+
+        # Phase 3: reset user accounts to the four hashed defaults (the
+        # legacy plaintext '{app}_password' keys are no longer written).
+        try:
+            from qp_crm.shared.auth import (
+                scrub_legacy_password_keys,
+                seed_users_from_legacy,
+            )
+            cur.execute("DELETE FROM users;")
+            seed_users_from_legacy(cur)
+            scrub_legacy_password_keys(cur)
+        except Exception as users_e:
+            print(f"[factory_reset] Warning: Could not reset user accounts: {users_e}")
             
         # Re-enable Foreign Keys
         cur.execute("PRAGMA foreign_keys = ON;")
