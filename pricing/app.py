@@ -31,6 +31,14 @@ import markdown
 from shared.config import BASE_DIR, APP_DATA_DIR, DATABASE, IMAGE_DIR, STATIC_DIR
 from shared.db import get_db
 from shared.auth import check_password
+from shared.web import (
+    get_date_format,
+    get_theme,
+    make_auth_hook,
+    register_product_image,
+    save_product_image,
+    download_image_from_url,
+)
 
 # import common_utils (it's in PARENT_DIR)
 # we already added PARENT_DIR to sys.path above
@@ -55,19 +63,10 @@ from shared.auth import get_api_key, generate_api_key
 
 bp = Blueprint("pricing", __name__, template_folder="templates")
 
-@bp.before_request
-def check_auth():
-    # Exempt login page from authentication.
-    # NOTE: in the pre-consolidation code this hook also exempted 'static'
-    # (this app served its own /static) and endpoints starting with
-    # 'api_v1.' (in case the API blueprint was registered here); on the
-    # single app /static and /api/v1/* are top-level routes whose requests
-    # never enter blueprint hooks, so only the login exemption remains.
-    if request.endpoint in ('pricing.login',):
-        return None
-
-    if not session.get("pricing_authenticated"):
-        return redirect(url_for('pricing.login'))
+# Per-module login hook from shared/web.py (was a copy-pasted before_request
+# per app; the session flag is pricing-specific so the shared cookie cannot
+# unlock other modules).
+bp.before_request(make_auth_hook("pricing_authenticated", "pricing.login"))
 
 
 def init_db():
@@ -410,105 +409,7 @@ def apply_rounding(val, target='price'):
     else:
         return math.ceil(val / step) * step
 
-def save_product_image(image_stream, orig_filename, product_name):
-    """
-    Process and save an image (from stream) to IMAGE_DIR, resized to max 800x800.
-    Returns the filename (e.g. 'my_product.jpg') or raises ValueError.
-    """
-    if not image_stream or not orig_filename:
-        return None
-
-    # Check extension
-    ext = os.path.splitext(orig_filename)[1].lower()
-    if ext not in [".jpg", ".jpeg", ".png", ".webp"]:
-        raise ValueError("Slika mora biti JPG, PNG ili WEBP (.jpg, .jpeg, .png, ili .webp).")
-
-    # Build base name from product_name
-    base = (product_name or "").strip().lower()
-    base = re.sub(r"\s+", "_", base)
-    base = re.sub(r"[^a-z0-9_-]", "", base)
-    if not base:
-        base = "product"
-
-    filename = base + ".jpg"
-
-    os.makedirs(IMAGE_DIR, exist_ok=True)
-    dest_path = os.path.join(IMAGE_DIR, filename)
-
-    try:
-        img = Image.open(image_stream)
-
-        # PNG Transparency handling
-        if 'A' in img.mode:
-            img = img.convert("RGBA")
-            bg = Image.new('RGB', img.size, (255, 255, 255))
-            bg.paste(img, mask=img)
-            img = bg
-        elif img.mode != "RGB":
-            img = img.convert("RGB")
-
-        # Resize
-        max_size = (800, 800)
-        img.thumbnail(max_size)
-
-        # Save as JPEG
-        img.save(dest_path, format="JPEG", quality=85)
-        
-    except Exception as e:
-        raise ValueError("Greška pri obradi slike: " + str(e))
-
-    return filename
-
-def get_date_format():
-    """Fetch the date_format setting."""
-    from flask import request
-    try:
-        conn = get_db()
-        cur = conn.cursor()
-        cur.execute("SELECT value FROM global_settings WHERE key = 'date_format';")
-        row = cur.fetchone()
-        conn.close()
-        if row and row["value"]:
-            return row["value"]
-    except Exception:
-        pass
-
-    return request.cookies.get("date_format", "YYYY-MM-DD")
-
-def get_theme():
-    """Fetch the theme setting from cookies."""
-    from flask import request
-    return request.cookies.get("theme", "dark")
-
 import requests
-
-def download_image_from_url(url):
-    """
-    Download image from URL, validate it's an image.
-    Returns (stream, filename) or raises ValueError.
-    """
-    try:
-        resp = requests.get(url, timeout=10, stream=True)
-        resp.raise_for_status()
-        
-        content_type = resp.headers.get('Content-Type', '').lower()
-        if 'image/jpeg' not in content_type and 'image/png' not in content_type and 'image/webp' not in content_type:
-            raise ValueError("URL ne vodi do JPG, PNG ili WEBP slike.")
-
-        # Get original filename from URL or default to url_image.jpg
-        orig_filename = url.split("/")[-1].split("?")[0] or "url_image.jpg"
-        if not any(orig_filename.lower().endswith(ex) for ex in ['.jpg', '.jpeg', '.png', '.webp']):
-            # force extension based on content-type if missing
-            if 'png' in content_type: orig_filename += '.png'
-            elif 'webp' in content_type: orig_filename += '.webp'
-            else: orig_filename += '.jpg'
-
-        return io.BytesIO(resp.content), orig_filename
-
-    except requests.exceptions.RequestException as e:
-        raise ValueError(f"Greška pri preuzimanju slike sa URL-a: {str(e)}")
-
-
 
 @bp.route("/api/nbs_rate/<currency>")
 def api_nbs_rate(currency):
@@ -536,48 +437,9 @@ def logout():
     session.pop('authenticated', None)
     return redirect('/')
 
-@bp.route("/product-image/<path:filename>")
-def product_image(filename):
-    return send_from_directory(IMAGE_DIR, filename)
+# /product-image route: shared implementation (also on offer and sale)
+register_product_image(bp)
 
-
-
-@bp.app_template_filter('format_date')
-def _format_date_filter(date_str):
-    fmt = get_date_format()
-    return format_date(date_str, fmt)
-
-import re
-
-def fix_markdown_lists(text):
-    if not text:
-        return text
-    lines = text.split('\n')
-    fixed_lines = []
-    in_list = False
-    for line in lines:
-        is_list_item = bool(re.match(r'^[ \t]*([*+-]|\d+\.)[ \t]+', line))
-        is_empty = not line.strip()
-        if is_list_item and not in_list and fixed_lines and fixed_lines[-1].strip():
-            fixed_lines.append('')
-        fixed_lines.append(line)
-        if is_empty:
-            in_list = False
-        elif is_list_item:
-            in_list = True
-    return '\n'.join(fixed_lines)
-
-@bp.app_template_filter('md')
-def render_markdown(text):
-    if not text:
-        return ""
-    text = fix_markdown_lists(text)
-    return markdown.markdown(text, extensions=['extra', 'nl2br'])
-
-def _(text):
-    """Translate text using shared i18n (works in standalone mode too)."""
-    from shared.utils import translate, get_current_language
-    return translate(text, get_current_language())
 
 
 @bp.context_processor
@@ -585,7 +447,6 @@ def inject_helpers():
     return dict(
         format_amount=format_amount,
         theme=get_theme(),
-        _=_,
     )
 
 # ---------- PRODUCTS ----------
@@ -1021,11 +882,20 @@ def add_product():
         try:
             if photo_file and photo_file.filename:
                 # Priority 1: Manual file upload
-                photo_path = save_product_image(photo_file.stream, photo_file.filename, name)
+                photo_path = save_product_image(
+                    photo_file.stream, photo_file.filename, name,
+                    error_ext="Slika mora biti JPG, PNG ili WEBP (.jpg, .jpeg, .png, ili .webp).",
+                    error_process_prefix="Gre\u0161ka pri obradi slike: ")
             elif photo_url:
                 # Priority 2: Download from URL
-                stream, orig_filename = download_image_from_url(photo_url)
-                photo_path = save_product_image(stream, orig_filename, name)
+                stream, orig_filename = download_image_from_url(
+                    photo_url,
+                    error_content_type="URL ne vodi do JPG, PNG ili WEBP slike.",
+                    error_request_prefix="Gre\u0161ka pri preuzimanju slike sa URL-a: ")
+                photo_path = save_product_image(
+                    stream, orig_filename, name,
+                    error_ext="Slika mora biti JPG, PNG ili WEBP (.jpg, .jpeg, .png, ili .webp).",
+                    error_process_prefix="Gre\u0161ka pri obradi slike: ")
         except ValueError as e:
             # Create a temporary product object to preserve form data
             temp_product = {
@@ -1151,10 +1021,19 @@ def edit_product(product_id):
         
         try:
             if photo_file and photo_file.filename:
-                photo_path = save_product_image(photo_file.stream, photo_file.filename, name)
+                photo_path = save_product_image(
+                    photo_file.stream, photo_file.filename, name,
+                    error_ext="Slika mora biti JPG, PNG ili WEBP (.jpg, .jpeg, .png, ili .webp).",
+                    error_process_prefix="Gre\u0161ka pri obradi slike: ")
             elif photo_url:
-                stream, orig_filename = download_image_from_url(photo_url)
-                photo_path = save_product_image(stream, orig_filename, name)
+                stream, orig_filename = download_image_from_url(
+                    photo_url,
+                    error_content_type="URL ne vodi do JPG, PNG ili WEBP slike.",
+                    error_request_prefix="Gre\u0161ka pri preuzimanju slike sa URL-a: ")
+                photo_path = save_product_image(
+                    stream, orig_filename, name,
+                    error_ext="Slika mora biti JPG, PNG ili WEBP (.jpg, .jpeg, .png, ili .webp).",
+                    error_process_prefix="Gre\u0161ka pri obradi slike: ")
             else:
                 # No new photo provided. Check if name changed and photo exists.
                 if photo_path and product["name"] != name:

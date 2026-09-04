@@ -22,81 +22,13 @@ if PARENT_DIR not in sys.path:
 from shared.db import get_db
 from shared.auth import validate_api_key
 from shared.config import IMAGE_DIR
+from shared.web import save_product_image, download_image_from_url
 
 from PIL import Image
 import requests as http_requests
 
 
 # ---------- Photo/image helpers (replicated from pricing/app.py to avoid circular imports) ----------
-
-def save_product_image(image_stream, orig_filename, product_name):
-    """
-    Process and save an image (from stream) to IMAGE_DIR, resized to max 800x800.
-    Returns the filename (e.g. 'my_product.jpg') or raises ValueError.
-    """
-    if not image_stream or not orig_filename:
-        return None
-
-    ext = os.path.splitext(orig_filename)[1].lower()
-    if ext not in [".jpg", ".jpeg", ".png", ".webp"]:
-        raise ValueError("Image must be JPG, PNG or WEBP (.jpg, .jpeg, .png, or .webp).")
-
-    base = (product_name or "").strip().lower()
-    base = re.sub(r"\s+", "_", base)
-    base = re.sub(r"[^a-z0-9_-]", "", base)
-    if not base:
-        base = "product"
-
-    filename = base + ".jpg"
-    os.makedirs(IMAGE_DIR, exist_ok=True)
-    dest_path = os.path.join(IMAGE_DIR, filename)
-
-    try:
-        img = Image.open(image_stream)
-        if 'A' in img.mode:
-            img = img.convert("RGBA")
-            bg = Image.new('RGB', img.size, (255, 255, 255))
-            bg.paste(img, mask=img)
-            img = bg
-        elif img.mode != "RGB":
-            img = img.convert("RGB")
-
-        max_size = (800, 800)
-        img.thumbnail(max_size)
-        img.save(dest_path, format="JPEG", quality=85)
-    except Exception as e:
-        raise ValueError("Error processing image: " + str(e))
-
-    return filename
-
-
-def download_image_from_url(url):
-    """
-    Download image from URL, validate it's an image.
-    Returns (BytesIO stream, filename) or raises ValueError.
-    """
-    try:
-        resp = http_requests.get(url, timeout=10, stream=True)
-        resp.raise_for_status()
-
-        content_type = resp.headers.get('Content-Type', '').lower()
-        if 'image/jpeg' not in content_type and 'image/png' not in content_type and 'image/webp' not in content_type:
-            raise ValueError("URL does not point to a JPG, PNG or WEBP image.")
-
-        orig_filename = url.split("/")[-1].split("?")[0] or "url_image.jpg"
-        if not any(orig_filename.lower().endswith(ex) for ex in ['.jpg', '.jpeg', '.png', '.webp']):
-            if 'png' in content_type:
-                orig_filename += '.png'
-            elif 'webp' in content_type:
-                orig_filename += '.webp'
-            else:
-                orig_filename += '.jpg'
-
-        return io.BytesIO(resp.content), orig_filename
-
-    except http_requests.exceptions.RequestException as e:
-        raise ValueError(f"Error downloading image from URL: {str(e)}")
-
 
 api_v1 = Blueprint("api_v1", __name__)
 
@@ -313,10 +245,19 @@ def create_product():
     photo_path = None
     try:
         if photo_file and photo_file.filename:
-            photo_path = save_product_image(photo_file.stream, photo_file.filename, name)
+            photo_path = save_product_image(
+            photo_file.stream, photo_file.filename, name,
+            error_ext="Image must be JPG, PNG or WEBP (.jpg, .jpeg, .png, or .webp).",
+            error_process_prefix="Error processing image: ")
         elif photo_url_field:
-            stream, orig_filename = download_image_from_url(photo_url_field)
-            photo_path = save_product_image(stream, orig_filename, name)
+            stream, orig_filename = download_image_from_url(
+            photo_url_field,
+            error_content_type="URL does not point to a JPG, PNG or WEBP image.",
+            error_request_prefix="Error downloading image from URL: ")
+            photo_path = save_product_image(
+            stream, orig_filename, name,
+            error_ext="Image must be JPG, PNG or WEBP (.jpg, .jpeg, .png, or .webp).",
+            error_process_prefix="Error processing image: ")
     except ValueError as e:
         conn.close()
         return jsonify({"success": False, "error": str(e)}), 400
@@ -390,7 +331,10 @@ def update_product(product_id):
     photo_path = product["photo_path"]
     try:
         if photo_file and photo_file.filename:
-            photo_path = save_product_image(photo_file.stream, photo_file.filename, final_name)
+            photo_path = save_product_image(
+            photo_file.stream, photo_file.filename, final_name,
+            error_ext="Image must be JPG, PNG or WEBP (.jpg, .jpeg, .png, or .webp).",
+            error_process_prefix="Error processing image: ")
             # Delete old photo if different
             if product["photo_path"] and photo_path != product["photo_path"]:
                 old_path = os.path.join(IMAGE_DIR, product["photo_path"])
@@ -400,8 +344,14 @@ def update_product(product_id):
                     except Exception:
                         pass
         elif photo_url_field:
-            stream, orig_filename = download_image_from_url(photo_url_field)
-            photo_path = save_product_image(stream, orig_filename, final_name)
+            stream, orig_filename = download_image_from_url(
+            photo_url_field,
+            error_content_type="URL does not point to a JPG, PNG or WEBP image.",
+            error_request_prefix="Error downloading image from URL: ")
+            photo_path = save_product_image(
+            stream, orig_filename, final_name,
+            error_ext="Image must be JPG, PNG or WEBP (.jpg, .jpeg, .png, or .webp).",
+            error_process_prefix="Error processing image: ")
             if product["photo_path"] and photo_path != product["photo_path"]:
                 old_path = os.path.join(IMAGE_DIR, product["photo_path"])
                 if os.path.exists(old_path):
@@ -1419,8 +1369,14 @@ def sync_add_product():
     photo_path = None
     try:
         if image_url:
-            stream, orig_filename = download_image_from_url(image_url)
-            photo_path = save_product_image(stream, orig_filename, name)
+            stream, orig_filename = download_image_from_url(
+            image_url,
+            error_content_type="URL does not point to a JPG, PNG or WEBP image.",
+            error_request_prefix="Error downloading image from URL: ")
+            photo_path = save_product_image(
+            stream, orig_filename, name,
+            error_ext="Image must be JPG, PNG or WEBP (.jpg, .jpeg, .png, or .webp).",
+            error_process_prefix="Error processing image: ")
     except ValueError as e:
         conn.close()
         return jsonify({"success": False, "error": str(e)}), 400

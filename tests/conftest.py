@@ -131,8 +131,9 @@ def rent_client(temp_db):
 
 @pytest.fixture(scope="session")
 def stack_client(temp_db):
-    """Werkzeug client over main.application -- the real DispatcherMiddleware
-    stack exactly as gunicorn serves it (all six sub-apps, real URL prefixes).
+    """Werkzeug client over main.application -- the real WSGI stack exactly as
+    gunicorn serves it (single Flask app with real URL prefixes; pre-Phase-2
+    this was the DispatcherMiddleware merge of six sub-apps).
     """
     from werkzeug.test import Client
     import main

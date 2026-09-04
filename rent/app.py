@@ -18,6 +18,14 @@ from shared.config import BASE_DIR, APP_DATA_DIR, DATABASE, APP_ASSETS_DIR, STAT
 from shared.db import get_db
 from shared.auth import check_password
 from shared.utils import format_amount
+from shared.web import (
+    get_theme,
+    make_auth_hook,
+    fetch_rent_defaults,
+    sort_rent_templates,
+    DEFAULT_RENT_EMAIL,
+    DEFAULT_RENT_EMAIL_SUBJECT,
+)
 from rent.import_templates import seed_templates
 
 # ---------------------------------------------------------------------------
@@ -37,12 +45,9 @@ bp = Blueprint("rent", __name__, template_folder="templates")
 CSV_DIR = os.path.join(BASE_DIR, "excell Rent calc")
 
 
-@bp.before_request
-def check_auth():
-    if request.endpoint in ('rent.login',):
-        return None
-    if not session.get('rent_authenticated'):
-        return redirect(url_for('rent.login'))
+# Per-module login hook from shared/web.py (rent_authenticated keeps its
+# pre-consolidation module-scoped name).
+bp.before_request(make_auth_hook("rent_authenticated", "rent.login"))
 
 
 @bp.route("/login", methods=["GET", "POST"])
@@ -348,11 +353,7 @@ def _seed_equipment(conn):
 # ─── Context processor ─────────────────────────────────────────────────────────
 @bp.context_processor
 def inject_helpers():
-    return dict(format_amount=format_amount, theme=_get_theme())
-
-
-def _get_theme():
-    return request.cookies.get("theme", "dark")
+    return dict(format_amount=format_amount, theme=get_theme())
 
 
 # ─── Routes ────────────────────────────────────────────────────────────────────
@@ -437,21 +438,7 @@ def _get_rent_defaults():
     """Fetch rent default parameters from global_settings."""
     conn = get_db()
     cur = conn.cursor()
-    keys = {
-        'rent_default_interest_rate': 14.0,
-        'rent_default_insurance_rate': 1.13,
-        'rent_default_guarantee_rate': 5.0,
-        'rent_default_admin_fee': 50.0,
-        'rent_default_vat_percent': 20.0,
-        'rent_default_salvage_value_percent': 20.0,
-        'rent_default_downpayment_percent': 20.0,
-        'rent_default_period_months': 48,
-    }
-    result = {}
-    for key, default in keys.items():
-        cur.execute("SELECT value FROM global_settings WHERE key = ?;", (key,))
-        row = cur.fetchone()
-        result[key] = row["value"] if row else str(default)
+    result = fetch_rent_defaults(cur)
     conn.close()
     return result
 
@@ -1021,22 +1008,8 @@ def _build_doc_context(contract: dict, calc: dict) -> dict:
 
 
 # ─── Document list for a contract ──────────────────────────────────────────────
-# Preferred display order for rent templates (slugs not listed go to the end)
-TEMPLATE_SORT_ORDER = [
-    "ugovor-zakup",
-    "prilog-1-zapisnik",
-    "prilog-2-protokol",
-    "menicno-ovlascenje",
-    "instrukcija-avans",
-    "info-osiguranje",
-    "ugovor-zakup-jemac",
-    "zapisnik-preuzimanje",
-]
-
-def _sort_templates(templates):
-    """Sort template rows by the preferred display order."""
-    order_map = {slug: i for i, slug in enumerate(TEMPLATE_SORT_ORDER)}
-    return sorted(templates, key=lambda t: order_map.get(t["slug"], 999))
+# Preferred display order + sorter live in shared/web.py (admin's editor
+# page sorts identically).
 
 @bp.route("/contracts/<int:contract_id>/documents")
 def contract_documents(contract_id):
@@ -1049,23 +1022,13 @@ def contract_documents(contract_id):
         return "Ugovor nije pronađen", 404
 
     cur.execute("SELECT * FROM rent_templates ORDER BY id;")
-    templates = _sort_templates(cur.fetchall())
+    templates = sort_rent_templates(cur.fetchall())
 
     cur.execute("SELECT template_slug, updated_at FROM rent_contract_documents WHERE contract_id=?;", (contract_id,))
     saved_slugs = {row["template_slug"]: row["updated_at"] for row in cur.fetchall()}
 
     # Fetch email preset and substitute placeholders
-    _DEFAULT_EMAIL = (
-        "Poštovani,\n\n"
-        "U prilogu Vam dostavljamo sva dokumenta vezana za zakup opreme.\n\n"
-        "Ukoliko ste saglasni, molimo Vas da to potvrdite emailom, kako bismo Vam "
-        "poštom poslali potpisane primerke ugovora koje nam na dan ugradnje opreme "
-        "vraćate sa Vašim potpisom. Svaki prilog ide u 4 primerka – 2 za Vas i 2 za nas.\n\n"
-        "Molimo Vas da popunite i meničko ovlašćenje.\n\n"
-        "Uplatu avansa izvršite na osnovu Instrukcija za uplatu avansa, "
-        "a nakon toga pratite Plan plaćanja.\n\n"
-        "Srdačan pozdrav,\nMarinković-Hofmann d.o.o."
-    )
+    _DEFAULT_EMAIL = DEFAULT_RENT_EMAIL
     cur.execute("SELECT value FROM global_settings WHERE key='rent_email_preset';")
     row = cur.fetchone()
     email_preset = (row["value"] if row else _DEFAULT_EMAIL)
@@ -1073,7 +1036,7 @@ def contract_documents(contract_id):
     email_preset = email_preset.replace("{{ contract_number }}", contract["contract_number"] or str(contract_id))
 
     # Fetch email subject preset
-    _DEFAULT_SUBJECT = "Ugovor i prilozi za zakup opreme - {{ contract_number }} - {{ client_name }}"
+    _DEFAULT_SUBJECT = DEFAULT_RENT_EMAIL_SUBJECT
     cur.execute("SELECT value FROM global_settings WHERE key='rent_email_subject';")
     subj_row = cur.fetchone()
     email_subject = (subj_row["value"] if subj_row else _DEFAULT_SUBJECT)

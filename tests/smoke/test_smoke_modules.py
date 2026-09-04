@@ -1,7 +1,8 @@
 """P1-T7 smoke tests: login -> main page -> 200 through the REAL stack.
 
-These run against main.application -- the DispatcherMiddleware stack exactly
-as gunicorn serves it -- with the throwaway fixture DB from conftest (fresh
+These run against main.application -- the single Flask app exactly as
+gunicorn serves it (pre-Phase-2: the DispatcherMiddleware stack) -- with the
+throwaway fixture DB from conftest (fresh
 schemas, seeded defaults, NO password rows in global_settings, so
 shared.auth.DEFAULT_PASSWORDS are active; that fallback itself is pinned
 behavior from shared/auth.py:69-92).

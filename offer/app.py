@@ -33,6 +33,13 @@ from shared.countries import get_country_list
 #  common_utils app import
 # it's in PARENT_DIR which is already in sys.path
 from shared.utils import format_amount, format_date, get_nbs_rate
+from shared.web import (
+    get_date_format,
+    get_theme,
+    make_auth_hook,
+    register_product_image,
+    fetch_mandatory_fields,
+)
 
 # ---------------------------------------------------------------------------
 # Phase 2 stage 1: offer is a Blueprint on the single QP-CRM app.
@@ -49,16 +56,11 @@ from shared.utils import format_amount, format_date, get_nbs_rate
 
 bp = Blueprint("offer", __name__, template_folder="templates")
 
-@bp.before_request
-def check_auth():
-    # Exempt login page and the NBS rate endpoint from authentication
-    # ('static' was exempt when this app served its own /static; on the
-    # single app /static is top-level and never enters blueprint hooks).
-    if request.endpoint in ('offer.login', 'offer.api_nbs_eur_rate'):
-        return None
-
-    if not session.get("offer_authenticated"):
-        return redirect(url_for('offer.login'))
+# Per-module login hook from shared/web.py; the NBS rate endpoint stays
+# publicly reachable exactly as before the consolidation.
+bp.before_request(make_auth_hook(
+    "offer_authenticated", "offer.login",
+    exempt_endpoints=("offer.api_nbs_eur_rate",)))
 
 def init_db():
     conn = get_db()
@@ -196,41 +198,6 @@ def init_db():
 
 
 @bp.app_template_filter('format_date')
-def _format_date_filter(date_str, fmt=None):
-    if fmt is None:
-        fmt = get_date_format()
-    return format_date(date_str, fmt)
-
-import re
-
-def fix_markdown_lists(text):
-    if not text:
-        return text
-    lines = text.split('\n')
-    fixed_lines = []
-    in_list = False
-    for line in lines:
-        is_list_item = bool(re.match(r'^[ \t]*([*+-]|\d+\.)[ \t]+', line))
-        is_empty = not line.strip()
-        if is_list_item and not in_list and fixed_lines and fixed_lines[-1].strip():
-            fixed_lines.append('')
-        if is_list_item and line.strip().startswith('*') and not line.startswith(' '):
-             # Ensure there is a space after bullet if the user forgot but the regex caught it? No, regex already requires space.
-             pass
-        fixed_lines.append(line)
-        if is_empty:
-            in_list = False
-        elif is_list_item:
-            in_list = True
-    return '\n'.join(fixed_lines)
-
-@bp.app_template_filter('md')
-def render_markdown(text):
-    if not text:
-        return ""
-    text = fix_markdown_lists(text)
-    return markdown.markdown(text, extensions=['extra', 'nl2br'])
-
 @bp.context_processor
 def inject_helpers():
     return dict(
@@ -246,9 +213,8 @@ def api_nbs_eur_rate():
         return jsonify({"success": False, "message": "Neuspešno preuzimanje kursa sa NBS."}), 500
     return jsonify({"success": True, "rate": rate})
 
-@bp.route("/product-image/<path:filename>")
-def product_image(filename):
-    return send_from_directory(IMAGE_DIR, filename)
+# /product-image route: shared implementation (also on pricing and sale)
+register_product_image(bp)
 
 @bp.route("/asset/<path:filename>")
 def app_asset(filename):
@@ -274,27 +240,6 @@ def logout():
     session.pop('authenticated', None)
     return redirect('/')
 
-def get_date_format():
-    """Fetch the date_format setting."""
-    from flask import request
-    try:
-        conn = get_db()
-        cur = conn.cursor()
-        cur.execute("SELECT value FROM global_settings WHERE key = 'date_format';")
-        row = cur.fetchone()
-        conn.close()
-        if row and row["value"]:
-            return row["value"]
-    except Exception:
-        pass
-    
-    return request.cookies.get("date_format", "YYYY-MM-DD")
-
-def get_theme():
-    """Fetch the theme setting from cookies."""
-    from flask import request
-    return request.cookies.get("theme", "dark")
-
 def get_enable_product_discount():
     """Fetch the enable_product_discount setting."""
     conn = get_db()
@@ -308,12 +253,7 @@ def get_mandatory_fields():
     """Fetch mandatory field settings from global_settings."""
     conn = get_db()
     cur = conn.cursor()
-    fields = ['req_client_address', 'req_client_email', 'req_client_phone', 'req_client_pib', 'req_client_mb']
-    settings = {}
-    for f in fields:
-        cur.execute("SELECT value FROM global_settings WHERE key = ?;", (f,))
-        row = cur.fetchone()
-        settings[f] = (row["value"] == "true") if row else False
+    settings = fetch_mandatory_fields(cur)
     conn.close()
     return settings
 

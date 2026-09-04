@@ -11,6 +11,7 @@ if PARENT_DIR not in sys.path:
 
 from shared.config import STATIC_DIR
 from shared.utils import _, get_current_language
+from shared.web import get_theme
 
 # ---------------------------------------------------------------------------
 # Phase 2 stage 1 (pilot): settings is a Blueprint on the single QP-CRM app
@@ -40,9 +41,8 @@ def _csrf_token():
 
 @bp.context_processor
 def inject_helpers():
-    theme = request.cookies.get('theme', 'dark')
     lang = get_current_language()
-    return dict(theme=theme, _=lambda text: _(text, lang), current_lang=lang, csrf_token=_csrf_token())
+    return dict(theme=get_theme(), _=lambda text: _(text, lang), current_lang=lang, csrf_token=_csrf_token())
 
 @bp.route("/", methods=["GET", "POST"])
 def settings_index():

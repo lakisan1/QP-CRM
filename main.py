@@ -87,6 +87,14 @@ def inject_i18n():
 
 app.context_processor(inject_i18n)
 
+# App-wide template filters (Phase 2 stage 2): one shared 'format_date'
+# (offer's superset signature: fmt optional, falls back to the stored
+# date-format preference) and one shared 'md' (pricing/offer copies were
+# identical). Previously each app registered its own copy on its own env.
+from shared.web import format_date_filter, render_markdown
+app.add_template_filter(format_date_filter, 'format_date')
+app.add_template_filter(render_markdown, 'md')
+
 # The WSGI callable is now the single Flask app itself.
 application = app
 

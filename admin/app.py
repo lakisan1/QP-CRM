@@ -19,6 +19,15 @@ from shared.config import STATIC_DIR, DATABASE, APP_ASSETS_DIR, IMAGE_DIR
 from shared.db import get_db
 from shared.auth import check_password, set_password, get_password, get_api_key, generate_api_key, revoke_api_key
 from shared.countries import get_country_list
+from shared.web import (
+    make_auth_hook,
+    fetch_mandatory_fields,
+    fetch_rent_defaults,
+    sort_rent_templates,
+    MANDATORY_FIELD_KEYS,
+    RENT_DEFAULT_KEYS,
+    DEFAULT_RENT_EMAIL,
+)
 
 # ---------------------------------------------------------------------------
 # Phase 2 stage 1: admin is a Blueprint on the single QP-CRM app -- the last
@@ -147,12 +156,9 @@ def init_db():
     init_pdf_templates_table()
     init_rounding_rules_table()
 
-@bp.before_request
-def check_auth():
-    if request.endpoint in ('admin.login',):
-        return None
-    if not session.get('admin_authenticated'):
-        return redirect(url_for('admin.login'))
+# Per-module login hook from shared/web.py (admin_authenticated keeps its
+# pre-consolidation module-scoped name).
+bp.before_request(make_auth_hook("admin_authenticated", "admin.login"))
 
 @bp.route("/login", methods=["GET", "POST"])
 def login():
@@ -222,35 +228,11 @@ def index():
     row = cur.fetchone()
     default_items_per_page = row["value"] if row else "25"
 
-    # Fetch rent module defaults
-    rent_defaults = {}
-    rent_keys = {
-        'rent_default_interest_rate': '14.0',
-        'rent_default_insurance_rate': '1.13',
-        'rent_default_guarantee_rate': '5.0',
-        'rent_default_admin_fee': '50.0',
-        'rent_default_vat_percent': '20.0',
-        'rent_default_salvage_value_percent': '20.0',
-        'rent_default_downpayment_percent': '20.0',
-        'rent_default_period_months': '48',
-    }
-    for key, default in rent_keys.items():
-        cur.execute("SELECT value FROM global_settings WHERE key = ?;", (key,))
-        row = cur.fetchone()
-        rent_defaults[key] = row["value"] if row else default
+    # Fetch rent module defaults (shared key map + reader)
+    rent_defaults = fetch_rent_defaults(cur)
 
     # Fetch rent email preset
-    _DEFAULT_RENT_EMAIL = (
-        "Poštovani,\n\n"
-        "U prilogu Vam dostavljamo sva dokumenta vezana za zakup opreme.\n\n"
-        "Ukoliko ste saglasni, molimo Vas da to potvrdite emailom, kako bismo Vam "
-        "poštom poslali potpisane primerke ugovora koje nam na dan ugradnje opreme "
-        "vraćate sa Vašim potpisom. Svaki prilog ide u 4 primerka – 2 za Vas i 2 za nas.\n\n"
-        "Molimo Vas da popunite i meničko ovlašćenje.\n\n"
-        "Uplatu avansa izvršite na osnovu Instrukcija za uplatu avansa, "
-        "a nakon toga pratite Plan plaćanja.\n\n"
-        "Srdačan pozdrav,\nMarinković-Hofmann d.o.o."
-    )
+    _DEFAULT_RENT_EMAIL = DEFAULT_RENT_EMAIL
     cur.execute("SELECT value FROM global_settings WHERE key = 'rent_email_preset';")
     row = cur.fetchone()
     rent_email_preset = row["value"] if row else _DEFAULT_RENT_EMAIL
@@ -263,12 +245,8 @@ def index():
         if p['category'] in presets_by_cat:
             presets_by_cat[p['category']].append(p)
 
-    # Fetch mandatory fields settings
-    mandatory_fields = {}
-    for field in ['req_client_address', 'req_client_email', 'req_client_phone', 'req_client_pib', 'req_client_mb']:
-        cur.execute("SELECT value FROM global_settings WHERE key = ?;", (field,))
-        row = cur.fetchone()
-        mandatory_fields[field] = (row["value"] == "true") if row else False
+    # Fetch mandatory fields settings (shared reader)
+    mandatory_fields = fetch_mandatory_fields(cur)
 
     # API Key info
     api_key_value = get_api_key()
@@ -559,17 +537,12 @@ def update_settings():
         cur.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES ('default_items_per_page', ?);", (items_per_page,))
 
     # Mandatory fields
-    for field in ['req_client_address', 'req_client_email', 'req_client_phone', 'req_client_pib', 'req_client_mb']:
+    for field in MANDATORY_FIELD_KEYS:
         val = "true" if request.form.get(field) == "true" else "false"
         cur.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?);", (field, val))
 
     # Rent module defaults
-    rent_num_keys = [
-        'rent_default_interest_rate', 'rent_default_insurance_rate',
-        'rent_default_guarantee_rate', 'rent_default_admin_fee',
-        'rent_default_vat_percent', 'rent_default_salvage_value_percent',
-        'rent_default_downpayment_percent', 'rent_default_period_months',
-    ]
+    rent_num_keys = list(RENT_DEFAULT_KEYS)
     for key in rent_num_keys:
         val = request.form.get(key)
         if val is not None and val.strip() != '':
@@ -1252,22 +1225,8 @@ def api_key_revoke():
 # Rent Master Template Editor (Admin)
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Preferred display order for rent templates (slugs not listed go to the end)
-_TEMPLATE_SORT_ORDER = [
-    "ugovor-zakup",
-    "prilog-1-zapisnik",
-    "prilog-2-protokol",
-    "menicno-ovlascenje",
-    "instrukcija-avans",
-    "info-osiguranje",
-    "ugovor-zakup-jemac",
-    "zapisnik-preuzimanje",
-]
-
-def _sort_rent_templates(templates):
-    """Sort template rows by the preferred display order."""
-    order_map = {slug: i for i, slug in enumerate(_TEMPLATE_SORT_ORDER)}
-    return sorted(templates, key=lambda t: order_map.get(t["slug"], 999))
+# Preferred display order + sorter live in shared/web.py (same list the rent
+# module uses).
 
 @bp.route("/rent/templates")
 def admin_rent_templates():
@@ -1276,7 +1235,7 @@ def admin_rent_templates():
     conn = get_db()
     cur = conn.cursor()
     cur.execute("SELECT id, slug, name FROM rent_templates ORDER BY id;")
-    templates = _sort_rent_templates(cur.fetchall())
+    templates = sort_rent_templates(cur.fetchall())
     cur.execute("SELECT value FROM global_settings WHERE key='rent_email_preset';")
     row = cur.fetchone()
     rent_email_preset = row["value"] if row else (
@@ -1306,7 +1265,7 @@ def admin_rent_template_edit(slug):
     conn = get_db()
     cur = conn.cursor()
     cur.execute("SELECT id, slug, name FROM rent_templates ORDER BY id;")
-    templates = _sort_rent_templates(cur.fetchall())
+    templates = sort_rent_templates(cur.fetchall())
 
     cur.execute("SELECT * FROM rent_templates WHERE slug=?;", (slug,))
     selected = cur.fetchone()

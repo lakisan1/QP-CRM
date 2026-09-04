@@ -14,6 +14,7 @@ if PARENT_DIR not in sys.path:
 from shared.config import STATIC_DIR, IMAGE_DIR
 from shared.db import get_db
 from shared.utils import format_amount
+from shared.web import get_theme, register_product_image
 
 # ---------------------------------------------------------------------------
 # Phase 2 stage 1: sale is a Blueprint on the single QP-CRM app.
@@ -30,11 +31,6 @@ from shared.utils import format_amount
 
 bp = Blueprint("sale", __name__, template_folder="templates")
 
-def get_theme():
-    """Fetch the theme setting from cookies."""
-    from flask import request
-    return request.cookies.get("theme", "dark")
-
 @bp.context_processor
 def inject_helpers():
     return dict(
@@ -42,9 +38,8 @@ def inject_helpers():
         theme=get_theme()
     )
 
-@bp.route("/product-image/<path:filename>")
-def product_image(filename):
-    return send_from_directory(IMAGE_DIR, filename)
+# /product-image route: shared implementation (also on pricing and offer)
+register_product_image(bp)
 
 @bp.route("/")
 def index():
