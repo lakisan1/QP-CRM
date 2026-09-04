@@ -417,9 +417,9 @@
    "title": "BUG · sale module: list_sale 500s on uninitialized schema (no own init_db, unguarded global_settings read)",
    "description": "Discovered by the Phase-1 smoke suite (tests/smoke/test_smoke_modules.py) during a smoke-only run on the throwaway fixture DB: GET /sale/pricelist raises sqlite3.OperationalError 'no such table: global_settings' -> 500. Root pattern: sale/app.py is the only sub-app with no init_db() and list_sale (sale/app.py:87) SELECTs global_settings without try/except, so it depends on pricing's init_db having created the shared table first. wsgi.py/main.py run ALL inits at boot, so the standard deployment never sees it — but any flow that (re)creates the schema without the full init sequence (restore_db/factory_reset edge cases, future split deployments, tests) hits a 500 instead of a clean empty-state page. Phase 2 should give sale its own init or a guarded read with a sane default (24 items per page).",
    "rationale": "Phase-1 discipline: discovered quirks get logged as bug cards, NOT fixed. This one is a cross-module schema-ownership assumption that Phase 2's 'single schema, service layer' refactor must address explicitly.",
-   "rejected": "Fixing it now by adding try/except in sale/app.py — forbidden in Phase 1 (zero production-code changes); the smoke suite pins the guarded behavior via the initialized fixture DB.",
+   "rejected": "Giving sale its own init_db: sale owns no tables -- duplicating pricing schema creation would reintroduce the two-init-paths drift the phase-2 single-schema stage just removed (L4). Ordering-based guards (run pricing init first) would leave the same hole for split deployments.",
    "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
-   "status": "todo",
+   "status": "done",
    "tags": [
     "qp-crm",
     "bug",
@@ -428,7 +428,8 @@
     "new-finding"
    ],
    "createdAt": 1788467458512,
-   "updatedAt": 1788467458512
+   "updatedAt": 1788467458512,
+   "summary": "list_sale guarded with clean empty state on bare schema (sqlite3.OperationalError -> 200, 25/page default); view_product -> existing 404. No sale init_db (sale owns no tables). Isolated bare-DB regression tests. Suite 133 passed."
   },
   {
    "id": "card-aca70e04-fbae-41de-a4df-2df418bba7fb",
