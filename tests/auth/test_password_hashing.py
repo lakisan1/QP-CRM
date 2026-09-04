@@ -205,7 +205,11 @@ def test_factory_reset_resets_hashed_accounts_without_plaintext_keys():
     into global_settings; now it re-seeds the four hashed default accounts
     and leaves no '{app}_password' keys behind."""
     client = Client(qp_crm.main.application)
-    resp = client.post("/admin/login", data={"password": DEFAULT_PASSWORDS["admin"]})
+    # unified login (the old /admin/login URLs are plain redirects now)
+    resp = client.post(
+        "/login",
+        data={"username": "admin", "password": DEFAULT_PASSWORDS["admin"]},
+    )
     assert resp.status_code == 302
 
     resp = client.post(

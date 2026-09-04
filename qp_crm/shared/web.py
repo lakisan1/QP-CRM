@@ -117,6 +117,47 @@ def make_auth_hook(session_flag, login_endpoint, exempt_endpoints=()):
     return check_auth
 
 
+# ---------- unified auth (Phase 3) ----------
+
+def safe_next_url():
+    """The 'next' redirect target from the request, or None when unsafe.
+
+    Only same-site absolute paths are allowed ('/x', not '//host' or
+    'http://...'), so an open redirect cannot be smuggled through ?next=.
+    """
+    candidate = request.values.get("next") or ""
+    if candidate.startswith("/") and not candidate.startswith("//"):
+        return candidate
+    return None
+
+
+def require_login(exempt_endpoints=()):
+    """Blueprint-level hook: any authenticated user (Phase 3 step 3).
+
+    Replaces the per-module session-flag hooks: ONE unified login on the
+    top-level app establishes the session identity (user_id/username/role),
+    and every gated blueprint accepts it. A pending must_change_password
+    flag (first login of the migrated non-admin accounts) forces the
+    self-service password change before anything else is reachable.
+    exempt_endpoints: full endpoint names (e.g. 'offer.api_nbs_eur_rate')
+    that stay reachable without a session, exactly as before Phase 3.
+    """
+    exempt = frozenset(exempt_endpoints)
+
+    def check_auth():
+        if request.endpoint in exempt:
+            return None
+        if not session.get("user_id"):
+            next_url = safe_next_url() or request.path
+            if next_url and next_url != "/":
+                return redirect(url_for("auth.login", next=next_url))
+            return redirect(url_for("auth.login"))
+        if session.get("must_change_password"):
+            return redirect(url_for("auth.change_password"))
+
+    return check_auth
+
+
 # ---------- product image route ----------
 
 def register_product_image(bp):

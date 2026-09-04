@@ -98,35 +98,51 @@ def conn_factory(temp_db):
     return _conn
 
 
+def login_client(client, username):
+    """Log a test client in through the REAL unified login (Phase 3 step 3).
+
+    POSTs /login with the seeded default password of that account, then pops
+    the must_change_password session flag -- simulating the completed
+    first-login change WITHOUT mutating the seeded password hashes, so other
+    tests keep authenticating with shared.auth.DEFAULT_PASSWORDS.
+    """
+    from qp_crm.main import app  # noqa: F401  (app must be importable)
+    from qp_crm.shared.auth import DEFAULT_PASSWORDS
+
+    resp = client.post(
+        "/login",
+        data={"username": username, "password": DEFAULT_PASSWORDS[username]},
+    )
+    assert resp.status_code == 302, f"login for {username} failed: {resp.status_code}"
+    with client.session_transaction() as session:
+        session.pop("must_change_password", None)
+    return client
+
+
 @pytest.fixture(scope="session")
 def offer_client(temp_db):
-    """Flask test client for the offer module, pre-authenticated.
-
-    Since the Phase-2 consolidation offer is a blueprint on the single app
-    (qp_crm.main.app); its session flag is namespaced to offer_authenticated.
-    """
+    """Flask test client for the offer module, pre-authenticated through the
+    unified login as the seeded 'offer' (staff) account."""
     from qp_crm.main import app
 
-    client = app.test_client()
-    with client.session_transaction() as session:
-        session["offer_authenticated"] = True
-    return client
+    return login_client(app.test_client(), "offer")
 
 
 @pytest.fixture(scope="session")
 def rent_client(temp_db):
-    """Flask test client for the rent module, pre-authenticated.
-
-    Since the Phase-2 consolidation rent is a blueprint on the single app
-    (qp_crm.main.app); its session flag keeps the rent_authenticated name it had
-    before the merge.
-    """
+    """Flask test client for the rent module, pre-authenticated through the
+    unified login as the seeded 'rent' (staff) account."""
     from qp_crm.main import app
 
-    client = app.test_client()
-    with client.session_transaction() as session:
-        session["rent_authenticated"] = True
-    return client
+    return login_client(app.test_client(), "rent")
+
+
+@pytest.fixture(scope="session")
+def admin_client(temp_db):
+    """Flask test client pre-authenticated as the seeded 'admin' account."""
+    from qp_crm.main import app
+
+    return login_client(app.test_client(), "admin")
 
 
 @pytest.fixture(scope="session")

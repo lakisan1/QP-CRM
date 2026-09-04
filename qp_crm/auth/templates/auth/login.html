@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Prijava - QP-CRM</title>
+    <link rel="icon" type="image/png" href="/app_assets/favicon.png">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .login-card {
+            width: 100%;
+            max-width: 400px;
+            padding: 40px;
+        }
+
+        .login-sub {
+            text-align: center;
+            color: var(--muted, #888);
+            margin: 0 0 24px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="card login-card">
+        <h2 style="text-align: center; margin-bottom: 8px;">QP-CRM</h2>
+        <p class="login-sub">Jedinstvena prijava za sve module</p>
+
+        {% if error %}
+        <div class="alert alert-error">{{ error }}</div>
+        {% endif %}
+
+        <form method="POST" action="{{ url_for('auth.login', next=request.args.get('next')) }}">
+            <label>Korisničko ime</label>
+            <input type="text" name="username" required autofocus autocomplete="username">
+
+            <label>Lozinka</label>
+            <input type="password" name="password" required autocomplete="current-password">
+
+            <button type="submit" class="btn btn-primary" style="width: 100%;">Prijavi se</button>
+            <a href="/" class="btn btn-secondary" style="width: 100%; margin-top: 10px;">Početna strana</a>
+        </form>
+    </div>
+</body>
+
+</html>

@@ -1,7 +1,7 @@
 """Offer core routes: landing, login/logout, NBS rate endpoint, asset serving."""
-from flask import jsonify, redirect, render_template, request, send_from_directory, session, url_for
+from flask import jsonify, redirect, request, send_from_directory, url_for
 
-from ..app import bp, APP_ASSETS_DIR, check_password, get_nbs_rate
+from ..app import bp, APP_ASSETS_DIR, get_nbs_rate
 
 
 @bp.route("/api/nbs_eur_rate")
@@ -23,16 +23,11 @@ def index():
 
 @bp.route("/login", methods=["GET", "POST"])
 def login():
-    error = None
-    if request.method == "POST":
-        if check_password("offer", request.form.get("password")):
-            session["offer_authenticated"] = True
-            return redirect(url_for('offer.index'))
-        else:
-            error = "Pogrešna lozinka"
-    return render_template("offer/login.html", error=error)
+    # Phase 3: ONE unified login on the top-level app (/login); redirect
+    # keeps old bookmarks alive.
+    return redirect(url_for("auth.login", next=url_for("offer.index")))
 
 @bp.route("/logout")
 def logout():
-    session.pop('authenticated', None)
-    return redirect('/')
+    # Unified logout everywhere (Phase 3 step 3).
+    return redirect(url_for("auth.logout"))

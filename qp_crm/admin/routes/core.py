@@ -1,27 +1,20 @@
 """Core admin routes: login, logout and the admin dashboard."""
 
-from flask import render_template, request, redirect, url_for, session
+from flask import render_template, redirect, url_for
 import time
 
-from ..app import bp, get_db, check_password, get_api_key, get_country_list, fetch_mandatory_fields, fetch_rent_defaults, DEFAULT_RENT_EMAIL
+from ..app import bp, get_db, get_api_key, get_country_list, fetch_mandatory_fields, fetch_rent_defaults, DEFAULT_RENT_EMAIL
 
 @bp.route("/login", methods=["GET", "POST"])
 def login():
-    error = None
-    if request.method == "POST":
-        pwd = request.form.get("password")
-        # Check against 'admin' password
-        if check_password("admin", pwd):
-            session['admin_authenticated'] = True
-            return redirect(url_for('admin.index'))
-        else:
-            error = "Invalid Admin Password"
-    return render_template("admin/admin_login.html", error=error)
+    # Phase 3: ONE unified login on the top-level app (/login); redirect
+    # keeps old bookmarks alive.
+    return redirect(url_for("auth.login", next=url_for("admin.index")))
 
 @bp.route("/logout")
 def logout():
-    session.pop('admin_authenticated', None)
-    return redirect('/')
+    # Unified logout everywhere (Phase 3 step 3).
+    return redirect(url_for("auth.logout"))
 
 @bp.route("/")
 def index():

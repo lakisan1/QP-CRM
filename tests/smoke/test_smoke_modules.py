@@ -1,15 +1,16 @@
-"""P1-T7 smoke tests: login -> main page -> 200 through the REAL stack.
+"""P1-T7 smoke tests, updated for Phase 3 unified auth (step 3).
 
 These run against qp_crm.main.application -- the single Flask app exactly as
-gunicorn serves it (pre-Phase-2: the DispatcherMiddleware stack) -- with the
-throwaway fixture DB from conftest (fresh
-schemas, seeded defaults, NO password rows in global_settings, so
-shared.auth.DEFAULT_PASSWORDS are active; that fallback itself is pinned
-behavior from shared/auth.py:69-92).
+gunicorn serves it -- with the throwaway fixture DB from conftest (fresh
+schemas, seeded defaults, the four legacy accounts migrated into the users
+table with DEFAULT_PASSWORDS as their initial passwords).
 
-Pinned current behavior (Phase 1 discipline -- do not fix here):
-* pricing/offer/rent/admin gate EVERY page behind a login redirect;
-* sale and settings have NO authentication at all (audit C5/H territory);
+Pinned behavior after Phase 3 step 3:
+* ONE unified login at /login (+ /logout); the per-app login/logout URLs
+  (/pricing/login, /offer/login, ...) remain alive as REDIRECTS so old
+  bookmarks keep working;
+* pricing/offer/rent/admin gate every page behind the unified login;
+* sale and settings stay public (role gates land in step 4);
 * a wrong password re-renders the login page (200) and stays locked out.
 """
 
@@ -17,6 +18,7 @@ import pytest
 from werkzeug.test import Client
 
 import qp_crm.main
+from conftest import login_client
 from qp_crm.shared.auth import DEFAULT_PASSWORDS
 
 GATED_MODULES = ("pricing", "offer", "rent", "admin")
@@ -34,8 +36,14 @@ def _initialized_db(temp_db):
 
 
 def fresh_client():
-    """A clean cookie jar -- no session."""
-    return Client(qp_crm.main.application)
+    """A clean cookie jar -- no session.
+
+    Flask's test client (itself a werkzeug Client) over the same application
+    gunicorn serves; since Phase 2 removed DispatcherMiddleware the app is a
+    plain Flask instance, so session_transaction() works for the unified
+    login flow (the raw Client from Phase 1 could not provide it).
+    """
+    return qp_crm.main.app.test_client()
 
 
 def test_landing_page_serves_200():
@@ -43,45 +51,77 @@ def test_landing_page_serves_200():
     assert response.status_code == 200
 
 
+def test_unified_login_page_renders():
+    assert fresh_client().get("/login").status_code == 200
+
+
 @pytest.mark.parametrize("module", GATED_MODULES)
-def test_gated_module_redirects_to_login(module):
+def test_gated_module_redirects_to_unified_login(module):
     response = fresh_client().get(f"/{module}/")
     assert response.status_code == 302
-    assert response.headers["Location"].endswith(f"/{module}/login")
+    assert response.headers["Location"].startswith("/login")
 
 
 @pytest.mark.parametrize("module", GATED_MODULES)
-def test_login_page_renders(module):
+def test_old_login_url_redirects_to_unified_login(module):
+    # Old bookmarks: /<module>/login (GET) now redirects to /login.
     response = fresh_client().get(f"/{module}/login")
-    assert response.status_code == 200
+    assert response.status_code == 302
+    assert response.headers["Location"].startswith("/login")
+
+
+GATED_PAGES = {
+    "pricing": "/pricing/products",
+    "offer": "/offer/offers",
+    "rent": "/rent/contracts",
+    "admin": "/admin/",
+}
 
 
 @pytest.mark.parametrize("module", GATED_MODULES)
-def test_wrong_password_stays_locked_out(module):
+def test_old_logout_url_clears_session(module):
+    client = login_client(fresh_client(), module)
+    # logged in: an auth-required page is reachable
+    assert client.get(GATED_PAGES[module]).status_code == 200
+    # old logout URL routes through the unified logout; follow the redirect
+    # chain to the end (the session is cleared at /logout itself)
+    resp = client.get(f"/{module}/logout", follow_redirects=True)
+    assert resp.status_code == 200  # ends on the unified login page
+    assert client.get(GATED_PAGES[module]).status_code == 302  # locked again
+
+
+def test_wrong_password_stays_locked_out():
     client = fresh_client()
-    response = client.post(f"/{module}/login", data={"password": "definitely-wrong-42"})
+    response = client.post(
+        "/login",
+        data={"username": "admin", "password": "definitely-wrong-42"},
+    )
     assert response.status_code == 200                   # login page re-rendered
-    assert client.get(f"/{module}/").status_code == 302  # still locked out
+    assert client.get("/admin/").status_code == 302      # still locked out
+
+
+def test_unknown_username_stays_locked_out():
+    client = fresh_client()
+    response = client.post(
+        "/login",
+        data={"username": "no-such-user", "password": "whatever-1"},
+    )
+    assert response.status_code == 200
+    assert client.get("/pricing/").status_code == 302
 
 
 @pytest.mark.parametrize("module", GATED_MODULES)
 def test_login_reaches_main_page(module):
-    # POST followed through the redirect lands on the module root: 200
-    client = fresh_client()
-    response = client.post(
-        f"/{module}/login",
-        data={"password": DEFAULT_PASSWORDS[module]},
-        follow_redirects=True,
-    )
+    # Unified login POST followed through the redirect lands on a 200.
+    client = login_client(fresh_client(), module)
+    response = client.get(f"/{module}/", follow_redirects=True)
     assert response.status_code == 200
 
 
 @pytest.mark.parametrize("path", ["/pricing/products", "/offer/offers", "/rent/contracts", "/admin/"])
-def test_main_pages_200_after_module_login(path):
+def test_main_pages_200_after_unified_login(path):
     module = path.split("/")[1]
-    client = fresh_client()
-    login = client.post(f"/{module}/login", data={"password": DEFAULT_PASSWORDS[module]})
-    assert login.status_code == 302              # redirect to the module root
+    client = login_client(fresh_client(), module)
     assert client.get(path).status_code == 200
 
 
@@ -99,5 +139,4 @@ def test_settings_needs_no_login():
 
 
 def test_unknown_module_prefix_404s():
-    # the Dispatcher only mounts the six known prefixes
     assert fresh_client().get("/nope/").status_code == 404

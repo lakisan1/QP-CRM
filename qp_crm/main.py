@@ -43,6 +43,15 @@ app.secret_key = os.environ.get("QP_SECRET_KEY", "qp_crm_unified_secret_key_chan
 app.config['SESSION_COOKIE_NAME'] = 'qp_session'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_PATH'] = '/'
+
+# Unified login (Phase 3 step 3): ONE /login + /logout for the whole stack on
+# the top-level app. The per-module login pages now redirect here (their
+# bookmarks keep working); the per-module session flags are replaced by the
+# session identity (user_id/username/role) that require_login/require_role
+# check.
+from qp_crm.auth.app import bp as auth_bp
+app.register_blueprint(auth_bp)
 
 # Register API v1 blueprint on the top-level app (NOT under a module prefix)
 app.register_blueprint(api_v1, url_prefix="/api/v1")

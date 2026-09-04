@@ -1,8 +1,8 @@
 """Core pricing routes: NBS rate API, index, login and logout."""
 
-from flask import jsonify, redirect, render_template, request, session, url_for
+from flask import jsonify, redirect, url_for
 
-from ..app import bp, check_password, get_nbs_rate
+from ..app import bp, get_nbs_rate
 
 @bp.route("/api/nbs_rate/<currency>")
 def api_nbs_rate(currency):
@@ -16,16 +16,11 @@ def index():
 
 @bp.route("/login", methods=["GET", "POST"])
 def login():
-    error = None
-    if request.method == "POST":
-        if check_password("pricing", request.form.get("password")):
-            session["pricing_authenticated"] = True
-            return redirect(url_for('pricing.index'))
-        else:
-            error = "Pogrešna lozinka"
-    return render_template("pricing/login.html", error=error)
+    # Phase 3: ONE unified login on the top-level app (/login). This old
+    # per-app URL stays alive as a redirect so existing bookmarks work.
+    return redirect(url_for("auth.login", next=url_for("pricing.index")))
 
 @bp.route("/logout")
 def logout():
-    session.pop('authenticated', None)
-    return redirect('/')
+    # Unified logout everywhere (Phase 3 step 3).
+    return redirect(url_for("auth.logout"))

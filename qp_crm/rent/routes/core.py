@@ -1,25 +1,20 @@
 """Rent core routes: landing redirect, login/logout."""
-from flask import redirect, render_template, request, session, url_for
+from flask import redirect, url_for
 
-from ..app import bp, check_password
+from ..app import bp
 
 
 @bp.route("/login", methods=["GET", "POST"])
 def login():
-    error = None
-    if request.method == "POST":
-        if check_password("rent", request.form.get("password")):
-            session['rent_authenticated'] = True
-            return redirect(url_for('rent.index'))
-        else:
-            error = "Pogrešna lozinka"
-    return render_template("rent/rent_login.html", error=error)
+    # Phase 3: ONE unified login on the top-level app (/login); redirect
+    # keeps old bookmarks alive.
+    return redirect(url_for("auth.login", next=url_for("rent.index")))
 
 
 @bp.route("/logout")
 def logout():
-    session.pop('rent_authenticated', None)
-    return redirect('/')
+    # Unified logout everywhere (Phase 3 step 3).
+    return redirect(url_for("auth.logout"))
 
 
 # ─── PMT helper ────────────────────────────────────────────────────────────────
