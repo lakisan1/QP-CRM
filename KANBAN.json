@@ -642,6 +642,23 @@
       "createdAt": 1788546342560,
       "updatedAt": 1788546685919,
       "summary": "Shipped and deployed (commit 94ee464, image rebuilt, container recreated, grants live): user_modules table (UNIQUE(user_id,module)), users.modules_set marker, shared/web.py require_module(module) gate on pricing/offer/rent blueprints (re-reads grants per request; admin role bypasses), Admin -> Users UI with pricing/offer/rent checkboxes per staff row (own-password confirmed POST /admin/users/<id>/modules) and pre-checked boxes on the create form; one-time boot migration seed_default_user_modules grants existing staff all three apps (marker prevents re-granting deliberately emptied sets); factory reset re-seeds users+grants via the init_users_table contract; role gate is now binary admin/not-admin. 7 new tests in tests/auth/test_module_access.py, suite 225 passed."
+    },
+    {
+      "id": "card-a414556c-6b98-4817-8841-6176f21b8897",
+      "title": "Landing page: login required + access-filtered app menu",
+      "description": "User follow-up: anonymous visitors must see only the login page (never the app menu), and the menu should reflect per-user app access.",
+      "summary": "Commit caba035, deployed and verified: / redirects anonymous to /login; logged-in menu built from get_user_modules (staff: granted apps + public sale/settings cards, admin: all + Admin Panel). Smoke tests: anonymous-redirect + menu-filtering tests, suite 226 passed.",
+      "rationale": "The static landing page exposed the full module menu (including Admin Panel) to anyone; inconsistent with unified auth and the new per-user app access.",
+      "rejected": "Caching the menu in the session (grants must reflect per-request DB state like the gates).",
+      "sourceSessionId": "session-4ca59a53-7afb-4d0d-85e0-276e1d187fdb",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "auth",
+        "users"
+      ],
+      "createdAt": 1788606592414,
+      "updatedAt": 1788606592414
     }
   ]
 }
