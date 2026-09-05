@@ -94,35 +94,53 @@ def save_user_action(user_id):
     errors = []
     notes = []
 
-    desired_active = request.form.get("active") == "1"
-    if desired_active != bool(target["is_active"]):
-        ok, error = set_user_active(acting_id, user_id, desired_active)
-        if ok:
-            notes.append("activated" if desired_active else "deactivated")
+    if user_id == acting_id:
+        # Saving YOUR OWN row: password change only (the service guards
+        # block self-deactivation/self-demotion, and admin grant rows are
+        # meaningless), so skip the other fields entirely.
+        new_password = request.form.get("new_password") or ""
+        if new_password:
+            ok, error = admin_reset_user_password(acting_id, user_id, new_password)
+            if ok:
+                notes.append("your password was updated")
+            else:
+                errors.append(error)
         else:
-            errors.append(error)
-
-    desired_role = request.form.get("role") or target["role"]
-    if desired_role != target["role"]:
-        ok, error = change_user_role(acting_id, user_id, desired_role)
-        if ok:
-            notes.append(f"role -> {desired_role}")
-        else:
-            errors.append(error)
-
-    ok, result = set_user_modules(user_id, request.form.getlist("modules"))
-    if ok:
-        notes.append("apps: " + (", ".join(result) or "none"))
+            notes.append("nothing to change (enter a new password to change your own)")
     else:
-        errors.append(result)
+        desired_active = request.form.get("active") == "1"
+        if desired_active != bool(target["is_active"]):
+            ok, error = set_user_active(acting_id, user_id, desired_active)
+            if ok:
+                notes.append("activated" if desired_active else "deactivated")
+            else:
+                errors.append(error)
 
-    new_password = request.form.get("new_password") or ""
-    if new_password:
-        ok, error = admin_reset_user_password(acting_id, user_id, new_password)
-        if ok:
-            notes.append("password reset (change forced on next login)")
-        else:
-            errors.append(error)
+        desired_role = request.form.get("role") or target["role"]
+        if desired_role != target["role"]:
+            ok, error = change_user_role(acting_id, user_id, desired_role)
+            if ok:
+                notes.append(f"role -> {desired_role}")
+            else:
+                errors.append(error)
+
+        # 'has_modules' marks forms that carry the app checkboxes (staff
+        # rows); admin rows render no checkboxes, so their saves must not
+        # touch the grant table at all.
+        if request.form.get("has_modules"):
+            ok, result = set_user_modules(user_id, request.form.getlist("modules"))
+            if ok:
+                notes.append("apps: " + (", ".join(result) or "none"))
+            else:
+                errors.append(result)
+
+        new_password = request.form.get("new_password") or ""
+        if new_password:
+            ok, error = admin_reset_user_password(acting_id, user_id, new_password)
+            if ok:
+                notes.append("password updated")
+            else:
+                errors.append(error)
 
     if errors:
         flash(" ".join(errors), "error")

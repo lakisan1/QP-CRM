@@ -125,14 +125,7 @@ def login_client(client, username, password=None):
         },
     )
     assert resp.status_code == 302, f"login for {username} failed: {resp.status_code}"
-    conn = get_db()
-    conn.execute(
-        "UPDATE users SET must_change_password = 0 WHERE username = ?;", (username,)
-    )
-    conn.commit()
-    conn.close()
     with client.session_transaction() as session:
-        session.pop("must_change_password", None)
         # The login handler's session.clear() (step 3 session cycling) also
         # wiped the CSRF token; a real browser re-mints it on the next page
         # render (csrf_token() in the template). Tests that POST directly

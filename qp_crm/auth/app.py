@@ -9,8 +9,9 @@ module's routes/core.py).
 
 Session shape after login (ONE shared qp_session cookie, path=/):
     user_id, username, role            -- the authenticated identity
-    must_change_password               -- forces /change-password first
-    (per-module *_authenticated flags are gone -- role gates, Phase 3 step 4)
+    (per-module *_authenticated flags are gone -- role gates, Phase 3 step 4;
+     the old must_change_password session flag is gone too -- password
+     changes live exclusively in Admin -> Users)
 
 Session fixation protection: session.clear() BEFORE the identity is written
 (new session id material on every login).
@@ -19,9 +20,7 @@ Session fixation protection: session.clear() BEFORE the identity is written
 from flask import Blueprint, Flask, redirect, render_template, request, session, url_for
 
 from qp_crm.shared.auth import (
-    DEFAULT_PASSWORDS,
     attempt_login,
-    change_own_password,
     clear_login_failures,
     is_login_locked,
     log_login_attempt,
@@ -64,9 +63,6 @@ def login():
             # Sliding 8h session: PERMANENT_SESSION_LIFETIME + refresh on
             # every request keeps the cookie alive while the user works.
             session.permanent = True
-            if user["must_change_password"]:
-                session["must_change_password"] = True
-                return redirect(url_for("auth.change_password"))
             dest = safe_next_url()
             return redirect(dest or "/")
         register_login_failure(username, ip)
@@ -81,33 +77,11 @@ def logout():
     return redirect(url_for("auth.login"))
 
 
-@bp.route("/change-password", methods=["GET", "POST"])
-def change_password():
-    """Self-service password change (any authenticated user).
-
-    Doubles as the forced first-login destination for accounts migrated
-    with must_change_password=1 (the legacy non-admin accounts).
-    """
-    if not session.get("user_id"):
-        return redirect(url_for("auth.login"))
-
-    error = None
-    if request.method == "POST":
-        current = request.form.get("current_password") or ""
-        new = request.form.get("new_password") or ""
-        confirm = request.form.get("confirm_password") or ""
-        ok, error = change_own_password(session["user_id"], current, new, confirm)
-        if ok:
-            session.pop("must_change_password", None)
-            return redirect("/")
-        # error carries the validation message; fall through to re-render
-
-    return render_template(
-        "auth/account_password.html",
-        error=error,
-        must_change_password=bool(session.get("must_change_password")),
-        username=session.get("username"),
-    )
+# NOTE: the old self-service /change-password page is REMOVED (user request:
+# password changes live exclusively in Admin -> Users, where an admin sets a
+# user's new password via the save form's optional 'New password' field).
+# The users.must_change_password column still exists but is no longer read
+# anywhere; the admin save route keeps it at 0.
 
 
 if __name__ == "__main__":

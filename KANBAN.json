@@ -677,6 +677,67 @@
       ],
       "createdAt": 1788614452661,
       "updatedAt": 1788614452661
+    },
+    {
+      "id": "card-9ca66811-c52e-4cf0-9278-a5b315ed58c4",
+      "title": "kad se ode na http://192.168.1.34:5000/admin/ u headeru imam sve opcije ali ako odem u /admin/pdf_templates ili bilo koju drugu pod stranicu header je drugaciji fale opcije poput api key, users nisu u headeru treba da bude sve isto u celoj admin aplikaciji",
+      "status": "done",
+      "tags": [],
+      "createdAt": 1788621242713,
+      "updatedAt": 1788647556449,
+      "rationale": "Why: each admin template carries its own copy-pasted nav that drifted over time (Users/API Keys/Rent Šabloni missing on some subpages), so the admin app looks broken depending on which page you are on. Root fix is one shared nav include used by every admin template so the header cannot drift again.",
+      "summary": "做了什么：created qp_crm/admin/templates/admin/_nav.html (one shared header: Dashboard, PDF Templates, Rounding Rules, Users, API Keys, Rent Šabloni + Home link, no logout) and replaced the drifted copy-pasted navs in all 7 admin templates with `{% set active = ... %}{% include 'admin/_nav.html' %}` (pdf_template_edit keeps its 'Edit: <name>' breadcrumb via nav_extra). Smoke tests assert the full identical header on every admin subpage incl. the editor.",
+      "rejected": "放弃了什么：patching the missing Users/API Keys/Rent Šabloni links into each template's existing nav — that is the exact copy-paste drift that caused the bug and would drift again; a Jinja macro with args was also skipped in favor of the include+set idiom the codebase already uses."
+    },
+    {
+      "id": "card-c85eefa5-e7a9-4120-8b77-8bc953459a3c",
+      "title": "http://192.168.1.34:5000/admin/rent/templates ne radi samo vodi u krug na http://192.168.1.34:5000/login?next=/admin/",
+      "status": "done",
+      "tags": [],
+      "createdAt": 1788621277778,
+      "updatedAt": 1788647556428,
+      "rationale": "Why: /admin/rent/templates bounces even a logged-in admin into an endless /login?next=/admin/ circle because the route still checks the pre-Phase-3 admin_authenticated session flag that unified login never sets. The real gate is the blueprint-level require_role(\"admin\") hook, so the stale per-route checks must be removed to restore access.",
+      "summary": "做了什么：removed the stale per-route session['admin_authenticated'] checks (pre-Phase-3 flag unified login never sets) from admin/routes/rent_templates.py and admin/routes/backup.py — the blueprint-level require_role(\"admin\") hook is the only gate now, so /admin/rent/templates, /admin/backup_db and /admin/backup_full render for a logged-in admin instead of looping to /login?next=/admin/. Covered by 3 new smoke assertions (tests/smoke/test_smoke_modules.py, 45 passed).",
+      "rejected": "放弃了什么：re-seeding the admin_authenticated flag in the routes instead of deleting the checks — it would have kept two auth gates in sync for a flag that Phase 3's unified login made permanently false; require_role is the single source of truth now."
+    },
+    {
+      "id": "card-0b636a36-eb93-45e7-b2b5-402d7c140dcf",
+      "title": "Remove the logout button from the header and move it to the setings app",
+      "status": "done",
+      "tags": [],
+      "createdAt": 1788621337937,
+      "updatedAt": 1788647603853,
+      "rationale": "Why: the red Logout button sits in the header of every page (accidental clicks, wasted header space) and logout is now a single unified /logout anyway. Moving it into the /settings app keeps one quiet logout spot for the whole stack, matching the pricing/offer settings pages that already carry a logout button.",
+      "summary": "做了什么：removed the Logout/Odjava buttons from every page header (admin shared nav, pricing/base.html, offer/base.html, rent/base.html) and added one Logout card to the /settings app routing through the unified /logout (auth.logout), styled like the logout cards the pricing/offer in-app settings pages already had. Smoke tests assert no danger button in any app header and /logout present on /settings.",
+      "rejected": "放弃了什么：hiding the settings Logout for anonymous visitors — /settings is public and a logout click when logged out just redirects to /login, so state-dependent styling buys nothing; also kept the logout cards on pricing/offer's own settings pages since they are in-page controls, not header buttons."
+    },
+    {
+      "id": "card-2bd37e98-ee45-419f-9f86-af456a18cc7f",
+      "title": "The Landing page button in the header shuld be named home",
+      "status": "done",
+      "tags": [],
+      "createdAt": 1788621358347,
+      "updatedAt": 1788649144867,
+      "rationale": "Why: the link back to the app menu is labeled \"Landing Page\" (developer jargon that confused users). Renaming it to \"Home\" names the thing by what it does; the Serbian translation ('Početna strana') is added for the new key so language switching keeps working.",
+      "summary": "做了什么：every header now links the app menu as Home — admin shared nav, pricing/offer/sale base templates (`_('Home')`), settings page; sr translation 'Home' → 'Početna strana' added in shared/utils.py and the dead 'Landing Page' key dropped. Rent keeps its Serbian 'Početna' (same meaning/link). Smoke tests assert '>Home</a>' and the absence of 'Landing Page'.",
+      "rejected": "放弃了什么：renaming rent's 'Početna' to English 'Home' — rent is the Serbian-language UI and Početna already means Home; forcing English there would have been inconsistent with the rest of that header."
+    },
+    {
+      "id": "card-e8249127-d925-41e8-97c4-1552887ddd01",
+      "title": "PRE-EXISTING suite failures (not from header/logout work): 2 auth tests vs uncommitted change-password-removal WIP + 3 golden-PDF host-font diffs",
+      "description": "Detail: (1) tests/auth/test_first_login_flow.py::test_seeded_staff_logs_straight_in_no_forced_change — POSTs /change-password expecting 404, but after unified login the session CSRF token is wiped and nothing re-mints it before the POST, so check_csrf answers 400 (the test's own comment even documents the 400 path). (2) tests/auth/test_user_management.py::test_create_staff_user_forces_first_login_change — asserts must_change_password == 1, the exact behavior the uncommitted WIP (auth/app.py, shared/web.py, admin/routes/users.py, deleted auth/templates/auth/account_password.html — all still uncommitted in the working tree) removed (\"password changes live exclusively in Admin -> Users\"); test is stale WIP. (3-5) tests/golden/* — baselines are byte-exact against the docker image's pinned fonts-dejavu-core; host WeasyPrint renders differ from byte 54. Fix path: finish/commit the auth WIP and update or delete the two tests; run golden tests only inside docker (docker compose run --rm app pytest), never re-baseline on host.",
+      "rationale": "Why: while verifying the header/logout tasks the full suite showed 5 failures that reproduce WITHOUT this session's changes — they must be recorded so the next session doesn't attribute them to new work or blindly re-baseline. Discovered 2026-09-05, suite: 240 passed / 5 failed on host.",
+      "rejected": "放弃了什么：fixing them in this session — out of scope for the four UI cards and the auth-test fix belongs to whoever finishes the uncommitted change-password-removal WIP; golden re-baselining on the host would have corrupted docker-pinned baselines.",
+      "sourceSessionId": "session-5431a694-1920-4df2-bc4b-9c0b06ac481d",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "testing",
+        "pre-existing",
+        "new-finding"
+      ],
+      "createdAt": 1788647603896,
+      "updatedAt": 1788647603896
     }
   ]
 }

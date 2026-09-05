@@ -200,9 +200,7 @@ def require_role(*roles, exempt_endpoints=()):
     deactivation or role change in the admin Users UI takes effect on the
     user's next request (not just on their next login). Anonymous users are
     redirected to the unified login with a safe ?next=; authenticated users
-    without a permitted role get 403; a pending must_change_password flag
-    (seeded staff accounts, or an admin-forced reset) forces the
-    self-service password change before anything else is reachable.
+    without a permitted role get 403.
     exempt_endpoints: full endpoint names (e.g. 'offer.api_nbs_eur_rate')
     that stay reachable without a session, exactly as before Phase 3.
     """
@@ -226,11 +224,6 @@ def require_role(*roles, exempt_endpoints=()):
             session.clear()
             return redirect(url_for("auth.login"))
 
-        if user["must_change_password"] and not session.get("must_change_password"):
-            session["must_change_password"] = True
-        if session.get("must_change_password"):
-            return redirect(url_for("auth.change_password"))
-
         if roles and user["role"] not in roles:
             abort(403, description="Nemate dozvolu za ovu stranicu. (Your account role does not permit this page.)")
 
@@ -250,7 +243,6 @@ def require_module(module, exempt_endpoints=()):
 
         no session          -> unified login with a safe ?next=
         inactive/deleted    -> session cleared, login
-        must_change_password-> forced /change-password first
         role == 'admin'     -> always allowed (superset, bypasses grants)
         staff WITH the grant-> allowed
         staff WITHOUT it    -> 403 (message names the missing app)
@@ -277,11 +269,6 @@ def require_module(module, exempt_endpoints=()):
         if user is None:
             session.clear()
             return redirect(url_for("auth.login"))
-
-        if user["must_change_password"] and not session.get("must_change_password"):
-            session["must_change_password"] = True
-        if session.get("must_change_password"):
-            return redirect(url_for("auth.change_password"))
 
         # A role changed while logged in takes effect immediately.
         if session.get("role") != user["role"]:

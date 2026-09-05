@@ -113,17 +113,16 @@ everything, incl. the Users/API-Keys admin), `pricing`, `offer`, `rent`
 
 - the legacy per-app password from `global_settings` (`{app}_password`) if it
   was set at migration time — otherwise the phase-0 defaults (`Admin1`,
-  `Price1`, `Offer1`, `Rent1`);
-- **change on first login is forced** for migrated staff accounts (`pricing`,
-  `offer`, `rent`) and for staff accounts created in the Users UI.
+  `Price1`, `Offer1`, `Rent1`).
 
 Manage accounts in **Admin → Users**. Each user row is ONE form: **app
 access** checkboxes (pricing / offer / rent / sale), an **Active** toggle, a
 **Role** select, an optional new password, and a single **Save user** button
-— your own password confirms every save. Grants are re-checked on every
-request, so revoking an app hits the user on their next click. Admins open
-every app. Users self-service their password via **"Moja lozinka" /
-My password** in any module nav.
+— your own password confirms every save. **All password changes happen
+here** (the old self-service "My password" page is removed): the admin sets
+a working password directly via the row's *New password* field, including
+their own. Grants are re-checked on every request, so revoking an app hits
+the user on their next click. Admins open every app.
 
 Security posture since Phase 3: passwords stored only as werkzeug scrypt
 hashes (legacy plaintext is rehashed transparently at first login); CSRF

@@ -1,15 +1,16 @@
-"""Phase 3 step 9: end-to-end first-login + rehash flows over HTTP.
+"""First-login + transparent-rehash flows over HTTP.
 
-The service-level pieces are pinned elsewhere (test_users_seed: flag at
-seed time; test_password_hashing: transparent rehash). These two tests pin
-the FULL HTTP flow through the unified login:
+The forced /change-password detour is REMOVED (user request: password
+changes live exclusively in Admin -> Users, where the admin sets a working
+password directly). These tests pin the new contract:
 
-* a seeded staff account with must_change_password=1 is redirected to
-  /change-password on EVERY page until the change completes, then works
-  normally and the flag is gone;
+* a seeded staff account logs in and lands straight on the app -- no
+  redirect to a change page, and the page itself is gone (404);
 * logging in with the legacy plaintext password transparently rehashes the
   row (the stored hash changes; a second login still works).
 """
+
+import secrets
 
 import pytest
 
@@ -23,19 +24,12 @@ def _initialized_db(temp_db):
     yield
 
 
-def _flag(username):
+def _row(username):
     conn = get_db()
     row = conn.execute("SELECT must_change_password, password_hash FROM users WHERE username = ?;",
                        (username,)).fetchone()
     conn.close()
     return row
-
-
-def _set_flag(username, value):
-    conn = get_db()
-    conn.execute("UPDATE users SET must_change_password = ? WHERE username = ?;", (value, username))
-    conn.commit()
-    conn.close()
 
 
 def _login(client, username, password):
@@ -47,40 +41,34 @@ def _login(client, username, password):
     })
 
 
-def test_seeded_first_login_forced_change_end_to_end():
-    _set_flag("offer", 1)
+def test_seeded_staff_logs_straight_in_no_forced_change():
     client = app.test_client()
-
     resp = _login(client, "offer", DEFAULT_PASSWORDS["offer"])
     assert resp.status_code == 302
-    assert "/change-password" in resp.headers["Location"]
+    assert "change-password" not in resp.headers["Location"]
 
-    # every business page is blocked until the change completes
-    resp = client.get("/pricing/products", follow_redirects=False)
-    assert resp.status_code == 302 and "/change-password" in resp.headers["Location"]
-
-    # complete the change (current == seeded default)
-    client.get("/change-password")
-    resp = client.post("/change-password", data={
-        "current_password": DEFAULT_PASSWORDS["offer"],
-        "new_password": "Offer-First-Login-1",
-        "confirm_password": "Offer-First-Login-1",
-        "_csrf_token": csrf_token_for(client),
-    })
-    assert resp.status_code == 302
-
-    # flag cleared in DB and the user can work now
-    assert _flag("offer")["must_change_password"] == 0
+    # the app is immediately reachable, no detour
     assert client.get("/offer/offers", follow_redirects=True).status_code == 200
 
-    # restore canonical state for the rest of the suite
-    from qp_crm.shared.auth import set_password
-    set_password("offer", DEFAULT_PASSWORDS["offer"])
-    _set_flag("offer", 0)
+    # the self-service page is gone entirely: GET 404s, and even a POST
+    # cannot reach anything -- a tokenless one meets the app-level CSRF
+    # shield first (400 before routing could ever 404), a properly tokened
+    # one proves the route itself no longer exists (404). The token must be
+    # minted explicitly: the login handler's session.clear() wiped the one
+    # from the login-page render and no page render happens in between.
+    assert client.get("/change-password").status_code == 404
+    resp = client.post("/change-password", data={"current_password": "x"})
+    assert resp.status_code == 400  # CSRF shield answers before routing
+    with client.session_transaction() as session:
+        session["_csrf_token"] = secrets.token_hex(16)
+    resp = client.post("/change-password", data={
+        "current_password": "x", "_csrf_token": csrf_token_for(client),
+    })
+    assert resp.status_code == 404
 
 
 def test_login_route_triggers_transparent_rehash():
-    row = _flag("rent")
+    row = _row("rent")
     assert _is_werkzeug_hash(row["password_hash"])  # canonical state: already hashed
 
     # force a legacy-plaintext hash as a pre-Phase-3 restore would leave it
@@ -89,7 +77,7 @@ def test_login_route_triggers_transparent_rehash():
     conn.execute("UPDATE users SET password_hash = ? WHERE username = 'rent';", (legacy_password,))
     conn.commit()
     conn.close()
-    assert not _is_werkzeug_hash(_flag("rent")["password_hash"])
+    assert not _is_werkzeug_hash(_row("rent")["password_hash"])
 
     # login THROUGH the route works with the plaintext...
     client = app.test_client()
@@ -98,15 +86,14 @@ def test_login_route_triggers_transparent_rehash():
     assert client.get("/rent/contracts", follow_redirects=True).status_code == 200
 
     # ...and the row now carries a werkzeug hash (transparent rehash)
-    assert _is_werkzeug_hash(_flag("rent")["password_hash"])
-    assert _flag("rent")["password_hash"] != legacy_password
+    assert _is_werkzeug_hash(_row("rent")["password_hash"])
+    assert _row("rent")["password_hash"] != legacy_password
 
     # the plaintext no longer matches anything in storage; a NEW login with
     # the same password still works (hash verifies)
     client2 = app.test_client()
     assert _login(client2, "rent", legacy_password).status_code == 302
 
-    # restore the canonical seeded password hash + flag
+    # restore the canonical seeded password hash
     from qp_crm.shared.auth import set_password
     set_password("rent", DEFAULT_PASSWORDS["rent"])
-    _set_flag("rent", 0)

@@ -1,18 +1,20 @@
-"""Phase 3 step 6: admin Users management UI + self-service password change.
+"""Phase 3 step 6: admin Users management UI (password changes live here).
 
-Pinned behavior:
+Pinned behavior (the self-service /change-password page and the forced
+first-login detour are REMOVED by user request -- an admin sets a working
+password directly in Admin -> Users, must_change_password stays 0):
 
 * every Users-UI POST requires the ACTING ADMIN'S OWN password
   (current_password) -- a wrong one is rejected before anything happens;
 * create: unique username (3-32 chars), 8+ password, confirm match; new
-  staff accounts are forced to change their password on first login;
+  staff accounts log straight in (no forced change, flag stays 0);
 * deactivate: self-deactivation blocked, last-active-admin protected;
   a deactivated user loses access on their next request;
 * role change: own-role change blocked, last-active-admin demotion blocked;
-* admin password reset stores a hash and forces a change on the target's
-  next login (except when the admin resets their own);
-* self-service /change-password requires the CURRENT password, enforces the
-  8-character minimum + confirmation, and clears must_change_password.
+* admin password reset stores a hash that works on the target's very next
+  login (also how the admin changes their own password);
+* the old self-service /change-password page answers 404 (tokenless POSTs
+  meet the CSRF shield's 400 first).
 """
 
 import pytest
@@ -37,12 +39,12 @@ def _uid(username):
 
 def _reset_user(username):
     """Restore a seeded account to its canonical state (active, default
-    password, must-change flag on). The temp DB persists across docker
+    password, must_change_password 0). The temp DB persists across docker
     pytest invocations, so tests that mutate it reset what they touch --
     both before AND after the mutation."""
     conn = get_db()
     conn.execute(
-        "UPDATE users SET is_active = 1, must_change_password = 1, password_hash = ? "
+        "UPDATE users SET is_active = 1, must_change_password = 0, password_hash = ? "
         "WHERE username = ?;",
         (generate_password_hash(DEFAULT_PASSWORDS[username]), username),
     )
@@ -96,7 +98,10 @@ def test_create_user_requires_admins_own_password(admin):
     conn.close()
 
 
-def test_create_staff_user_forces_first_login_change(admin):
+def test_created_staff_logs_straight_in_no_forced_change(admin):
+    """A freshly created staff account is immediately usable: hashed
+    password, must_change_password stays 0 (the forced first-login detour
+    is retired), first login lands straight on the app."""
     conn = get_db()
     conn.execute("DELETE FROM user_modules WHERE user_id IN (SELECT id FROM users WHERE username = 'newbie');")
     conn.execute("DELETE FROM users WHERE username = 'newbie';")
@@ -118,7 +123,7 @@ def test_create_staff_user_forces_first_login_change(admin):
     conn.close()
     assert row is not None
     assert row["role"] == "staff"
-    assert row["must_change_password"] == 1
+    assert row["must_change_password"] == 0  # forced change retired
     assert _is_werkzeug_hash(row["password_hash"])
     # the new staff account is immediately usable under the role gates
     fresh = login_client(app.test_client(), "newbie", password="Newbie-Pass-1")
@@ -163,7 +168,7 @@ def test_create_user_rejects_duplicate_and_weak_password(admin):
 
 def test_admin_cannot_deactivate_self(admin):
     resp = _post(admin, f"/admin/users/{_uid('admin')}/save", {
-        "modules": ["pricing", "offer", "rent", "sale"],
+        "modules": ["pricing", "offer", "rent", "sale"], "has_modules": "1",
         "active": "0", "current_password": DEFAULT_PASSWORDS["admin"],
     })
     assert resp.status_code == 302
@@ -222,7 +227,7 @@ def test_last_active_admin_cannot_be_deactivated_or_demoted():
 def test_deactivated_user_loses_access_via_ui(admin):
     _reset_user("offer")
     resp = _post(admin, f"/admin/users/{_uid('offer')}/save", {
-        "modules": ["pricing", "offer", "rent", "sale"],
+        "modules": ["pricing", "offer", "rent", "sale"], "has_modules": "1",
         "active": "0", "current_password": DEFAULT_PASSWORDS["admin"],
     })
     assert resp.status_code == 302
@@ -240,7 +245,7 @@ def test_deactivated_user_loses_access_via_ui(admin):
 
     # reactivate for the rest of the suite: login works again immediately
     resp = _post(admin, f"/admin/users/{_uid('offer')}/save", {
-        "modules": ["pricing", "offer", "rent", "sale"],
+        "modules": ["pricing", "offer", "rent", "sale"], "has_modules": "1",
         "active": "1", "current_password": DEFAULT_PASSWORDS["admin"],
     })
     assert resp.status_code == 302
@@ -262,7 +267,7 @@ def test_role_change_self_blocked(admin):
 
 def test_role_change_staff_to_admin_grants_access(admin):
     resp = _post(admin, f"/admin/users/{_uid('rent')}/save", {
-        "modules": ["pricing", "offer", "rent", "sale"],
+        "modules": ["pricing", "offer", "rent", "sale"], "has_modules": "1",
         "role": "admin", "active": "1", "current_password": DEFAULT_PASSWORDS["admin"],
     })
     assert resp.status_code == 302
@@ -270,7 +275,7 @@ def test_role_change_staff_to_admin_grants_access(admin):
     assert rent.get("/admin/").status_code == 200
     # restore
     resp = _post(admin, f"/admin/users/{_uid('rent')}/save", {
-        "modules": ["pricing", "offer", "rent", "sale"],
+        "modules": ["pricing", "offer", "rent", "sale"], "has_modules": "1",
         "role": "staff", "active": "1", "current_password": DEFAULT_PASSWORDS["admin"],
     })
     assert resp.status_code == 302
@@ -278,10 +283,13 @@ def test_role_change_staff_to_admin_grants_access(admin):
 
 # ------------------------------------------------------------- password reset
 
-def test_admin_reset_forces_change_on_next_login(admin):
+def test_admin_sets_password_directly_no_forced_change(admin):
+    """Passwords are set HERE (Admin -> Users): the new password works on
+    the very next login -- no forced change-on-next-login detour (the
+    self-service /change-password page is removed entirely)."""
     _reset_user("pricing")
     resp = _post(admin, f"/admin/users/{_uid('pricing')}/save", {
-        "modules": ["pricing", "offer", "rent", "sale"],
+        "modules": ["pricing", "offer", "rent", "sale"], "has_modules": "1",
         "new_password": "Reset-Pass-99", "active": "1", "current_password": DEFAULT_PASSWORDS["admin"],
     })
     assert resp.status_code == 302
@@ -289,11 +297,11 @@ def test_admin_reset_forces_change_on_next_login(admin):
     conn = get_db()
     row = conn.execute("SELECT * FROM users WHERE username='pricing'").fetchone()
     conn.close()
-    assert row["must_change_password"] == 1
+    assert row["must_change_password"] == 0  # forced change retired
     assert _is_werkzeug_hash(row["password_hash"])
     assert not check_password("pricing", DEFAULT_PASSWORDS["pricing"])
 
-    # The reset user is forced through the change-password page...
+    # the new password works immediately and lands on the app
     client = app.test_client()
     client.get("/login")
     token = csrf_token_for(client)
@@ -301,89 +309,36 @@ def test_admin_reset_forces_change_on_next_login(admin):
         "username": "pricing", "password": "Reset-Pass-99", "_csrf_token": token,
     })
     assert resp.status_code == 302
-    assert "/change-password" in resp.headers["Location"]
-    assert client.get("/pricing/products").status_code == 302  # forced
-
-    # ...and can complete it with the self-service form.
-    client.get("/change-password")
-    token = csrf_token_for(client)
-    resp = client.post("/change-password", data={
-        "current_password": "Reset-Pass-99",
-        "new_password": "Pricing-New-1",
-        "confirm_password": "Pricing-New-1",
-        "_csrf_token": token,
-    })
-    assert resp.status_code == 302
+    assert "change-password" not in resp.headers.get("Location", "")
     assert client.get("/pricing/products", follow_redirects=True).status_code == 200
-    assert check_password("pricing", "Pricing-New-1")
 
-    # restore the seeded default password + flag for the rest of the suite
+    # restore the seeded default password for the rest of the suite
     from qp_crm.shared.auth import set_password
     set_password("pricing", DEFAULT_PASSWORDS["pricing"])
-    conn = get_db()
-    conn.execute("UPDATE users SET must_change_password = 1 WHERE username = 'pricing';")
-    conn.commit()
-    conn.close()
 
 
 def test_admin_reset_requires_own_password(admin):
     resp = _post(admin, f"/admin/users/{_uid('rent')}/save", {
-        "modules": ["pricing", "offer", "rent", "sale"],
+        "modules": ["pricing", "offer", "rent", "sale"], "has_modules": "1",
         "new_password": "Whatever-Pass-1", "current_password": "WRONG-current-1",
     })
     assert resp.status_code == 302
     assert check_password("rent", DEFAULT_PASSWORDS["rent"])  # unchanged
 
 
-# ------------------------------------------------------------- self-service
+# ------------------------------------------------------- retired self-service
 
-def test_self_service_change_requires_current_and_enforces_minimum():
+def test_self_service_change_password_page_is_removed():
+    """The /change-password page is GONE: password changes happen only in
+    Admin -> Users, where the admin sets a working password directly."""
     _reset_user("offer")
     client = login_client(app.test_client(), "offer")
-
-    # wrong current password
-    client.get("/change-password")
-    token = csrf_token_for(client)
-    resp = client.post("/change-password", data={
-        "current_password": "WRONG-current-1",
-        "new_password": "Offer-New-Pass-1",
-        "confirm_password": "Offer-New-Pass-1",
-        "_csrf_token": token,
-    })
-    body = resp.data.decode()
-    assert resp.status_code == 200 and "Current password is incorrect" in body
-    assert check_password("offer", DEFAULT_PASSWORDS["offer"])
-
-    # too-short new password
-    resp = client.post("/change-password", data={
-        "current_password": DEFAULT_PASSWORDS["offer"],
-        "new_password": "short",
-        "confirm_password": "short",
-        "_csrf_token": token,
-    })
-    assert "at least 8 characters" in resp.data.decode()
-    assert check_password("offer", DEFAULT_PASSWORDS["offer"])
-
-    # mismatched confirmation
-    resp = client.post("/change-password", data={
-        "current_password": DEFAULT_PASSWORDS["offer"],
-        "new_password": "Offer-New-Pass-1",
-        "confirm_password": "Offer-New-Pass-2",
-        "_csrf_token": token,
-    })
-    assert "did not match" in resp.data.decode()
-    assert check_password("offer", DEFAULT_PASSWORDS["offer"])
-
-    # success: hash rotated, user keeps working with the new password
+    assert client.get("/change-password").status_code == 404
     resp = client.post("/change-password", data={
         "current_password": DEFAULT_PASSWORDS["offer"],
         "new_password": "Offer-New-Pass-1",
         "confirm_password": "Offer-New-Pass-1",
-        "_csrf_token": token,
+        "_csrf_token": csrf_token_for(client),
     })
-    assert resp.status_code == 302
-    assert check_password("offer", "Offer-New-Pass-1")
-
-    # restore for the rest of the suite
-    from qp_crm.shared.auth import set_password
-    set_password("offer", DEFAULT_PASSWORDS["offer"])
+    assert resp.status_code == 404
+    assert check_password("offer", DEFAULT_PASSWORDS["offer"])  # unchanged

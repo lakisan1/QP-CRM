@@ -62,13 +62,12 @@ def seed_users_from_legacy(cur):
             """
             INSERT INTO users (username, password_hash, role, is_active,
                                must_change_password, created_at)
-            VALUES (?, ?, ?, 1, ?, ?);
+            VALUES (?, ?, ?, 1, 0, ?);
             """,
             (
                 username,
                 generate_password_hash(legacy),
                 role,
-                1 if role != "admin" else 0,
                 _utcnow_iso(),
             ),
         )
@@ -452,44 +451,10 @@ def attempt_login(username, password):
     return get_user(username)
 
 
-def change_own_password(user_id, current_password, new_password, confirm_password):
-    """Self-service password change. Returns (ok, error_message).
-
-    Requires the CURRENT password (even when the change was forced by
-    must_change_password), enforces the same 8-character minimum as the
-    admin password flows, and clears the must_change_password flag.
-    """
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM users WHERE id = ? AND is_active = 1;", (user_id,))
-    user = cur.fetchone()
-    if user is None:
-        conn.close()
-        return False, "Account not found."
-
-    stored = user["password_hash"]
-    if _is_werkzeug_hash(stored):
-        if not check_password_hash(stored, current_password or ""):
-            conn.close()
-            return False, "Current password is incorrect."
-    elif not secrets.compare_digest(stored, current_password or ""):
-        conn.close()
-        return False, "Current password is incorrect."
-
-    if not new_password or len(new_password) < 8:
-        conn.close()
-        return False, "New password must be at least 8 characters."
-    if new_password != confirm_password:
-        conn.close()
-        return False, "New passwords did not match."
-
-    cur.execute(
-        "UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?;",
-        (generate_password_hash(new_password), user_id),
-    )
-    conn.commit()
-    conn.close()
-    return True, None
+# NOTE: the old self-service change_own_password() service was removed with
+# the /change-password route (user request: password changes live
+# exclusively in Admin -> Users via admin_reset_user_password, which also
+# covers the admin's own account).
 
 
 LEGACY_PASSWORD_KEYS = (
@@ -682,13 +647,12 @@ def create_user(username, password, confirm_password, role="staff", modules=None
             """
             INSERT INTO users (username, password_hash, role, is_active,
                                must_change_password, created_at, modules_set)
-            VALUES (?, ?, ?, 1, ?, ?, ?);
+            VALUES (?, ?, ?, 1, 0, ?, ?);
             """,
             (
                 username,
                 generate_password_hash(password),
                 role,
-                1 if role != "admin" else 0,
                 _utcnow_iso(),
                 CURRENT_MODULE_VERSION,
             ),
@@ -768,8 +732,10 @@ def change_user_role(acting_user_id, target_user_id, role):
 def admin_reset_user_password(acting_user_id, target_user_id, new_password):
     """Admin-set password for another account. Returns (ok, error_message).
 
-    The target must change the password again on next login -- EXCEPT when
-    the admin resets their own password (already authenticated).
+    Password changes live exclusively here (Admin -> Users save form): the
+    admin sets a working password directly, so there is no forced
+    change-on-next-login step anymore (the must_change_password column is
+    kept at 0 for schema compatibility).
     """
     if not new_password or len(new_password) < MIN_PASSWORD_LEN:
         return False, f"Password must be at least {MIN_PASSWORD_LEN} characters."
@@ -780,10 +746,9 @@ def admin_reset_user_password(acting_user_id, target_user_id, new_password):
     if target is None:
         conn.close()
         return False, "User not found."
-    must_change = 0 if target_user_id == acting_user_id else 1
     cur.execute(
-        "UPDATE users SET password_hash = ?, must_change_password = ? WHERE id = ?;",
-        (generate_password_hash(new_password), must_change, target_user_id),
+        "UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?;",
+        (generate_password_hash(new_password), target_user_id),
     )
     conn.commit()
     conn.close()

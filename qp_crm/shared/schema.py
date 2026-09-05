@@ -357,8 +357,9 @@ def create_users_table(cur):
     modules); sale/settings and /api/v1/health stay public.
     password_hash is a werkzeug generate_password_hash() serialization
     (scrypt:"..." for rows created/changed on and after Phase 3).
-    must_change_password forces the self-service change on next login --
-    set at seed time for the migrated non-admin accounts.
+    must_change_password is retired: the column exists for schema
+    compatibility and every writer keeps it at 0 -- password changes live
+    exclusively in Admin -> Users (no self-service page, no forced detour).
     """
     cur.execute("""
         CREATE TABLE IF NOT EXISTS users (

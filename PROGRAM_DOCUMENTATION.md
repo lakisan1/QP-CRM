@@ -83,25 +83,28 @@ iz `global_settings` su pri Phase 3 migrirane u `users` redove i obrisane.
 
 - **Korisnici (tabela `users`):** `username` (unique), `password_hash`
   (werkzeug scrypt — nikad čist tekst), `role` (`admin` | `staff`),
-  `is_active`, `must_change_password` (prisilna promena pri prvom loginu),
-  `created_at`, `last_login`.
+  `is_active`, `must_change_password` (ZASTARELO — uvek 0: prisilna promena
+  pri prvom loginu je ukinuta, kolona ostaje samo zbog šeme), `created_at`,
+  `last_login`.
   - `seed_users_from_legacy()` — idempotentno pravi 4 naloga (admin→admin,
     pricing/offer/rent→staff) od legacy lozinki iz `global_settings` (te
-    vrednosti imaju prednost nad `DEFAULT_PASSWORDS`), odmah heširane; staff
-    nalozi dobijaju `must_change_password=1`. Legacy `{app}_password` ključevi
-    se brišu (`scrub_legacy_password_keys`) pri svakom bootu.
+    vrednosti imaju prednost nad `DEFAULT_PASSWORDS`), odmah heširane.
+    Legacy `{app}_password` ključevi se brišu
+    (`scrub_legacy_password_keys`) pri svakom bootu.
   - `attempt_login(username, password)` → user red ili None (bez
     enumeracije korisnika: nepoznat i deaktiviran nalog su isti odgovor).
   - `check_password(app_name, input)` → verifikacija preko `users`; red koji
     još nosi legacy čist tekst se pri prvom uspešnom loginu **transparentno
     rehash-ira** (`set_password`).
-  - `change_own_password(user_id, current, new, confirm)` → self-service
-    promena (traži trenutnu lozinku, min. 8 znakova, potvrdu).
+  - `change_own_password()` je UKLONJEN zajedno sa `/change-password` stranom
+    (user request): promena lozinke se vrši ISKLJUČIVO u Admin → Users.
 - **User management (Admin → Users):** `create_user`, `set_user_active`,
   `change_user_role`, `admin_reset_user_password`, `set_user_modules` — sve uz
   potvrdu sopstvene lozinke admina (`confirm_current_password`) i čuvare: ne
   možeš deaktivirati samog sebe, menjati svoju rolu, ni deaktivirati/demovati
-  POSLEDNJEG aktivnog admina. Reset lozinke postavlja `must_change_password=1`.
+  POSLEDNJEG aktivnog admina. Admin postavlja novu lozinku DIREKTNO (opciono
+  "New password" polje u save formi) — bez prinudne promene na sledećem
+  loginu; sopstvena lozinka se menja u svom redu (mini-forma).
 - **Per-user app access (`user_modules` tabela + `require_module` u
   `shared/web.py`):** kojim MODULIMA staff korisnik sme da pristupi
   (pricing/offer/rent/sale checkbox-ovi po korisniku u Admin → Users; sale je
@@ -415,10 +418,11 @@ Upravlja ugovorima o zakupu, dokumentima, PDF šablonima i obračunom rata.
 
 ## 11. Autentifikacija i bezbednost — Phase 3 (pregled celog sistema)
 
-**Jedan login za ceo stack.** `qp_crm/auth/app.py` drži `/login`, `/logout` i
-`/change-password` na glavnoj aplikaciji (`main.py` registruje auth blueprint
-na vrhu). Stari per-app login URL-ovi (`/pricing/login` itd.) su sada
-redirecti na jedinstveni login. Jedan cookie `qp_session` (path=/, HttpOnly,
+**Jedan login za ceo stack.** `qp_crm/auth/app.py` drži `/login` i `/logout`
+na glavnoj aplikaciji (`main.py` registruje auth blueprint na vrhu); stara
+self-service `/change-password` strana je UKLONJENA — promena lozinke je
+isključivo u Admin → Users. Stari per-app login URL-ovi (`/pricing/login`
+itd.) su sada redirecti na jedinstveni login. Jedan cookie `qp_session` (path=/, HttpOnly,
 SameSite=Lax); login radi **session.clear()** pre upisa identiteta (zaštita od
 session fixation) i postavlja `session.permanent = True` — sesija ističe posle
 8h neaktivnosti (`PERMANENT_SESSION_LIFETIME` u `main.py`; cookie se osvežava
@@ -429,8 +433,7 @@ before_request hook po blueprintu — admin → `"admin"`, pricing/offer/rent �
 `"staff", "admin"` (admin je superset), sale/settings javni (read-only /
 CSRF-zaštićeni), `/api/v1/health` javan. Hook **ponovo čita users red iz baze
 na svaki zahtev**: deaktivacija ili promena role pogađa korisnika odmah;
-`must_change_password=1` forsira redirect na `/change-password` pre bilo
-čega drugog.
+sale je od v2 rollout-a takođe gated po korisniku (`require_module("sale")`).
 
 **CSRF (Phase 3 step 5):** `shared/web.py` drži opšti mehanizam
 (`csrf_token()`, `check_csrf()` — form polje `_csrf_token` ili header

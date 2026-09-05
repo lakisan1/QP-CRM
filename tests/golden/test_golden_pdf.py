@@ -33,6 +33,19 @@ from qp_crm.offer.app import recalc_totals
 BASELINES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "baselines")
 UPDATE_GOLDEN = os.environ.get("QP_UPDATE_GOLDEN") == "1"
 
+# The baselines are byte-pinned to the docker image (fonts-dejavu-core +
+# WeasyPrint 69.0): a host render embeds different font subsets and differs
+# from byte ~54 on, so comparing (or worse, re-baselining) outside the
+# pinned image is meaningless. The suite is designed to run inside the
+# image (docker compose run --rm app pytest); on a host run these tests
+# SKIP instead of failing, and QP_UPDATE_GOLDEN=1 is inert there.
+IN_PINNED_IMAGE = os.path.exists("/.dockerenv") or os.path.abspath(os.getcwd()) == "/app"
+pytestmark = pytest.mark.skipif(
+    not IN_PINNED_IMAGE,
+    reason="golden baselines are byte-pinned to the docker image's fonts "
+           "(fonts-dejavu-core); run inside docker: docker compose run --rm app pytest",
+)
+
 # (regex, replacement) for the only regions that are allowed to differ
 NORMALIZERS = [
     (re.compile(rb"/CreationDate \(D:\d{14}(?:[+-]\d{2}'\d{2})?\)"), b"/CreationDate (D:NORMALIZED)"),

@@ -53,6 +53,10 @@ Baselines live in `tests/golden/baselines/`. PDF bytes contain volatile
 metadata (creation/modification timestamps, trailer `/ID`); the test
 normalizes exactly those regions and requires **everything else** to be
 byte-identical. Fonts are pinned in the image (`fonts-dejavu-core`).
+Because of that pinning, the golden tests SKIP on a host run (no
+`/.dockerenv`, cwd != `/app`) — they are only meaningful inside the image,
+and `QP_UPDATE_GOLDEN=1` is inert outside it. Never re-baseline on the
+host.
 
 Re-baselining is a deliberate act — run
 

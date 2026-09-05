@@ -38,13 +38,6 @@ def _uid(username):
     return row["id"]
 
 
-def _set_flag(username, value):
-    conn = get_db()
-    conn.execute("UPDATE users SET must_change_password = ? WHERE username = ?;", (value, username))
-    conn.commit()
-    conn.close()
-
-
 def _post(client, path, data):
     data["_csrf_token"] = csrf_token_for(client)
     return client.post(path, data=data)
@@ -111,20 +104,19 @@ def test_ui_saves_module_grants_with_own_password():
 
     # wrong own password: grants unchanged
     resp = _post(admin, f"/admin/users/{uid}/save", {
-        "modules": ["pricing"], "active": "1", "current_password": "WRONG-current-1",
+        "modules": ["pricing"], "has_modules": "1", "active": "1", "current_password": "WRONG-current-1",
     })
     assert resp.status_code == 302
     assert get_user_modules(uid) == sorted(MODULE_CHOICES)
 
     # correct password: grants saved, page shows the new checkbox state
     resp = _post(admin, f"/admin/users/{uid}/save", {
-        "modules": ["pricing"], "active": "1", "current_password": DEFAULT_PASSWORDS["admin"],
+        "modules": ["pricing"], "has_modules": "1", "active": "1", "current_password": DEFAULT_PASSWORDS["admin"],
     })
     assert resp.status_code == 302
     assert get_user_modules(uid) == ["pricing"]
 
     rent = login_client(app.test_client(), "rent")
-    _set_flag("rent", 0)
     assert rent.get("/rent/contracts").status_code == 403
     assert rent.get("/pricing/products", follow_redirects=True).status_code == 200
 
@@ -133,7 +125,7 @@ def test_ui_saves_module_grants_with_own_password():
 
     # re-grant everything for the rest of the suite
     resp = _post(admin, f"/admin/users/{uid}/save", {
-        "modules": list(MODULE_CHOICES), "active": "1", "current_password": DEFAULT_PASSWORDS["admin"],
+        "modules": list(MODULE_CHOICES), "has_modules": "1", "active": "1", "current_password": DEFAULT_PASSWORDS["admin"],
     })
     assert resp.status_code == 302
     assert get_user_modules(uid) == sorted(MODULE_CHOICES)
