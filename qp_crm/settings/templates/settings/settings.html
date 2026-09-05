@@ -16,7 +16,7 @@
             <span class="active">{{ _('Settings')|default('Podešavanja') }}</span>
         </div>
         <div class="nav-right">
-            <a href="/">{{ _('Landing Page')|default('Početna str.') }}</a>
+            <a href="/">{{ _('Home') }}</a>
             <div class="nav-logo-container">
                 <img src="{{ url_for('static', filename='img/logo_company.jpg') }}" alt="QP-CRM Logo" class="nav-logo">
             </div>
@@ -63,6 +63,17 @@
                     <a href="/" class="btn btn-secondary" style="text-decoration: none;">Otkaži</a>
                 </div>
             </form>
+        </div>
+
+        <!-- Logout (moved out of the page headers per user request: one quiet
+             logout spot for the whole stack, routing through the unified
+             /logout) -->
+        <div class="card" style="max-width: 600px;">
+            <div style="display: flex; justify-content: flex-end;">
+                <a href="{{ url_for('auth.logout') }}" class="btn btn-danger" style="text-decoration: none;">
+                    {{ _('Logout') }}
+                </a>
+            </div>
         </div>
     </div>
 </body>

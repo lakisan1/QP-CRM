@@ -9,22 +9,7 @@
 </head>
 
 <body>
-    <nav>
-        <div class="nav-links">
-            <a href="{{ url_for('admin.index') }}">Dashboard</a>
-            <a href="{{ url_for('admin.list_pdf_templates') }}">PDF Templates</a>
-            <a href="{{ url_for('admin.list_rounding_rules') }}">Rounding Rules</a>
-            <a href="{{ url_for('admin.list_users') }}" class="active">Users</a>
-        </div>
-        <div class="nav-right">
-            <a href="/">{{ _('Landing Page') }}</a>
-            <a href="{{ url_for('auth.change_password') }}">My password</a>
-            <a href="{{ url_for('admin.logout') }}" class="btn btn-danger" style="margin-right: 15px;">Logout</a>
-            <div class="nav-logo-container">
-                <img src="{{ url_for('static', filename='img/logo_company.jpg') }}" alt="QP-CRM Logo" class="nav-logo">
-            </div>
-        </div>
-    </nav>
+    {% set active = 'users' %}{% include 'admin/_nav.html' %}
 
     <div class="container" style="max-width: 1200px;">
         <h1>Users Management</h1>
@@ -107,12 +92,13 @@
                             {# One form per user row: the inputs in the other cells join it via the HTML5 form= attribute, so ONE Save button applies apps + active + role + optional new password. #}
                             <form id="user-form-{{ user.id }}" action="{{ url_for('admin.save_user_action', user_id=user.id) }}" method="POST">
                                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                {% if user.role == 'staff' %}<input type="hidden" name="has_modules" value="1">{% endif %}
                             </form>
                             {% endif %}
                         </td>
                         <td>
-                            {% if user.id == current_user_id %}
-                            <span style="color: var(--text-muted);">all apps &middot; active (change your own password via "My password")</span>
+                            {% if user.role == 'admin' %}
+                            <span style="color: var(--text-muted);">all apps{% if user.id == current_user_id %} &middot; active{% endif %}</span>
                             {% else %}
                             <div style="display: flex; gap: 12px; flex-wrap: wrap;">
                                 {% for m in module_choices %}
@@ -147,7 +133,14 @@
                                 <button type="submit" class="btn btn-primary" form="user-form-{{ user.id }}">Save user</button>
                             </div>
                             {% else %}
-                            <span style="color: var(--text-muted);">&mdash;</span>
+                            {# own row: change YOUR OWN password (apps/active/role do not apply to yourself) #}
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                                <input type="password" name="new_password" placeholder="New password" form="user-form-{{ user.id }}"
+                                       minlength="8" required style="width: 150px;" autocomplete="new-password">
+                                <input type="password" name="current_password" placeholder="Your password" required form="user-form-{{ user.id }}"
+                                       style="width: 140px;" autocomplete="current-password">
+                                <button type="submit" class="btn btn-primary" form="user-form-{{ user.id }}">Save</button>
+                            </div>
                             {% endif %}
                         </td>
                     </tr>
@@ -156,7 +149,7 @@
             </table>
             <p style="color: var(--text-muted); font-size: 0.85rem;">
                 Deactivated users lose access on their next request. The last active admin cannot be deactivated or demoted.
-                Reset passwords force a change on the user\'s next login.
+                Passwords are set here directly (no forced change on next login).
                 App access: admins open every app; staff only the checked apps (re-read on every request — changes hit instantly).
                 An explicitly emptied set stays empty across reboots.
             </p>

@@ -193,3 +193,80 @@ def test_settings_needs_no_login():
 
 def test_unknown_module_prefix_404s():
     assert fresh_client().get("/nope/").status_code == 404
+
+
+# ─── header / admin-nav consistency (post-Phase-3 UI cleanup) ────────────────
+# Board cards: admin header drift (Users/API Keys/Rent Šabloni missing on
+# admin subpages), /admin/rent/templates login loop, logout moved to the
+# settings app, "Landing Page" renamed "Home".
+
+ADMIN_SUBPAGES = (
+    "/admin/",
+    "/admin/pdf_templates",
+    "/admin/rounding_rules",
+    "/admin/users",
+    "/admin/api_keys",
+    "/admin/rent/templates",
+)
+
+
+@pytest.mark.parametrize("path", ("/admin/rent/templates",
+                                  "/admin/backup_db",
+                                  "/admin/backup_full"))
+def test_admin_gated_routes_reachable_after_login(admin_client, path):
+    """Regression: these routes still carried per-route checks of the
+    pre-Phase-3 admin_authenticated session flag (never set since unified
+    login), so a LOGGED-IN admin got an endless /login?next=/admin/ loop.
+    The blueprint-level require_role("admin") hook is the only gate now."""
+    resp = admin_client.get(path)
+    assert resp.status_code == 200, \
+        f"{path} -> {resp.status_code} {resp.headers.get('Location')}"
+
+
+@pytest.mark.parametrize("path", ADMIN_SUBPAGES)
+def test_admin_pages_share_one_full_header(admin_client, path):
+    """Every admin page renders the SAME nav: all six links + Home, and no
+    logout button (logout lives in the settings app now)."""
+    page = admin_client.get(path)
+    assert page.status_code == 200, path
+    html = page.data.decode()
+    for link in ("/admin/", "/admin/pdf_templates", "/admin/rounding_rules",
+                 "/admin/users", "/admin/api_keys", "/admin/rent/templates"):
+        assert link in html, f"{path}: missing nav link {link}"
+    assert ">Home</a>" in html, f"{path}: missing Home link"
+    assert "Logout" not in html, f"{path}: header logout button is gone"
+
+
+def test_pdf_template_editor_shares_admin_header(admin_client, conn_factory):
+    """The PDF template edit page keeps the full admin nav (plus its
+    'Edit: <name>' breadcrumb) instead of the old trimmed copy-pasted one."""
+    with conn_factory() as conn:
+        row = conn.execute("SELECT MIN(id) AS id FROM pdf_templates").fetchone()
+    page = admin_client.get(f"/admin/edit_pdf_template/{row['id']}")
+    assert page.status_code == 200
+    html = page.data.decode()
+    assert "/admin/users" in html and "/admin/api_keys" in html
+    assert "Edit: " in html
+
+
+def test_settings_app_carries_logout_and_home():
+    """/settings now hosts the logout button (moved out of the page headers)
+    next to the renamed Home link."""
+    html = fresh_client().get("/settings/").data.decode()
+    assert 'href="/logout"' in html
+    assert ">Home</a>" in html
+
+
+@pytest.mark.parametrize("path", ("/pricing/products", "/offer/offers",
+                                  "/rent/contracts", "/sale/pricelist"))
+def test_business_headers_have_no_logout_and_say_home(admin_client, path):
+    """The logout button is gone from every app header (settings app hosts
+    it now) and the app-menu link reads Home (rent keeps its Serbian
+    'Početna', which is the same label)."""
+    page = admin_client.get(path)  # admin opens every app
+    assert page.status_code == 200, path
+    html = page.data.decode()
+    assert "btn btn-danger" not in html.split("<hr>")[0], \
+        f"{path}: header still carries a danger button (logout)"
+    assert ("Landing Page" not in html), f"{path}: header still says 'Landing Page'"
+

@@ -39,22 +39,9 @@
 </head>
 
 <body>
-    <nav>
-        <div class="nav-links">
-            <a href="{{ url_for('admin.index') }}">Dashboard</a>
-            <a href="{{ url_for('admin.list_pdf_templates') }}">PDF Templates</a>
-            <a href="{{ url_for('admin.list_rounding_rules') }}">Rounding Rules</a>
-            <a href="/admin/rent/templates">Rent Šabloni</a>
-            <span style="color: var(--text-muted);">/ Edit: {{ template.name }}</span>
-        </div>
-        <div class="nav-right">
-            <a href="/">{{ _('Landing Page') }}</a>
-            <a href="{{ url_for('admin.logout') }}" class="btn btn-danger" style="margin-right: 15px;">Logout</a>
-            <div class="nav-logo-container">
-                <img src="{{ url_for('static', filename='img/logo_company.jpg') }}" alt="QP-CRM Logo" class="nav-logo">
-            </div>
-        </div>
-    </nav>
+    {% set active = 'pdf_templates' %}
+    {% set nav_extra = 'Edit: ' ~ template.name %}
+    {% include 'admin/_nav.html' %}
 
     <div class="container" style="max-width: 1400px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">

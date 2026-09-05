@@ -48,21 +48,7 @@
 </head>
 
 <body>
-    <nav>
-        <div class="nav-links">
-            <a href="{{ url_for('admin.index') }}">Dashboard</a>
-            <a href="{{ url_for('admin.list_pdf_templates') }}">PDF Templates</a>
-            <a href="{{ url_for('admin.list_rounding_rules') }}" class="active">Rounding Rules</a>
-            <a href="/admin/rent/templates">Rent Šabloni</a>
-        </div>
-        <div class="nav-right">
-            <a href="/">{{ _('Landing Page') }}</a>
-            <a href="{{ url_for('admin.logout') }}" class="btn btn-danger" style="margin-right: 15px;">Logout</a>
-            <div class="nav-logo-container">
-                <img src="{{ url_for('static', filename='img/logo_company.jpg') }}" alt="QP-CRM Logo" class="nav-logo">
-            </div>
-        </div>
-    </nav>
+    {% set active = 'rounding_rules' %}{% include 'admin/_nav.html' %}
 
     <div class="container" style="max-width: 1000px;">
         <h1>Manage Rounding Rules</h1>

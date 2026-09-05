@@ -1,6 +1,13 @@
-"""Rent master template editor routes (admin)."""
+"""Rent master template editor routes (admin).
 
-from flask import render_template, request, redirect, url_for, session
+Auth is enforced once at the blueprint level (bp.before_request
+require_role("admin") in admin/app.py) -- the per-route
+session['admin_authenticated'] checks removed here were pre-Phase-3
+leftovers that read a flag unified login never sets, so a logged-in
+admin was bounced into an endless /login?next=/admin/ loop.
+"""
+
+from flask import render_template, request
 
 from ..app import bp, get_db, sort_rent_templates
 
@@ -13,8 +20,6 @@ from ..app import bp, get_db, sort_rent_templates
 
 @bp.route("/rent/templates")
 def admin_rent_templates():
-    if not session.get("admin_authenticated"):
-        return redirect(url_for("admin.login"))
     conn = get_db()
     cur = conn.cursor()
     cur.execute("SELECT id, slug, name FROM rent_templates ORDER BY id;")
@@ -43,8 +48,6 @@ def admin_rent_templates():
 
 @bp.route("/rent/templates/<slug>", methods=["GET", "POST"])
 def admin_rent_template_edit(slug):
-    if not session.get("admin_authenticated"):
-        return redirect(url_for("admin.login"))
     conn = get_db()
     cur = conn.cursor()
     cur.execute("SELECT id, slug, name FROM rent_templates ORDER BY id;")

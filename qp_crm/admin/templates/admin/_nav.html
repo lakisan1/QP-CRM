@@ -1,0 +1,38 @@
+{# ─────────────────────────────────────────────────────────────────────────────
+   Shared admin header — the ONE nav for the whole admin app.
+
+   Every admin template includes it with one required variable:
+
+       {% set active = 'dashboard' %}{% include 'admin/_nav.html' %}
+
+   `active` selects the highlighted link; one of:
+       dashboard | pdf_templates | rounding_rules | users | api_keys |
+       rent_templates
+   Optional `nav_extra` renders a muted trail after the links (the PDF
+   template editor's "Edit: <name>" breadcrumb).
+
+   Behavior decisions (user requests, board cards):
+     * all six admin links appear on EVERY admin page (no more drifted
+       copy-pasted headers missing Users / API Keys / Rent Šabloni);
+     * the header carries NO logout button — logout lives in the settings
+       app (/settings);
+     * the link back to the app menu is labeled "Home" (sr: "Početna
+       strana" via the shared `_` helper).
+   ───────────────────────────────────────────────────────────────────────── #}
+<nav>
+    <div class="nav-links">
+        <a href="{{ url_for('admin.index') }}" {% if active == 'dashboard' %}class="active"{% endif %}>Dashboard</a>
+        <a href="{{ url_for('admin.list_pdf_templates') }}" {% if active == 'pdf_templates' %}class="active"{% endif %}>PDF Templates</a>
+        <a href="{{ url_for('admin.list_rounding_rules') }}" {% if active == 'rounding_rules' %}class="active"{% endif %}>Rounding Rules</a>
+        <a href="{{ url_for('admin.list_users') }}" {% if active == 'users' %}class="active"{% endif %}>Users</a>
+        <a href="{{ url_for('admin.list_api_keys') }}" {% if active == 'api_keys' %}class="active"{% endif %}>API Keys</a>
+        <a href="{{ url_for('admin.admin_rent_templates') }}" {% if active == 'rent_templates' %}class="active"{% endif %}>Rent Šabloni</a>
+        {% if nav_extra %}<span style="color: var(--text-muted);">{{ nav_extra }}</span>{% endif %}
+    </div>
+    <div class="nav-right">
+        <a href="/">{{ _('Home') }}</a>
+        <div class="nav-logo-container">
+            <img src="{{ url_for('static', filename='img/logo_company.jpg') }}" alt="QP-CRM Logo" class="nav-logo">
+        </div>
+    </div>
+</nav>

@@ -9,23 +9,7 @@
 </head>
 
 <body>
-    <nav>
-        <div class="nav-links">
-            <a href="{{ url_for('admin.index') }}">Dashboard</a>
-            <a href="{{ url_for('admin.list_pdf_templates') }}">PDF Templates</a>
-            <a href="{{ url_for('admin.list_rounding_rules') }}">Rounding Rules</a>
-            <a href="{{ url_for('admin.list_users') }}">Users</a>
-            <a href="{{ url_for('admin.list_api_keys') }}" class="active">API Keys</a>
-        </div>
-        <div class="nav-right">
-            <a href="/">Landing Page</a>
-            <a href="{{ url_for('auth.change_password') }}">My password</a>
-            <a href="{{ url_for('admin.logout') }}" class="btn btn-danger" style="margin-right: 15px;">Logout</a>
-            <div class="nav-logo-container">
-                <img src="{{ url_for('static', filename='img/logo_company.jpg') }}" alt="QP-CRM Logo" class="nav-logo">
-            </div>
-        </div>
-    </nav>
+    {% set active = 'api_keys' %}{% include 'admin/_nav.html' %}
 
     <div class="container" style="max-width: 1100px;">
         <h1>API Keys Management</h1>

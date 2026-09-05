@@ -1,6 +1,13 @@
-"""Database backup/restore, full-system backup/restore and factory reset routes."""
+"""Database backup/restore, full-system backup/restore and factory reset routes.
 
-from flask import request, redirect, url_for, session, flash, send_file
+Auth is enforced once at the blueprint level (bp.before_request
+require_role("admin") in admin/app.py); the per-route
+session['admin_authenticated'] checks removed here were pre-Phase-3
+leftovers that read a flag unified login never sets, so even a logged-in
+admin's backup download was redirected to /admin/login.
+"""
+
+from flask import request, redirect, url_for, flash, send_file
 import os
 import time
 import zipfile
@@ -14,9 +21,6 @@ from ..app import bp, get_db, check_password, generate_full_backup_zip
 
 @bp.route("/backup_db")
 def backup_db():
-    if not session.get('admin_authenticated'):
-        return redirect(url_for('admin.login'))
-
     # G36: Use sqlite3.backup() for a WAL-safe snapshot instead of reading the raw file.
     try:
         src_conn = get_db()
@@ -117,9 +121,6 @@ def restore_db():
 
 @bp.route("/backup_full")
 def backup_full():
-    if not session.get('admin_authenticated'):
-        return redirect(url_for('admin.login'))
-        
     memory_file = generate_full_backup_zip()
     
     date_str = time.strftime("%Y-%m-%d")
