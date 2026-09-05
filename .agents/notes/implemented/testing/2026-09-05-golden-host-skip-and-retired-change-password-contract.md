@@ -1,0 +1,18 @@
+# Agent Note: golden-host-skip-and-retired-change-password-contract
+
+Status: implemented
+
+## Problem
+
+After the Phase-3 UI tasks the full suite showed 5 failures on the host that reproduced without any new changes: three golden-PDF byte comparisons and two auth tests belonging to an uncommitted change-password-removal WIP. A red suite on the host made it impossible to tell new regressions from environment noise, and the stale tests pinned behavior (forced first-login change, self-service /change-password) the WIP had deliberately removed.
+
+## Decision
+
+The change-password-removal WIP is now finished and committed (1e7cfce): password changes live exclusively in Admin -> Users; the dead change_own_password() service is deleted from qp_crm/shared/auth.py, and shared/schema.py's create_users_table docstring states must_change_password is retired (kept at 0 for schema compatibility). The auth test contract is pinned accordingly in tests/auth/: seeded and freshly created staff accounts log straight in with must_change_password == 0; the removed page answers GET 404, a tokenless POST 400 (the app-level CSRF shield answers before routing), and a tokened POST 404 (route gone) — the token must be minted explicitly via session_transaction because the login handler's session.clear() wipes the login-page token. Golden-PDF tests (tests/golden/test_golden_pdf.py) carry a module-level pytestmark skipif that is active outside the pinned image (detected via /.dockerenv or cwd == /app, the Dockerfile WORKDIR): the baselines are byte-pinned to the image's fonts-dejavu-core, so host runs skip with an explanatory reason and QP_UPDATE_GOLDEN=1 is inert there — never re-baseline on a host. Result: host suite 242 passed / 3 skipped; the docker suite still runs everything. NOT done: no font pinning for host runs (installing dejavu locally would not reproduce the image's exact font versions); no CI change (this repo's one-command suite remains docker compose run --rm app pytest).
+## Alternatives considered
+
+**Re-baseline the golden PDFs from a host render** — lost immediately: the bytes embed the host's font subsets, so the docker suite (the sanctioned one-command run) would have gone red instead. **Install fonts-dejavu-core on the host and keep golden active everywhere** — lost because byte-identity needs the image's exact font versions, not just the family; the pinning guarantee would silently erode. **Delete the two stale auth tests** — lost because they cover real contract surface (straight-in login, CSRF shield ordering, route removal); rewriting them to pin the NEW contract keeps the coverage the WIP intended. **Gate the auth WIP behind an env flag until "officially" finished** — lost as over-engineering: the WIP was complete and coherent at the code level (docstrings, route removal, template deletion); only its tests lagged.
+## Consequences
+
+Cost: golden coverage is invisible on host runs — a host-only developer no longer notices PDF regressions until the docker run, and the /.dockerenv/cwd signal is heuristic (a non-standard container layout could wrongly skip or wrongly compare; the cwd check matches the Dockerfile's WORKDIR /app). The auth tests now mint CSRF tokens explicitly in two places, duplicating the pattern conftest.login_client already uses — acceptable, but a shared helper would be cleaner if a third appears. Bought: one suite, one verdict — green means green on host and docker alike, and the retired forced-password-change contract is pinned so it cannot quietly return. Related notes: testing/2026-09-03-qp-crm-pytest-golden-infra.md (the golden infra this modifies), feature/2026-09-04-phase3-unified-auth-roles-csrf.md.
+

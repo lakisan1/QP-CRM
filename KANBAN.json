@@ -717,7 +717,7 @@
       "status": "done",
       "tags": [],
       "createdAt": 1788621358347,
-      "updatedAt": 1788649144867,
+      "updatedAt": 1788649234929,
       "rationale": "Why: the link back to the app menu is labeled \"Landing Page\" (developer jargon that confused users). Renaming it to \"Home\" names the thing by what it does; the Serbian translation ('Početna strana') is added for the new key so language switching keeps working.",
       "summary": "做了什么：every header now links the app menu as Home — admin shared nav, pricing/offer/sale base templates (`_('Home')`), settings page; sr translation 'Home' → 'Početna strana' added in shared/utils.py and the dead 'Landing Page' key dropped. Rent keeps its Serbian 'Početna' (same meaning/link). Smoke tests assert '>Home</a>' and the absence of 'Landing Page'.",
       "rejected": "放弃了什么：renaming rent's 'Početna' to English 'Home' — rent is the Serbian-language UI and Početna already means Home; forcing English there would have been inconsistent with the rest of that header."
@@ -727,9 +727,9 @@
       "title": "PRE-EXISTING suite failures (not from header/logout work): 2 auth tests vs uncommitted change-password-removal WIP + 3 golden-PDF host-font diffs",
       "description": "Detail: (1) tests/auth/test_first_login_flow.py::test_seeded_staff_logs_straight_in_no_forced_change — POSTs /change-password expecting 404, but after unified login the session CSRF token is wiped and nothing re-mints it before the POST, so check_csrf answers 400 (the test's own comment even documents the 400 path). (2) tests/auth/test_user_management.py::test_create_staff_user_forces_first_login_change — asserts must_change_password == 1, the exact behavior the uncommitted WIP (auth/app.py, shared/web.py, admin/routes/users.py, deleted auth/templates/auth/account_password.html — all still uncommitted in the working tree) removed (\"password changes live exclusively in Admin -> Users\"); test is stale WIP. (3-5) tests/golden/* — baselines are byte-exact against the docker image's pinned fonts-dejavu-core; host WeasyPrint renders differ from byte 54. Fix path: finish/commit the auth WIP and update or delete the two tests; run golden tests only inside docker (docker compose run --rm app pytest), never re-baseline on host.",
       "rationale": "Why: while verifying the header/logout tasks the full suite showed 5 failures that reproduce WITHOUT this session's changes — they must be recorded so the next session doesn't attribute them to new work or blindly re-baseline. Discovered 2026-09-05, suite: 240 passed / 5 failed on host.",
-      "rejected": "放弃了什么：fixing them in this session — out of scope for the four UI cards and the auth-test fix belongs to whoever finishes the uncommitted change-password-removal WIP; golden re-baselining on the host would have corrupted docker-pinned baselines.",
+      "rejected": "放弃了什么：re-baselining the golden PDFs on the host to make them pass — the baselines are byte-pinned to the docker image's fonts-dejavu-core, so host re-baselines would corrupt the docker-green state; instead the golden tests now SKIP outside the pinned image (QP_UPDATE_GOLDEN is inert there). Also chose not to keep the dead change_own_password service \"just in case\" — Admin -> Users is the single password-change path now.",
       "sourceSessionId": "session-5431a694-1920-4df2-bc4b-9c0b06ac481d",
-      "status": "todo",
+      "status": "done",
       "tags": [
         "qp-crm",
         "testing",
@@ -737,7 +737,8 @@
         "new-finding"
       ],
       "createdAt": 1788647603896,
-      "updatedAt": 1788647603896
+      "updatedAt": 1788649461678,
+      "summary": "做了什么：finished the uncommitted change-password-removal WIP and made the whole suite green on host (242 passed, 3 skipped): removed the dead change_own_password() service from shared/auth.py, fixed the stale create_users_table docstring in shared/schema.py; rewrote the two stale auth tests — test_seeded_staff_logs_straight_in_no_forced_change now mints a CSRF token explicitly and pins GET /change-password 404 + tokenless POST 400 (CSRF shield) + tokened POST 404 (route gone), test_create_staff_user_forces_first_login_change became test_created_staff_logs_straight_in_no_forced_change pinning must_change_password == 0; tests/golden/test_golden_pdf.py skips outside the pinned docker image (/.dockerenv or cwd /app) with tests/README.md documenting it. Committed as 1e7cfce."
     }
   ]
 }
