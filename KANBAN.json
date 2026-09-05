@@ -659,6 +659,24 @@
       ],
       "createdAt": 1788606592414,
       "updatedAt": 1788606592414
+    },
+    {
+      "id": "card-2971e762-d3b3-4266-9017-2f19ebcaf8eb",
+      "title": "Users page: one Save per user + sale joins per-user app access",
+      "description": "User follow-up with screenshot: the Users page had four password fields + four buttons per row (deactivate/role/reset/access) — replace with ONE password + ONE Save per user; also make the sale app per-user controllable.",
+      "summary": "Commit 0821e0... deployed and verified live: /admin/users/<id>/save combines apps+active+role+optional new password behind one own-password confirm; row UI uses one <form> with HTML5 form= attributes so all cells submit together. Sale gated with require_module('sale'), legacy /sale/login + /sale/logout redirects added, landing card filtered; versioned seed (MODULE_INTRODUCED, users.modules_set = seed version) granted sale to existing staff exactly once. Fixed get_user_by_id to accept include_inactive so deactivated users can be reactivated through the save route. Suite 230 passed.",
+      "rationale": "Cluttered UI made row actions error-prone (four confirm-password fields per user), and sale was still public despite the per-user access model.",
+      "rejected": "Separate save buttons per option (that was the complaint); one giant form spanning <td>s via invalid HTML (used the form= attribute instead); re-granting all modules on version bump (would resurrect deliberately revoked grants — MODULE_INTRODUCED grants only modules introduced after the row's last seed version).",
+      "sourceSessionId": "session-4ca59a53-7afb-4d0d-85e0-276e1d187fdb",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "auth",
+        "users",
+        "sale"
+      ],
+      "createdAt": 1788614452661,
+      "updatedAt": 1788614452661
     }
   ]
 }
