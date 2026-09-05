@@ -739,6 +739,22 @@
       "createdAt": 1788647603896,
       "updatedAt": 1788649461678,
       "summary": "做了什么：finished the uncommitted change-password-removal WIP and made the whole suite green on host (242 passed, 3 skipped): removed the dead change_own_password() service from shared/auth.py, fixed the stale create_users_table docstring in shared/schema.py; rewrote the two stale auth tests — test_seeded_staff_logs_straight_in_no_forced_change now mints a CSRF token explicitly and pins GET /change-password 404 + tokenless POST 400 (CSRF shield) + tokened POST 404 (route gone), test_create_staff_user_forces_first_login_change became test_created_staff_logs_straight_in_no_forced_change pinning must_change_password == 0; tests/golden/test_golden_pdf.py skips outside the pinned docker image (/.dockerenv or cwd /app) with tests/README.md documenting it. Committed as 1e7cfce."
+    },
+    {
+      "id": "card-1e5d0e9c-6cc0-4ec1-96a6-8ada9de154c9",
+      "title": "Rebuild + restart Docker kontejnera da UI popravke (admin header, rent/templates loop, logout u Settings, Home) postanu vidljive na :5000",
+      "description": "Popravke (unified admin header, rent/templates loop fix, logout u Settings, Home rename) su u kodu (commitovi ea635a3, 1e7cfce, c790b07) ali server na 192.168.1.34:5000 još drži staru sliku — gunicorn startovan 13:16 pre popravki. Slika nije bind-mount (samo app_data/app_assets/static/img su montirani), pa je potreban rebuild: pokrenuti ./deploy.sh (radi docker compose build + up -d + healthcheck wait). DSH sesija nema docker pristup (nije u docker grupi, sudo blokiran no-new-privileges), pa korisnik pokreće ručno ili se radi na resume kada pristup bude omogućen.",
+      "rationale": "Korisnik mora videti UI popravke u browseru; bez rebuild-a kontejner servira stari kod i delovaće da popravke ne rade. Kartica postoji da se korak ne zaboravi posle prekida sesije (korisnik pravi model promene pre resume).",
+      "sourceSessionId": "session-5431a694-1920-4df2-bc4b-9c0b06ac481d",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "docker",
+        "deploy",
+        "pending-user"
+      ],
+      "createdAt": 1788651703859,
+      "updatedAt": 1788651703859
     }
   ]
 }
