@@ -21,7 +21,8 @@ import qp_crm.main
 from conftest import login_client
 from qp_crm.shared.auth import DEFAULT_PASSWORDS
 
-GATED_MODULES = ("pricing", "offer", "rent", "admin")
+GATED_MODULES = ("pricing", "offer", "rent", "admin")  # modules with a same-name user account
+GATED_ANON_MODULES = ("pricing", "offer", "rent", "sale", "admin")  # login-redirect coverage only
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -76,16 +77,18 @@ def test_landing_shows_only_accessible_apps():
     page = client2.get("/").data.decode()
     assert "/pricing/" in page
     assert "/offer/" not in page and "/rent/" not in page
+    assert "/sale/pricelist" not in page  # v2: sale is grantable per user too
     assert "/admin/" not in page
 
     # restore for the rest of the suite
-    set_user_modules(uid, ["pricing", "offer", "rent"])
+    from qp_crm.shared.auth import MODULE_CHOICES
+    set_user_modules(uid, list(MODULE_CHOICES))
 
     # admin sees everything including the Admin Panel card
     admin_client = fresh_client()
     login_client(admin_client, "admin")
     admin_page = admin_client.get("/").data.decode()
-    for link in ("/pricing/", "/offer/", "/rent/", "/admin/"):
+    for link in ("/pricing/", "/offer/", "/rent/", "/sale/pricelist", "/admin/"):
         assert link in admin_page, link
 
 
@@ -93,14 +96,14 @@ def test_unified_login_page_renders():
     assert fresh_client().get("/login").status_code == 200
 
 
-@pytest.mark.parametrize("module", GATED_MODULES)
+@pytest.mark.parametrize("module", GATED_ANON_MODULES)
 def test_gated_module_redirects_to_unified_login(module):
     response = fresh_client().get(f"/{module}/")
     assert response.status_code == 302
     assert response.headers["Location"].startswith("/login")
 
 
-@pytest.mark.parametrize("module", GATED_MODULES)
+@pytest.mark.parametrize("module", GATED_ANON_MODULES)
 def test_old_login_url_redirects_to_unified_login(module):
     # Old bookmarks: /<module>/login (GET) now redirects to /login.
     response = fresh_client().get(f"/{module}/login")
@@ -174,9 +177,10 @@ def test_main_pages_200_after_unified_login(path):
     assert client.get(path).status_code == 200
 
 
-def test_sale_needs_no_login():
-    # sale is completely open: / is a plain redirect to the pricelist
-    client = fresh_client()
+def test_sale_redirects_to_pricelist_when_logged_in():
+    # /sale/ is still a plain redirect to the pricelist, but the pricelist
+    # itself is per-user gated now (v2 module rollout).
+    client = login_client(fresh_client(), "pricing")
     root = client.get("/sale/")
     assert root.status_code == 302
     assert root.headers["Location"].endswith("/sale/pricelist")

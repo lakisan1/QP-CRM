@@ -18,11 +18,12 @@ from conftest import login_client
 from qp_crm.main import app
 from qp_crm.shared.auth import get_db
 
-GATED_MODULES = ("pricing", "offer", "rent", "admin")
+GATED_MODULES = ("pricing", "offer", "rent", "sale", "admin")
 BUSINESS_PAGES = {
     "pricing": "/pricing/products",
     "offer": "/offer/offers",
     "rent": "/rent/contracts",
+    "sale": "/sale/pricelist",
 }
 
 
@@ -58,8 +59,11 @@ def test_anonymous_redirects_to_unified_login(module):
     assert resp.headers["Location"].startswith("/login")
 
 
-@pytest.mark.parametrize("path", ["/sale/pricelist", "/settings/", "/api/v1/health"])
+@pytest.mark.parametrize("path", ["/settings/", "/api/v1/health"])
 def test_public_routes_stay_public(path):
+    # sale left the public list in the v2 module rollout: it is now a
+    # per-user grant (test_anonymous_redirects_to_unified_login covers its
+    # login redirect; test_staff_reaches_business_modules the granted 200).
     client = app.test_client()
     assert client.get(path).status_code == 200
 

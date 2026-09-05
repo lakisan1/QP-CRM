@@ -91,74 +91,64 @@
             <table class="preset-table" style="width: 100%;">
                 <thead>
                     <tr>
-                        <th>Username</th>
-                        <th>Role</th>
-                        <th>Status</th>
-                        <th>Created</th>
+                        <th>User</th>
+                        <th>Apps &amp; status</th>
                         <th>Last login</th>
-                        <th>Actions</th>
+                        <th>Save (one password per user)</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for user in users %}
                     <tr>
-                        <td><strong>{{ user.username }}</strong>{% if user.id == current_user_id %} <small style="color: var(--text-muted);">(you)</small>{% endif %}</td>
-                        <td>{{ user.role }}</td>
                         <td>
-                            {% if user.role == 'admin' %}
-                            <span style="color: var(--text-muted);">all apps</span>
-                            {% else %}
-                            <form action="{{ url_for('admin.change_user_modules_action', user_id=user.id) }}" method="POST"
-                                  style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                            <strong>{{ user.username }}</strong>{% if user.id == current_user_id %} <small style="color: var(--text-muted);">(you)</small>{% endif %}<br>
+                            <small style="color: var(--text-muted);">{{ user.role }}</small>
+                            {% if user.id != current_user_id %}
+                            {# One form per user row: the inputs in the other cells join it via the HTML5 form= attribute, so ONE Save button applies apps + active + role + optional new password. #}
+                            <form id="user-form-{{ user.id }}" action="{{ url_for('admin.save_user_action', user_id=user.id) }}" method="POST">
                                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                                {% for m in module_choices %}
-                                <label style="font-weight: normal; text-transform: capitalize;">
-                                    <input type="checkbox" name="modules" value="{{ m }}"
-                                           {{ 'checked' if m in user.modules }}> {{ m }}
-                                </label>
-                                {% endfor %}
-                                <input type="password" name="current_password" placeholder="Your password" required
-                                       style="width: 130px;" autocomplete="current-password">
-                                <button type="submit" class="btn btn-secondary">Save access</button>
                             </form>
                             {% endif %}
                         </td>
-                        <td>{{ 'active' if user.is_active else 'inactive' }}</td>
-                        <td>{{ user.created_at[:10] }}</td>
+                        <td>
+                            {% if user.id == current_user_id %}
+                            <span style="color: var(--text-muted);">all apps &middot; active (change your own password via "My password")</span>
+                            {% else %}
+                            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                                {% for m in module_choices %}
+                                <label style="font-weight: normal; text-transform: capitalize;">
+                                    <input type="checkbox" name="modules" value="{{ m }}" form="user-form-{{ user.id }}"
+                                           {{ 'checked' if m in user.modules }}> {{ m }}
+                                </label>
+                                {% endfor %}
+                            </div>
+                            <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-top: 6px;">
+                                <label style="font-weight: normal;">
+                                    <input type="checkbox" name="active" value="1" form="user-form-{{ user.id }}"
+                                           {{ 'checked' if user.is_active }}> Active
+                                </label>
+                                <label style="font-weight: normal;">Role
+                                    <select name="role" form="user-form-{{ user.id }}">
+                                        <option value="staff" {{ 'selected' if user.role == 'staff' }}>staff</option>
+                                        <option value="admin" {{ 'selected' if user.role == 'admin' }}>admin</option>
+                                    </select>
+                                </label>
+                            </div>
+                            {% endif %}
+                        </td>
                         <td>{{ user.last_login[:19].replace('T', ' ') if user.last_login else 'never' }}</td>
                         <td>
                             {% if user.id != current_user_id %}
-                            <form action="{{ url_for('admin.toggle_user_active_action', user_id=user.id) }}" method="POST"
-                                  style="display: inline-flex; gap: 6px; margin-bottom: 6px;">
-                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                                <input type="hidden" name="active" value="{{ '0' if user.is_active else '1' }}">
-                                <input type="password" name="current_password" placeholder="Your password" required
-                                       style="width: 130px;" autocomplete="current-password">
-                                <button type="submit" class="btn {{ 'btn-danger' if user.is_active else 'btn-secondary' }}">
-                                    {{ 'Deactivate' if user.is_active else 'Activate' }}
-                                </button>
-                            </form>
-                            <form action="{{ url_for('admin.change_user_role_action', user_id=user.id) }}" method="POST"
-                                  style="display: inline-flex; gap: 6px; margin-bottom: 6px;">
-                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                                <select name="role">
-                                    <option value="staff" {{ 'selected' if user.role == 'staff' }}>staff</option>
-                                    <option value="admin" {{ 'selected' if user.role == 'admin' }}>admin</option>
-                                </select>
-                                <input type="password" name="current_password" placeholder="Your password" required
-                                       style="width: 130px;" autocomplete="current-password">
-                                <button type="submit" class="btn btn-secondary">Change role</button>
-                            </form>
-                            {% endif %}
-                            <form action="{{ url_for('admin.reset_user_password_action', user_id=user.id) }}" method="POST"
-                                  style="display: inline-flex; gap: 6px;">
-                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                                <input type="password" name="new_password" placeholder="New password (min. 8)" required
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                                <input type="password" name="new_password" placeholder="New password (optional)" form="user-form-{{ user.id }}"
                                        minlength="8" style="width: 170px;" autocomplete="new-password">
-                                <input type="password" name="current_password" placeholder="Your password" required
-                                       style="width: 130px;" autocomplete="current-password">
-                                <button type="submit" class="btn btn-secondary">Reset password</button>
-                            </form>
+                                <input type="password" name="current_password" placeholder="Your password" required form="user-form-{{ user.id }}"
+                                       style="width: 140px;" autocomplete="current-password">
+                                <button type="submit" class="btn btn-primary" form="user-form-{{ user.id }}">Save user</button>
+                            </div>
+                            {% else %}
+                            <span style="color: var(--text-muted);">&mdash;</span>
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}

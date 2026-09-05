@@ -108,11 +108,13 @@
             </a>
             {% endif %}
 
+            {% if is_admin or 'sale' in granted %}
             <a href="/sale/pricelist" class="app-card">
                 <span class="app-icon">🛒</span>
                 <span class="app-title">Prodaja</span>
                 <span class="app-desc">Pregled cena proizvoda.</span>
             </a>
+            {% endif %}
 
             {% if is_admin or 'offer' in granted %}
             <a href="/offer/" class="app-card">

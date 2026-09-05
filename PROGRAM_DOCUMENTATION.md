@@ -104,12 +104,15 @@ iz `global_settings` su pri Phase 3 migrirane u `users` redove i obrisane.
   POSLEDNJEG aktivnog admina. Reset lozinke postavlja `must_change_password=1`.
 - **Per-user app access (`user_modules` tabela + `require_module` u
   `shared/web.py`):** kojim MODULIMA staff korisnik sme da pristupi
-  (pricing/offer/rent checkbox-ovi po korisniku u Admin → Users). Gate se
-  ponovo čita iz baze na svaki zahtev — opoziv pogađa odmah; `admin` rola
-  preskače proveru (otvara sve). Jednokratna migracija
-  (`seed_default_user_modules` + `users.modules_set` marker) daje postojećim
-  staff-ovima sve tri aplikacije, a namerno ispražnjen set ostaje prazan i
-  posle restarta.
+  (pricing/offer/rent/sale checkbox-ovi po korisniku u Admin → Users; sale je
+  v2 rollout napustio javni pristup). Gate se ponovo čita iz baze na svaki
+  zahtev — opoziv pogađa odmah; `admin` rola preskače proveru (otvara sve).
+  Jednokratna, verzionisana migracija (`MODULE_INTRODUCED` +
+  `users.modules_set` kao verzija poslednjeg seeding-a) daje postojećim
+  staff-ovima sve module pri prvoj migraciji, a svaki NOVI module tačno
+  jednom pri narednom boot-u; namerno ispražnjen set ostaje prazan. Save
+  korisnika je JEDAN form po redu (aplikacije + active + rola + opcioni novi
+  password + jedan Save, sopstvena lozinka potvrđuje).
 - **Per-user API ključevi (`api_keys`):** `issue_user_api_key(user_id, label)`
   vraća sirovi ključ **tačno jednom** (čuva se samo SHA-256 heš + prefix za
   prikaz), `resolve_api_identity(raw)` → `('user', username, user_id)` /

@@ -41,12 +41,18 @@ def bare_schema_client(temp_db):
         os.remove(bare)
 
 
-def test_pricelist_renders_empty_state_on_bare_schema(bare_schema_client):
+def test_pricelist_redirects_to_login_on_bare_schema(bare_schema_client):
+    """v2 module rollout: /sale/pricelist is per-user gated, so an anonymous
+    request on a BARE schema (no tables at all) must still degrade to the
+    clean login redirect -- never the phase-2 500. The gate reads only the
+    (empty) session before the DB is touched."""
     response = bare_schema_client.get("/sale/pricelist")
-    assert response.status_code == 200
-    assert b"Pr leggings" in response.data or b"pricelist" in response.data.lower()
+    assert response.status_code == 302
+    assert response.headers["Location"].startswith("/login")
 
 
-def test_view_product_404_on_bare_schema(bare_schema_client):
+def test_view_product_redirects_on_bare_schema(bare_schema_client):
+    # the gate fires before the route's own 404 for anonymous visitors
     response = bare_schema_client.get("/sale/product/1")
-    assert response.status_code == 404
+    assert response.status_code == 302
+    assert response.headers["Location"].startswith("/login")

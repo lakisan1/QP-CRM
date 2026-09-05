@@ -162,7 +162,8 @@ def test_create_user_rejects_duplicate_and_weak_password(admin):
 # --------------------------------------------------------- deactivate / guards
 
 def test_admin_cannot_deactivate_self(admin):
-    resp = _post(admin, f"/admin/users/{_uid('admin')}/toggle_active", {
+    resp = _post(admin, f"/admin/users/{_uid('admin')}/save", {
+        "modules": ["pricing", "offer", "rent", "sale"],
         "active": "0", "current_password": DEFAULT_PASSWORDS["admin"],
     })
     assert resp.status_code == 302
@@ -220,7 +221,8 @@ def test_last_active_admin_cannot_be_deactivated_or_demoted():
 
 def test_deactivated_user_loses_access_via_ui(admin):
     _reset_user("offer")
-    resp = _post(admin, f"/admin/users/{_uid('offer')}/toggle_active", {
+    resp = _post(admin, f"/admin/users/{_uid('offer')}/save", {
+        "modules": ["pricing", "offer", "rent", "sale"],
         "active": "0", "current_password": DEFAULT_PASSWORDS["admin"],
     })
     assert resp.status_code == 302
@@ -237,7 +239,8 @@ def test_deactivated_user_loses_access_via_ui(admin):
     assert resp.status_code == 200  # login form re-renders: access refused
 
     # reactivate for the rest of the suite: login works again immediately
-    resp = _post(admin, f"/admin/users/{_uid('offer')}/toggle_active", {
+    resp = _post(admin, f"/admin/users/{_uid('offer')}/save", {
+        "modules": ["pricing", "offer", "rent", "sale"],
         "active": "1", "current_password": DEFAULT_PASSWORDS["admin"],
     })
     assert resp.status_code == 302
@@ -248,7 +251,7 @@ def test_deactivated_user_loses_access_via_ui(admin):
 # ---------------------------------------------------------------- role change
 
 def test_role_change_self_blocked(admin):
-    resp = _post(admin, f"/admin/users/{_uid('admin')}/role", {
+    resp = _post(admin, f"/admin/users/{_uid('admin')}/save", {
         "role": "staff", "current_password": DEFAULT_PASSWORDS["admin"],
     })
     assert resp.status_code == 302
@@ -258,15 +261,17 @@ def test_role_change_self_blocked(admin):
 
 
 def test_role_change_staff_to_admin_grants_access(admin):
-    resp = _post(admin, f"/admin/users/{_uid('rent')}/role", {
-        "role": "admin", "current_password": DEFAULT_PASSWORDS["admin"],
+    resp = _post(admin, f"/admin/users/{_uid('rent')}/save", {
+        "modules": ["pricing", "offer", "rent", "sale"],
+        "role": "admin", "active": "1", "current_password": DEFAULT_PASSWORDS["admin"],
     })
     assert resp.status_code == 302
     rent = login_client(app.test_client(), "rent")
     assert rent.get("/admin/").status_code == 200
     # restore
-    resp = _post(admin, f"/admin/users/{_uid('rent')}/role", {
-        "role": "staff", "current_password": DEFAULT_PASSWORDS["admin"],
+    resp = _post(admin, f"/admin/users/{_uid('rent')}/save", {
+        "modules": ["pricing", "offer", "rent", "sale"],
+        "role": "staff", "active": "1", "current_password": DEFAULT_PASSWORDS["admin"],
     })
     assert resp.status_code == 302
 
@@ -275,8 +280,9 @@ def test_role_change_staff_to_admin_grants_access(admin):
 
 def test_admin_reset_forces_change_on_next_login(admin):
     _reset_user("pricing")
-    resp = _post(admin, f"/admin/users/{_uid('pricing')}/reset_password", {
-        "new_password": "Reset-Pass-99", "current_password": DEFAULT_PASSWORDS["admin"],
+    resp = _post(admin, f"/admin/users/{_uid('pricing')}/save", {
+        "modules": ["pricing", "offer", "rent", "sale"],
+        "new_password": "Reset-Pass-99", "active": "1", "current_password": DEFAULT_PASSWORDS["admin"],
     })
     assert resp.status_code == 302
 
@@ -321,7 +327,8 @@ def test_admin_reset_forces_change_on_next_login(admin):
 
 
 def test_admin_reset_requires_own_password(admin):
-    resp = _post(admin, f"/admin/users/{_uid('rent')}/reset_password", {
+    resp = _post(admin, f"/admin/users/{_uid('rent')}/save", {
+        "modules": ["pricing", "offer", "rent", "sale"],
         "new_password": "Whatever-Pass-1", "current_password": "WRONG-current-1",
     })
     assert resp.status_code == 302

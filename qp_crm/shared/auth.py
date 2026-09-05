@@ -342,11 +342,21 @@ def set_password(app_name, new_password):
     conn.close()
 
 
-def get_user_by_id(user_id):
-    """Fetch one ACTIVE user row by id (None when missing/inactive)."""
+def get_user_by_id(user_id, include_inactive=False):
+    """Fetch one user row by id.
+
+    Default (include_inactive=False) keeps the Phase-3 contract: None when
+    the row is missing OR deactivated (session guards rely on that). The
+    Admin -> Users save needs the row EVEN WHEN DEACTIVATED (reactivating
+    a user means saving them while inactive), so it passes
+    include_inactive=True.
+    """
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM users WHERE id = ? AND is_active = 1;", (user_id,))
+    sql = "SELECT * FROM users WHERE id = ?"
+    if not include_inactive:
+        sql += " AND is_active = 1"
+    cur.execute(sql + ";", (user_id,))
     row = cur.fetchone()
     conn.close()
     return row
@@ -542,10 +552,19 @@ def count_active_admins():
 # Per-user app access (user request after the phase-3 handover): WHICH
 # business module a staff user may open, managed from Admin -> Users.
 # admin-role users bypass the check entirely. MODULE_CHOICES is the single
-# list the UI checkboxes and the gate both use; new modules append here.
+# list the UI checkboxes and the gate both use; new modules append here
+# AND get an entry in MODULE_INTRODUCED (the seed version that introduced
+# them) so existing materialized accounts receive the new app exactly once
+# on the next boot (users.modules_set stores the last seed version seen).
 # ----------
 
-MODULE_CHOICES = ("pricing", "offer", "rent")
+MODULE_CHOICES = ("pricing", "offer", "rent", "sale")
+
+# v1: the original pricing/offer/rent rollout. v2: sale joined the
+# per-user list (it was public before and every staff account could open
+# it, so the v2 rollout grants it to existing materialized staff).
+MODULE_INTRODUCED = {"pricing": 1, "offer": 1, "rent": 1, "sale": 2}
+CURRENT_MODULE_VERSION = 2
 
 
 def get_user_modules(user_id):
@@ -578,7 +597,8 @@ def set_user_modules(user_id, modules):
             "INSERT OR IGNORE INTO user_modules (user_id, module) VALUES (?, ?);",
             (user_id, m),
         )
-    cur.execute("UPDATE users SET modules_set = 1 WHERE id = ?;", (user_id,))
+    cur.execute("UPDATE users SET modules_set = ? WHERE id = ?;",
+                (CURRENT_MODULE_VERSION, user_id))
     conn.commit()
     conn.close()
     return True, clean
@@ -603,21 +623,36 @@ def user_has_module(user_id, module):
 
 
 def seed_default_user_modules(cur):
-    """One-time default: every staff user without materialized grants gets
-    ALL modules (preserves pre-granular behavior; nobody loses access).
-    Users with modules_set=1 are never touched again."""
-    placeholders = ",".join("?" for _ in MODULE_CHOICES)
+    """One-time defaults, version-aware.
+
+    modules_set stores the last seed version the row was materialized at:
+      0 -> never materialized: grant ALL current modules (v1 migration,
+           preserves pre-granular behavior; nobody loses access);
+      1 -> materialized during the v1 rollout: grant only modules introduced
+           AFTER v1 (today that is 'sale'), so a new app reaches existing
+           accounts exactly once while deliberately revoked older grants
+           stay revoked;
+      >= CURRENT_MODULE_VERSION -> untouched (explicitly emptied sets stay
+           empty across reboots).
+    """
     cur.execute(
-        f"SELECT id FROM users WHERE role = 'staff' AND is_active = 1 AND modules_set = 0;"
+        "SELECT id, modules_set FROM users WHERE role = 'staff' AND is_active = 1 "
+        "AND modules_set < ?;",
+        (CURRENT_MODULE_VERSION,),
     )
-    ids = [r["id"] for r in cur.fetchall()]
-    for uid in ids:
-        for m in MODULE_CHOICES:
+    rows = [(r["id"], r["modules_set"]) for r in cur.fetchall()]
+    for uid, seen_version in rows:
+        new_modules = (
+            list(MODULE_CHOICES) if seen_version == 0
+            else [m for m in MODULE_CHOICES if MODULE_INTRODUCED[m] > seen_version]
+        )
+        for m in new_modules:
             cur.execute(
                 "INSERT OR IGNORE INTO user_modules (user_id, module) VALUES (?, ?);",
                 (uid, m),
             )
-        cur.execute("UPDATE users SET modules_set = 1 WHERE id = ?;", (uid,))
+        cur.execute("UPDATE users SET modules_set = ? WHERE id = ?;",
+                    (CURRENT_MODULE_VERSION, uid))
 
 
 def create_user(username, password, confirm_password, role="staff", modules=None):
@@ -647,7 +682,7 @@ def create_user(username, password, confirm_password, role="staff", modules=None
             """
             INSERT INTO users (username, password_hash, role, is_active,
                                must_change_password, created_at, modules_set)
-            VALUES (?, ?, ?, 1, ?, ?, 1);
+            VALUES (?, ?, ?, 1, ?, ?, ?);
             """,
             (
                 username,
@@ -655,6 +690,7 @@ def create_user(username, password, confirm_password, role="staff", modules=None
                 role,
                 1 if role != "admin" else 0,
                 _utcnow_iso(),
+                CURRENT_MODULE_VERSION,
             ),
         )
         user_id = cur.lastrowid

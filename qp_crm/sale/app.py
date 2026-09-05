@@ -8,7 +8,7 @@ import markdown
 from qp_crm.shared.config import STATIC_DIR, IMAGE_DIR
 from qp_crm.shared.db import get_db
 from qp_crm.shared.utils import format_amount
-from qp_crm.shared.web import get_theme, register_product_image
+from qp_crm.shared.web import get_theme, register_product_image, require_module
 
 # ---------------------------------------------------------------------------
 # Phase 2 stage 1: sale is a Blueprint on the single QP-CRM app.
@@ -25,12 +25,27 @@ from qp_crm.shared.web import get_theme, register_product_image
 
 bp = Blueprint("sale", __name__, template_folder="templates")
 
+# Per-user app access gate (v2 rollout): sale joined the modules an admin
+# grants per user; previously it was public read-only. Admins bypass.
+bp.before_request(require_module("sale"))
+
 @bp.context_processor
 def inject_helpers():
     return dict(
         format_amount=format_amount,
         theme=get_theme()
     )
+
+# Legacy per-app URLs (same pattern as pricing/offer/rent): the unified
+# /login + /logout replaced the per-module pages, but the old addresses
+# stay alive as redirects so existing bookmarks keep working.
+@bp.route("/login", methods=["GET", "POST"])
+def login():
+    return redirect(url_for("auth.login", next=url_for("sale.list_sale")))
+
+@bp.route("/logout")
+def logout():
+    return redirect(url_for("auth.logout"))
 
 # /product-image route: shared implementation (also on pricing and offer)
 register_product_image(bp)

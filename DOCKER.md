@@ -117,12 +117,13 @@ everything, incl. the Users/API-Keys admin), `pricing`, `offer`, `rent`
 - **change on first login is forced** for migrated staff accounts (`pricing`,
   `offer`, `rent`) and for staff accounts created in the Users UI.
 
-Manage accounts in **Admin → Users** (create / deactivate / role change /
-password reset; every sensitive action asks for the acting admin's own
-password). Users self-service their password via **"Moja lozinka" /
-My password** in any module nav. The legacy per-app password fields on the
-admin dashboard are transitional leftovers — the users table is the source of
-truth now.
+Manage accounts in **Admin → Users**. Each user row is ONE form: **app
+access** checkboxes (pricing / offer / rent / sale), an **Active** toggle, a
+**Role** select, an optional new password, and a single **Save user** button
+— your own password confirms every save. Grants are re-checked on every
+request, so revoking an app hits the user on their next click. Admins open
+every app. Users self-service their password via **"Moja lozinka" /
+My password** in any module nav.
 
 Security posture since Phase 3: passwords stored only as werkzeug scrypt
 hashes (legacy plaintext is rehashed transparently at first login); CSRF

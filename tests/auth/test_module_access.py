@@ -110,15 +110,15 @@ def test_ui_saves_module_grants_with_own_password():
     uid = _uid("rent")
 
     # wrong own password: grants unchanged
-    resp = _post(admin, f"/admin/users/{uid}/modules", {
-        "modules": ["pricing"], "current_password": "WRONG-current-1",
+    resp = _post(admin, f"/admin/users/{uid}/save", {
+        "modules": ["pricing"], "active": "1", "current_password": "WRONG-current-1",
     })
     assert resp.status_code == 302
     assert get_user_modules(uid) == sorted(MODULE_CHOICES)
 
     # correct password: grants saved, page shows the new checkbox state
-    resp = _post(admin, f"/admin/users/{uid}/modules", {
-        "modules": ["pricing"], "current_password": DEFAULT_PASSWORDS["admin"],
+    resp = _post(admin, f"/admin/users/{uid}/save", {
+        "modules": ["pricing"], "active": "1", "current_password": DEFAULT_PASSWORDS["admin"],
     })
     assert resp.status_code == 302
     assert get_user_modules(uid) == ["pricing"]
@@ -132,8 +132,8 @@ def test_ui_saves_module_grants_with_own_password():
     assert 'value="rent"' in page and 'value="pricing"' in page  # checkboxes render
 
     # re-grant everything for the rest of the suite
-    resp = _post(admin, f"/admin/users/{uid}/modules", {
-        "modules": list(MODULE_CHOICES), "current_password": DEFAULT_PASSWORDS["admin"],
+    resp = _post(admin, f"/admin/users/{uid}/save", {
+        "modules": list(MODULE_CHOICES), "active": "1", "current_password": DEFAULT_PASSWORDS["admin"],
     })
     assert resp.status_code == 302
     assert get_user_modules(uid) == sorted(MODULE_CHOICES)
@@ -161,6 +161,7 @@ def test_create_user_with_module_subset():
     assert partial.get("/pricing/products").status_code == 200
     assert partial.get("/offer/offers").status_code == 403
     assert partial.get("/rent/contracts").status_code == 403
+    assert partial.get("/sale/pricelist").status_code == 403  # v2: sale is grantable too
 
     # cleanup for the rest of the suite (module rows first: FK)
     conn = get_db()

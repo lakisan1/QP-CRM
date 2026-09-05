@@ -21,6 +21,7 @@ from qp_crm.shared.auth import (
     change_user_role,
     confirm_current_password,
     create_user,
+    get_user_by_id,
     get_user_modules,
     list_users as list_users_rows,
     set_user_active,
@@ -73,62 +74,60 @@ def create_user_action():
     return redirect(url_for("admin.list_users"))
 
 
-@bp.route("/users/<int:user_id>/toggle_active", methods=["POST"])
-def toggle_user_active_action(user_id):
+@bp.route("/users/<int:user_id>/save", methods=["POST"])
+def save_user_action(user_id):
+    """ONE combined save per user row (user request: a single password
+    field + Save button, not one per option). Applies, in order:
+    active checkbox, role select, app-access checkboxes, and -- only when
+    the optional field is filled -- a password reset. Every change runs
+    its own service guard (self-deactivate, self-demote, last active
+    admin); a guard failure is flashed and the remaining changes still
+    apply, so one bad checkbox never blocks the whole row."""
     acting_id, err = _guard_sensitive()
     if err:
         return err
-    active = request.form.get("active") == "1"
-    ok, error = set_user_active(acting_id, user_id, active)
-    if ok:
-        flash("User activated." if active else "User deactivated.", "success")
-    else:
-        flash(error, "error")
-    return redirect(url_for("admin.list_users"))
+    target = get_user_by_id(user_id, include_inactive=True)  # reactivation must reach inactive rows
+    if target is None:
+        flash("User not found.", "error")
+        return redirect(url_for("admin.list_users"))
 
+    errors = []
+    notes = []
 
-@bp.route("/users/<int:user_id>/role", methods=["POST"])
-def change_user_role_action(user_id):
-    acting_id, err = _guard_sensitive()
-    if err:
-        return err
-    ok, error = change_user_role(acting_id, user_id, request.form.get("role") or "")
-    if ok:
-        flash("Role updated.", "success")
-    else:
-        flash(error, "error")
-    return redirect(url_for("admin.list_users"))
+    desired_active = request.form.get("active") == "1"
+    if desired_active != bool(target["is_active"]):
+        ok, error = set_user_active(acting_id, user_id, desired_active)
+        if ok:
+            notes.append("activated" if desired_active else "deactivated")
+        else:
+            errors.append(error)
 
+    desired_role = request.form.get("role") or target["role"]
+    if desired_role != target["role"]:
+        ok, error = change_user_role(acting_id, user_id, desired_role)
+        if ok:
+            notes.append(f"role -> {desired_role}")
+        else:
+            errors.append(error)
 
-@bp.route("/users/<int:user_id>/modules", methods=["POST"])
-def change_user_modules_action(user_id):
-    """Save the app-access checkboxes for one user (own password confirm)."""
-    acting_id, err = _guard_sensitive()
-    if err:
-        return err
     ok, result = set_user_modules(user_id, request.form.getlist("modules"))
     if ok:
-        if result:
-            flash(f"App access updated: {', '.join(result)}.", "success")
+        notes.append("apps: " + (", ".join(result) or "none"))
+    else:
+        errors.append(result)
+
+    new_password = request.form.get("new_password") or ""
+    if new_password:
+        ok, error = admin_reset_user_password(acting_id, user_id, new_password)
+        if ok:
+            notes.append("password reset (change forced on next login)")
         else:
-            flash("App access updated: this user can open no business apps now.", "success")
-    else:
-        flash(result, "error")
-    return redirect(url_for("admin.list_users"))
+            errors.append(error)
 
-
-@bp.route("/users/<int:user_id>/reset_password", methods=["POST"])
-def reset_user_password_action(user_id):
-    acting_id, err = _guard_sensitive()
-    if err:
-        return err
-    ok, error = admin_reset_user_password(
-        acting_id,
-        user_id,
-        request.form.get("new_password") or "",
-    )
-    if ok:
-        flash("Password reset. The user must change it on next login.", "success")
+    if errors:
+        flash(" ".join(errors), "error")
+    elif notes:
+        flash(f"User '{target['username']}' updated: " + "; ".join(notes) + ".", "success")
     else:
-        flash(error, "error")
+        flash("Nothing to change.", "success")
     return redirect(url_for("admin.list_users"))
