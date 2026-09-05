@@ -1,6 +1,6 @@
 import os
 
-from flask import Flask, render_template, send_from_directory
+from flask import Flask, redirect, render_template, send_from_directory, session, url_for
 
 # Import the existing apps
 # Note: These imports might trigger some initialization code, which is fine.
@@ -98,7 +98,23 @@ app.before_request(check_csrf)
 
 @app.route("/")
 def index():
-    return render_template("landing.html")
+    """Landing menu. Anonymous visitors only ever see the login page
+    (user request post-phase-3); logged-in users get the app cards their
+    account actually opens -- staff see granted modules only, admins see
+    everything plus the Admin Panel card. Sale and Settings stay public,
+    so their cards show for every logged-in user."""
+    user_id = session.get("user_id")
+    if not user_id:
+        return redirect(url_for("auth.login"))
+    from qp_crm.shared.auth import MODULE_CHOICES, get_user_by_id, get_user_modules
+    user = get_user_by_id(user_id)
+    if user is None:
+        # Deactivated or deleted while logged in: kill the session.
+        session.clear()
+        return redirect(url_for("auth.login"))
+    is_admin = user["role"] == "admin"
+    granted = list(MODULE_CHOICES) if is_admin else get_user_modules(user_id)
+    return render_template("landing.html", is_admin=is_admin, granted=granted)
 
 @app.route("/app_assets/<path:filename>")
 def app_assets(filename):

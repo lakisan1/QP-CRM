@@ -100,11 +100,13 @@
         <p class="subtitle">Izaberite aplikaciju za nastavak</p>
 
         <div class="app-selection">
+            {% if is_admin or 'pricing' in granted %}
             <a href="/pricing/" class="app-card">
                 <span class="app-icon">🏷️</span>
                 <span class="app-title">Cenovnik</span>
                 <span class="app-desc">Upravljanje proizvodima, troškovima, maržama i istorijom cena.</span>
             </a>
+            {% endif %}
 
             <a href="/sale/pricelist" class="app-card">
                 <span class="app-icon">🛒</span>
@@ -112,28 +114,34 @@
                 <span class="app-desc">Pregled cena proizvoda.</span>
             </a>
 
+            {% if is_admin or 'offer' in granted %}
             <a href="/offer/" class="app-card">
                 <span class="app-icon">📝</span>
                 <span class="app-title">Ponude</span>
                 <span class="app-desc">Kreiranje i upravljanje profesionalnim ponudama za klijente.</span>
             </a>
+            {% endif %}
             <a href="/settings/" class="app-card">
                 <span class="app-icon">🛠️</span>
                 <span class="app-title">Podešavanja</span>
                 <span class="app-desc">Lokalna podešavanja.</span>
             </a>
 
+            {% if is_admin or 'rent' in granted %}
             <a href="/rent/" class="app-card">
                 <span class="app-icon">📋</span>
                 <span class="app-title">Zakup Opreme</span>
                 <span class="app-desc">Ugovori o zakupu, kalkulacija mesečnih rata, ponude i planovi plaćanja.</span>
             </a>
+            {% endif %}
 
+            {% if is_admin %}
             <a href="/admin/" class="app-card">
                 <span class="app-icon">⚙️</span>
                 <span class="app-title">Admin Panel</span>
                 <span class="app-desc">Konfiguracija podešavanja, lozinki i brendiranja.</span>
             </a>
+            {% endif %}
         </div>
     </div>
 </body>

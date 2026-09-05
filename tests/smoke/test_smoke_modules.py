@@ -46,9 +46,47 @@ def fresh_client():
     return qp_crm.main.app.test_client()
 
 
-def test_landing_page_serves_200():
+def test_landing_redirects_anonymous_to_login():
+    # Anonymous visitors see ONLY the login page (never the app menu).
     response = fresh_client().get("/")
-    assert response.status_code == 200
+    assert response.status_code == 302
+    assert response.headers["Location"].startswith("/login")
+
+
+def test_landing_shows_only_accessible_apps():
+    from conftest import csrf_token_for, login_client
+
+    # staff with all grants: three business cards + public cards, no admin
+    client = fresh_client()
+    login_client(client, "pricing")
+    page = client.get("/").data.decode()
+    for link in ("/pricing/", "/offer/", "/rent/", "/sale/pricelist", "/settings/"):
+        assert link in page, link
+    assert "/admin/" not in page
+
+    # trim grants to pricing-only: menu follows instantly
+    from qp_crm.shared.auth import get_db, set_user_modules
+    conn = get_db()
+    uid = conn.execute("SELECT id FROM users WHERE username='pricing'").fetchone()["id"]
+    conn.close()
+    set_user_modules(uid, ["pricing"])
+    # re-login on a fresh client to prove it works for a new session too
+    client2 = fresh_client()
+    login_client(client2, "pricing")
+    page = client2.get("/").data.decode()
+    assert "/pricing/" in page
+    assert "/offer/" not in page and "/rent/" not in page
+    assert "/admin/" not in page
+
+    # restore for the rest of the suite
+    set_user_modules(uid, ["pricing", "offer", "rent"])
+
+    # admin sees everything including the Admin Panel card
+    admin_client = fresh_client()
+    login_client(admin_client, "admin")
+    admin_page = admin_client.get("/").data.decode()
+    for link in ("/pricing/", "/offer/", "/rent/", "/admin/"):
+        assert link in admin_page, link
 
 
 def test_unified_login_page_renders():
