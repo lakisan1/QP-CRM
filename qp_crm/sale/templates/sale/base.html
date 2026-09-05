@@ -19,7 +19,7 @@
         </div>
         <div class="nav-right">
             <a href="/" {% if request.endpoint=='index' and not request.path.startswith('/sale') %}class="active" {%
-                endif %}>{{ _('Home') }}</a>
+                else %}class="nav-btn-home" {% endif %}>{{ _('Home') }}</a>
             <div class="nav-logo-container">
                 <img src="{{ url_for('static', filename='img/logo_company.jpg') }}" alt="QP-CRM Logo" class="nav-logo">
             </div>

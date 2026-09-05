@@ -159,6 +159,21 @@ nav a.active {
     opacity: 0.9;
 }
 
+/* Home link: green pill so the way back to the app menu stands out from
+   the regular nav links (user request). */
+.nav-btn-home {
+    background-color: var(--accent-success) !important;
+    color: white !important;
+    border-color: var(--accent-success) !important;
+}
+
+.nav-btn-home:hover {
+    background-color: var(--accent-success-hover) !important;
+    border-color: var(--accent-success-hover) !important;
+    color: white !important;
+    opacity: 0.9;
+}
+
 .nav-logo {
     height: 40px;
     width: auto;
