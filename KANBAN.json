@@ -70,23 +70,6 @@
       "summary": "Phase 3 delivered and verified: unified login + roles + per-user module grants, werkzeug hashing with legacy rehash + scrub, CSRF everywhere, per-user API keys + audit, lockout, 8h sessions, Admin Users UI, landing auth gate + access-filtered menu, and the user-requested header/logout/Home fixes. Exit criteria met (single login, roles enforced per module, every POST CSRF-protected, no plaintext at rest)."
     },
     {
-      "id": "card-a22cd307-a046-4204-adab-07a9cea46711",
-      "title": "Architecture direction: evolve QP-CRM (no rewrite) + new-module roadmap",
-      "description": "Strategic direction agreed in session: EVOLVE, do not rewrite. Keep verbatim: pricing engine (category defaults, rounding rules, 3-level discount cascade), offer pipeline + WeasyPrint PDF engine (DB templates + live editor), rent PMT calculator + document placeholder engine, admin backup/restore, existing app_data/pricing.db data. Rebuild around them: 6 Flask instances → 1 app + blueprints (done, Phase 2), unified users/roles/CSRF (done, Phase 3). New-module sequence (dependencies drive order): 1) Unified customers module — new customers table, backfill from offers.client_* history + rent_clients; unblocker for everything else. 2) Predračuni/invoices from quotations — new invoices/invoice_items tables, own numbering series, cloned PDF template via existing engine (user: 'basically the same, cosmetic changes, separate files'). 3) Payment tracker — invoice status + payments table + running balance. 4) Stock (on-hand / ordered / in-transit / reserved-per-customer) LAST: reservations reference customers AND invoices, so build it after those exist. Infrastructure verdict: web app + Docker on one box, stay SQLite (5 concurrent users fine on WAL; Postgres = escape hatch, not needed now); PWA for desktop feel (manifest + service worker still missing — separate card). Remote access: decided = TLS reverse proxy (Caddy) — separate card.",
-      "rationale": "User stated future modules (stock, unified customers, predračuni from quotations, payment tracker, ~30 users max 5 concurrent) and asked for the keep-vs-rewrite and web-vs-desktop verdicts. The verdict and sequencing constrain every future card, so it must survive sessions.",
-      "rejected": "Full rewrite from zero — rejected: re-deriving verified business formulas (price cascade, PMT lease math, 3-level discounts) against live data is the highest-risk work and the existing PDF engine is the hardest part already built; user's own predračuni plan ('basically the same as quotation') reuses the offer pipeline. Desktop apps + central DB server — rejected: 30 client installs contradicts the ease-of-update goal, scatters DB credentials, and strands the server-side WeasyPrint pipeline; the PWA already gives the desktop feel. Postgres now — rejected: no load or multi-instance need at 5 concurrent users; migration deferred until a real trigger. Django migration — rejected: cost equals a rewrite; Flask blueprints + incremental structure preserve the investment.",
-      "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
-      "status": "todo",
-      "tags": [
-        "qp-crm",
-        "architecture",
-        "roadmap",
-        "decision"
-      ],
-      "createdAt": 1788445110887,
-      "updatedAt": 1788705558116
-    },
-    {
       "id": "card-0c1a2e53-6b19-4f87-b76d-56c2dfcfecd4",
       "title": "Phase 1 — Test safety net: characterization + golden-PDF tests (before any refactor)",
       "description": "Prerequisite for ALL structural work: the app has zero tests, so 'clear technical debt' without this is gambling with the price engine. Build a small, high-value pytest suite: (1) characterization tests for pure business logic — recalc_totals 3-level discount cascade, apply_rounding + rounding rules, calculate_rent/pmt/generate_schedule, format_amount/format_date, rent placeholder substitution; (2) golden-file PDF tests — render one fixed offer and one fixed rent document, compare against checked-in baselines (pin fonts in the image for byte-stability), re-baselined consciously only when a change is intended; (3) Flask test-client smoke tests per module (login → main pages → 200). Runs via `docker compose run app pytest`; wire into CI if a repo host exists. Exit criteria: suite green on main; every Phase-2 refactor step must keep it green.",
