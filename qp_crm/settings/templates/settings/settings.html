@@ -16,7 +16,7 @@
             <span class="active">{{ _('Settings')|default('Podešavanja') }}</span>
         </div>
         <div class="nav-right">
-            <a href="/">{{ _('Home') }}</a>
+            {% include 'nav_home.html' %}
             <div class="nav-logo-container">
                 <img src="{{ url_for('static', filename='img/logo_company.jpg') }}" alt="QP-CRM Logo" class="nav-logo">
             </div>

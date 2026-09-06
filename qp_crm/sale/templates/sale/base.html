@@ -18,8 +18,7 @@
                 _('PriceList')|default('Cenovnik') }}</a>
         </div>
         <div class="nav-right">
-            <a href="/" {% if request.endpoint=='index' and not request.path.startswith('/sale') %}class="active" {%
-                else %}class="nav-btn-home" {% endif %}>{{ _('Home') }}</a>
+            {% include 'nav_home.html' %}
             <div class="nav-logo-container">
                 <img src="{{ url_for('static', filename='img/logo_company.jpg') }}" alt="QP-CRM Logo" class="nav-logo">
             </div>

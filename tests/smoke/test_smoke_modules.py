@@ -261,12 +261,23 @@ def test_settings_app_carries_logout_and_home():
                                   "/rent/contracts", "/sale/pricelist"))
 def test_business_headers_have_no_logout_and_say_home(admin_client, path):
     """The logout button is gone from every app header (settings app hosts
-    it now) and the app-menu link reads Home (rent keeps its Serbian
-    'Početna', which is the same label)."""
+    it now), and every banner renders the SHARED green Home pill from
+    templates/nav_home.html (rent included — no more local 'Početna')."""
     page = admin_client.get(path)  # admin opens every app
     assert page.status_code == 200, path
     html = page.data.decode()
     assert "btn btn-danger" not in html.split("<hr>")[0], \
         f"{path}: header still carries a danger button (logout)"
     assert ("Landing Page" not in html), f"{path}: header still says 'Landing Page'"
+    assert 'class="nav-btn-home"' in html, f"{path}: header Home link is not the shared green pill"
+
+
+def test_every_banner_uses_the_shared_home_include(admin_client):
+    """One source for the Home pill: all four business banners + settings
+    render the include, so the label ('Home'/'Početna strana') and the
+    green style can never drift apart again."""
+    for path in ("/pricing/products", "/offer/offers", "/rent/contracts",
+                 "/sale/pricelist", "/settings/"):
+        html = admin_client.get(path).data.decode()
+        assert 'class="nav-btn-home"' in html, f"{path}: missing shared Home pill"
 

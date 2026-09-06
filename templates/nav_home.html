@@ -1,0 +1,16 @@
+{# ─────────────────────────────────────────────────────────────────────────────
+   Shared "Home" link — the ONE green pill every app banner uses.
+
+   Single source for both the LABEL and the STYLE of the link back to the
+   app menu (user request: same button in every banner):
+     * label: `_('Home')` — resolves per the global language setting
+       (en: "Home", sr: "Početna strana"), so every banner shows the same
+       word at the same moment;
+     * style: class nav-btn-home (green pill in static/css/main.css) so it
+       stands out from the regular nav links; while actually ON the app
+       menu (endpoint 'index') it renders as the standard active pill.
+
+   Usage in any banner (blueprint templates resolve this app-level name):
+       {% include 'nav_home.html' %}
+   ───────────────────────────────────────────────────────────────────────── #}
+<a href="/" {% if request.endpoint == 'index' %}class="active"{% else %}class="nav-btn-home"{% endif %}>{{ _('Home') }}</a>

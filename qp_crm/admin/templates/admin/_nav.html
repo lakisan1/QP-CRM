@@ -30,7 +30,7 @@
         {% if nav_extra %}<span style="color: var(--text-muted);">{{ nav_extra }}</span>{% endif %}
     </div>
     <div class="nav-right">
-        <a href="/" class="nav-btn-home">{{ _('Home') }}</a>
+        {% include 'nav_home.html' %}
         <div class="nav-logo-container">
             <img src="{{ url_for('static', filename='img/logo_company.jpg') }}" alt="QP-CRM Logo" class="nav-logo">
         </div>

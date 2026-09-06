@@ -19,7 +19,7 @@
         <a href="{{ url_for('rent.list_equipment') }}" {% if request.endpoint=='rent.list_equipment' %}class="active"{% endif %}>Oprema</a>
     </div>
     <div class="nav-right">
-        <a href="/" class="nav-btn-home">Početna</a>
+        {% include 'nav_home.html' %}
         <div class="nav-logo-container">
             <img src="{{ url_for('static', filename='img/logo_company.jpg') }}" alt="Logo" class="nav-logo">
         </div>
