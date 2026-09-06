@@ -9,25 +9,25 @@
     <p>
         <a href="{{ url_for('pricing.new_price', product_id=product.id) }}" class="btn btn-primary">Dodaj novu cenu</a>
         <a href="{{ url_for('pricing.edit_product', product_id=product.id) }}" class="btn btn-secondary"
-            style="margin-left: 10px;">Izmeni proizvod</a>
+            style="margin-left: 10px;">{{ _('Edit Product') }}</a>
     </p>
 
     <table class="larg-table" style="text-align: center;">
         <tr>
-            <th style="width: 70px;">Datum</th>
-            <th>Cena ka nama</th>
-            <th>Dodatni troskovi</th>
-            <th>Uvoz %</th>
-            <th>Zarada %</th>
-            <th>Domaci transport</th>
-            <th>Ukupno kostanje</th>
-            <th>Izracunata cena</th>
-            <th>Konacna cena</th>
-            <th>Profit (Konačna cena)</th>
-            <th>Popust %</th>
-            <th>Cena sa popustom</th>
-            <th>Profit (Cena sa popustom)</th>
-            <th style="width: 60px;">Actions</th>
+            <th scope="col" style="width: 70px;">Datum</th>
+            <th scope="col">{{ _('Cost to Us') }}</th>
+            <th scope="col">{{ _('Additional Costs') }}</th>
+            <th scope="col">Uvoz %</th>
+            <th scope="col">{{ _('Margin %') }}</th>
+            <th scope="col">Domaci transport</th>
+            <th scope="col">{{ _('Total Cost') }}</th>
+            <th scope="col">{{ _('Calculated Price') }}</th>
+            <th scope="col">{{ _('Final Price') }}</th>
+            <th scope="col">{{ _('Profit (Final Price)') }}</th>
+            <th scope="col">{{ _('Discount %') }}</th>
+            <th scope="col">{{ _('Discounted Price') }}</th>
+            <th scope="col">{{ _('Profit (Discounted Price)') }}</th>
+            <th scope="col" style="width: 60px;">Actions</th>
         </tr>
         {% for r in prices %}
         <tr>

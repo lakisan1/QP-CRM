@@ -281,3 +281,62 @@ def test_every_banner_uses_the_shared_home_include(admin_client):
         html = admin_client.get(path).data.decode()
         assert 'class="nav-btn-home"' in html, f"{path}: missing shared Home pill"
 
+# ─── i18n / a11y debt pass pins ────────────────────────────────────────────────
+# Board card: hardcoded Serbian UI strings should render through the _()
+# mechanism (both languages covered, sr wording unchanged) and form controls on
+# the main flows should carry labels/aria. These run under the default test
+# language (no global_settings.language row -> 'en'), plus one sr-mode check.
+
+
+def test_login_form_controls_have_labels_and_ids():
+    html = fresh_client().get("/login").data.decode()
+    for pair in (('label for="username"', 'id="username"'),
+                 ('label for="password"', 'id="password"')):
+        for needle in pair:
+            assert needle in html, f"/login: missing {needle}"
+
+
+def test_pricing_products_search_has_aria_label_and_header_scope():
+    client = login_client(fresh_client(), "pricing")
+    html = client.get("/pricing/products").data.decode()
+    assert 'aria-label="Search by name"' in html
+    assert '<th scope="col">' in html
+
+
+def test_known_hardcoded_serbian_strings_gone_from_en_pages():
+    """The moved strings render their EN source (sr wording is dictionary
+    covered and stays Serbian); the old hardcoded literals must not leak."""
+    client = login_client(fresh_client(), "pricing")
+    html = client.get("/pricing/products").data.decode()
+    assert "Sync Website" in html, "pricing nav: EN source missing"
+    assert "Sync Sajt" not in html, "pricing nav: old literal still present"
+    quick = client.get("/pricing/products/quick_update").data.decode()
+    assert "Quick Price Update" in quick
+    assert "Brzo Ažuriranje Cena" not in quick
+    settings_html = fresh_client().get("/settings/").data.decode()
+    assert "Date format" in settings_html and "App theme" in settings_html
+
+
+def test_serbian_mode_renders_dictionary_translations():
+    """With global_settings.language='sr' the same strings render the Serbian
+    wording the app always showed (dictionary values), proving the sr side of
+    the i18n pairs is covered."""
+    from qp_crm.shared.auth import get_db
+
+    conn = get_db()
+    conn.execute("INSERT OR REPLACE INTO global_settings (key, value)"
+                 " VALUES ('language', 'sr');")
+    conn.commit()
+    conn.close()
+    try:
+        html = fresh_client().get("/login").data.decode()
+        for needle in ("Korisničko ime", "Lozinka", "Jedinstvena prijava za sve module"):
+            assert needle in html, f"/login (sr): missing {needle}"
+        settings_html = fresh_client().get("/settings/").data.decode()
+        for needle in ("Format datuma", "Tema aplikacije", "Podešavanja"):
+            assert needle in settings_html, f"/settings (sr): missing {needle}"
+    finally:
+        conn = get_db()
+        conn.execute("DELETE FROM global_settings WHERE key = 'language';")
+        conn.commit()
+        conn.close()

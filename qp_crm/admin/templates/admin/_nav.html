@@ -18,21 +18,17 @@
        app (/settings);
      * the link back to the app menu is labeled "Home" (sr: "Početna
        strana" via the shared `_` helper).
+
+   The <nav> shell itself (nav-right Home pill + logo) is the SHARED
+   templates/_banner.html macro now — the same one every module banner
+   renders, so the logo and Home pill cannot drift between apps.
    ───────────────────────────────────────────────────────────────────────── #}
-<nav>
-    <div class="nav-links">
-        <a href="{{ url_for('admin.index') }}" {% if active == 'dashboard' %}class="active"{% endif %}>Dashboard</a>
-        <a href="{{ url_for('admin.list_pdf_templates') }}" {% if active == 'pdf_templates' %}class="active"{% endif %}>PDF Templates</a>
-        <a href="{{ url_for('admin.list_rounding_rules') }}" {% if active == 'rounding_rules' %}class="active"{% endif %}>Rounding Rules</a>
-        <a href="{{ url_for('admin.list_users') }}" {% if active == 'users' %}class="active"{% endif %}>Users</a>
-        <a href="{{ url_for('admin.list_api_keys') }}" {% if active == 'api_keys' %}class="active"{% endif %}>API Keys</a>
-        <a href="{{ url_for('admin.admin_rent_templates') }}" {% if active == 'rent_templates' %}class="active"{% endif %}>Rent Šabloni</a>
-        {% if nav_extra %}<span style="color: var(--text-muted);">{{ nav_extra }}</span>{% endif %}
-    </div>
-    <div class="nav-right">
-        {% include 'nav_home.html' %}
-        <div class="nav-logo-container">
-            <img src="{{ url_for('static', filename='img/logo_company.jpg') }}" alt="QP-CRM Logo" class="nav-logo">
-        </div>
-    </div>
-</nav>
+{% from '_banner.html' import banner with context %}
+{% call banner(nav_extra=nav_extra|default(None), hr=false) %}
+    <a href="{{ url_for('admin.index') }}" {% if active == 'dashboard' %}class="active"{% endif %}>Dashboard</a>
+    <a href="{{ url_for('admin.list_pdf_templates') }}" {% if active == 'pdf_templates' %}class="active"{% endif %}>PDF Templates</a>
+    <a href="{{ url_for('admin.list_rounding_rules') }}" {% if active == 'rounding_rules' %}class="active"{% endif %}>Rounding Rules</a>
+    <a href="{{ url_for('admin.list_users') }}" {% if active == 'users' %}class="active"{% endif %}>Users</a>
+    <a href="{{ url_for('admin.list_api_keys') }}" {% if active == 'api_keys' %}class="active"{% endif %}>API Keys</a>
+    <a href="{{ url_for('admin.admin_rent_templates') }}" {% if active == 'rent_templates' %}class="active"{% endif %}>{{ _('Rent Templates') }}</a>
+{% endcall %}

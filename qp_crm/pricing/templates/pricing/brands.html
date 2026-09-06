@@ -6,7 +6,7 @@
 
 {% if error %}
 <div style="color: red; border: 1px solid red; background-color: #fdd; padding: 10px; margin-bottom: 20px;">
-    <strong>Greška:</strong> {{ error }}
+    <strong>{{ _('Error:') }}</strong> {{ error }}
 </div>
 {% endif %}
 
@@ -32,7 +32,7 @@
 
     <div class="table-section card">
         <div style="margin-bottom: 20px;">
-            <input type="text" id="brandSearch" placeholder="Pretraži brendove..." onkeyup="filterBrands()"
+            <input type="text" id="brandSearch" aria-label="{{ _('Search brands') }}" placeholder="{{ _('Search brands...') }}" onkeyup="filterBrands()"
                 style="max-width: 300px; margin-bottom: 0;">
         </div>
 
@@ -40,8 +40,8 @@
         <table id="brandTable">
             <thead>
                 <tr>
-                    <th>Brand</th>
-                    <th>Action</th>
+                    <th scope="col">Brand</th>
+                    <th scope="col">Action</th>
                 </tr>
             </thead>
             <tbody>

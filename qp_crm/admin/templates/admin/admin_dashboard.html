@@ -446,43 +446,43 @@
 
         <!-- Rent Module Defaults -->
         <div class="card">
-            <h3>📋 Zakup – Podrazumevani finansijski parametri</h3>
+            <h3>📋 {{ _('Rent – Default Financial Parameters') }}</h3>
             <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px;">
-                Ove vrednosti se automatski učitavaju pri kreiranju novog ugovora o zakupu.
-                Mogu se izmeniti pojedinačno po ugovoru.
+                {{ _('These values load automatically when a new rent contract is created.') }}
+                {{ _('They can be edited per individual contract.') }}
             </p>
             <form action="{{ url_for('admin.update_settings') }}" method="POST">
         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                 <div class="grid-2-col-asymmetric" style="grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px;">
-                    <label>Godišnja kamata (%)
+                    <label>{{ _('Annual Interest Rate (%)') }}
                         <input type="number" name="rent_default_interest_rate" step="0.01" min="0"
                                value="{{ rent_defaults.rent_default_interest_rate }}">
                     </label>
-                    <label>Stopa osiguranja – god. (%)
+                    <label>{{ _('Insurance Rate – annual (%)') }}
                         <input type="number" name="rent_default_insurance_rate" step="0.001" min="0"
                                value="{{ rent_defaults.rent_default_insurance_rate }}">
                     </label>
-                    <label>Stopa garancije – god. (%)
+                    <label>{{ _('Guarantee Rate – annual (%)') }}
                         <input type="number" name="rent_default_guarantee_rate" step="0.01" min="0"
                                value="{{ rent_defaults.rent_default_guarantee_rate }}">
                     </label>
-                    <label>Administrativni trošak (€)
+                    <label>{{ _('Administrative Cost (€)') }}
                         <input type="number" name="rent_default_admin_fee" step="0.01" min="0"
                                value="{{ rent_defaults.rent_default_admin_fee }}">
                     </label>
-                    <label>PDV (%)
+                    <label>{{ _('VAT (%)') }}
                         <input type="number" name="rent_default_vat_percent" step="0.01" min="0"
                                value="{{ rent_defaults.rent_default_vat_percent }}">
                     </label>
-                    <label>Ostatak vrednosti (%)
+                    <label>{{ _('Residual Value (%)') }}
                         <input type="number" name="rent_default_salvage_value_percent" step="0.01" min="0"
                                value="{{ rent_defaults.rent_default_salvage_value_percent }}">
                     </label>
-                    <label>Učešće / Avans (%)
+                    <label>{{ _('Down Payment / Advance (%)') }}
                         <input type="number" name="rent_default_downpayment_percent" step="0.01" min="0" max="100"
                                value="{{ rent_defaults.rent_default_downpayment_percent }}">
                     </label>
-                    <label>Podrazumevani broj meseci
+                    <label>{{ _('Default Number of Months') }}
                         <input type="number" name="rent_default_period_months" step="1" min="1"
                                value="{{ rent_defaults.rent_default_period_months }}">
                     </label>
@@ -491,7 +491,7 @@
                     <label style="color: var(--accent-warning);">Confirm Current Admin Password</label>
                     <input type="password" name="current_admin_password" required>
                 </div>
-                <button type="submit" class="btn btn-primary">Sačuvaj Rent Parametre</button>
+                <button type="submit" class="btn btn-primary">{{ _('Save Rent Parameters') }}</button>
             </form>
         </div>
 

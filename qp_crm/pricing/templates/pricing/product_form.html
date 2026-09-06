@@ -1,13 +1,13 @@
 {% extends "pricing/base.html" %}
 
 {% block title %}
-{% if product and product.id %}Izmeni proizvod{% else %}Dodaj proizvod{% endif %}
+{% if product and product.id %}{{ _('Edit Product') }}{% else %}{{ _('Add Product') }}{% endif %}
 {% endblock %}
 
 
 {% block content %}
 <h1>
-    {% if product and product.id %}Izmeni proizvod{% else %}Dodaj proizvod{% endif %}
+    {% if product and product.id %}{{ _('Edit Product') }}{% else %}{{ _('Add Product') }}{% endif %}
 </h1>
 {% if error %}
 <p style="color:red; font-weight:bold;">
@@ -19,9 +19,9 @@
         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
         <p>
             {% if brand_options %}
-            <label>Brend:<br>
+            <label>{{ _('Brand') }}:<br>
                 <select name="brand">
-                    <option value="">-- izaberite brend --</option>
+                    <option value="">-- {{ _('choose a brand') }} --</option>
                     {% for b in brand_options %}
                     <option value="{{ b }}" {% if product and product.brand==b %}selected{% endif %}>
                         {{ b }}
@@ -33,18 +33,18 @@
                     brend</a>
             </label>
             {% else %}
-            <label>Brend:<br>
+            <label>{{ _('Brand') }}:<br>
                 <input type="text" name="brand" value="{% if product %}{{ product.brand }}{% endif %}">
                 <br>
-                <small>Nema definisanih brendova. Idite prvo na "Brendovi".</small>
+                <small>{{ _('No brands defined yet. Go to Brands first.') }}</small>
             </label>
             {% endif %}
         </p>
         <p>
             {% if categories %}
-            <label>Kategorija:<br>
+            <label>{{ _('Category') }}:<br>
                 <select name="category" required>
-                    <option value="">-- izaberite kategoriju --</option>
+                    <option value="">-- {{ _('choose a category') }} --</option>
                     {% for cat in categories %}
                     <option value="{{ cat }}" {% if product and product.category==cat %}selected{% endif %}>
                         {{ cat }}
@@ -57,10 +57,10 @@
                     novu kategoriju</a>
             </label>
             {% else %}
-            <label>Kategorija:<br>
+            <label>{{ _('Category') }}:<br>
                 <input type="text" name="category" value="{% if product %}{{ product.category }}{% endif %}">
                 <br>
-                <small>Nema definisanih kategorija. Idite prvo na "Podrazumevane vrednosti kategorija".</small>
+                <small>{{ _('No categories defined yet. Go to Category Defaults first.') }}</small>
             </label>
             {% endif %}
         </p>
@@ -71,13 +71,13 @@
             </label>
         </p>
         <p>
-            <label>Opis:<br>
+            <label>{{ _('Description') }}:<br>
                 <textarea name="description" id="product_description" rows="8"
                     cols="80">{% if product %}{{ product.description }}{% endif %}</textarea>
             </label>
         </p>
         <p>
-            <label>Slika (JPG,PNG,WEBP):<br>
+            <label>{{ _('Image (JPG, PNG, WEBP):') }}<br>
                 <div class="file-upload-wrapper">
                     {% if product and product.photo_path %}
                     <div style="margin-bottom: 10px;">
@@ -102,21 +102,21 @@
         </p>
         <p>
             <button type="submit" class="btn btn-success" name="action" value="save">
-                {% if product and product.id %}Sačuvaj izmene{% else %}Sačuvaj{% endif %}
+                {% if product and product.id %}{{ _('Save Changes') }}{% else %}{{ _('Save') }}{% endif %}
             </button>
             {% if not product or not product.id %}
             <button type="submit" class="btn btn-primary" name="action" value="save_add_price"
                 style="margin-left: 10px;">
-                Sačuvaj i dodaj cenu
+                {{ _('Save and Add Price') }}
             </button>
             {% else %}
             <a href="{{ url_for('pricing.price_history', product_id=product.id) }}" class="btn"
                 style="margin-left: 10px; border:1px solid #ccc; text-decoration:none; padding: 6px 12px; color: var(--text-main);">
-                Istorija cena
+                {{ _('Price History') }}
             </a>
             <button type="submit" class="btn btn-primary" name="action" value="save_add_price"
                 style="margin-left: 10px;">
-                Sačuvaj i dodaj novu cenu
+                {{ _('Save and Add New Price') }}
             </button>
             {% endif %}
         </p>

@@ -37,8 +37,8 @@
                 </div>
             </label>
             <label style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
-                <span style="font-weight: 500; font-size: 14px; white-space: nowrap;">Pretraga po imenu:</span>
-                <input type="text" name="search" value="{{ search_term or '' }}" onchange="this.form.submit()"
+                <span style="font-weight: 500; font-size: 14px; white-space: nowrap;">{{ _('Search by name:') }}</span>
+                <input type="text" name="search" value="{{ search_term or '' }}" aria-label="{{ _('Search by name') }}" onchange="this.form.submit()"
                     style="margin-bottom: 0; width: 200px;">
             </label>
             <label style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
@@ -60,7 +60,7 @@
                 <span style="margin-bottom: 8px; font-weight: 500; font-size: 14px; visibility: hidden;">.</span>
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <a href="{{ url_for('pricing.list_products', clear=1) }}" class="btn btn-secondary"
-                        style="margin-bottom: 0px; padding: 10px 20px; font-size: 14px;">Reset pretrage</a>
+                        style="margin-bottom: 0px; padding: 10px 20px; font-size: 14px;">{{ _('Reset search') }}</a>
                     <span
                         style="background: var(--accent-primary, #3498db); color: white; padding: 4px 12px; border-radius: 20px; font-weight: bold; font-size: 14px;">
                         {{ total_count }} {{ _('products') }}
@@ -74,13 +74,13 @@
 <div class="card">
     <table class="larg-table product-table">
         <tr>
-            <th>{{ _('Image') }}</th>
-            <th>{{ _('Product') }}</th>
-            <th>{{ _('Category') }}</th>
-            <th>{{ _('Brand') }}</th>
-            <th>{{ _('Current Price') }}</th>
-            <th>{{ _('Discount Price') }}</th>
-            <th>{{ _('Actions') }}</th>
+            <th scope="col">{{ _('Image') }}</th>
+            <th scope="col">{{ _('Product') }}</th>
+            <th scope="col">{{ _('Category') }}</th>
+            <th scope="col">{{ _('Brand') }}</th>
+            <th scope="col">{{ _('Current Price') }}</th>
+            <th scope="col">{{ _('Discount Price') }}</th>
+            <th scope="col">{{ _('Actions') }}</th>
         </tr>
         {% for p in products %}
         <tr>
@@ -109,11 +109,11 @@
             </td>
             <td style="text-align: center; width: 330px;">
                 <a href="{{ url_for('pricing.edit_product', product_id=p.id) }}" class="btn btn-primary btn-sm"
-                    style="text-decoration: none; margin-right: 10px;">Izmeni proizvod</a>
+                    style="text-decoration: none; margin-right: 10px;">{{ _('Edit Product') }}</a>
                     
                 <a href="{{ url_for('pricing.add_product', duplicate_id=p.id) }}" class="btn btn-warning btn-sm"
                     style="text-decoration: none; margin-right: 10px;"
-                    onclick="return confirm('Duplirati ovaj proizvod?');">Duplicate</a>
+                    onclick="return confirm('{{ _('Duplicate this product?') }}');">Duplicate</a>
 
                 <form method="post" action="{{ url_for('pricing.delete_product', product_id=p.id) }}" style="display:inline;"
                     onsubmit="return prompt('DA LI STE SIGURNI?\nOvo će obrisati proizvod i SVE njegove cene, što se NE može poništiti.\nUnesite reč DELETE da biste potvrdili brisanje:') === 'DELETE';">

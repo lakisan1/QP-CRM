@@ -86,7 +86,10 @@ def test_lockout_after_max_failures(client):
     # password is refused while locked
     resp = _post_login(client, "offer", shared_auth.DEFAULT_PASSWORDS["offer"])
     assert resp.status_code == 200
-    assert "Previše neuspelih pokušaja" in resp.data.decode()
+    # the lockout message is translated at request time: the test DB has no
+    # language row, so it renders in the en default (sr mode is pinned by the
+    # smoke suite's i18n checks, where the same phrase appears in Serbian)
+    assert "Too many failed login attempts" in resp.data.decode()
     row = _last_audit()
     assert row["success"] == 0 and "lockout" in row["detail"]
 

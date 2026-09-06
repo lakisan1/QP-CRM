@@ -37,17 +37,17 @@
             <div class="form-column">
 
                 <div class="card" style="border-left: 5px solid #e74c3c;">
-                    <h2 style="color: #e74c3c;">Troskovi</h2>
+                    <h2 style="color: #e74c3c;">{{ _('Costs') }}</h2>
 
                     <!-- Collapsible Currency Converter -->
                     <details
                         style="margin-bottom: 20px; border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; background: rgba(255,255,255,0.03);">
                         <summary style="cursor: pointer; font-weight: bold; color: var(--text-muted); font-size: 14px;">
-                            Cena RSD/USD (Konvertor u EUR)
+                            {{ _('RSD/USD price (EUR converter)') }}
                         </summary>
                         <div style="margin-top: 15px;">
                             <p>
-                                <label>Valuta:<br>
+                                <label>{{ _('Currency:') }}<br>
                                     <select id="conv_currency" onchange="updateConversion()">
                                         <option value="RSD">RSD</option>
                                         <option value="USD">USD</option>
@@ -106,14 +106,14 @@
                     </details>
 
                     <p>
-                        <label>Nabavna cena:<br>
+                        <label>{{ _('Purchase Price') }}:<br>
                             <input type="number" step="any" name="base_price" id="base_price" required
                                 oninput="calculatePrice(this);" value="{% if price %}{{ price.base_price }}{% endif %}">
                         </label>
                     </p>
 
                     <p>
-                        <label>Dodatni troskovi:<br>
+                        <label>{{ _('Additional Costs') }}:<br>
                             <input type="number" step="any" name="extras" id="extras" oninput="calculatePrice(this)"
                                 value="{% if price %}{{ price.extras }}{% else %}{{ defaults.extras }}{% endif %}">
                         </label>
@@ -172,8 +172,7 @@
                     <div
                         style="margin-top: 15px; padding: 10px; background: rgba(231, 76, 60, 0.1); border-radius: 6px;">
                         <span
-                            style="color: var(--text-muted); text-transform: uppercase; font-size: 11px; font-weight: bold;">Ukupno
-                            kostanje</span><br>
+                            style="color: var(--text-muted); text-transform: uppercase; font-size: 11px; font-weight: bold;">{{ _('Total Cost') }}</span><br>
                         <span id="cost_total_display"
                             style="font-size: 22px; font-weight: bold; color: #e74c3c;">–</span>
                     </div>
@@ -184,9 +183,9 @@
             <div class="form-column">
                 <!-- Card: Final Price -->
                 <div class="card" style="border-left: 5px solid #2ecc71;">
-                    <h2 style="color: #2ecc71;">Konačna cena i zarada</h2>
+                    <h2 style="color: #2ecc71;">{{ _('Final Price and Profit') }}</h2>
                     <p>
-                        <label>Zarada %:<br>
+                        <label>{{ _('Margin %') }}:<br>
                             <input type="number" step="any" name="margin_percent" id="margin_percent"
                                 oninput="calculatePrice(this)"
                                 value="{% if price %}{{ ((price.margin_percent or 0) * 100) | round(2) }}{% else %}{{ defaults.margin_percent | round(2) }}{% endif %}">
@@ -194,23 +193,22 @@
                     </p>
 
                     <p>
-                        <strong>Izracunata cena:</strong>
+                        <strong>{{ _('Calculated Price:') }}</strong>
                         <span id="calculated_price_display">–</span><br>
                     </p>
 
                     <p>
-                        <label>Konacna cena (lepa okrugla):<br>
+                        <label>{{ _('Final Price (rounded)') }}:<br>
                             <input type="number" step="any" name="final_price" id="final_price"
                                 oninput="calculatePrice(this)" value="{% if price %}{{ price.final_price }}{% endif %}">
-                            <small>optional, ako se ostavi prazno koristi Izracunatu cenu</small>
+                            <small>{{ _('optional — leave empty to use the calculated price') }}</small>
                         </label>
                     </p>
 
                     <div
                         style="margin-top: 15px; padding: 10px; background: rgba(46, 204, 113, 0.1); border-radius: 6px;">
                         <span
-                            style="color: var(--text-muted); text-transform: uppercase; font-size: 11px; font-weight: bold;">Profit
-                            (Konačna cena)</span><br>
+                            style="color: var(--text-muted); text-transform: uppercase; font-size: 11px; font-weight: bold;">{{ _('Profit (Final Price)') }}</span><br>
                         <span id="profit_final_display"
                             style="font-size: 22px; font-weight: bold; color: #2ecc71;">–</span>
                     </div>
@@ -218,9 +216,9 @@
 
                 <!-- Card: Popust -->
                 <div class="card" style="margin-top: 2rem; border-left: 5px solid #3498db;">
-                    <h2 style="color: #3498db;">Popust</h2>
+                    <h2 style="color: #3498db;">{{ _('Discount') }}</h2>
                     <p>
-                        <label>Popust % (optional):<br>
+                        <label>{{ _('Discount %') }} (optional):<br>
                             <input type="number" step="any" name="discount_percent" id="discount_percent"
                                 oninput="calculatePrice(this)"
                                 value="{% if price and price.discount_percent is not none %}{{ (price.discount_percent * 100) | round(2) }}{% endif %}">
@@ -229,24 +227,23 @@
                     </p>
 
                     <p>
-                        <strong>Izračunata cena sa popustom:</strong>
+                        <strong>{{ _('Calculated Price after Discount:') }}</strong>
                         <span id="calculated_discount_display">–</span><br>
                     </p>
 
                     <p>
-                        <label>Cena sa popustom (lepa okrugla, optional):<br>
+                        <label>{{ _('Discounted Price') }} (rounded, optional):<br>
                             <input type="number" step="any" name="discount_price" id="discount_price"
                                 oninput="calculatePrice(this)"
                                 value="{% if price and price.discount_price is not none %}{{ price.discount_price }}{% endif %}">
-                            <small>optional, ako se ostavi prazno koristi Izracunatu cenu</small>
+                            <small>{{ _('optional — leave empty to use the calculated price') }}</small>
                         </label>
                     </p>
 
                     <div
                         style="margin-top: 15px; padding: 10px; background: rgba(52, 152, 219, 0.1); border-radius: 6px;">
                         <span
-                            style="color: var(--text-muted); text-transform: uppercase; font-size: 11px; font-weight: bold;">Profit
-                            (Cena sa popustom)</span><br>
+                            style="color: var(--text-muted); text-transform: uppercase; font-size: 11px; font-weight: bold;">{{ _('Profit (Discounted Price)') }}</span><br>
                         <span id="profit_discount_display"
                             style="font-size: 22px; font-weight: bold; color: #3498db;">–</span>
                     </div>
@@ -260,21 +257,18 @@
             <div style="display: flex; gap: 40px;">
                 <div>
                     <label
-                        style="margin-bottom: 4px; color: var(--text-muted); text-transform: uppercase; font-size: 11px; letter-spacing: 1px; font-weight: bold;">Konačna
-                        cena</label>
+                        style="margin-bottom: 4px; color: var(--text-muted); text-transform: uppercase; font-size: 11px; letter-spacing: 1px; font-weight: bold;">{{ _('Final Price') }}</label>
                     <div id="summary_final_price" style="font-size: 28px; font-weight: bold; color: #2ecc71;">–
                     </div>
                 </div>
                 <div>
                     <label
-                        style="margin-bottom: 4px; color: var(--text-muted); text-transform: uppercase; font-size: 11px; letter-spacing: 1px; font-weight: bold;">Cena
-                        sa popustom</label>
+                        style="margin-bottom: 4px; color: var(--text-muted); text-transform: uppercase; font-size: 11px; letter-spacing: 1px; font-weight: bold;">{{ _('Discounted Price') }}</label>
                     <div id="summary_discount_price" style="font-size: 28px; font-weight: bold; color: #3498db;">–</div>
                 </div>
             </div>
             <button type="submit" class="btn btn-success"
-                style="padding: 16px 50px; font-size: 18px; font-weight: bold; border-radius: 12px; box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3);">Sacuvaj
-                cenu</button>
+                style="padding: 16px 50px; font-size: 18px; font-weight: bold; border-radius: 12px; box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3);">{{ _('Save Price') }}</button>
         </div>
     </form>
 </div>
@@ -423,7 +417,7 @@
                     alert(data.message);
                 }
             })
-            .catch(err => alert("Greška pri povezivanju."))
+            .catch(err => alert("{{ _('Connection error.') }}"))
             .finally(() => {
                 btn.textContent = originalText;
                 btn.disabled = false;
@@ -451,9 +445,9 @@
                 const ts = now.toLocaleString('sr-RS');
                 document.getElementById('rate_status').textContent = `Kurs preuzet sa NBS (${ts}).`;
             } else {
-                alert("Greška pri preuzimanju kurseva.");
+                alert("{{ _('Error fetching exchange rates.') }}");
             }
-        }).catch(err => alert("Greška pri povezivanju."))
+        }).catch(err => alert("{{ _('Connection error.') }}"))
             .finally(() => {
                 btn.textContent = originalText;
                 btn.disabled = false;

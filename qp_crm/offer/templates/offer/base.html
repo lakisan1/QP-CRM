@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="{{ theme|default('dark') }}">
+<html lang="{{ current_lang|default('en') }}" data-theme="{{ theme|default('dark') }}">
 
 <head>
     <meta charset="utf-8">
@@ -20,22 +20,11 @@
 
 <body>
     {% if pdf_mode is not defined or not pdf_mode %}
-    <nav>
-        <div class="nav-links">
-            <a href="{{ url_for('offer.list_offers') }}" {% if request.endpoint=='offer.list_offers' %}class="active" {% endif %}>{{
-                _('Offers') }}</a>
-            <a href="{{ url_for('offer.compare_offers') }}" {% if request.endpoint=='offer.compare_offers' %}class="active" {% endif
-                %}>{{ _('Compare Offers') }}</a>
-        </div>
-        <div class="nav-right">
-
-            {% include 'nav_home.html' %}
-            <div class="nav-logo-container">
-                <img src="{{ url_for('static', filename='img/logo_company.jpg') }}" alt="QP-CRM Logo" class="nav-logo">
-            </div>
-        </div>
-    </nav>
-    <hr>
+    {% from '_banner.html' import banner with context %}
+    {% call banner() %}
+        <a href="{{ url_for('offer.list_offers') }}" {% if request.endpoint=='offer.list_offers' %}class="active" {% endif %}>{{ _('Offers') }}</a>
+        <a href="{{ url_for('offer.compare_offers') }}" {% if request.endpoint=='offer.compare_offers' %}class="active" {% endif %}>{{ _('Compare Offers') }}</a>
+    {% endcall %}
     {% endif %}
 
     {% block content %}{% endblock %}

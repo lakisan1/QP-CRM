@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="{{ current_lang|default('en') }}" data-theme="dark">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Prijava - QP-CRM</title>
+    <title>{{ _('Login') }} - QP-CRM</title>
     <link rel="icon" type="image/png" href="/app_assets/favicon.png">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
     <style>
@@ -32,22 +32,25 @@
 
 <body>
     <div class="card login-card">
-        <h2 style="text-align: center; margin-bottom: 8px;">QP-CRM</h2>
-        <p class="login-sub">Jedinstvena prijava za sve module</p>
+        <h1 style="text-align: center; margin-bottom: 8px; font-size: 1.6rem;">QP-CRM</h1>
+        <p class="login-sub">{{ _('One login for all modules') }}</p>
 
         {% if error %}
-        <div class="alert alert-error">{{ error }}</div>
+        <div class="alert alert-error" role="alert">{{ error }}</div>
         {% endif %}
 
         <form method="POST" action="{{ url_for('auth.login', next=request.args.get('next')) }}">
         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-            <label>Korisničko ime</label>
-            <input type="text" name="username" required autofocus autocomplete="username">
+            <p>
+                <label for="username">{{ _('Username') }}</label>
+                <input type="text" id="username" name="username" required autofocus autocomplete="username">
+            </p>
+            <p>
+                <label for="password">{{ _('Password') }}</label>
+                <input type="password" id="password" name="password" required autocomplete="current-password">
+            </p>
 
-            <label>Lozinka</label>
-            <input type="password" name="password" required autocomplete="current-password">
-
-            <button type="submit" class="btn btn-primary" style="width: 100%;">Prijavi se</button>
+            <button type="submit" class="btn btn-primary" style="width: 100%;">{{ _('Log in') }}</button>
             <a href="/" class="btn btn-secondary" style="width: 100%; margin-top: 10px;">{{ _('Home') }}</a>
         </form>
     </div>

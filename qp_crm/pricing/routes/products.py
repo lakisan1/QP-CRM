@@ -8,6 +8,7 @@ from datetime import date
 from flask import redirect, render_template, request, session, url_for
 
 from qp_crm.shared.config import IMAGE_DIR
+from qp_crm.shared.utils import _, get_current_language
 
 from ..app import (
     apply_rounding,
@@ -411,6 +412,7 @@ def add_product():
     cur = conn.cursor()
 
     if request.method == "POST":
+        lang = get_current_language()
         name = (request.form.get("name") or "").strip()
         description = request.form.get("description") or ""
         category = request.form.get("category") or ""
@@ -440,7 +442,7 @@ def add_product():
                 categories=categories,
                 brand_options=brand_options,
                 product=None,
-                error="Proizvod sa ovim imenom već postoji."
+                error=_("A product with this name already exists.", lang)
             )
 
         # 2) handle photo upload (file or URL)
@@ -453,18 +455,18 @@ def add_product():
                 # Priority 1: Manual file upload
                 photo_path = save_product_image(
                     photo_file.stream, photo_file.filename, name,
-                    error_ext="Slika mora biti JPG, PNG ili WEBP (.jpg, .jpeg, .png, ili .webp).",
-                    error_process_prefix="Gre\u0161ka pri obradi slike: ")
+                    error_ext=_("Image must be JPG, PNG or WEBP (.jpg, .jpeg, .png or .webp).", lang),
+                    error_process_prefix=_("Error processing image: ", lang))
             elif photo_url:
                 # Priority 2: Download from URL
                 stream, orig_filename = download_image_from_url(
                     photo_url,
-                    error_content_type="URL ne vodi do JPG, PNG ili WEBP slike.",
-                    error_request_prefix="Gre\u0161ka pri preuzimanju slike sa URL-a: ")
+                    error_content_type=_("URL does not point to a JPG, PNG or WEBP image.", lang),
+                    error_request_prefix=_("Error downloading image from URL: ", lang))
                 photo_path = save_product_image(
                     stream, orig_filename, name,
-                    error_ext="Slika mora biti JPG, PNG ili WEBP (.jpg, .jpeg, .png, ili .webp).",
-                    error_process_prefix="Gre\u0161ka pri obradi slike: ")
+                    error_ext=_("Image must be JPG, PNG or WEBP (.jpg, .jpeg, .png or .webp).", lang),
+                    error_process_prefix=_("Error processing image: ", lang))
         except ValueError as e:
             # Create a temporary product object to preserve form data
             temp_product = {
@@ -543,6 +545,7 @@ def edit_product(product_id):
         return "Product not found", 404
 
     if request.method == "POST":
+        lang = get_current_language()
         name = (request.form.get("name") or "").strip()
         description = request.form.get("description") or ""
         category = request.form.get("category") or ""
@@ -580,7 +583,7 @@ def edit_product(product_id):
                 categories=categories,
                 brand_options=brand_options,
                 product=product_dict,
-                error="Drugi proizvod sa ovim imenom već postoji."
+                error=_("Another product with this name already exists.", lang)
             )
 
         # handle photo upload (file or URL)
@@ -592,17 +595,17 @@ def edit_product(product_id):
             if photo_file and photo_file.filename:
                 photo_path = save_product_image(
                     photo_file.stream, photo_file.filename, name,
-                    error_ext="Slika mora biti JPG, PNG ili WEBP (.jpg, .jpeg, .png, ili .webp).",
-                    error_process_prefix="Gre\u0161ka pri obradi slike: ")
+                    error_ext=_("Image must be JPG, PNG or WEBP (.jpg, .jpeg, .png or .webp).", lang),
+                    error_process_prefix=_("Error processing image: ", lang))
             elif photo_url:
                 stream, orig_filename = download_image_from_url(
                     photo_url,
-                    error_content_type="URL ne vodi do JPG, PNG ili WEBP slike.",
-                    error_request_prefix="Gre\u0161ka pri preuzimanju slike sa URL-a: ")
+                    error_content_type=_("URL does not point to a JPG, PNG or WEBP image.", lang),
+                    error_request_prefix=_("Error downloading image from URL: ", lang))
                 photo_path = save_product_image(
                     stream, orig_filename, name,
-                    error_ext="Slika mora biti JPG, PNG ili WEBP (.jpg, .jpeg, .png, ili .webp).",
-                    error_process_prefix="Gre\u0161ka pri obradi slike: ")
+                    error_ext=_("Image must be JPG, PNG or WEBP (.jpg, .jpeg, .png or .webp).", lang),
+                    error_process_prefix=_("Error processing image: ", lang))
             else:
                 # No new photo provided. Check if name changed and photo exists.
                 if photo_path and product["name"] != name:

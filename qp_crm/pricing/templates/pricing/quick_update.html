@@ -1,7 +1,7 @@
 {% extends "pricing/base.html" %}
 {% block title %}Quick Price Update{% endblock %}
 {% block content %}
-<h1>Brzo Ažuriranje Cena</h1>
+<h1>{{ _('Quick Price Update') }}</h1>
 
 <div class="card">
     <form method="get" action="{{ url_for('pricing.quick_update_products') }}">
@@ -30,15 +30,15 @@
                 </select>
             </label>
             <label style="display: flex; flex-direction: column;">
-                <span style="margin-bottom: 8px; font-weight: 500; font-size: 14px;">Pretraga po imenu:</span>
-                <input type="text" name="search" value="{{ search_term or '' }}" onchange="this.form.submit()"
+                <span style="margin-bottom: 8px; font-weight: 500; font-size: 14px;">{{ _('Search by name:') }}</span>
+                <input type="text" name="search" value="{{ search_term or '' }}" aria-label="{{ _('Search by name') }}" onchange="this.form.submit()"
                     style="margin-bottom: 0;">
             </label>
         <div style="display: flex; flex-direction: column;">
             <span style="margin-bottom: 8px; font-weight: 500; font-size: 14px; visibility: hidden;">.</span>
             <div style="display: flex; align-items: center; gap: 10px;">
                 <a href="{{ url_for('pricing.quick_update_products', clear=1) }}" class="btn btn-secondary"
-                    style="margin-bottom: 0px; padding: 10px 20px; font-size: 14px;">Reset pretrage</a>
+                    style="margin-bottom: 0px; padding: 10px 20px; font-size: 14px;">{{ _('Reset search') }}</a>
                 <span
                     style="background: var(--accent-primary, #3498db); color: white; padding: 4px 12px; border-radius: 20px; font-weight: bold; font-size: 14px;">
                     {{ total_count }} {{ _('products') }}
@@ -52,15 +52,15 @@
 <div class="card">
     <table class="larg-table product-table">
         <tr>
-            <th>Fotografija</th>
-            <th>Naziv proizvoda</th>
-            <th>Category</th>
-            <th>Brand</th>
-            <th>Trenutna cena</th>
-            <th>Popust cena</th>
-            <th style="width: 150px;">Nabavna cena</th>
-            <th style="width: 150px;">Dodatni troškovi</th>
-            <th>Actions</th>
+            <th scope="col">Fotografija</th>
+            <th scope="col">{{ _('Product Name') }}</th>
+            <th scope="col">Category</th>
+            <th scope="col">Brand</th>
+            <th scope="col">{{ _('Current Price') }}</th>
+            <th scope="col">{{ _('Discount Price') }}</th>
+            <th scope="col" style="width: 150px;">{{ _('Purchase Price') }}</th>
+            <th scope="col" style="width: 150px;">{{ _('Additional Costs') }}</th>
+            <th scope="col">Actions</th>
         </tr>
         {% for p in products %}
         <tr>
@@ -105,7 +105,7 @@
                         style="width: 100%; box-sizing: border-box;">
                 </td>
                 <td style="text-align: center;">
-                    <button type="submit" class="btn btn-success btn-sm">Sačuvaj</button>
+                    <button type="submit" class="btn btn-success btn-sm">{{ _('Save') }}</button>
                 </td>
             </form>
         </tr>
