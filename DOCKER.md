@@ -107,13 +107,15 @@ login URLs `/pricing/login`, `/offer/login`, `/rent/login`, `/admin/login`
 redirect there). One `qp_session` cookie (path=/), HttpOnly, SameSite=Lax;
 the session expires after 8h of inactivity (sliding — activity refreshes it).
 
-Seeded accounts (usernames = the legacy module names): `admin` (role admin —
-everything, incl. the Users/API-Keys admin), `pricing`, `offer`, `rent`
-(role staff — pricing/offer/rent business modules). Initial passwords:
+Seeded account: `admin` ONLY (role admin — everything, incl. the
+Users/API-Keys admin). Initial password: the legacy `admin_password` from
+`global_settings` if it was set at migration time — otherwise the phase-0
+default `Admin1`. Rotate it in **Admin → Users** on first deploy.
 
-- the legacy per-app password from `global_settings` (`{app}_password`) if it
-  was set at migration time — otherwise the phase-0 defaults (`Admin1`,
-  `Price1`, `Offer1`, `Rent1`).
+NO default staff accounts exist (the former `pricing`/`offer`/`rent`
+seeds were removed): create every staff user yourself in **Admin → Users**
+— username, apps (pricing / offer / rent / sale), role and password are
+all set there.
 
 Manage accounts in **Admin → Users**. Each user row is ONE form: **app
 access** checkboxes (pricing / offer / rent / sale), an **Active** toggle, a

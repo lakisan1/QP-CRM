@@ -28,10 +28,10 @@ DEFAULT_PASSWORDS = {
 # ---------------------------------------------------------------------------
 
 LEGACY_ACCOUNT_SEEDS = (
+    # Bootstrap account only. The three legacy staff accounts (pricing/offer/
+    # rent) are deliberately NOT seeded since the "no default users beyond
+    # admin" change: the admin creates every staff account in Admin -> Users.
     ("admin", "admin"),
-    ("pricing", "staff"),
-    ("offer", "staff"),
-    ("rent", "staff"),
 )
 
 
@@ -40,7 +40,7 @@ def _utcnow_iso():
 
 
 def seed_users_from_legacy(cur):
-    """Create the four accounts from the legacy password sources, idempotently.
+    """Create the admin bootstrap account from the legacy password source, idempotently.
 
     Runs inside admin.init_db (after pricing's global_settings exist). A
     username that already exists is left untouched, so re-running boot or

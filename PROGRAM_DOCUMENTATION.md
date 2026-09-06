@@ -86,10 +86,12 @@ iz `global_settings` su pri Phase 3 migrirane u `users` redove i obrisane.
   `is_active`, `must_change_password` (ZASTARELO — uvek 0: prisilna promena
   pri prvom loginu je ukinuta, kolona ostaje samo zbog šeme), `created_at`,
   `last_login`.
-  - `seed_users_from_legacy()` — idempotentno pravi 4 naloga (admin→admin,
-    pricing/offer/rent→staff) od legacy lozinki iz `global_settings` (te
-    vrednosti imaju prednost nad `DEFAULT_PASSWORDS`), odmah heširane.
-    Legacy `{app}_password` ključevi se brišu
+  - `seed_users_from_legacy()` — idempotentno pravi SAMO `admin` bootstrap
+    nalog (admin→admin) od legacy lozinke iz `global_settings`
+    (`admin_password` ima prednost nad `DEFAULT_PASSWORDS`), odmah heširane.
+    Nekadašnji default staff nalozi (pricing/offer/rent) se NE kreiraju —
+    "no default users beyond admin": svaki staff nalog kreira admin u
+    Admin → Users. Legacy `{app}_password` ključevi se brišu
     (`scrub_legacy_password_keys`) pri svakom bootu.
   - `attempt_login(username, password)` → user red ili None (bez
     enumeracije korisnika: nepoznat i deaktiviran nalog su isti odgovor).

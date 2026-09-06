@@ -15,8 +15,10 @@ confirm-password flows work unchanged). These tests pin:
   every boot and every users.password_hash is a werkzeug serialization;
 * restoring a pre-Phase-3 style database (legacy keys, no users table) and
   re-running the auth init migrates + scrubs it;
-* factory reset re-seeds the four hashed default accounts instead of writing
-  plaintext password keys.
+* factory reset re-seeds the admin bootstrap account instead of writing
+  plaintext password keys (no default staff accounts since the "no default
+  users beyond admin" change — conftest provisions the staff accounts the
+  auth flows need).
 """
 
 import sqlite3
@@ -192,9 +194,10 @@ def test_pre_phase3_db_migrates_on_auth_reinit(tmp_path, monkeypatch):
     ).fetchone()["password_hash"]
     conn.close()
 
-    assert usernames == {"admin", "pricing", "offer", "rent"}
+    assert usernames == {"admin"}  # staff are never auto-seeded (no default
+    # users beyond admin); only the admin bootstrap account is created
     assert leftover == []
-    # The legacy '{app}_password' values win over the shared defaults (the
+    # The legacy 'admin_password' value wins over the shared default (the
     # step-1 seeding contract): the admin account must open with the value
     # from the restored DB, hashed.
     assert check_password_hash(admin_hash, "Old-Secret-admin")
@@ -202,8 +205,9 @@ def test_pre_phase3_db_migrates_on_auth_reinit(tmp_path, monkeypatch):
 
 def test_factory_reset_resets_hashed_accounts_without_plaintext_keys(temp_db):
     """factory_reset used to write admin/pricing/offer plaintext passwords
-    into global_settings; now it re-seeds the four hashed default accounts
-    and leaves no '{app}_password' keys behind."""
+    into global_settings; now it re-seeds the admin bootstrap account (only)
+    and leaves no '{app}_password' keys behind. The test re-provisions the
+    conftest staff accounts afterwards -- the reset wipes the users table."""
     client = qp_crm.main.app.test_client()
     # unified login (the old /admin/login URLs are plain redirects now),
     # CSRF-protected like every POST since step 5
@@ -243,7 +247,13 @@ def test_factory_reset_resets_hashed_accounts_without_plaintext_keys(temp_db):
     conn.close()
 
     assert leftover == []
-    assert set(users) == {"admin", "pricing", "offer", "rent"}
-    for username, user in users.items():
-        assert _is_werkzeug_hash(user["password_hash"])
-        assert check_password_hash(user["password_hash"], DEFAULT_PASSWORDS[username])
+    assert set(users) == {"admin"}  # only the bootstrap account survives reset
+    admin = users["admin"]
+    assert _is_werkzeug_hash(admin["password_hash"])
+    assert check_password_hash(admin["password_hash"], DEFAULT_PASSWORDS["admin"])
+
+    # The reset wiped the conftest staff accounts -- restore them so the
+    # rest of the suite (role gates, smoke, characterization) keeps working.
+    from conftest import provision_staff_accounts
+
+    provision_staff_accounts()

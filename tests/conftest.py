@@ -80,6 +80,64 @@ def temp_db():
     return TEST_DATABASE
 
 
+def provision_staff_accounts():
+    """Insert pricing/offer/rent staff accounts into the current DB.
+
+    The PRODUCTION boot now seeds ONLY the 'admin' bootstrap account
+    (LEGACY_ACCOUNT_SEEDS in shared/auth.py — "no default users beyond
+    admin": staff are created by the admin in Admin -> Users). The auth
+    tests still exercise login/role/module/hashing flows as staff, so the
+    three staff accounts are provisioned here — same usernames, the
+    DEFAULT_PASSWORDS values as credentials, and all module grants, exactly
+    like the former production seed. Everything downstream (offer_client /
+    rent_client / direct DEFAULT_PASSWORDS logins) keeps working unchanged.
+
+    Idempotent (INSERT OR IGNORE): safe to call again after a test that
+    wipes the users table, e.g. the factory-reset test.
+    """
+    from werkzeug.security import generate_password_hash
+
+    from qp_crm.shared.auth import (
+        CURRENT_MODULE_VERSION,
+        DEFAULT_PASSWORDS,
+        MODULE_CHOICES,
+        get_db,
+    )
+
+    conn = get_db()
+    cur = conn.cursor()
+    for username in ("pricing", "offer", "rent"):
+        cur.execute(
+            """
+            INSERT OR IGNORE INTO users (username, password_hash, role, is_active,
+                                         must_change_password, created_at, modules_set)
+            VALUES (?, ?, 'staff', 1, 0, datetime('now'), ?);
+            """,
+            (
+                username,
+                generate_password_hash(DEFAULT_PASSWORDS[username]),
+                CURRENT_MODULE_VERSION,
+            ),
+        )
+        user_id = cur.execute(
+            "SELECT id FROM users WHERE username = ?;", (username,)
+        ).fetchone()["id"]
+        for module in MODULE_CHOICES:
+            cur.execute(
+                "INSERT OR IGNORE INTO user_modules (user_id, module) VALUES (?, ?);",
+                (user_id, module),
+            )
+    conn.commit()
+    conn.close()
+    return ("pricing", "offer", "rent")
+
+
+@pytest.fixture(scope="session", autouse=True)
+def staff_accounts(temp_db):
+    """Provision the three staff accounts the auth suite relies on."""
+    return provision_staff_accounts()
+
+
 @pytest.fixture(scope="session")
 def conn_factory(temp_db):
     """Context-manager factory for connections against the throwaway DB."""
