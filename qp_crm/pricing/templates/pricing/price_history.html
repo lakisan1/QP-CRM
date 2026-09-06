@@ -9,24 +9,24 @@
     <p>
         <a href="{{ url_for('pricing.new_price', product_id=product.id) }}" class="btn btn-primary">Dodaj novu cenu</a>
         <a href="{{ url_for('pricing.edit_product', product_id=product.id) }}" class="btn btn-secondary"
-            style="margin-left: 10px;">Izmeni proizvod</a>
+            style="margin-left: 10px;">{{ _('Edit Product') }}</a>
     </p>
 
     <table class="larg-table" style="text-align: center;">
         <tr>
             <th style="width: 70px;">Datum</th>
-            <th>Cena ka nama</th>
-            <th>Dodatni troskovi</th>
+            <th>{{ _('Cost to Us') }}</th>
+            <th>{{ _('Additional Costs') }}</th>
             <th>Uvoz %</th>
-            <th>Zarada %</th>
+            <th>{{ _('Margin %') }}</th>
             <th>Domaci transport</th>
-            <th>Ukupno kostanje</th>
-            <th>Izracunata cena</th>
-            <th>Konacna cena</th>
-            <th>Profit (Konačna cena)</th>
-            <th>Popust %</th>
-            <th>Cena sa popustom</th>
-            <th>Profit (Cena sa popustom)</th>
+            <th>{{ _('Total Cost') }}</th>
+            <th>{{ _('Calculated Price') }}</th>
+            <th>{{ _('Final Price') }}</th>
+            <th>{{ _('Profit (Final Price)') }}</th>
+            <th>{{ _('Discount %') }}</th>
+            <th>{{ _('Discounted Price') }}</th>
+            <th>{{ _('Profit (Discounted Price)') }}</th>
             <th style="width: 60px;">Actions</th>
         </tr>
         {% for r in prices %}

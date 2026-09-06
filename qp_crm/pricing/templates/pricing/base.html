@@ -18,7 +18,7 @@
         <a href="{{ url_for('pricing.category_defaults') }}" {% if request.endpoint=='pricing.category_defaults' %}class="active" {% endif %}>{{ _('Categories') }}</a>
         <a href="{{ url_for('pricing.brands') }}" {% if request.endpoint=='pricing.brands' %}class="active" {% endif %}>{{ _('Brands') }}</a>
         <a href="{{ url_for('pricing.quick_update_products') }}" class="{% if request.endpoint=='pricing.quick_update_products' %}active{% endif %}">{{ _('Quick Update') }}</a>
-        <a href="{{ url_for('pricing.product_sync') }}" {% if request.endpoint=='pricing.product_sync' %}class="active" {% endif %}>{{ _('Sync Sajt') }}</a>
+        <a href="{{ url_for('pricing.product_sync') }}" {% if request.endpoint=='pricing.product_sync' %}class="active" {% endif %}>{{ _('Sync Website') }}</a>
     {% endcall %}
 
     {% block content %}{% endblock %}

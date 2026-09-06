@@ -30,5 +30,5 @@
     <a href="{{ url_for('admin.list_rounding_rules') }}" {% if active == 'rounding_rules' %}class="active"{% endif %}>Rounding Rules</a>
     <a href="{{ url_for('admin.list_users') }}" {% if active == 'users' %}class="active"{% endif %}>Users</a>
     <a href="{{ url_for('admin.list_api_keys') }}" {% if active == 'api_keys' %}class="active"{% endif %}>API Keys</a>
-    <a href="{{ url_for('admin.admin_rent_templates') }}" {% if active == 'rent_templates' %}class="active"{% endif %}>Rent Šabloni</a>
+    <a href="{{ url_for('admin.admin_rent_templates') }}" {% if active == 'rent_templates' %}class="active"{% endif %}>{{ _('Rent Templates') }}</a>
 {% endcall %}

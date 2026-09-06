@@ -1,11 +1,11 @@
 {% extends "offer/base.html" %}
-{% block title %}Poređenje ponuda{% endblock %}
+{% block title %}{{ _('Offer Comparison') }}{% endblock %}
 {% block content %}
 <div class="container" style="max-width: 1600px;">
-    <h1>Alat za poređenje ponuda</h1>
+    <h1>{{ _('Offer Comparison Tool') }}</h1>
     <p style="color: var(--text-muted); margin-bottom: 25px;">
-        Poredite dva različita seta artikala ili popusta side-by-side.
-        <strong style="color: var(--accent-warning);">Podaci se ne čuvaju u bazi podataka.</strong>
+        {{ _('Compare two different sets of items or discounts side by side.') }}
+        <strong style="color: var(--accent-warning);">{{ _('Data is not saved to the database.') }}</strong>
     </p>
 
     <!-- Comparison Summary Top Row -->
@@ -72,32 +72,32 @@
             <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
                     <div>
-                        <label style="font-size: 0.8rem; color: var(--text-muted);">Popust %:</label>
+                        <label style="font-size: 0.8rem; color: var(--text-muted);">{{ _('Discount %') }}:</label>
                         <input type="number" id="discount-a" value="0" step="any" oninput="sideChanged('a')"
                             style="margin-bottom: 0;">
                     </div>
                     <div>
-                        <label style="font-size: 0.8rem; color: var(--text-muted);">PDV %:</label>
+                        <label style="font-size: 0.8rem; color: var(--text-muted);">{{ _('VAT %') }}:</label>
                         <input type="number" id="vat-a" value="20" step="any" oninput="sideChanged('a')"
                             style="margin-bottom: 0;">
                     </div>
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                     <div>
-                        <label style="font-size: 0.8rem; color: var(--text-muted);">Filter Brend:</label>
+                        <label style="font-size: 0.8rem; color: var(--text-muted);">{{ _('Brand Filter:') }}</label>
                         <select id="filter-brand-a" onchange="applyFilters('a')"
                             style="margin-bottom: 0; font-size: 0.85rem; padding: 6px;">
-                            <option value="">-- Svi brendovi --</option>
+                            <option value="">-- {{ _('All brands') }} --</option>
                             {% for b in brand_options %}
                             <option value="{{ b }}">{{ b }}</option>
                             {% endfor %}
                         </select>
                     </div>
                     <div>
-                        <label style="font-size: 0.8rem; color: var(--text-muted);">Filter Kategorija:</label>
+                        <label style="font-size: 0.8rem; color: var(--text-muted);">{{ _('Category Filter:') }}</label>
                         <select id="filter-category-a" onchange="applyFilters('a')"
                             style="margin-bottom: 0; font-size: 0.85rem; padding: 6px;">
-                            <option value="">-- Sve kategorije --</option>
+                            <option value="">-- {{ _('All categories') }} --</option>
                             {% for c in category_options %}
                             <option value="{{ c }}">{{ c }}</option>
                             {% endfor %}
@@ -110,18 +110,17 @@
                 <thead>
                     <tr>
                         <th style="width: 30px;">br.</th>
-                        <th style="width: 40%;">Proizvod</th>
+                        <th style="width: 40%;">{{ _('Product') }}</th>
                         <th style="width: 60px;">Kom</th>
-                        <th>Cena kom</th>
-                        <th>Red zbir</th>
-                        <th>Sa pop.</th>
+                        <th>{{ _('Price per Unit') }}</th>
+                        <th>{{ _('Line Total') }}</th>
+                        <th>{{ _('With Disc.') }}</th>
                         <th style="width: 30px;"></th>
                     </tr>
                 </thead>
                 <tbody id="body-a"></tbody>
             </table>
-            <button class="btn btn-sm btn-primary" onclick="addRow('a')" style="width: 100%; margin-top: 10px;">+ Dodaj
-                red</button>
+            <button class="btn btn-sm btn-primary" onclick="addRow('a')" style="width: 100%; margin-top: 10px;">{{ _('+ Add Row') }}</button>
         </div>
 
         <!-- Side B -->
@@ -129,32 +128,32 @@
             <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
                     <div>
-                        <label style="font-size: 0.8rem; color: var(--text-muted);">Popust %:</label>
+                        <label style="font-size: 0.8rem; color: var(--text-muted);">{{ _('Discount %') }}:</label>
                         <input type="number" id="discount-b" value="0" step="any" oninput="sideChanged('b')"
                             style="margin-bottom: 0;">
                     </div>
                     <div>
-                        <label style="font-size: 0.8rem; color: var(--text-muted);">PDV %:</label>
+                        <label style="font-size: 0.8rem; color: var(--text-muted);">{{ _('VAT %') }}:</label>
                         <input type="number" id="vat-b" value="20" step="any" oninput="sideChanged('b')"
                             style="margin-bottom: 0;">
                     </div>
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                     <div>
-                        <label style="font-size: 0.8rem; color: var(--text-muted);">Filter Brend:</label>
+                        <label style="font-size: 0.8rem; color: var(--text-muted);">{{ _('Brand Filter:') }}</label>
                         <select id="filter-brand-b" onchange="applyFilters('b')"
                             style="margin-bottom: 0; font-size: 0.85rem; padding: 6px;">
-                            <option value="">-- Svi brendovi --</option>
+                            <option value="">-- {{ _('All brands') }} --</option>
                             {% for b in brand_options %}
                             <option value="{{ b }}">{{ b }}</option>
                             {% endfor %}
                         </select>
                     </div>
                     <div>
-                        <label style="font-size: 0.8rem; color: var(--text-muted);">Filter Kategorija:</label>
+                        <label style="font-size: 0.8rem; color: var(--text-muted);">{{ _('Category Filter:') }}</label>
                         <select id="filter-category-b" onchange="applyFilters('b')"
                             style="margin-bottom: 0; font-size: 0.85rem; padding: 6px;">
-                            <option value="">-- Sve kategorije --</option>
+                            <option value="">-- {{ _('All categories') }} --</option>
                             {% for c in category_options %}
                             <option value="{{ c }}">{{ c }}</option>
                             {% endfor %}
@@ -167,18 +166,17 @@
                 <thead>
                     <tr>
                         <th style="width: 30px;">br.</th>
-                        <th style="width: 40%;">Proizvod</th>
+                        <th style="width: 40%;">{{ _('Product') }}</th>
                         <th style="width: 60px;">Kom</th>
-                        <th>Cena kom</th>
-                        <th>Red zbir</th>
-                        <th>Sa pop.</th>
+                        <th>{{ _('Price per Unit') }}</th>
+                        <th>{{ _('Line Total') }}</th>
+                        <th>{{ _('With Disc.') }}</th>
                         <th style="width: 30px;"></th>
                     </tr>
                 </thead>
                 <tbody id="body-b"></tbody>
             </table>
-            <button class="btn btn-sm btn-primary" onclick="addRow('b')" style="width: 100%; margin-top: 10px;">+ Dodaj
-                red</button>
+            <button class="btn btn-sm btn-primary" onclick="addRow('b')" style="width: 100%; margin-top: 10px;">{{ _('+ Add Row') }}</button>
         </div>
     </div>
 </div>

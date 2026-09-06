@@ -27,6 +27,7 @@ from qp_crm.shared.auth import (
     register_login_failure,
 )
 from qp_crm.shared.config import STATIC_DIR
+from qp_crm.shared.utils import _, get_current_language
 from qp_crm.shared.web import safe_next_url
 
 bp = Blueprint("auth", __name__, template_folder="templates")
@@ -35,6 +36,7 @@ bp = Blueprint("auth", __name__, template_folder="templates")
 @bp.route("/login", methods=["GET", "POST"])
 def login():
     error = None
+    lang = get_current_language()
     if request.method == "POST":
         username = (request.form.get("username") or "").strip()
         password = request.form.get("password") or ""
@@ -46,8 +48,8 @@ def login():
         if locked:
             log_login_attempt(username, ip, False,
                               f"lockout: {remaining}s remaining")
-            error = (f"Previše neuspelih pokušaja. Pokušajte ponovo za "
-                     f"{max(remaining // 60 + 1, 1)} min.")
+            error = _("Too many failed login attempts. Try again in {} min.",
+                     lang).format(max(remaining // 60 + 1, 1))
             return render_template("auth/login.html", error=error)
 
         user = attempt_login(username, password)
@@ -67,7 +69,7 @@ def login():
             return redirect(dest or "/")
         register_login_failure(username, ip)
         log_login_attempt(username, ip, False, "bad credentials")
-        error = "Pogrešno korisničko ime ili lozinka"
+        error = _("Wrong username or password", lang)
     return render_template("auth/login.html", error=error)
 
 

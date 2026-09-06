@@ -1,26 +1,26 @@
 {% extends "pricing/base.html" %}
 {% block title %}Category Defaults{% endblock %}
 {% block content %}
-<h1>Kategorije</h1>
+<h1>{{ _('Categories') }}</h1>
 
 {% if error %}
 <div style="color: red; border: 1px solid red; background-color: #fdd; padding: 10px; margin-bottom: 20px;">
-    <strong>Greška:</strong> {{ error }}
+    <strong>{{ _('Error:') }}</strong> {{ error }}
 </div>
 {% endif %}
 
-<h2>Dodaj / izmeni kategoriju</h2>
+<h2>{{ _('Add / Edit Category') }}</h2>
 <div class="split-layout" style="grid-template-columns: 280px 1fr;">
     <div class="form-section card">
         <form method="post" class="compact-form">
         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
             <p>
-                <label>Naziv kategorije:<br>
+                <label>{{ _('Category Name') }}:<br>
                     <input type="text" name="category" id="category_input" required>
                 </label>
             </p>
             <p>
-                <label>Zarada %:<br>
+                <label>{{ _('Margin %') }}:<br>
                     <input type="number" step="any" name="margin_percent" value="0">
                 </label>
             </p>
@@ -28,7 +28,7 @@
             <h3 style="margin: 15px 0 10px 0; color: #e74c3c;">Troskovi</h3>
 
             <p>
-                <label>Dodatni troskovi:<br>
+                <label>{{ _('Additional Costs') }}:<br>
                     <input type="number" step="any" name="default_extras" value="0">
                 </label>
             </p>
@@ -81,15 +81,15 @@
 
     <div class="table-section card">
         <div style="margin-bottom: 20px;">
-            <input type="text" id="catSearch" placeholder="Pretraži kategorije..." onkeyup="filterTable()"
+            <input type="text" id="catSearch" placeholder="{{ _('Search categories...') }}" onkeyup="filterTable()"
                 style="max-width: 300px; margin-bottom: 0;">
         </div>
         <table id="catTable">
             <thead>
                 <tr>
                     <th style="width: 200px; text-align: center;">Category</th>
-                    <th style="width: 70px;">Zarada %</th>
-                    <th style="width: 70px;">Dodatni tr.</th>
+                    <th style="width: 70px;">{{ _('Margin %') }}</th>
+                    <th style="width: 70px;">{{ _('Add. Costs') }}</th>
                     <th style="width: 70px;">Uvoz %</th>
                     <th>Dom. tr.</th>
                     <th>Gar. %</th>
