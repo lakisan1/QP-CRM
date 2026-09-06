@@ -44,7 +44,7 @@ This page contains a comprehensive list of all the features implemented in the Q
 - **Visual Document Ordering**: Prioritized document list with Prilog 3 & 4 grouped after Prilog 2, CSS separator lines for advanced document categories (guarantor contracts), and sequential numbering.
 
 ## 💻 Tech & System Foundation
-- **Unified Progressive Web App (PWA)**: Desktop installation support via Chrome, providing seamless native-feeling windows mapped to your server IP.
+- **Unified Progressive Web App (PWA)**: Installable standalone window via Chrome web-app manifest (manifest.webmanifest) + static-only service worker (cache-first for `/static/*`; money/CRUD/API traffic and HTML routes are never cached). Install and offline activation require a secure context (HTTPS or localhost) — over plain-HTTP LAN Chrome shows only a shortcut.
 - **Fast Deployments & Database Management**: Quick Linux deployment scripts (`run_apps.sh`) handling dependency management and instant auto-start servers.
 - **Backup & Restore System**: 1-click administrative utilities for executing comprehensive full-system backups (including databases, user-uploaded images, logos, assets) or restoring from legacy snapshots.
 - **Read-Only Customer Pricelist**: The Sale app shows live pricing read-only (no editing); it is no longer anonymous — access is granted per user via the `sale` module checkbox in Admin → Users, and admins always have it.
