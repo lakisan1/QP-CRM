@@ -30,7 +30,7 @@
         </label>
         <label style="display:flex;flex-direction:column;flex:1;min-width:200px;">
             <span style="margin-bottom:6px;font-size:13px;font-weight:500;">{{ _('Search (number / client):') }}</span>
-            <input type="text" name="search" value="{{ search }}" style="margin-bottom:0;">
+            <input type="text" name="search" value="{{ search }}" aria-label="{{ _('Search contracts') }}" style="margin-bottom:0;">
         </label>
         <button type="submit" class="btn btn-primary" style="margin-bottom:0;">{{ _('Search') }}</button>
         <a href="{{ url_for('rent.list_contracts') }}" class="btn btn-secondary" style="margin-bottom:0;">Reset</a>
@@ -77,15 +77,15 @@ tr.signed-row:hover {
     <table class="larg-table">
         <thead>
         <tr>
-            <th>Datum</th>
-            <th>{{ _('Contract Number') }}</th>
-            <th>{{ _('Client') }}</th>
-            <th>{{ _('Equipment Model') }}</th>
-            <th>{{ _('Price (€)') }}</th>
-            <th>{{ _('Monthly Net Installment (€)') }}</th>
-            <th>{{ _('Monthly Gross Installment (€)') }}</th>
-            <th>Status</th>
-            <th style="width:120px;">Akcije</th>
+            <th scope="col">Datum</th>
+            <th scope="col">{{ _('Contract Number') }}</th>
+            <th scope="col">{{ _('Client') }}</th>
+            <th scope="col">{{ _('Equipment Model') }}</th>
+            <th scope="col">{{ _('Price (€)') }}</th>
+            <th scope="col">{{ _('Monthly Net Installment (€)') }}</th>
+            <th scope="col">{{ _('Monthly Gross Installment (€)') }}</th>
+            <th scope="col">Status</th>
+            <th scope="col" style="width:120px;">Akcije</th>
         </tr>
         </thead>
         <tbody>

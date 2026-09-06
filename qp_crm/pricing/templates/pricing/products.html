@@ -38,7 +38,7 @@
             </label>
             <label style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
                 <span style="font-weight: 500; font-size: 14px; white-space: nowrap;">{{ _('Search by name:') }}</span>
-                <input type="text" name="search" value="{{ search_term or '' }}" onchange="this.form.submit()"
+                <input type="text" name="search" value="{{ search_term or '' }}" aria-label="{{ _('Search by name') }}" onchange="this.form.submit()"
                     style="margin-bottom: 0; width: 200px;">
             </label>
             <label style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
@@ -74,13 +74,13 @@
 <div class="card">
     <table class="larg-table product-table">
         <tr>
-            <th>{{ _('Image') }}</th>
-            <th>{{ _('Product') }}</th>
-            <th>{{ _('Category') }}</th>
-            <th>{{ _('Brand') }}</th>
-            <th>{{ _('Current Price') }}</th>
-            <th>{{ _('Discount Price') }}</th>
-            <th>{{ _('Actions') }}</th>
+            <th scope="col">{{ _('Image') }}</th>
+            <th scope="col">{{ _('Product') }}</th>
+            <th scope="col">{{ _('Category') }}</th>
+            <th scope="col">{{ _('Brand') }}</th>
+            <th scope="col">{{ _('Current Price') }}</th>
+            <th scope="col">{{ _('Discount Price') }}</th>
+            <th scope="col">{{ _('Actions') }}</th>
         </tr>
         {% for p in products %}
         <tr>

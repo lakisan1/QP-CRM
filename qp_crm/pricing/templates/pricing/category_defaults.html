@@ -81,23 +81,23 @@
 
     <div class="table-section card">
         <div style="margin-bottom: 20px;">
-            <input type="text" id="catSearch" placeholder="{{ _('Search categories...') }}" onkeyup="filterTable()"
+            <input type="text" id="catSearch" aria-label="{{ _('Search categories') }}" placeholder="{{ _('Search categories...') }}" onkeyup="filterTable()"
                 style="max-width: 300px; margin-bottom: 0;">
         </div>
         <table id="catTable">
             <thead>
                 <tr>
-                    <th style="width: 200px; text-align: center;">Category</th>
-                    <th style="width: 70px;">{{ _('Margin %') }}</th>
-                    <th style="width: 70px;">{{ _('Add. Costs') }}</th>
-                    <th style="width: 70px;">Uvoz %</th>
-                    <th>Dom. tr.</th>
-                    <th>Gar. %</th>
-                    <th>Ser. %</th>
-                    <th>Inst.</th>
-                    <th>Obuka</th>
-                    <th>Ost.</th>
-                    <th>Action</th>
+                    <th scope="col" style="width: 200px; text-align: center;">Category</th>
+                    <th scope="col" style="width: 70px;">{{ _('Margin %') }}</th>
+                    <th scope="col" style="width: 70px;">{{ _('Add. Costs') }}</th>
+                    <th scope="col" style="width: 70px;">Uvoz %</th>
+                    <th scope="col">Dom. tr.</th>
+                    <th scope="col">Gar. %</th>
+                    <th scope="col">Ser. %</th>
+                    <th scope="col">Inst.</th>
+                    <th scope="col">Obuka</th>
+                    <th scope="col">Ost.</th>
+                    <th scope="col">Action</th>
                 </tr>
             </thead>
             <tbody>
