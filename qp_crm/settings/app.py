@@ -44,22 +44,21 @@ def settings_index():
         if request.form.get("_csrf_token") != session.get("_csrf_token"):
             return "CSRF token mismatch", 400
 
+        # Theme is the one per-browser preference left here. date_format is
+        # NOT saved from this page anymore (audit M4): a per-browser cookie
+        # split the source of truth with the admin dashboard's
+        # global_settings row, so formatting differed per machine. The admin
+        # dashboard (Admin -> Default Settings) is the single place to
+        # change the company-wide date format.
         theme = request.form.get("theme", "dark")
-        date_format = request.form.get("date_format", "YYYY-MM-DD")
 
         # Redirect back to the central landing page (/)
         resp = make_response(redirect("/"))
 
-        # Set cookies for 1 year
+        # Set theme cookie for 1 year
         max_age_seconds = 60 * 60 * 24 * 365
         resp.set_cookie(
             'theme', theme,
-            max_age=max_age_seconds, path='/',
-            httponly=True, samesite='Lax',
-            secure=os.environ.get("SETTINGS_SECURE_COOKIES", "0") == "1"
-        )
-        resp.set_cookie(
-            'date_format', date_format,
             max_age=max_age_seconds, path='/',
             httponly=True, samesite='Lax',
             secure=os.environ.get("SETTINGS_SECURE_COOKIES", "0") == "1"
@@ -68,9 +67,8 @@ def settings_index():
         return resp
 
     current_theme = request.cookies.get('theme', 'dark')
-    current_date_format = request.cookies.get('date_format', 'YYYY-MM-DD')
 
-    return render_template("settings/settings.html", current_theme=current_theme, current_date_format=current_date_format)
+    return render_template("settings/settings.html", current_theme=current_theme)
 
 if __name__ == "__main__":
     # Standalone dev run (python -m qp_crm.settings.app) -- previously this

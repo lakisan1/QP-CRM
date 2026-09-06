@@ -383,17 +383,17 @@ Upravlja ugovorima o zakupu, dokumentima, PDF šablonima i obračunom rata.
 
 ### 9.1 `settings/app.py` — Glavna aplikacija za podešavanja
 
-**Uloga:** Jednostavna stranica za korisničke podešavanja (tema i format datuma) koja čuva vrednosti u cookie-jima.
+**Uloga:** Jednostavna stranica za korisničko podešavanje teme koja čuva vrednost u cookie-ju.
 
 **Kako radi:**
 - Dostupna pod prefiksom `/settings` (preko DispatcherMiddleware).
 - Funkcije:
   - `inject_helpers()` — ubacuje `theme`, `_` (prevod) i `current_lang` u sve template-ove.
-  - `settings_index()` — GET prikazuje podešavanja (čita iz cookie-ja), POST čuva `theme` i `date_format` u cookie-je (1 godina) i preusmerava na `/`.
+  - `settings_index()` — GET prikazuje podešavanja (čita temu iz cookie-ja), POST čuva `theme` u cookie (1 godina) i preusmerava na `/`.
 - **Rute (pod `/settings`):**
   - `/` — GET/POST podešavanja.
-- **Čuvanje:** `theme` i `date_format` se čuvaju kao cookie-je (path=/, max_age=1 godina), NE u bazi.
-- **Napomena:** Ovo je korisnički nivo (per-browser), dok admin podešavanja (global) idu u `global_settings` tabelu preko admin modula.
+- **Čuvanje:** samo `theme` se čuva kao cookie (path=/, max_age=1 godina); `date_format` se ovde VIŠE ne čuva (audit M4 — cookie je delio izvor istine sa `global_settings` redom, pa se format datuma razlikovao po uređaju).
+- **Format datuma:** jedini izvor istine je `global_settings.date_format` red; menja se u Admin panelu (Default Settings), a čita se kroz `get_date_format()` (`shared/web.py`) svuda, uključujući PDF generisanje.
 
 ---
 
