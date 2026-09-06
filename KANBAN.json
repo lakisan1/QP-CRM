@@ -762,17 +762,18 @@
       "id": "card-8da58a54-adc3-4441-b12f-f32058080ca0",
       "title": "Rotate admin seed password (Admin1) — ~1 min user action, how-to in description",
       "description": "HOW-TO (user action, ~1 min): the only account is 'admin' and its password is STILL the committed default 'Admin1' — public knowledge (repo/README) and valid forever until changed, so anyone on the LAN can log in as full admin. Do it at the next deploy moment (works any time; the password lives in the DB users row, not in code). Steps: 1) login http://<host>:5000 as admin/Admin1; 2) Admin -> Users; 3) your own row: fill New password, confirm-own-password = Admin1; 4) Save, log out, log back in with the new password. Warning: single-admin system — no email reset exists; a forgotten password means an operator resets the DB hash or restores a backup, so store it in a password manager. There is no expiry/forced change; the guards only prevent deactivating/demoting the LAST active admin and yourself.",
-      "rationale": "The last committed default credential on the system — live until the admin changes it, and real users are about to be created.",
-      "rejected": "Code-side forced rotation on first boot — rejected: a 1-minute UI action only the owner should perform; keep the admin password an operator-managed secret.",
+      "rationale": "The last committed default credential (Admin1, public in README) on a single-admin system — rotating it was the final open security task after default staff accounts were removed.",
+      "rejected": "Code-side forced rotation was already rejected earlier (operator-managed secret); this card only needed the UI path to work, which the own-row Save fix unblocked.",
       "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
-      "status": "todo",
+      "status": "done",
       "tags": [
         "qp-crm",
         "security",
         "user-action"
       ],
       "createdAt": 1788704049678,
-      "updatedAt": 1788705572910
+      "updatedAt": 1788730211509,
+      "summary": "Admin password rotated by the owner via Admin -> Users (own-row Save). This flow was BLOCKED by the dangling-form bug (users.html rendered the per-row <form> only for other users' rows, so the own-row Save had nothing to submit) — fixed in commit 1967c32 with a regression test, rebuilt and verified live, then the owner changed the password successfully."
     },
     {
       "id": "card-8d931026-a81f-4753-9506-f96a80945e46",
