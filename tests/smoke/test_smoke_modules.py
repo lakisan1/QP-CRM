@@ -314,7 +314,12 @@ def test_known_hardcoded_serbian_strings_gone_from_en_pages():
     assert "Quick Price Update" in quick
     assert "Brzo Ažuriranje Cena" not in quick
     settings_html = fresh_client().get("/settings/").data.decode()
-    assert "Date format" in settings_html and "App theme" in settings_html
+    # audit M4: the date-format control left /settings for the admin dashboard
+    # (global_settings row is the single source of truth) -- pin that it is
+    # gone here and that the theme control (the page's remaining setting)
+    # still renders.
+    assert "App theme" in settings_html
+    assert 'name="date_format"' not in settings_html
 
 
 def test_serbian_mode_renders_dictionary_translations():
@@ -333,8 +338,11 @@ def test_serbian_mode_renders_dictionary_translations():
         for needle in ("Korisničko ime", "Lozinka", "Jedinstvena prijava za sve module"):
             assert needle in html, f"/login (sr): missing {needle}"
         settings_html = fresh_client().get("/settings/").data.decode()
-        for needle in ("Format datuma", "Tema aplikacije", "Podešavanja"):
+        # audit M4: date format moved to the admin dashboard, so the sr-mode
+        # /settings page shows the theme controls and page chrome only.
+        for needle in ("Tema aplikacije", "Podešavanja", "Odjavi se"):
             assert needle in settings_html, f"/settings (sr): missing {needle}"
+        assert "Format datuma" not in settings_html, "M4: date-format control must not render on /settings"
     finally:
         conn = get_db()
         conn.execute("DELETE FROM global_settings WHERE key = 'language';")
