@@ -54,9 +54,9 @@
     {
       "id": "card-475fcd46-206e-407f-ba11-76698862e40f",
       "title": "Phase 3 — Users & user management (unified auth, roles, CSRF, hashing)",
-      "description": "Phase 3 of the roadmap — runs AFTER Phase 2 (single app + blueprints) so login/session/CSRF are written once against the final shape. (Env-based secrets for Docker stay in the dockerization phase — pricing/offer/rent hardcoded keys switch to os.environ.get there.) Content: users table (id, username, password_hash, role, is_active, created_at, last_login); single unified login on the top-level app; one shared session cookie (same secret via shared module reading env, same cookie name, path=/); replace per-app password gates (authenticated / admin_authenticated / rent_authenticated) with shared require_role() per blueprint (admin/staff/viewer); hashed passwords via werkzeug generate_password_hash with transparent rehash-on-login migration from plaintext; CSRF tokens on all state-changing routes (settings/app.py is the in-repo reference pattern, audit C5); PDF-template editing stays admin-only + render through sandboxed Jinja (audit C4, lands via pdf_service); admin Users management UI (create/deactivate/reset/roles), self-service password change, per-user API keys for /api/v1 replacing the single global key, login audit log; login rate-limit + session timeout. Exit criteria: single login, roles enforced per module, all POSTs CSRF-protected, no plaintext passwords at rest.",
-      "rationale": "Phase-3 board card: the CRM had four independent plaintext per-app passwords, no roles, no CSRF and no audit — the agreed pre-Phase-4 security milestone the user tests manually.",
-      "rejected": "Flask-Login/Flask-WTF extensions rejected (no new framework deps allowed — hand-rolled session identity + shared/web.py CSRF kept the footprint minimal and matched the existing settings-app token pattern). Redis-backed rate limiting rejected (no new services — in-process dict with threading.Lock per the card). Werkzeug check_password_hash alone rejected for legacy rows (transparent rehash needed for pre-Phase-3 plaintext restores). Deleting deactivated users rejected (deactivate-only keeps audit trails and offer/contract authorship intact).",
+      "description": "Phase 3 of the roadmap — ran AFTER Phase 2 (single app + blueprints) so login/session/CSRF were written once against the final shape. Env-based secrets for Docker landed in Phase 0 (pricing/offer/rent hardcoded keys switched to os.environ.get there). Delivered: users table (id, username, password_hash, role, is_active, modules_set, created_at, last_login); single unified login on the top-level app (one qp_session cookie, path=/, 8h sliding expiry); per-app password gates replaced by shared require_role('admin'/'staff') + per-user app access via require_module and the user_modules table (pricing/offer/rent/sale checkboxes per staff user in Admin -> Users; admins bypass); werkzeug hashed passwords with transparent rehash-on-login from legacy plaintext (no plaintext at rest — scrub_legacy_password_keys on every boot); CSRF shield on every state-changing route incl. AJAX (settings-app pattern generalized into shared/web.py; audit C5 closed); API keys table + per-user keys with attribution (global key deprecated but working); login_audit log + in-process lockout (5 fails / 15 min per IP+username); sandboxed Jinja for DB PDF templates already closed C4 in Phase 2, template editor admin-only; Admin Users UI (create/deactivate/reset/role change, one Save per user, own-password confirmed), landing page requires login + access-filtered app menu, logout moved into Settings, header unified with Home button. Extra user-request UX work folded in (Serbian feedback cards): admin header options missing on subpages fixed via shared _nav include, /admin/rent/templates login loop fixed, logout button moved to settings, Landing Page renamed Home. Suite grew to 243+ tests; 3 golden-PDF skips outside the pinned image by design. Verified live on :5000 (admin walks all module pages, anonymous redirects to /login?next=, CSRF 400s on tokenless POSTs, /api/v1 401 without key).",
+      "rationale": "User's milestone 2, positioned after the Phase-2 blueprint consolidation so login/session/CSRF were written once against the final shape and before features (roles gate who may create invoices, edit stock, manage templates).",
+      "rejected": "Heavy auth frameworks (Flask-User/OAuth) — overkill for LAN scale; per-app user tables — would perpetuate the six-realm session split; landing auth before consolidation — double work. Forced first-login password change — retired mid-phase by user request (password changes exclusively admin-managed in Admin -> Users); default staff users kept as seeds — retired later by the 'no default users beyond admin' change (separate card/commit 4f3a2a1).",
       "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
       "status": "done",
       "tags": [
@@ -66,13 +66,13 @@
         "plan"
       ],
       "createdAt": 1788443872544,
-      "updatedAt": 1788539514606,
-      "summary": "Shipped the unified auth layer on branch phase-3-auth (10 commits cb3da82..2e12c4f, image qp-crm:phase3, suite 218 passed incl. untouched money-math characterization + golden PDFs): single users table + 4 migrated accounts (legacy global_settings passwords won over defaults, seeded hashed, staff forced change on first login, legacy keys scrubbed every boot); werkzeug scrypt hashing with transparent rehash on legacy plaintext at login; unified /login + /logout + /change-password with session cycling and one qp_session cookie; require_role per blueprint (admin→admin, pricing/offer/rent→staff superset, sale/settings public, api_v1/health public); app-wide CSRF on all state-changing routes (54 forms + AJAX headers tokenized, api_v1 Bearer exempt); Admin Users UI (create/deactivate/role/reset with own-password confirmation, last-active-admin + self-action guards); per-user API keys (sha256 + prefix storage, shown once, api_audit log with per-user attribution, legacy global key deprecated but valid); login_audit + in-process (ip,username) lockout 5/15min→15min; 8h sliding permanent session; docs in DOCKER.md, API_INSTRUCTIONS.md, PROGRAM_DOCUMENTATION.md."
+      "updatedAt": 1788704029408,
+      "summary": "Phase 3 delivered and verified: unified login + roles + per-user module grants, werkzeug hashing with legacy rehash + scrub, CSRF everywhere, per-user API keys + audit, lockout, 8h sessions, Admin Users UI, landing auth gate + access-filtered menu, and the user-requested header/logout/Home fixes. Exit criteria met (single login, roles enforced per module, every POST CSRF-protected, no plaintext at rest)."
     },
     {
       "id": "card-a22cd307-a046-4204-adab-07a9cea46711",
       "title": "Architecture direction: evolve QP-CRM (no rewrite) + new-module roadmap",
-      "description": "Strategic direction agreed in session: EVOLVE, do not rewrite. Keep verbatim: pricing engine (category defaults, rounding rules, 3-level discount cascade), offer pipeline + WeasyPrint PDF engine (DB templates + live editor), rent PMT calculator + document placeholder engine, admin backup/restore, existing app_data/pricing.db data. Rebuild around them: 6 Flask instances → 1 app + blueprints (unified session/auth, kills duplicated helpers and six cookie realms), unified users/roles/CSRF (existing board card), CSRF + money-math tests. New-module sequence (dependencies drive order): 1) Unified customers module — new `customers` table, backfill from offers.client_* history + rent_clients; unblocker for everything else. 2) Predračuni/invoices from quotations — new invoices/invoice_items tables, own numbering series, cloned PDF template via existing engine (user: 'basically the same, cosmetic changes, separate files'). 3) Payment tracker — invoice status + payments table + running balance. 4) Stock (on-hand / ordered / in-transit / reserved-per-customer) LAST: reservations reference customers AND invoices, so build it after those exist. Infrastructure verdict: web app + Docker on one box, stay SQLite (5 concurrent users fine on WAL; Postgres = escape hatch, not needed now); PWA for desktop feel (add missing manifest + service worker). Remote access later: WireGuard/Tailscale or TLS reverse proxy after auth phase.",
+      "description": "Strategic direction agreed in session: EVOLVE, do not rewrite. Keep verbatim: pricing engine (category defaults, rounding rules, 3-level discount cascade), offer pipeline + WeasyPrint PDF engine (DB templates + live editor), rent PMT calculator + document placeholder engine, admin backup/restore, existing app_data/pricing.db data. Rebuild around them: 6 Flask instances → 1 app + blueprints (done, Phase 2), unified users/roles/CSRF (done, Phase 3). New-module sequence (dependencies drive order): 1) Unified customers module — new customers table, backfill from offers.client_* history + rent_clients; unblocker for everything else. 2) Predračuni/invoices from quotations — new invoices/invoice_items tables, own numbering series, cloned PDF template via existing engine (user: 'basically the same, cosmetic changes, separate files'). 3) Payment tracker — invoice status + payments table + running balance. 4) Stock (on-hand / ordered / in-transit / reserved-per-customer) LAST: reservations reference customers AND invoices, so build it after those exist. Infrastructure verdict: web app + Docker on one box, stay SQLite (5 concurrent users fine on WAL; Postgres = escape hatch, not needed now); PWA for desktop feel (manifest + service worker still missing — separate card). Remote access: decided = TLS reverse proxy (Caddy) — separate card.",
       "rationale": "User stated future modules (stock, unified customers, predračuni from quotations, payment tracker, ~30 users max 5 concurrent) and asked for the keep-vs-rewrite and web-vs-desktop verdicts. The verdict and sequencing constrain every future card, so it must survive sessions.",
       "rejected": "Full rewrite from zero — rejected: re-deriving verified business formulas (price cascade, PMT lease math, 3-level discounts) against live data is the highest-risk work and the existing PDF engine is the hardest part already built; user's own predračuni plan ('basically the same as quotation') reuses the offer pipeline. Desktop apps + central DB server — rejected: 30 client installs contradicts the ease-of-update goal, scatters DB credentials, and strands the server-side WeasyPrint pipeline; the PWA already gives the desktop feel. Postgres now — rejected: no load or multi-instance need at 5 concurrent users; migration deferred until a real trigger. Django migration — rejected: cost equals a rewrite; Flask blueprints + incremental structure preserve the investment.",
       "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
@@ -84,7 +84,7 @@
         "decision"
       ],
       "createdAt": 1788445110887,
-      "updatedAt": 1788445110887
+      "updatedAt": 1788705558116
     },
     {
       "id": "card-0c1a2e53-6b19-4f87-b76d-56c2dfcfecd4",
@@ -757,6 +757,175 @@
       "updatedAt": 1788652012780,
       "summary": "做了什么：SKIP_PULL=1 ./deploy.sh via sudo (docker access opened by the user's policy change): image rebuilt as qp-crm:phase3 with the four UI fixes, container qp-crm recreated and healthy (t+7s). Verified live: _nav.html include present in-container and used by 8 admin templates, admin_authenticated checks gone from rent_templates.py/backup.py (1 doc mention each), settings page serves href=\"/logout\", pricing base renders 'Home'. Anonymous HTTP check: /admin/rent/templates and /admin/backup_db now 302 to /login?next=<the requested page> (previously the endless /login?next=/admin/ loop), /login and /settings/ 200.",
       "rejected": "放弃了什么：editing code inside the running container (docker exec) — ephemeral, lost on the next recreate and drifts from git; and git pull in deploy.sh was skipped (SKIP_PULL=1) since the fixes are already local commits on this checkout."
+    },
+    {
+      "id": "card-c66cde16-fc78-4e02-b52a-0c6412447c38",
+      "title": "Default users removed — admin-only seeding (commit 4f3a2a1)",
+      "description": "SUPERSEDED by the executed change (commit 4f3a2a1 on phase-3-auth): instead of rotating the four seeded passwords, the default staff accounts were removed entirely — live DB deleted pricing/offer/rent users + their user_modules rows (backup: app_data/pricing.db.pre-default-user-removal.20260906-140914.bak), and production seeding (LEGACY_ACCOUNT_SEEDS in qp_crm/shared/auth.py) now creates ONLY the 'admin' bootstrap account, so boot/factory-restore never resurrects them. Live-verified over HTTP: pricing/offer/rent logins rejected, admin still logs in. Suite updated (conftest provisions staff accounts for tests; seed/factory-reset/restore tests pinned to admin-only contract) — 245 passed, 3 skipped. What REMAINS: rotate the admin seed password (Admin1) — tracked on its own open card with the how-to.",
+      "rationale": "Graded finding after Phase 3: committed default credentials still authenticated. User chose deletion over rotation ('no default users except admin; I will create all needed users').",
+      "rejected": "Rotating the four passwords in the UI — rejected by the user in favor of deleting the default staff accounts entirely; re-introducing forced first-login change — already retired during Phase 3 (admin-managed passwords chosen).",
+      "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "security",
+        "user-action"
+      ],
+      "createdAt": 1788699828314,
+      "updatedAt": 1788705558138,
+      "summary": "Default staff users (pricing/offer/rent) deleted from the live DB and from production seeding (admin-only bootstrap, commit 4f3a2a1); tests + docs updated; suite 245 passed."
+    },
+    {
+      "id": "card-8da58a54-adc3-4441-b12f-f32058080ca0",
+      "title": "Rotate admin seed password (Admin1) — ~1 min user action, how-to in description",
+      "description": "HOW-TO (user action, ~1 min): the only account is 'admin' and its password is STILL the committed default 'Admin1' — public knowledge (repo/README) and valid forever until changed, so anyone on the LAN can log in as full admin. Do it at the next deploy moment (works any time; the password lives in the DB users row, not in code). Steps: 1) login http://<host>:5000 as admin/Admin1; 2) Admin -> Users; 3) your own row: fill New password, confirm-own-password = Admin1; 4) Save, log out, log back in with the new password. Warning: single-admin system — no email reset exists; a forgotten password means an operator resets the DB hash or restores a backup, so store it in a password manager. There is no expiry/forced change; the guards only prevent deactivating/demoting the LAST active admin and yourself.",
+      "rationale": "The last committed default credential on the system — live until the admin changes it, and real users are about to be created.",
+      "rejected": "Code-side forced rotation on first boot — rejected: a 1-minute UI action only the owner should perform; keep the admin password an operator-managed secret.",
+      "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "security",
+        "user-action"
+      ],
+      "createdAt": 1788704049678,
+      "updatedAt": 1788705572910
+    },
+    {
+      "id": "card-8d931026-a81f-4753-9506-f96a80945e46",
+      "title": "nginx HTTPS + domain: app side done (7e71110) — configure nginx + .env, deploy",
+      "description": "APP SIDE DONE (commit 7e71110, suite 251 passed): app stays on its own port 5000; qp_crm/shared/tls.py reads QP_HTTPS_ONLY=1 -> ProxyFix (x_for/x_proto) + Secure qp_session cookie + PREFERRED_URL_SCHEME=https + HSTS on https responses; QP_PUBLIC_DOMAIN stored as config; docker-compose.yml published-port bind configurable via QP_APP_BIND (0.0.0.0 default -> 127.0.0.1 when nginx fronts it) plus both env vars; .env.example + DOCKER.md nginx recipe (server block, X-Forwarded-Proto required, client_max_body_size 25m, proxy_read_timeout 120s for WeasyPrint). USER SIDE REMAINING (nginx is on their machine): 1) point domain DNS at the server, forward 80/443; 2) create the nginx server block from DOCKER.md + certbot certs; 3) set in .env: QP_HTTPS_ONLY=1, QP_PUBLIC_DOMAIN=<domain>, QP_APP_BIND=127.0.0.1; 4) ./deploy.sh and test https. Verify Secure cookie in devtools + HSTS header (curl -I).",
+      "rationale": "User decided: app on its own port behind NGINX (their wording) that owns HTTPS + domain. App-side enabling work implemented and tested; the remaining steps are operator actions on the nginx host, so the card now tracks those with the DOCKER.md recipe as the reference.",
+      "rejected": "Caddy as the proxy — rejected by the user (nginx chosen). Tailscale/WireGuard VPN — user chose reverse proxy instead. Exposing :5000 to the LAN indefinitely — fine today, but QP_APP_BIND=127.0.0.1 removes even LAN exposure once nginx is live.",
+      "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "security",
+        "ops",
+        "nginx",
+        "user-action"
+      ],
+      "createdAt": 1788704049701,
+      "updatedAt": 1788709360035
+    },
+    {
+      "id": "card-f8f46bf4-a607-4c86-8044-dd024af79b84",
+      "title": "Phase 4 — In-app auto-backup feature (choose folder mount + interval + retention)",
+      "description": "MOVED TO PHASE 4 by user decision ('the backup will go to p4'). In-app auto-backup feature in Admin -> Settings: 'you select a folder and that's it'. Design: docker-compose adds ONE bind mount `./backups:/app/backups` (container can only write mounted paths — an arbitrary folder picker would silently back up to the ephemeral layer and vanish on rebuild). Feature: enable/disable, interval (daily at HH:MM or weekly), target folder chosen from writable mounted roots (default /backups), retention (keep last N), manual 'Backup now' + 'last backup <date> OK' readout. Engine: SQLite backup API (WAL-safe — never a raw file copy), retention cleanup, DB-guarded scheduler ('last run' row in global_settings + per-run lock) so the two gunicorn workers never double-fire. Tests: backup fn, retention math, scheduler with fake clock, CSRF on the UI. Complements (does NOT replace) the manual in-app backup download and a periodic restore drill.",
+      "rationale": "Backup automation is needed before/with Phase-4 data growth (invoices/payments/stock), and the user scheduled it into Phase 4 rather than as standalone pre-phase work.",
+      "rejected": "Host cron / sidecar container — user wants an in-app feature. Postgres/HA replication — overkill at 5 concurrent users. Unrestricted filesystem folder picker — rejected: container can only persist to bind mounts; must offer mounted writable roots only.",
+      "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "ops",
+        "backup",
+        "feature",
+        "phase-4"
+      ],
+      "createdAt": 1788704049720,
+      "updatedAt": 1788709360057
+    },
+    {
+      "id": "card-403beb21-a674-4c2b-b161-2198b9d57686",
+      "title": "Single source of truth for date_format (audit M4, cookie vs DB)",
+      "description": "Audit M4: date_format has two sources of truth — the global_settings 'date_format' row (admin setting) vs the per-browser 'date_format' cookie (settings app). Phase-2/3 consolidation removed most cookie/DB duplication but date formatting still consults the cookie first in some helpers (get_date_format reads DB then falls back to cookie; several route/context paths read the cookie directly). Pick ONE authority (recommend: global_settings for admins, cookie only as a per-device override if genuinely wanted) and make every format_date call path read the same source; add a characterization test for the chosen precedence.",
+      "rationale": "Known inconsistency from the audit that Phase 2 deliberately deferred; it produces user-visible surprises (a user's cookie setting silently ignored or overriding the company default depending on which page they are on).",
+      "rejected": "Keeping both with cookie-wins semantics — rejected: PDFs must be company-consistent, not per-browser, and golden-PDF tests need deterministic formatting.",
+      "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
+      "status": "in_progress",
+      "tags": [
+        "qp-crm",
+        "audit",
+        "debt",
+        "date-format"
+      ],
+      "createdAt": 1788704049737,
+      "updatedAt": 1788717111710
+    },
+    {
+      "id": "card-143c264c-ba28-4ec2-9ecd-8eaf5ff020b1",
+      "title": "UI/i18n debt: shared templates, translate hardcoded strings, a11y pass",
+      "description": "Post-Phase-2/3 the heavy duplication is gone (shared/web.py, single base layout per module via shared _nav includes) but real debt remains: (a) per-module base templates still carry duplicated header/nav/footer markup and scattered inline JS + <style> blocks; (b) hardcoded Serbian strings in routes/flash messages/validation (e.g. \"Pogrešna lozinka\", image-upload errors) sit next to the i18n dictionary — unify them through shared.utils TRANSLATIONS or a proper message catalog; (c) no accessibility pass (forms/buttons without labels, contrast, keyboard flow). Goal: consistent templates + zero untranslated UI strings + basic a11y, pinned by a few smoke assertions.",
+      "rationale": "Residual frontend debt from the B- UI grade: user-facing polish that shows up daily, and Phase-4 modules (customers/invoices/stock) will copy whatever template pattern exists today — so consolidate the pattern BEFORE new modules multiply it.",
+      "rejected": "Introducing a JS framework/SFC build (Vue/React) — rejected: server-rendered Jinja suits this workload; the cost/benefit at 30 users does not justify a frontend toolchain.",
+      "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
+      "status": "in_progress",
+      "tags": [
+        "qp-crm",
+        "ui",
+        "i18n",
+        "debt"
+      ],
+      "createdAt": 1788704065730,
+      "updatedAt": 1788717111743
+    },
+    {
+      "id": "card-01cba21c-0d76-4abc-97a3-5c2000f793e4",
+      "title": "Fix pytest cache_dir warning + add coverage gate on money-path services",
+      "description": "Suite currently reports `PytestConfigWarning: Unknown config option: cache_dir` (pytest.ini sets cache_dir for a plugin not installed on the host — pytest-cov or similar). Either add the plugin to dev-requirements so config matches, or drop the option. Separately: add pytest-cov with a threshold gate on the money paths (offer_service totals, pricing_service rounding, rent_service pmt/schedule, shared formatting) so the CI suite fails on coverage regression there; full-suite % is vanity — target the modules where regressions are expensive.",
+      "rationale": "Warning hygiene + the one real testing gap from the A- tests grade: no coverage tracking on the money modules, so new Phase-4 code paths could silently ship untested.",
+      "rejected": "A blanket 80% coverage gate over templates/routes — rejected: low-value busywork; the gate targets the business-logic services instead.",
+      "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
+      "status": "in_progress",
+      "tags": [
+        "qp-crm",
+        "testing",
+        "ci",
+        "debt"
+      ],
+      "createdAt": 1788704065753,
+      "updatedAt": 1788717111727
+    },
+    {
+      "id": "card-ec3ab09a-a2f7-4dbe-86c0-3e34d89dc549",
+      "title": "PWA: add manifest + static-only service worker, or correct FEATURES.md claim",
+      "description": "FEATURES.md claims 'Unified Progressive Web App (PWA)' but templates/landing.html has no manifest link and no service worker — Chrome installs a plain shortcut, no offline/app-shell behavior. Decide and do one of: (a) add a real manifest (icons from app_assets) + minimal service worker with cache-first for static assets and network-only for app routes — honest PWA, aligns with README's install guidance; or (b) correct the docs claim. (a) is recommended — it directly serves the 'desktop app feel' goal for the ~30 users with zero backend work.",
+      "rationale": "Doc-reality gap found during the codebase survey: the PWA claim is the one advertised feature that does not exist, and it is the cheapest remaining 'native feel' win for a browser-based multi-user rollout.",
+      "rejected": "Full offline-first data caching (service worker caching API responses) — rejected: risky with SQLite-backed server state; cache only static assets and never cache money/CRUD responses.",
+      "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
+      "status": "in_progress",
+      "tags": [
+        "qp-crm",
+        "pwa",
+        "docs",
+        "feature"
+      ],
+      "createdAt": 1788704065773,
+      "updatedAt": 1788721640125
+    },
+    {
+      "id": "card-6e1f3c64-6fdd-4721-9041-3c2afb1dfc4d",
+      "title": "Repo hygiene: merge phase branches into Dev, tag, remove root scratch files",
+      "description": "Repo hygiene pass: (a) merge the phase branches (phase-0-docker, phase-1-tests, phase-2-refactor, phase-3-auth) into Dev and tag git (v0.x/phase-N) — Dev is currently many commits behind every phase tip and 'main-line' is ambiguous; (b) delete root scratch files: test_*.py, measure_pdf_*.py, download_pdf_*.py, test.pdf/test_fillable.pdf/success.pdf, the 0-byte stray pricing.db, main.log; (c) gitignore *.bak and the app_data backup file created during default-user removal; (d) keep README_Images only if README links them. Zero behavior change; CI/suite must stay green.",
+      "rationale": "The repo root still carries pre-Phase-0 experimentation clutter and the branch topology makes 'current code' ambiguous for any future session or deploy; Phase 4 must start from an unambiguous main line.",
+      "rejected": "Rewriting git history (rebase/squash phases into one) — rejected: loses the per-phase handover record that the workflow depends on; fast-forward merges + tags preserve it.",
+      "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "repo",
+        "hygiene"
+      ],
+      "createdAt": 1788704065790,
+      "updatedAt": 1788704065790
+    },
+    {
+      "id": "card-19869125-fc2a-40ed-930a-e65bbe91fd66",
+      "title": "Docs refresh: README_API/FEATURES/API_INSTRUCTIONS auth + account sections",
+      "description": "Docs refresh after Phase 3 + the admin-only seeding change: (a) README_API.md still lists four per-app default passwords (Admin1/Price1/Offer1/Rent1) and per-app logins — stale: ONE unified login, ONLY admin auto-seeded, staff created by admin; (b) API_INSTRUCTIONS.md should state the global-key deprecation timeline and per-user key issuance (Admin -> API Keys); (c) FEATURES.md 'Role-based authentication' wording vs actual admin/staff + per-module grants; (d) PROGRAM_DOCUMENTATION.md routes sections updated by Phase-3 chat — spot-check consistency. Goal: a stranger (or the user in 6 months) can operate and extend from the docs alone.",
+      "rationale": "Multiple top-level docs now contradict the shipped auth model (four passwords vs one login, default staff accounts that no longer exist) — documentation drift is the recurring cost noticed in every survey; close it before Phase 4 grows the surface.",
+      "rejected": "Rewriting README_API/FEATURES wholesale — rejected: targeted account/login/API sections suffice; the files' feature descriptions remain accurate.",
+      "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
+      "status": "in_progress",
+      "tags": [
+        "qp-crm",
+        "docs",
+        "debt"
+      ],
+      "createdAt": 1788704065807,
+      "updatedAt": 1788717111760
     }
   ]
 }
