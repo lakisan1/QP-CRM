@@ -34,10 +34,14 @@ def get_theme():
 
 
 def get_date_format():
-    """Fetch the date_format setting: global_settings first, cookie fallback.
+    """Fetch the date_format setting. global_settings is the ONE source of
+    truth (audit M4): the admin dashboard writes the 'date_format' row and
+    every formatter (format_date filter, PDF contexts) reads it through
+    here, so output -- golden/PDF included -- is company-consistent.
 
-    Body is the verbatim pricing/app.py copy (offer/app.py carried a
-    byte-identical duplicate).
+    Defaults to 'YYYY-MM-DD' when the row is missing or the read fails.
+    The old per-browser 'date_format' cookie fallback is gone: a stale
+    cookie must not change formatting for a single machine.
     """
     try:
         conn = get_db()
@@ -50,7 +54,7 @@ def get_date_format():
     except Exception:
         pass
 
-    return request.cookies.get("date_format", "YYYY-MM-DD")
+    return "YYYY-MM-DD"
 
 
 def format_date_filter(date_str, fmt=None):
@@ -58,7 +62,7 @@ def format_date_filter(date_str, fmt=None):
 
     Unified on offer's superset signature (optional explicit format);
     pricing's copy was the 1-argument-only variant. Without an explicit fmt
-    the stored/cookie date-format preference applies.
+    the company-wide date format (global_settings.date_format) applies.
     """
     return format_date(date_str, fmt or get_date_format())
 

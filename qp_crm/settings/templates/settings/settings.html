@@ -32,21 +32,6 @@
             </p>
             <form method="post">
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
-                <p>
-                    <label style="font-weight: 500;">Format datuma:<br>
-                        <select name="date_format"
-                            style="width: 100%; padding: 8px; margin-top: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-main); border-radius: 4px;">
-                            <option value="YYYY-MM-DD" {% if current_date_format=='YYYY-MM-DD' %}selected{% endif %}>
-                                YYYY-MM-DD (Standard)</option>
-                            <option value="DD/MM/YYYY" {% if current_date_format=='DD/MM/YYYY' %}selected{% endif %}>
-                                DD/MM/YYYY</option>
-                            <option value="DD.MM.YYYY" {% if current_date_format=='DD.MM.YYYY' %}selected{% endif %}>
-                                DD.MM.YYYY</option>
-                            <option value="MM/DD/YYYY" {% if current_date_format=='MM/DD/YYYY' %}selected{% endif %}>
-                                MM/DD/YYYY</option>
-                        </select>
-                    </label>
-                </p>
                 <p style="margin-top: 15px;">
                     <label style="font-weight: 500;">Tema aplikacije:<br>
                         <select name="theme"
