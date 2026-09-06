@@ -26,7 +26,7 @@ This page contains a comprehensive list of all the features implemented in the Q
 - **Branding Personalization**: Upload custom system Favicons, Application Logos, and predefined Footer snippets for uniform branding on exported assets.
 - **Global Text & UI Presets**: Set unified system settings like default global VAT, delivery terms, standard payment texts, validity days, and application date formats.
 - **Integrated File Management Utility**: Execute cleanups to automatically prune orphaned product images and keep server assets trim.
-- **Role-based Authentication**: Password updates and gated accesses for the underlying Price, Offer, Rent, and Admin environments.
+- **Unified Accounts & Access Control**: One login for the whole app instead of per-app passwords — two roles (`admin` / `staff`), with per-module grants for staff (pricing / offer / rent / sale) ticked in Admin → Users while admins bypass the grants; every password change (including your own) is admin-managed in Admin → Users; CSRF tokens protect every state-changing form and AJAX request; per-user API keys with an audit log are issued in Admin → API Keys.
 - **Rent Template Administration**: Edit master HTML templates for all rental document types, manage email preset subject and body text with placeholder support, and configure default financial parameters (interest rate, insurance, guarantee, VAT, downpayment, salvage value, period).
 
 ## 📦 Rent Module (Equipment Leasing)
@@ -47,5 +47,5 @@ This page contains a comprehensive list of all the features implemented in the Q
 - **Unified Progressive Web App (PWA)**: Desktop installation support via Chrome, providing seamless native-feeling windows mapped to your server IP.
 - **Fast Deployments & Database Management**: Quick Linux deployment scripts (`run_apps.sh`) handling dependency management and instant auto-start servers.
 - **Backup & Restore System**: 1-click administrative utilities for executing comprehensive full-system backups (including databases, user-uploaded images, logos, assets) or restoring from legacy snapshots.
-- **Standalone Read-Only Instances**: Zero-login viewer modules for basic users to inspect live pricing out-of-the-box. 
+- **Read-Only Customer Pricelist**: The Sale app shows live pricing read-only (no editing); it is no longer anonymous — access is granted per user via the `sale` module checkbox in Admin → Users, and admins always have it.
 

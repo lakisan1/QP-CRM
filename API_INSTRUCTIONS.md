@@ -32,6 +32,28 @@ Two kinds of key are accepted (Phase 3):
 A key whose holding user has been deactivated is rejected (403) even though the
 key record itself still exists.
 
+### Getting a per-user key
+
+1. Log in as an **admin** and open **Admin → API Keys** (the *API Keys* link in
+   the Admin Panel header).
+2. Pick the user the key will act as (only active users are listed) and an
+   optional label, then click **Issue** and confirm with your own admin
+   password.
+3. Copy the key from the success message **immediately** — it is shown exactly
+   once; only its SHA-256 hash and a 12-character prefix (`abcdef123456…`) are
+   stored, so it can never be re-displayed.
+4. Send it in the `Authorization` header on every request:
+
+   ```
+   Authorization: Bearer <api_key>
+   ```
+
+   No CSRF token is needed: the API authenticates by this Bearer header, not by
+   a session cookie.
+5. Revoke or re-enable a key any time from the same page. Every authenticated
+   call is written to the API audit log attributed to the key's user, and
+   revoking the key (or deactivating its user) cuts access immediately.
+
 ---
 
 ## Endpoints
