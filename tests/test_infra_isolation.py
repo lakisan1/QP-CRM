@@ -26,7 +26,7 @@ def test_shared_db_reads_the_temp_database():
     import qp_crm.shared.config as config
 
     assert db.DATABASE == config.DATABASE
-    assert "/tmp/qp-crm-tests/" in db.DATABASE
+    assert (os.environ.get("QP_TEST_ROOT", "/tmp/qp-crm-tests") + "/") in db.DATABASE
 
 
 def test_temp_db_is_not_the_repo_db():

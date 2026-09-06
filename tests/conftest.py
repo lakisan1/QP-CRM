@@ -32,9 +32,10 @@ if PROJECT_ROOT not in sys.path:
 # FIXED test root -- deliberately NOT tempfile.mkdtemp(): WeasyPrint names
 # image XObjects 'i' + md5(their URL), so a random path would change the
 # golden PDF bytes on every run. /tmp is wiped with the container, so this
-# is fresh per `docker compose run` anyway. Consequence: do not run two
-# suites against the same image in parallel (they would share the path).
-TEST_ROOT = "/tmp/qp-crm-tests"
+# is fresh per `docker compose run` anyway. QP_TEST_ROOT overrides the path
+# (parallel agent runs on one host must not share one root); the default
+# stays fixed so golden-PDF determinism and container runs are unchanged.
+TEST_ROOT = os.environ.get("QP_TEST_ROOT", "/tmp/qp-crm-tests")
 if os.path.exists(TEST_ROOT):
     shutil.rmtree(TEST_ROOT)
 TEST_APP_DATA_DIR = os.path.join(TEST_ROOT, "app_data")
