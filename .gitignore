@@ -39,3 +39,7 @@ temp/
 # Markdown==3.10.2 is a pinned pip dependency since Phase 2 and nothing
 # references the vendored copy.
 deps/
+
+# Repo hygiene (wave3) - root scratch & backup litter
+*.bak
+app_data/*.pre-*
