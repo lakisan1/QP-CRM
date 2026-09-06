@@ -14,6 +14,26 @@ Run one file / one test:
     docker compose run --rm app pytest tests/characterization/test_pricing_rounding.py
     docker compose run --rm app pytest -k recalc_totals
 
+## Coverage gate (money-path services)
+
+CI runs the suite a second time with pytest-cov
+(`pytest-cov==7.1.0` in dev-requirements.txt) scoped to ONLY the three service
+modules that own the money math — deliberately NOT a full-suite gate. The
+module list lives in one place, the repo-root .coveragerc (`[run] source`), so
+the invocation is the bare `--cov`:
+
+    docker compose run --rm app pytest --cov --cov-fail-under=95 --cov-report=term-missing
+
+Measured against the full suite these modules sit at 100% / 96% / 100%
+(99% total — pricing_service's single missed line is an *unreachable* legacy
+`val <= 0` clamp, so 100% needs a production edit, not a test). The
+`--cov-fail-under=95` threshold was rounded down to the nearest 5 from that
+measurement so the gate trips on real regression only. Adding a new
+money-math module → add it to .coveragerc `[run] source` (nothing else). The
+.coveragerc also keeps coverage data in `/tmp/.coverage` because /app is
+root-owned read-only for the image's appuser (same reason pytest.ini puts the
+pytest cache in /tmp).
+
 ## What is covered
 
 | Area | File | Pins |

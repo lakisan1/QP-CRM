@@ -8,3 +8,10 @@
 #
 # Regenerate pins only deliberately, like requirements.txt.
 pytest==8.4.2
+# Coverage gate on the money-path services (qp_crm/services/*_service.py):
+# pytest-cov 7.1.0, configured by the .coveragerc at the repo root (its
+# [run] source lists the three money modules; [run] data_file keeps the
+# .coverage* files in /tmp for the read-only /app image context). The CI
+# coverage step runs bare: pytest --cov --cov-fail-under=95; dev runs stay
+# plain pytest (no --cov), so the plugin is inert without flags.
+pytest-cov==7.1.0
