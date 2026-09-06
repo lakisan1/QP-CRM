@@ -1,0 +1,18 @@
+# Agent Note: pwa-manifest-static-service-worker
+
+Status: implemented
+
+## Problem
+
+FEATURES.md advertised 'Unified Progressive Web App (PWA)' but templates/landing.html had no web-app manifest and no service worker, so Chrome could only create a plain shortcut — the claim was false and the cheapest remaining 'native feel' win for a browser-based ~30-user rollout was missing.
+
+## Decision
+
+Option (a) implemented (commit a7ed859, merged on Dev e54f88f): real PWA with static-only caching, zero backend work. static/manifest.webmanifest (name/short_name QP-CRM, start_url '/', scope '/', display standalone, background_color #121212 / theme_color #2d2d2d matching the dark-theme CSS variables, icons 192+512 image/png purpose 'any' served from /static/img/icon-*.png). Icons are derived deterministically from the tracked 640x640 brand favicon app_assets/favicon.png via Pillow LANCZOS (no new artwork; regenerate if branding is replaced). static/sw.js is a STATIC-ONLY service worker: versioned cache 'qp-crm-static-v1' precaches manifest+icons on install (skipWaiting), purges old qp-crm-static-* versions and clients.claim() on activate; cache-first ONLY for same-origin GET pathnames under /static/ (storing only ok+type 'basic' responses, 503 text fallback on offline miss — stale payloads are never served); every other same-origin request (HTML routes incl. /login, /api/v1, /app_assets) is left to the network and NEVER cached; non-GET and cross-origin requests are not intercepted at all. Money/CRUD/API traffic is therefore untouchable by the worker by construction. Registration lives only in templates/landing.html (manifest <link> + theme-color <meta> in <head>; inline register('/static/sw.js', {scope:'/'}) gated on 'serviceWorker' in navigator AND window.isSecureContext with console.info otherwise) because service workers require a secure context (HTTPS or localhost) and the app's default posture is plain-HTTP LAN — over LAN IP Chrome shows only a shortcut. scope '/' is mandatory or the worker would control only /static/*. tests/smoke/test_pwa.py (4 tests) pins manifest content-type application/manifest+json + installability fields + icon sizes, sw.js served as text/javascript with the static-only contract strings, and the logged-in landing page carrying the manifest link. FEATURES.md PWA bullet updated (orchestrator commit 49996f8) to the honest posture. Suite: 265 passed inside the docker image, 0 skipped.
+## Alternatives considered
+
+Option (b) — correct the docs claim instead of implementing: rejected because it abandons the only advertised 'desktop feel' win and the feature is nearly free once the nginx HTTPS posture (QP_HTTPS_ONLY, commit 7e71110) is live. Full offline-first data caching (SW caching API responses): rejected as risky with SQLite-backed server state — never cache money/CRUD/API responses, cache static assets only. Registering the SW from every base template instead of just landing.html: rejected as unnecessary (a registration from any page controls the whole origin for subsequent visits) and it would have expanded the blast radius into the UI/i18n agent's shared-template work running in parallel.
+## Consequences
+
+Install/offline activation only works over HTTPS or localhost — over the current plain-HTTP LAN deployment Chrome installs a shortcut, which FEATURES.md now states explicitly. The icons are a snapshot of the branding file: replacing app_assets/favicon.png requires regenerating static/img/icon-{192,512}.png (deterministic from source). CACHE_VERSION in sw.js is the manual lever: bump it when tracked static assets change materially or old versions linger. Follow-up when nginx HTTPS deployment happens (board card): verify installability in Chrome over the real domain.
+
