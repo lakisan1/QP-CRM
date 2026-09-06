@@ -75,7 +75,7 @@ Compare prices of products or different offers with different options and produc
 
 ### ⚙️ Admin Panel
 Full control over your system's global settings and security.
-- **Security Management**: Fast and easy password updates for all modules.
+- **User Management**: One login for the whole app. Create accounts and manage every password from **Admin → Users** — `staff` accounts get per-module access (pricing / offer / rent / sale), `admin` accounts open everything.
 - **Branding**: Customize your company logo and PDF templates.
 - **Default settings**: Set default settings for all modules like currency, date format, theme, etc.
 - **Text Presets**: Manage default text for delivery terms, notes, and more.
@@ -157,14 +157,30 @@ To get the latest version with new features and fixes:
 
 ---
 
-## 🔑 Default Credentials
+## 🔑 First Login & Accounts
 
-Use these passwords to log in for the first time:
+The whole app uses **one login** — there are no separate logins for the Admin,
+Pricing, Offer or Rent apps anymore. Open `http://<server-ip>:5000/login`
+(any module link sends you there and returns you to the page you wanted after
+login).
 
-- **Admin Panel**: `Admin1` (change all passwords from admin panel)
-- **Pricing App**: `Price1`
-- **Offer App**: `Offer1`
-- **Rent Module**: `Rent1`
+- **On a fresh install only one account exists: `admin`**, with the default
+  password **`Admin1`**. (If the legacy `admin_password` setting is present
+  in your database, that value is used instead of the default.) Log in and
+  **rotate this password immediately**.
+- **Create staff accounts in Admin → Users.** Every account has a role:
+  `admin` opens every module; `staff` opens only the modules granted to it
+  via the pricing / offer / rent / sale checkboxes on the user's row. Admins
+  bypass the checkboxes.
+- **All password changes happen in Admin → Users** — there is no self-service
+  "change my password" page. The admin sets a user's password from the user's
+  row (including your own row) and confirms the save with the current admin
+  password.
+- **Log out from the Settings page** (`/settings`) — the app headers carry no
+  logout button; the Settings page hosts the app's single logout control,
+  routed through the unified `/logout`.
+- **Sessions last 8 hours (sliding)** — the clock restarts on activity, so an
+  idle browser is logged out after 8 hours.
 
 ---
 

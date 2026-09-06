@@ -260,10 +260,11 @@ Upravlja ponudama, stavkama, PDF generisanjem, poređenjem proizvoda i email-om.
 
 ### 5.1 `sale/app.py`
 
-**Uloga:** Javni (read-only) cenovnik za klijente. Nema login, nema izmenu — samo prikaz.
+**Uloga:** Read-only cenovnik (prikaz tekućih cena) — nema izmenu, samo prikaz. Od v2 rollout-a NIJE više anoniman/javan: pristup zahteva prijavljen korisnički nalog sa grantom `sale` (Admin → Users); `admin` rola preskače proveru.
 
 **Kako radi:**
 - Dostupna pod prefiksom `/sale` (preko DispatcherMiddleware).
+- Gate: `bp.before_request(require_module("sale"))` — nema sesije → jedinstveni login sa `?next=`; staff bez granta → 403. Stari `/sale/login` i `/sale/logout` su redirecti na jedinstvene `/login` i `/logout`.
 - Koristi `shared` module i zajedničku bazu.
 - Funkcije:
   - `get_theme()` — čita temu iz cookie-ja (`theme`, default `dark`).
@@ -285,16 +286,12 @@ Upravlja ponudama, stavkama, PDF generisanjem, poređenjem proizvoda i email-om.
 
 ### 6.1 `settings/app.py`
 
-**Uloga:** Podešavanja aplikacije (jezik, format, kurs, itd.).
+**Uloga:** Podešavanja aplikacije na korisničkom nivou (tema, format datuma) — ista datoteka kao u sekciji 9.1; ovde je kratak pregled (tačan rad vidi u 9.1).
 
 **Kako radi:**
-- Dostupna pod prefiksom `/settings` (preko DispatcherMiddleware).
-- Čita/menja podešavanja u `global_settings` tabeli.
-- Verovatno koristi `shared` module (auth, utils, countries).
-- **Rute (pod `/settings`):**
-  - `/settings` — podešavanja
-  - login (zaštita)
-- Detalji zavise od sadržaja — pregledan je u delovima.
+- Dostupna pod prefiksom `/settings` (preko DispatcherMiddleware) — **javan** blueprint (nema role gate): podešavanja su per-browser cookie-ji, ne `global_settings` tabela.
+- Jedina ruta: `/settings/` (GET prikaz, POST čuva cookie-je i preusmerava na `/`); POST je zaštićen CSRF tokenom (i blueprint-lokalni `_csrf_token` i app-level `check_csrf` koriste isti session ključ).
+- Stara per-app "login (zaštita)" ne postoji — login je jedinstveni `/login` na vrhu (Phase 3); logout dugme UI je na ovoj stranici (jedino u celoj aplikaciji, vodi na `/logout`).
 
 ---
 
@@ -343,13 +340,12 @@ Upravlja ugovorima o zakupu, dokumentima, PDF šablonima i obračunom rata.
 
 **Kako radi:**
 - Dostupna pod prefiksom `/admin` (preko DispatcherMiddleware).
-- Zaštita: `check_auth()` (before_request) — sve osim `/login` i `static` zahteva `admin_authenticated` session.
+- Zaštita: `bp.before_request(require_role("admin"))` (Phase 3) — users red se ponovo čita iz baze na svaki zahtev; anonimus → jedinstveni login (`auth.login`, sa `?next=`), ulogovan ne-admin → 403. Stari `/admin/login` i `/admin/logout` su redirecti na jedinstvene `/login` / `/logout` (bookmarkovi ostaju živi).
 - Funkcije:
-  - `init_db()` — poziva: `init_presets_table`, `init_pdf_templates_table`, `init_rounding_rules_table`.
-  - `login()` / `logout()` — admin prijava/odjava (check_password("admin")).
+  - `init_db()` — poziva: `init_presets_table`, `init_pdf_templates_table`, `init_rounding_rules_table` + `init_users_table` (users šema/migracija, admin bootstrap seed, `seed_default_user_modules`, `scrub_legacy_password_keys`).
   - `index()` — admin dashboard (čita sva podešavanja iz `global_settings`).
   - `add_preset` / `delete_preset` / `set_default_preset` — presets (delivery/payment/note/extra).
-  - `update_passwords` — menja lozinke (admin/pricing/offer/rent), provera trenutnog admin passworda.
+  - `update_passwords` — LEGACY dashboard forma "Change Passwords" (polja za admin/pricing/offer/rent) koja piše u `users` preko `set_password`, uz potvrdu admin lozinke; kanonski put za sve promene lozinki je danas Admin → Users (nalozi pricing/offer/rent ne postoje po defaultu — postoji samo `admin`).
   - `upload_logo` / `upload_footer` / `upload_favicon` — otpremanje branding slika (logo se kopira i u `static/img` i `app_assets`).
   - `update_settings` — menja podešavanja (date_format, theme, jezik, vat, validnost, zemlja, email, items_per_page, mandatory fields, rent defaults).
   - `backup_db` / `restore_db` — backup/restore samo baze.
@@ -358,10 +354,12 @@ Upravlja ugovorima o zakupu, dokumentima, PDF šablonima i obračunom rata.
   - `list_pdf_templates` / `add_pdf_template` / `edit_pdf_template` / `delete_pdf_template` / `set_active_pdf_template` — PDF template-ovi (System Default je read-only).
   - `cleanup_images` — standardizuje imena slika proizvoda i briše orphaned fajlove.
   - `list_rounding_rules` / `add_rounding_rule` / `delete_rounding_rule` — pravila zaokruživanja cena.
-  - `api_key_generate` / `api_key_revoke` — upravljanje API ključem (zahteva admin password).
+  - `api_key_generate` / `api_key_revoke` — LEGACY globalni ključ (`global_settings.api_key`, DEPRECATED — tranzicija; vidi API_INSTRUCTIONS.md), zahteva admin password.
+  - (Phase 3) Korisnici: `list_users` / `create_user_action` / `save_user_action` (Admin → Users) — kreira/edituje naloge: active, rola (admin/staff), per-modul grantovi (pricing/offer/rent/sale), opcioni novi password; osetljive akcije traže admin-ovu sopstvenu lozinku (`confirm_current_password`), sa čuvarima (ne deaktiviraš sebe, ne smanjuješ sebi rolu, poslednji aktivni admin se ne dira).
+  - (Phase 3) Per-user API ključevi: `list_api_keys` / `issue_api_key_action` / `toggle_api_key_action` (Admin → API Keys) — ključ vezan za korisnika; raw se prikazuje tačno jednom; revoke/re-enable; sve pod require_role("admin") + CSRF + potvrda admin lozinke.
   - `admin_rent_templates` / `admin_rent_template_edit` — editor rent master template-a (u bazi `rent_templates`).
 - **Rute (pod `/admin`):**
-  - `/login`, `/logout`
+  - `/login`, `/logout` — redirecti na jedinstveni `/login` / `/logout` (Phase 3)
   - `/` — dashboard
   - `/add_preset`, `/delete_preset`, `/set_default_preset`
   - `/update_passwords`
@@ -373,7 +371,9 @@ Upravlja ugovorima o zakupu, dokumentima, PDF šablonima i obračunom rata.
   - `/pdf_templates`, `/add_pdf_template`, `/edit_pdf_template/<id>`, `/delete_pdf_template`, `/set_active_pdf_template`
   - `/cleanup_images`
   - `/rounding_rules`, `/add_rounding_rule`, `/delete_rounding_rule`
-  - `/api_key/generate`, `/api_key/revoke`
+  - `/users`, `/users/create`, `/users/<id>/save` — Admin → Users (Phase 3)
+  - `/api_keys`, `/api_keys/issue`, `/api_keys/<id>/toggle` — Admin → API Keys (Phase 3, per-user)
+  - `/api_key/generate`, `/api_key/revoke` — legacy globalni ključ (DEPRECATED)
   - `/rent/templates`, `/rent/templates/<slug>`
 - **Factory reset:** čisti tabela: products, prices, offers, offer_items, brands, category_pricing_defaults, text_presets, price_rounding_rules, rent_clients, rent_equipment, rent_contracts, rent_contract_documents, rent_templates; resetuje PDF templates (čuva System Default); resetuje global_settings na podrazumevane; re-seed rent templates; briše slike; restaura branding iz `app_assets/defaults`.
 
@@ -424,18 +424,23 @@ Upravlja ugovorima o zakupu, dokumentima, PDF šablonima i obračunom rata.
 na glavnoj aplikaciji (`main.py` registruje auth blueprint na vrhu); stara
 self-service `/change-password` strana je UKLONJENA — promena lozinke je
 isključivo u Admin → Users. Stari per-app login URL-ovi (`/pricing/login`
-itd.) su sada redirecti na jedinstveni login. Jedan cookie `qp_session` (path=/, HttpOnly,
+itd.) su sada redirecti na jedinstveni login (sa bezbednim `?next=` —
+`safe_next_url` prihvata samo same-site apsolutne putanje, nema open redirect).
+U UI ne postoji logout dugme u headerima — jedino logout dugme cele aplikacije
+je na Podešavanja stranici (`/settings`), koje vodi na `/logout`. Jedan cookie `qp_session` (path=/, HttpOnly,
 SameSite=Lax); login radi **session.clear()** pre upisa identiteta (zaštita od
 session fixation) i postavlja `session.permanent = True` — sesija ističe posle
 8h neaktivnosti (`PERMANENT_SESSION_LIFETIME` u `main.py`; cookie se osvežava
 na svaki zahtev, pa 8h sat kreće iznova dok korisnik radi).
 
-**Role i čuvanje ruta (`shared/web.py`):** `require_role(*roles)` je
-before_request hook po blueprintu — admin → `"admin"`, pricing/offer/rent →
-`"staff", "admin"` (admin je superset), sale/settings javni (read-only /
-CSRF-zaštićeni), `/api/v1/health` javan. Hook **ponovo čita users red iz baze
-na svaki zahtev**: deaktivacija ili promena role pogađa korisnika odmah;
-sale je od v2 rollout-a takođe gated po korisniku (`require_module("sale")`).
+**Role i čuvanje ruta (`shared/web.py`):** before_request hook-ovi po
+blueprintu — `require_role("admin")` na admin blueprintu i
+`require_module(module)` na pricing/offer/rent/sale (staff mora imati grant
+za taj modul; `admin` rola je superset i preskače grant proveru); settings je
+javan (POST je CSRF-zaštićen), `/api/v1/health` javan. Hook-ovi **ponovo
+čitaju users red iz baze na svaki zahtev**: deaktivacija, promena role ili
+opoziv modula pogađaju korisnika odmah (sale nije javan od v2 rollout-a —
+gated po korisniku, `require_module("sale")`).
 
 **CSRF (Phase 3 step 5):** `shared/web.py` drži opšti mehanizam
 (`csrf_token()`, `check_csrf()` — form polje `_csrf_token` ili header
