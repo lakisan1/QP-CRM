@@ -52,6 +52,14 @@ from datetime import timedelta
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=8)
 app.config['SESSION_REFRESH_EACH_REQUEST'] = True
 
+# TLS / reverse-proxy posture (user decision: nginx fronts the app on its own
+# port). QP_HTTPS_ONLY=1 -> Secure cookie + https scheme + HSTS + ProxyFix;
+# QP_PUBLIC_DOMAIN -> advertised domain metadata (must match nginx
+# server_name). Both env vars default OFF/empty, preserving today's
+# plain-HTTP LAN behavior exactly (see qp_crm/shared/tls.py).
+from qp_crm.shared.tls import configure_app, wrap_wsgi  # noqa: E402
+configure_app(app)
+
 # Unified login (Phase 3 step 3): ONE /login + /logout for the whole stack on
 # the top-level app. The per-module login pages now redirect here (their
 # bookmarks keep working); the per-module session flags are replaced by the
@@ -141,8 +149,9 @@ from qp_crm.shared.web import format_date_filter, render_markdown
 app.add_template_filter(format_date_filter, 'format_date')
 app.add_template_filter(render_markdown, 'md')
 
-# The WSGI callable is now the single Flask app itself.
-application = app
+# The WSGI callable is now the single Flask app itself — wrapped in
+# ProxyFix when QP_HTTPS_ONLY=1 (see qp_crm/shared/tls.py).
+application = wrap_wsgi(app)
 
 if __name__ == "__main__":
     from werkzeug.serving import run_simple

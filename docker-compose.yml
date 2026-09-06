@@ -22,11 +22,21 @@ services:
     image: qp-crm:phase3
     container_name: qp-crm
     ports:
-      - "5000:5000"
+      # The app stays on its OWN port (5000). QP_APP_BIND defaults to
+      # 0.0.0.0 (LAN can reach :5000 directly). Once nginx fronts the app,
+      # set QP_APP_BIND=127.0.0.1 in .env: :5000 is then reachable only
+      # from this host (through nginx :80/:443), never from the LAN.
+      - "${QP_APP_BIND:-0.0.0.0}:5000:5000"
     env_file:
       - .env
     environment:
       TZ: "Europe/Belgrade"
+      # TLS / nginx reverse proxy (see .env.example): set QP_HTTPS_ONLY=1
+      # ONLY when the app sits behind the nginx TLS proxy — the app then
+      # trusts X-Forwarded-* (ProxyFix), marks qp_session Secure and sends
+      # HSTS. QP_PUBLIC_DOMAIN must match nginx server_name.
+      QP_HTTPS_ONLY: "${QP_HTTPS_ONLY:-0}"
+      QP_PUBLIC_DOMAIN: "${QP_PUBLIC_DOMAIN:-}"
     volumes:
       # SQLite databases (app_data/pricing.db, WAL mode) + product images.
       - ./app_data:/app/app_data

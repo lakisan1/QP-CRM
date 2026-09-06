@@ -133,6 +133,47 @@ an API audit log (the shared global API key is deprecated but still works);
 login audit log + in-process lockout (5 failed attempts / 15 min per
 IP+username pair → 15 min lockout).
 
+## nginx reverse proxy (HTTPS + domain) — decided
+
+The app keeps its OWN port **5000**; nginx owns 80/443 with the domain and
+TLS. Set in `.env` (see `.env.example`):
+
+```
+QP_HTTPS_ONLY=1          # behind the TLS proxy: ProxyFix + Secure cookie + HSTS
+QP_PUBLIC_DOMAIN=crm.example.com   # must match nginx server_name
+QP_APP_BIND=127.0.0.1    # :5000 now reachable ONLY through nginx
+```
+
+Minimal nginx server block (certbot/Let's Encrypt issues the certs):
+
+```nginx
+server {
+    listen 80;
+    server_name crm.example.com;
+    return 301 https://$host$request_uri;      # http -> https
+}
+server {
+    listen 443 ssl;
+    server_name crm.example.com;
+    ssl_certificate     /etc/letsencrypt/live/crm.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/crm.example.com/privkey.pem;
+
+    client_max_body_size 25m;                 # product-photo uploads
+    location / {
+        proxy_pass http://127.0.0.1:5000;     # QP_APP_BIND=127.0.0.1
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;   # REQUIRED (ProxyFix)
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_read_timeout 120s;              # WeasyPrint PDFs render slowly
+    }
+}
+```
+
+Without `X-Forwarded-Proto: https`, the app cannot tell it is behind TLS
+(no ProxyFix effect, HSTS never fires). `QP_HTTPS_ONLY=1` with the app
+still reached over plain http makes the Secure cookie invisible to the
+browser — the toggle means https-only by definition.
+
 ## Quick reference
 
 ```bash
