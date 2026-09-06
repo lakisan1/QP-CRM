@@ -834,7 +834,7 @@
       "rationale": "Known inconsistency from the audit that Phase 2 deliberately deferred; it produces user-visible surprises (a user's cookie setting silently ignored or overriding the company default depending on which page they are on).",
       "rejected": "Keeping both with cookie-wins semantics — rejected: PDFs must be company-consistent, not per-browser, and golden-PDF tests need deterministic formatting.",
       "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
-      "status": "in_progress",
+      "status": "done",
       "tags": [
         "qp-crm",
         "audit",
@@ -842,7 +842,8 @@
         "date-format"
       ],
       "createdAt": 1788704049737,
-      "updatedAt": 1788717111710
+      "updatedAt": 1788723387721,
+      "summary": "global_settings is the ONE source of truth for date_format (commit bb0b699, merged on Dev e54f88f). get_date_format() reads only the DB row (default YYYY-MM-DD on missing/error); the per-browser date_format cookie fallback deleted; /settings no longer reads/writes the cookie and its date-format select removed (Admin -> Default Settings is the single editor). New characterization test pins DB-wins precedence with a stale cookie present. Docs (PROGRAM_DOCUMENTATION 9.1, tests/README) updated. Suite 262 passed, 3 skipped. Theme stays cookie-based (out of scope)."
     },
     {
       "id": "card-143c264c-ba28-4ec2-9ecd-8eaf5ff020b1",
@@ -851,7 +852,7 @@
       "rationale": "Residual frontend debt from the B- UI grade: user-facing polish that shows up daily, and Phase-4 modules (customers/invoices/stock) will copy whatever template pattern exists today — so consolidate the pattern BEFORE new modules multiply it.",
       "rejected": "Introducing a JS framework/SFC build (Vue/React) — rejected: server-rendered Jinja suits this workload; the cost/benefit at 30 users does not justify a frontend toolchain.",
       "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
-      "status": "in_progress",
+      "status": "done",
       "tags": [
         "qp-crm",
         "ui",
@@ -859,7 +860,8 @@
         "debt"
       ],
       "createdAt": 1788704065730,
-      "updatedAt": 1788717111743
+      "updatedAt": 1788723387756,
+      "summary": "UI/i18n debt pass (5 commits 53980f7..2a11688, merged): ONE shared banner macro templates/_banner.html now renders the nav shell for all module bases + settings + admin _nav (nav_home.html single consumer); ~120 hardcoded Serbian route/template strings routed through TRANSLATIONS/_() (123 new sr entries; typo normalization); a11y basics on login/lists/forms (label for, aria-label on placeholder-only searches, th scope=col, html lang, role=alert); 4 smoke pins incl. sr-mode rendering. PDF/WeasyPrint templates, landing.html, JS-prompt bodies deliberately untouched (do-not-churn). One merge conflict with datefmt's settings.html resolution kept M4 removal. Suite 262 passed, 3 skipped."
     },
     {
       "id": "card-01cba21c-0d76-4abc-97a3-5c2000f793e4",
@@ -868,7 +870,7 @@
       "rationale": "Warning hygiene + the one real testing gap from the A- tests grade: no coverage tracking on the money modules, so new Phase-4 code paths could silently ship untested.",
       "rejected": "A blanket 80% coverage gate over templates/routes — rejected: low-value busywork; the gate targets the business-logic services instead.",
       "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
-      "status": "in_progress",
+      "status": "done",
       "tags": [
         "qp-crm",
         "testing",
@@ -876,7 +878,8 @@
         "debt"
       ],
       "createdAt": 1788704065753,
-      "updatedAt": 1788717111727
+      "updatedAt": 1788723387740,
+      "summary": "cache_dir warning root-caused + documented (commits 08004f3, c93191a): cache_dir is a core pytest option registered by the built-in cacheprovider plugin — the historical 'Unknown config option' warning only appears when an invocation disables that plugin (-p no:cacheprovider); nothing does, runs are warning-free, config kept + comment forbidding the two bad 'cures'. Coverage gate added: pytest-cov==7.1.0 in dev-requirements, .coveragerc scopes [run] source to qp_crm/services/{offer,pricing,rent}_service (money math only; data_file /tmp), CI step 'pytest --cov --cov-fail-under=95'; measured 99.2% (offer 100/pricing 96/rent 100 — pricing's 1 miss is an unreachable dead clamp). Suite 262 passed, 3 skipped."
     },
     {
       "id": "card-ec3ab09a-a2f7-4dbe-86c0-3e34d89dc549",
@@ -885,7 +888,7 @@
       "rationale": "Doc-reality gap found during the codebase survey: the PWA claim is the one advertised feature that does not exist, and it is the cheapest remaining 'native feel' win for a browser-based multi-user rollout.",
       "rejected": "Full offline-first data caching (service worker caching API responses) — rejected: risky with SQLite-backed server state; cache only static assets and never cache money/CRUD responses.",
       "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
-      "status": "in_progress",
+      "status": "done",
       "tags": [
         "qp-crm",
         "pwa",
@@ -893,7 +896,8 @@
         "feature"
       ],
       "createdAt": 1788704065773,
-      "updatedAt": 1788721640125
+      "updatedAt": 1788723387791,
+      "summary": "PWA claim made real (commit a7ed859, merged): static/manifest.webmanifest (name QP-CRM, standalone, dark colors #121212/#2d2d2d, 192+512 icons derived deterministically from the tracked favicon via Pillow), static/sw.js static-only service worker (cache-first ONLY for /static/* GET, network-only for HTML/api/app_assets, never caches money/CRUD/API, versioned qp-crm-static-v1, 503 fallback on offline static miss), landing.html manifest link + theme-color meta + secure-context-gated registration (scope '/'); 4 smoke tests. FEATURES.md PWA bullet updated (orchestrator commit 49996f8) to the honest posture: install/offline need HTTPS or localhost. Suite 262 passed, 3 skipped."
     },
     {
       "id": "card-6e1f3c64-6fdd-4721-9041-3c2afb1dfc4d",
@@ -902,14 +906,15 @@
       "rationale": "The repo root still carries pre-Phase-0 experimentation clutter and the branch topology makes 'current code' ambiguous for any future session or deploy; Phase 4 must start from an unambiguous main line.",
       "rejected": "Rewriting git history (rebase/squash phases into one) — rejected: loses the per-phase handover record that the workflow depends on; fast-forward merges + tags preserve it.",
       "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
-      "status": "todo",
+      "status": "done",
       "tags": [
         "qp-crm",
         "repo",
         "hygiene"
       ],
       "createdAt": 1788704065790,
-      "updatedAt": 1788704065790
+      "updatedAt": 1788723387805,
+      "summary": "Repo hygiene done: phase branches (phase-0-docker/1-tests/2-refactor/3-auth incl. all small-task merges) fast-forward-merged into Dev (now e54f88f, once ancestor); tags phase-1/phase-2/phase-3 added (phase-0 + v1.0.0 existed) at each phase tip; 19 root scratch files deleted after reference checks (download_pdf*.py, measure_pdf*.py, test_dests*.py, test_pdf_flask.py, test_weasy.py, test.pdf, test_fillable.pdf, success.pdf, 0-byte pricing.db) — commit fb6a3d0; .gitignore += *.bak and app_data/*.pre-*; README_Images kept (referenced by README_API.md); main.log covered by *.log; agent worktrees/branches removed. Suite 262 passed, 3 skipped. Nothing pushed (user decides origin)."
     },
     {
       "id": "card-19869125-fc2a-40ed-930a-e65bbe91fd66",
@@ -918,14 +923,15 @@
       "rationale": "Multiple top-level docs now contradict the shipped auth model (four passwords vs one login, default staff accounts that no longer exist) — documentation drift is the recurring cost noticed in every survey; close it before Phase 4 grows the surface.",
       "rejected": "Rewriting README_API/FEATURES wholesale — rejected: targeted account/login/API sections suffice; the files' feature descriptions remain accurate.",
       "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
-      "status": "in_progress",
+      "status": "done",
       "tags": [
         "qp-crm",
         "docs",
         "debt"
       ],
       "createdAt": 1788704065807,
-      "updatedAt": 1788717111760
+      "updatedAt": 1788723387775,
+      "summary": "Docs refresh (commits 34d672d + 8b60ad2, merged): README_API.md now documents ONE unified login + admin-only bootstrap (four per-app default passwords and per-app logins removed); API_INSTRUCTIONS.md gained per-user API key how-to (Admin -> API Keys, Bearer auth, no CSRF needed, global key deprecated-but-working); FEATURES.md auth bullet rewritten to admin/staff + per-module grants and false 'zero-login viewer' Sale claim corrected; PROGRAM_DOCUMENTATION.md auth/account sections spot-fixed (sale 5.1, settings 6.1, admin 8.1, section 11). Verified against code before writing. Flagged: PROGRAM_DOCUMENTATION sections 1-10 still describe the pre-Phase-2 six-app shape — structural rewrite out of scope (follow-up noted)."
     }
   ]
 }
