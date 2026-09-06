@@ -2,6 +2,21 @@
 # the deployment uses, exactly like the local gate:
 #   docker compose build app && docker compose run --rm app pytest
 #
+# Two pytest steps:
+#   1. "Run pytest suite" — the plain full suite (the canonical one-command
+#      run; PytestConfigWarning-free — see the cache_dir note in pytest.ini).
+#   2. "Coverage gate (money-path services)" — the SAME suite measured with
+#      pytest-cov over ONLY the three service modules that own the money math
+#      (qp_crm.services.offer_service / pricing_service / rent_service; the
+#      module list lives in the repo-root .coveragerc [run] source). Fails the
+#      build when their combined statement coverage drops below
+#      --cov-fail-under=95. Threshold derivation is in .coveragerc: full-suite
+#      measurement was 100% / 96% / 100% (99% total — pricing_service has one
+#      unreachable legacy clamp line), rounded down to the nearest 5 so the
+#      gate trips only on real regression.
+#      Coverage data lands in /tmp/.coverage (.coveragerc [run] data_file)
+#      because /app is root-owned read-only for the image's appuser.
+#
 # The compose file requires .env (env_file is mandatory); CI generates a
 # throwaway .env with random secrets — tests run against a throwaway fixture
 # DB in /tmp inside the container, never real data, and the values only sign
@@ -36,3 +51,8 @@ jobs:
 
       - name: Run pytest suite
         run: docker compose run --rm app pytest
+
+      # Money-path coverage gate — separate step so the plain suite above
+      # stays the canonical one-command run (no --cov overhead for it).
+      - name: Coverage gate (money-path services)
+        run: docker compose run --rm app pytest --cov --cov-fail-under=95 --cov-report=term-missing
