@@ -5,6 +5,10 @@
     <meta charset="UTF-8">
     <title>Izbor Aplikacije</title>
     <link rel="icon" type="image/png" href="/app_assets/favicon.png">
+    <!-- PWA (installable app window): manifest + browser theme matching the
+         dark theme CSS variables (--bg-body #121212 / --nav-bg #2d2d2d). -->
+    <link rel="manifest" href="/static/manifest.webmanifest">
+    <meta name="theme-color" content="#2d2d2d">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
@@ -146,6 +150,22 @@
             {% endif %}
         </div>
     </div>
+
+    <!-- PWA: register the static-only service worker (cache-first for
+         /static assets; everything else network-only). Service workers are
+         unavailable outside a secure context (HTTPS / localhost) -- over
+         plain HTTP on a LAN IP Chrome ignores it, so skip quietly there. -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            if (window.isSecureContext) {
+                navigator.serviceWorker.register('/static/sw.js', { scope: '/' })
+                    .then(function () { console.info('[PWA] service worker registered (scope /).'); })
+                    .catch(function (err) { console.warn('[PWA] service worker registration failed:', err); });
+            } else {
+                console.info('[PWA] service workers unavailable: not a secure context (use HTTPS or localhost).');
+            }
+        }
+    </script>
 </body>
 
 </html>

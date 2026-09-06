@@ -1,0 +1,25 @@
+{
+  "name": "QP-CRM",
+  "short_name": "QP-CRM",
+  "description": "QP-CRM — unified pricing, offers, sales and equipment-leasing CRM",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#121212",
+  "theme_color": "#2d2d2d",
+  "icons": [
+    {
+      "src": "/static/img/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/img/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
