@@ -88,13 +88,18 @@
                         <td>
                             <strong>{{ user.username }}</strong>{% if user.id == current_user_id %} <small style="color: var(--text-muted);">(you)</small>{% endif %}<br>
                             <small style="color: var(--text-muted);">{{ user.role }}</small>
-                            {% if user.id != current_user_id %}
-                            {# One form per user row: the inputs in the other cells join it via the HTML5 form= attribute, so ONE Save button applies apps + active + role + optional new password. #}
+                            {# One form per user row (OWN ROW INCLUDED — the own-row
+                               Save button + password fields in the last cell join
+                               this form via the HTML5 form= attribute; without the
+                               element the own-row Save would have no form to
+                               submit and the click would do nothing). The inputs
+                               in the other cells join it the same way, so ONE
+                               Save button applies apps + active + role + optional
+                               new password. #}
                             <form id="user-form-{{ user.id }}" action="{{ url_for('admin.save_user_action', user_id=user.id) }}" method="POST">
                                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                                 {% if user.role == 'staff' %}<input type="hidden" name="has_modules" value="1">{% endif %}
                             </form>
-                            {% endif %}
                         </td>
                         <td>
                             {% if user.role == 'admin' %}

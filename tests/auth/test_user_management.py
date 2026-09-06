@@ -328,6 +328,37 @@ def test_admin_reset_requires_own_password(admin):
 
 # ------------------------------------------------------- retired self-service
 
+def test_own_row_save_has_a_real_form_element(admin):
+    """Regression: the own row's Save button must submit a real <form>.
+
+    The template renders one <form id="user-form-{id}"> per user ROW and the
+    Save button + password inputs join it via the HTML5 form= attribute. A
+    Phase-3 regression wrapped that form element in
+    {% if user.id != current_user_id %}, so the OWN row's Save referenced a
+    form id that did not exist and the browser submitted nothing -- the admin
+    could not change their own password (reported: "clicking save does
+    nothing"). Pin that every rendered row id (own included) has exactly one
+    matching <form id> on the page, and that the own-row endpoint accepts a
+    password change."""
+    own_id = _uid("admin")
+    resp = admin.get("/admin/users")
+    body = resp.data.decode()
+    # the own row's Save button and password fields point at user-form-{own_id}
+    assert f'form="user-form-{own_id}"' in body
+    # and that form element must actually exist on the page
+    assert f'<form id="user-form-{own_id}"' in body
+    # the full flow: changing your own password via the row endpoint works
+    resp = _post(admin, f"/admin/users/{own_id}/save", {
+        "current_password": DEFAULT_PASSWORDS["admin"],
+        "new_password": "Admin-Temp-Pass-1",
+    })
+    assert resp.status_code == 302
+    assert check_password("admin", "Admin-Temp-Pass-1")
+    # restore the seeded default so later tests keep authenticating
+    _reset_user("admin")
+    assert check_password("admin", DEFAULT_PASSWORDS["admin"])
+
+
 def test_self_service_change_password_page_is_removed():
     """The /change-password page is GONE: password changes happen only in
     Admin -> Users, where the admin sets a working password directly."""
