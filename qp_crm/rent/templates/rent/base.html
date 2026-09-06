@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="sr" data-theme="{{ theme|default('dark') }}">
+<html lang="{{ current_lang|default('sr') }}" data-theme="{{ theme|default('dark') }}">
 <head>
     <meta charset="utf-8">
     <title>{% block title %}Zakup{% endblock %} – QP-CRM</title>
@@ -12,20 +12,12 @@
 </head>
 <body>
 {% if not pdf_mode %}
-<nav>
-    <div class="nav-links">
-        <a href="{{ url_for('rent.list_contracts') }}" {% if request.endpoint=='rent.list_contracts' %}class="active"{% endif %}>Ugovori</a>
-        <a href="{{ url_for('rent.list_clients') }}"   {% if request.endpoint=='rent.list_clients'   %}class="active"{% endif %}>Klijenti</a>
-        <a href="{{ url_for('rent.list_equipment') }}" {% if request.endpoint=='rent.list_equipment' %}class="active"{% endif %}>Oprema</a>
-    </div>
-    <div class="nav-right">
-        {% include 'nav_home.html' %}
-        <div class="nav-logo-container">
-            <img src="{{ url_for('static', filename='img/logo_company.jpg') }}" alt="Logo" class="nav-logo">
-        </div>
-    </div>
-</nav>
-<hr>
+{% from '_banner.html' import banner with context %}
+{% call banner() %}
+    <a href="{{ url_for('rent.list_contracts') }}" {% if request.endpoint=='rent.list_contracts' %}class="active"{% endif %}>Ugovori</a>
+    <a href="{{ url_for('rent.list_clients') }}"   {% if request.endpoint=='rent.list_clients'   %}class="active"{% endif %}>Klijenti</a>
+    <a href="{{ url_for('rent.list_equipment') }}" {% if request.endpoint=='rent.list_equipment' %}class="active"{% endif %}>Oprema</a>
+{% endcall %}
 {% endif %}
 {% block content %}{% endblock %}
 {% if not pdf_mode %}
