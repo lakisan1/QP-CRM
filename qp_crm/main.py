@@ -141,11 +141,23 @@ def inject_i18n():
 
 app.context_processor(inject_i18n)
 
+# Theme: ONE app-level injection point for the per-browser 'theme' cookie
+# (default 'dark', set for 1y on /settings). get_theme() reads the cookie
+# directly, so it works for pre-login pages (auth/login) and for every
+# blueprint that renders its own templates (offer had no processor of its
+# own, which left /offer screens stuck on the dark fallback). The module
+# blueprints that still register their own processor keep injecting the
+# same value -- harmless, identical cookie read.
+def inject_theme():
+    return dict(theme=get_theme())
+
+app.context_processor(inject_theme)
+
 # App-wide template filters (Phase 2 stage 2): one shared 'format_date'
 # (offer's superset signature: fmt optional, falls back to the stored
 # date-format preference) and one shared 'md' (pricing/offer copies were
 # identical). Previously each app registered its own copy on its own env.
-from qp_crm.shared.web import format_date_filter, render_markdown
+from qp_crm.shared.web import format_date_filter, get_theme, render_markdown
 app.add_template_filter(format_date_filter, 'format_date')
 app.add_template_filter(render_markdown, 'md')
 

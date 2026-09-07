@@ -162,8 +162,9 @@ def update_settings():
     if date_fmt:
         cur.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES ('date_format', ?);", (date_fmt,))
     
-    if theme:
-        cur.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES ('theme', ?);", (theme,))
+    # Theme is NOT stored in global_settings anymore: it is a per-browser
+    # cookie (single store -- shared/web.get_theme). The dashboard Theme
+    # select below sets the same cookie /settings sets.
         
     # Checkbox: if present = "true", if missing = "false"
     allow_dup_val = "true" if allow_dup == "true" else "false"
@@ -229,9 +230,17 @@ def update_settings():
     
     flash("Settings updated.", "success")
     redirect_to = request.form.get("redirect_to")
-    if redirect_to:
-        return redirect(redirect_to)
-    return redirect(url_for("admin.index"))
+    resp = redirect(redirect_to) if redirect_to else redirect(url_for("admin.index"))
+    if theme:
+        # Same cookie contract as /settings (settings/app.py): 1-year,
+        # path=/, httponly, Lax. secure mirrors SETTINGS_SECURE_COOKIES.
+        resp.set_cookie(
+            "theme", theme,
+            max_age=60 * 60 * 24 * 365, path="/",
+            httponly=True, samesite="Lax",
+            secure=os.environ.get("SETTINGS_SECURE_COOKIES", "0") == "1",
+        )
+    return resp
 
 # ─────────────────────────────────────────────────────────────────────────────
 # API Key Management

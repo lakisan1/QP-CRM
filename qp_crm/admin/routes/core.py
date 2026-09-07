@@ -4,6 +4,7 @@ from flask import render_template, redirect, url_for
 import time
 
 from ..app import bp, get_db, get_api_key, get_country_list, fetch_mandatory_fields, fetch_rent_defaults, DEFAULT_RENT_EMAIL
+from qp_crm.shared.web import get_theme
 
 @bp.route("/login", methods=["GET", "POST"])
 def login():
@@ -26,9 +27,11 @@ def index():
     row = cur.fetchone()
     current_date_format = row["value"] if row else "YYYY-MM-DD"
 
-    cur.execute("SELECT value FROM global_settings WHERE key = 'theme';")
-    row = cur.fetchone()
-    current_theme = row["value"] if row else "dark"
+    # Theme is a per-browser cookie (the single store; /settings and the
+    # dashboard Theme select write it). The old global_settings 'theme' row
+    # is no longer read anywhere -- dashboard renders the cookie exactly
+    # like every other screen page.
+    current_theme = get_theme()
     
     cur.execute("SELECT value FROM global_settings WHERE key = 'allow_duplicate_names';")
     row = cur.fetchone()
