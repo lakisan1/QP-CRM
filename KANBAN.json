@@ -794,24 +794,6 @@
       "updatedAt": 1788709360035
     },
     {
-      "id": "card-f8f46bf4-a607-4c86-8044-dd024af79b84",
-      "title": "Phase 4 — In-app auto-backup feature (choose folder mount + interval + retention)",
-      "description": "MOVED TO PHASE 4 by user decision ('the backup will go to p4'). In-app auto-backup feature in Admin -> Settings: 'you select a folder and that's it'. Design: docker-compose adds ONE bind mount `./backups:/app/backups` (container can only write mounted paths — an arbitrary folder picker would silently back up to the ephemeral layer and vanish on rebuild). Feature: enable/disable, interval (daily at HH:MM or weekly), target folder chosen from writable mounted roots (default /backups), retention (keep last N), manual 'Backup now' + 'last backup <date> OK' readout. Engine: SQLite backup API (WAL-safe — never a raw file copy), retention cleanup, DB-guarded scheduler ('last run' row in global_settings + per-run lock) so the two gunicorn workers never double-fire. Tests: backup fn, retention math, scheduler with fake clock, CSRF on the UI. Complements (does NOT replace) the manual in-app backup download and a periodic restore drill.",
-      "rationale": "Backup automation is needed before/with Phase-4 data growth (invoices/payments/stock), and the user scheduled it into Phase 4 rather than as standalone pre-phase work.",
-      "rejected": "Host cron / sidecar container — user wants an in-app feature. Postgres/HA replication — overkill at 5 concurrent users. Unrestricted filesystem folder picker — rejected: container can only persist to bind mounts; must offer mounted writable roots only.",
-      "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
-      "status": "todo",
-      "tags": [
-        "qp-crm",
-        "ops",
-        "backup",
-        "feature",
-        "phase-4"
-      ],
-      "createdAt": 1788704049720,
-      "updatedAt": 1788709360057
-    },
-    {
       "id": "card-403beb21-a674-4c2b-b161-2198b9d57686",
       "title": "Single source of truth for date_format (audit M4, cookie vs DB)",
       "description": "Audit M4: date_format has two sources of truth — the global_settings 'date_format' row (admin setting) vs the per-browser 'date_format' cookie (settings app). Phase-2/3 consolidation removed most cookie/DB duplication but date formatting still consults the cookie first in some helpers (get_date_format reads DB then falls back to cookie; several route/context paths read the cookie directly). Pick ONE authority (recommend: global_settings for admins, cookie only as a per-device override if genuinely wanted) and make every format_date call path read the same source; add a characterization test for the chosen precedence.",
@@ -916,6 +898,23 @@
       "createdAt": 1788704065807,
       "updatedAt": 1788723387775,
       "summary": "Docs refresh (commits 34d672d + 8b60ad2, merged): README_API.md now documents ONE unified login + admin-only bootstrap (four per-app default passwords and per-app logins removed); API_INSTRUCTIONS.md gained per-user API key how-to (Admin -> API Keys, Bearer auth, no CSRF needed, global key deprecated-but-working); FEATURES.md auth bullet rewritten to admin/staff + per-module grants and false 'zero-login viewer' Sale claim corrected; PROGRAM_DOCUMENTATION.md auth/account sections spot-fixed (sale 5.1, settings 6.1, admin 8.1, section 11). Verified against code before writing. Flagged: PROGRAM_DOCUMENTATION sections 1-10 still describe the pre-Phase-2 six-app shape — structural rewrite out of scope (follow-up noted)."
+    },
+    {
+      "id": "card-1e440fa4-1472-4dca-b1c9-2e42676a4e46",
+      "title": "P4 — Deals spine: deals + timeline + customers + link to offers",
+      "description": "New `deals` table (single-thread case per customer request) + `deal_events` timeline (calls, emails, notes, meetings) + customers unified from offer clients and rent_clients. Deals link to existing offers via deal_id column on offers. Status derived from linked documents (won = accepted offer/invoice exists; paid = payments cover pro-forma) — hand-set status only for \"new\". Replaces the old CRM + ticketing thread tracking.",
+      "rationale": "User confirmed Customer+Offer+Invoice is the first release; the deal spine is the design rule that prevents CRM-rot (everything else hangs off it as a linked document). Existing offers/offer_items/pdf_templates/clients schema is reusable; only the deal link layer is new.",
+      "rejected": "Full history import from old CRM/ticketing — user chose \"Fresh start\" (customers + active work re-entered manually). Full analytics ETL import of old 9k documents was also rejected for phase 1 — historical stats stay in MH fin analitike clean_data db_v2.sqlite.",
+      "sourceSessionId": "session-7383d563-60ad-4303-be85-68798dd7746b",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "deals",
+        "phase-4",
+        "plan"
+      ],
+      "createdAt": 1788771414300,
+      "updatedAt": 1788771414300
     }
   ]
 }
