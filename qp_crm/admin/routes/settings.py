@@ -252,11 +252,11 @@ def api_key_generate():
     current_admin_pass = request.form.get("current_admin_password")
     if not check_password("admin", current_admin_pass):
         flash("Invalid Admin Password.", "error")
-        return redirect(url_for("admin.index"))
+        return redirect(url_for("admin.list_api_keys"))
 
-    new_key = generate_api_key()
-    flash(f"New API key generated.", "success")
-    return redirect(url_for("admin.index"))
+    generate_api_key()
+    flash("New API key generated.", "success")
+    return redirect(url_for("admin.list_api_keys"))
 
 @bp.route("/api_key/revoke", methods=["POST"])
 def api_key_revoke():
@@ -264,8 +264,8 @@ def api_key_revoke():
     current_admin_pass = request.form.get("current_admin_password")
     if not check_password("admin", current_admin_pass):
         flash("Invalid Admin Password.", "error")
-        return redirect(url_for("admin.index"))
+        return redirect(url_for("admin.list_api_keys"))
 
     revoke_api_key()
     flash("API key revoked. All existing API integrations will stop working.", "warning")
-    return redirect(url_for("admin.index"))
+    return redirect(url_for("admin.list_api_keys"))

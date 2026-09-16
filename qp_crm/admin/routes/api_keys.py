@@ -11,7 +11,7 @@ transition but is deprecated -- see API_INSTRUCTIONS.md.
 
 from flask import flash, redirect, render_template, request, session, url_for
 
-from ..app import bp
+from ..app import bp, get_api_key
 from qp_crm.shared.auth import (
     confirm_current_password,
     issue_user_api_key,
@@ -34,13 +34,16 @@ def _guard_sensitive():
 
 @bp.route("/api_keys")
 def list_api_keys():
-    """Keys overview + issue form (user dropdown)."""
+    """Keys overview + issue form (user dropdown) + legacy global key card."""
     conn = get_db()
     users = conn.execute(
         "SELECT id, username, role FROM users WHERE is_active = 1 ORDER BY username ASC;"
     ).fetchall()
     conn.close()
-    return render_template("admin/api_keys.html", keys=list_user_api_keys(), users=users)
+    api_key_value = get_api_key()
+    return render_template("admin/api_keys.html", keys=list_user_api_keys(), users=users,
+                           api_key_value=api_key_value,
+                           api_key_exists=api_key_value is not None)
 
 
 @bp.route("/api_keys/issue", methods=["POST"])

@@ -25,9 +25,9 @@ Two kinds of key are accepted (Phase 3):
    issue time — store it in your integration immediately; it cannot be
    re-displayed (only a `abcdef123456…` prefix is kept for identification).
 2. **The legacy global key — DEPRECATED.** The shared key from
-   **Admin Panel → API Key Management** still works during the transition, but
-   it identifies nobody in the audit log and will be retired in a later phase.
-   Migrate integrations to per-user keys.
+   **Admin Panel → API Keys → Legacy Global API Key** still works during the
+   transition, but it identifies nobody in the audit log and will be retired in
+   a later phase. Migrate integrations to per-user keys.
 
 A key whose holding user has been deactivated is rejected (403) even though the
 key record itself still exists.

@@ -3,7 +3,7 @@
 from flask import render_template, redirect, url_for
 import time
 
-from ..app import bp, get_db, get_api_key, get_country_list, fetch_mandatory_fields, fetch_rent_defaults, DEFAULT_RENT_EMAIL
+from ..app import bp, get_db, get_country_list, fetch_mandatory_fields, fetch_rent_defaults, DEFAULT_RENT_EMAIL
 from qp_crm.shared.web import get_theme
 
 @bp.route("/login", methods=["GET", "POST"])
@@ -89,9 +89,9 @@ def index():
     # Fetch mandatory fields settings (shared reader)
     mandatory_fields = fetch_mandatory_fields(cur)
 
-    # API Key info
-    api_key_value = get_api_key()
-    api_key_exists = api_key_value is not None
+    # API key management lives exclusively in Admin -> API Keys
+    # (/admin/api_keys) -- the dashboard no longer renders the legacy
+    # global-key panel, so the key values are not fetched here anymore.
 
     conn.close()
 
@@ -114,7 +114,5 @@ def index():
         rent_defaults=rent_defaults,
         rent_email_preset=rent_email_preset,
         timestamp=int(time.time()),
-        theme=current_theme,
-        api_key_exists=api_key_exists,
-        api_key_value=api_key_value
+        theme=current_theme
     )
