@@ -9,6 +9,7 @@ from qp_crm.pricing.app import init_db as pricing_init_db, migrate_schema as pri
 from qp_crm.offer.app import init_db as offer_init_db, bp as offer_bp
 from qp_crm.admin.app import init_db as admin_init_db, bp as admin_bp
 from qp_crm.rent.app import init_db as rent_init_db, bp as rent_bp
+from qp_crm.deals.app import init_db as deals_init_db, bp as deals_bp
 from qp_crm.settings.app import bp as settings_bp
 from qp_crm.sale.app import bp as sale_bp
 from qp_crm.pricing.api_v1 import api_v1
@@ -95,6 +96,10 @@ app.register_blueprint(rent_bp, url_prefix="/rent")
 # Last module port -- DispatcherMiddleware is gone from here on.
 app.register_blueprint(admin_bp, url_prefix="/admin")
 
+# Deals module blueprint (Phase 4): the deals spine (customers, locations,
+# deals threads, pipeline) at /deals, per-user grant 'deals'.
+app.register_blueprint(deals_bp, url_prefix="/deals")
+
 # CSRF on ALL state-changing routes (Phase 3 step 5): the settings app's
 # per-session token pattern generalized into shared/web.py and wired once at
 # the app level -- every POST/PUT/PATCH/DELETE on every blueprint (auth,
@@ -175,6 +180,7 @@ if __name__ == "__main__":
     offer_init_db()
     admin_init_db()
     rent_init_db()
+    deals_init_db()
 
     # We use run_simple to run the WSGI application
     # This replaces app.run() for the combined app

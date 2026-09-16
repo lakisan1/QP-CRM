@@ -1,0 +1,74 @@
+{% extends "deals/base.html" %}
+{% block title %}{{ customer.name }}{% endblock %}
+
+{% block content %}
+<h1>{{ customer.name }}</h1>
+
+<div style="display: flex; gap: 10px; margin-bottom: 16px;">
+    <a href="{{ url_for('deals.edit_customer', customer_id=customer.id) }}" class="btn btn-primary">Izmeni</a>
+    <a href="{{ url_for('deals.new_deal', customer=customer.id) }}" class="btn btn-success">Novi posao</a>
+    <form method="post" action="{{ url_for('deals.archive_customer', customer_id=customer.id) }}" onsubmit="return confirm('{{ 'Vratiti kupca u aktivne?' if customer.archived else 'Arhivirati kupca? (ne može se obrisati, samo arhivirati)' }}');">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="archive" value="{{ '0' if customer.archived else '1' }}">
+        <button type="submit" class="btn btn-warning">{{ 'Vrati u aktivne' if customer.archived else 'Arhiviraj' }}</button>
+    </form>
+</div>
+
+<div class="card">
+    <h2>Podaci</h2>
+    <table class="larg-table">
+        <tr><th>PIB</th><td>{{ customer.pib or '—' }}</td></tr>
+        <tr><th>MB</th><td>{{ customer.mb or '—' }}</td></tr>
+        <tr><th>Faktura adresa</th><td>{{ customer.billing_address or '—' }}{% if customer.city %}, {{ customer.city }}{% endif %}{% if customer.country %}, {{ customer.country }}{% endif %}</td></tr>
+        <tr><th>eMail</th><td>{{ customer.email or '—' }}</td></tr>
+        <tr><th>Telefon</th><td>{{ customer.phone or '—' }}</td></tr>
+        {% if customer.notes %}<tr><th>Beleške</th><td>{{ customer.notes | md | safe }}</td></tr>{% endif %}
+    </table>
+</div>
+
+<div class="card">
+    <h2>Lokacije (radionice / sajtovi)</h2>
+    <table class="larg-table">
+        <tr>
+            <th scope="col">Naziv</th>
+            <th scope="col">Adresa</th>
+            <th scope="col">Kontakt</th>
+            <th scope="col">Izmeni</th>
+        </tr>
+        {% for l in locations %}
+        <tr>
+            <td><strong>{{ l.name }}</strong></td>
+            <td>{{ l.address or '' }}{% if l.city %}, {{ l.city }}{% endif %}</td>
+            <td>{{ l.contact_name or '' }}{% if l.contact_phone %} ({{ l.contact_phone }}){% endif %}</td>
+            <td>
+                <form method="post" action="{{ url_for('deals.edit_location', location_id=l.id) }}" style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <input type="text" name="name" value="{{ l.name }}" required style="width: 140px;">
+                    <input type="text" name="address" value="{{ l.address or '' }}" placeholder="Adresa" style="width: 160px;">
+                    <input type="text" name="contact_name" value="{{ l.contact_name or '' }}" placeholder="Kontakt" style="width: 110px;">
+                    <button type="submit" class="btn btn-sm btn-primary">Sačuvaj</button>
+                </form>
+            </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" style="color: var(--text-muted);">Nema dodatih lokacija — radovi se vode na glavnoj adresi.</td></tr>
+        {% endfor %}
+    </table>
+
+    <h3 style="margin-top: 16px;">Dodaj lokaciju</h3>
+    <form method="post" action="{{ url_for('deals.create_location', customer_id=customer.id) }}" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end;">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <label>Naziv:<br><input type="text" name="name" required></label>
+        <label>Adresa:<br><input type="text" name="address"></label>
+        <label>Grad:<br><input type="text" name="city"></label>
+        <label>Kontakt osoba:<br><input type="text" name="contact_name"></label>
+        <label>Kontakt telefon:<br><input type="text" name="contact_phone"></label>
+        <button type="submit" class="btn btn-success">Dodaj</button>
+    </form>
+</div>
+
+<div class="card">
+    <h2>Poslovi</h2>
+    {% include 'deals/_deal_table.html' %}
+</div>
+{% endblock %}

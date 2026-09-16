@@ -1,0 +1,50 @@
+{% extends "deals/base.html" %}
+{% block title %}Kupci{% endblock %}
+
+{% block content %}
+<h1>Kupci</h1>
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <p style="margin: 0;"><a href="{{ url_for('deals.new_customer') }}" class="btn btn-success">Novi kupac</a></p>
+    <div style="display: flex; gap: 12px; align-items: flex-end;">
+        <form method="get" action="{{ url_for('deals.list_customers') }}" style="display: flex; gap: 8px; align-items: flex-end;">
+            {% if show_archived %}<input type="hidden" name="archived" value="1">{% endif %}
+            <label style="display: flex; flex-direction: column;">
+                <span style="font-size: 14px;">Pretraga (naziv, PIB, MB, grad):</span>
+                <input type="text" name="search" value="{{ search or '' }}">
+            </label>
+            <button type="submit" class="btn btn-primary">Pretraži</button>
+        </form>
+        <a href="{{ url_for('deals.list_customers', archived=(0 if show_archived else 1)) }}" class="btn btn-secondary">
+            {{ 'Samo aktivni' if show_archived else 'Prikaži arhivirane' }}
+        </a>
+    </div>
+</div>
+
+<div class="card">
+    <table class="larg-table">
+        <tr>
+            <th scope="col">Naziv</th>
+            <th scope="col">PIB</th>
+            <th scope="col">MB</th>
+            <th scope="col">Grad</th>
+            <th scope="col">Telefon / eMail</th>
+            <th scope="col">Poslovi</th>
+            <th scope="col">Status</th>
+        </tr>
+        {% for c in customers %}
+        <tr {% if c.archived %}style="opacity: 0.55;"{% endif %}>
+            <td><a href="{{ url_for('deals.view_customer', customer_id=c.id) }}"><strong>{{ c.name }}</strong></a></td>
+            <td>{{ c.pib or '' }}</td>
+            <td>{{ c.mb or '' }}</td>
+            <td>{{ c.city or '' }}</td>
+            <td>{{ c.phone or '' }}{% if c.email %}<br><small>{{ c.email }}</small>{% endif %}</td>
+            <td><a href="{{ url_for('deals.list_deals', customer=c.id) }}">{{ c.deal_count if c.deal_count is defined else '—' }}</a></td>
+            <td>{{ 'Arhiviran' if c.archived else 'Aktivan' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" style="text-align: center; color: var(--text-muted);">Nema kupaca — dodajte prvog.</td></tr>
+        {% endfor %}
+    </table>
+</div>
+{% endblock %}

@@ -64,7 +64,7 @@ import pytest  # noqa: E402
 def temp_db():
     """The throwaway DB path, after the production init sequence ran on it.
 
-    Same order as main.py's __main__ block and wsgi.py. All five inits are
+    Same order as main.py's __main__ block and wsgi.py. All six inits are
     idempotent and seed deterministic defaults (rounding rules, "System
     Default" PDF template, rent templates from rent_templates_defaults.json).
     """
@@ -72,12 +72,14 @@ def temp_db():
     from qp_crm.offer.app import init_db as offer_init_db
     from qp_crm.admin.app import init_db as admin_init_db
     from qp_crm.rent.app import init_db as rent_init_db
+    from qp_crm.deals.app import init_db as deals_init_db
 
     pricing_init_db()
     pricing_migrate_schema()
     offer_init_db()
     admin_init_db()
     rent_init_db()
+    deals_init_db()
     return TEST_DATABASE
 
 
@@ -209,6 +211,16 @@ def csrf_token_for(client):
 def offer_client(temp_db):
     """Flask test client for the offer module, pre-authenticated through the
     unified login as the seeded 'offer' (staff) account."""
+    from qp_crm.main import app
+
+    return login_client(app.test_client(), "offer")
+
+
+@pytest.fixture(scope="session")
+def deals_client(temp_db):
+    """Flask test client pre-authenticated as the seeded 'offer' (staff)
+    account -- usable for deals pages too, since provision_staff_accounts
+    grants every current module (incl. 'deals', v3 rollout)."""
     from qp_crm.main import app
 
     return login_client(app.test_client(), "offer")

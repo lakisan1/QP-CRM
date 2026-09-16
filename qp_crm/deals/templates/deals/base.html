@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="{{ current_lang|default('en') }}" data-theme="{{ theme|default('dark') }}">
+
+<head>
+    <meta charset="utf-8">
+    <title>{% block title %}Deals{% endblock %}</title>
+    <link rel="icon" type="image/png" href="/app_assets/favicon.png">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+    <style>
+        .status-badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .status-new {
+            background: #3498db;
+            color: white;
+        }
+
+        .status-offered {
+            background: #f39c12;
+            color: white;
+        }
+
+        .status-won {
+            background: #2ecc71;
+            color: white;
+        }
+
+        .status-closed {
+            background: #95a5a6;
+            color: white;
+        }
+
+        .timeline {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .timeline li {
+            padding: 10px 0 10px 18px;
+            border-left: 2px solid var(--border-color);
+            margin-left: 8px;
+        }
+
+        .timeline li .event-meta {
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        .pipeline-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+        }
+
+        @media (max-width: 900px) {
+            .pipeline-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .pipeline-col .card {
+            min-height: 120px;
+        }
+    </style>
+</head>
+
+<body>
+    {% from '_banner.html' import banner with context %}
+    {% call banner() %}
+        <a href="{{ url_for('deals.list_deals') }}" {% if request.endpoint in ('deals.list_deals', 'deals.view_deal', 'deals.new_deal') %}class="active"{% endif %}>Poslovi</a>
+        <a href="{{ url_for('deals.list_customers') }}" {% if request.endpoint in ('deals.list_customers', 'deals.view_customer', 'deals.new_customer', 'deals.edit_customer') %}class="active"{% endif %}>Kupci</a>
+        <a href="{{ url_for('deals.pipeline') }}" {% if request.endpoint == 'deals.pipeline' %}class="active"{% endif %}>Pipeline</a>
+    {% endcall %}
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div style="max-width: 1250px; margin: 10px auto; padding: 0 16px;">
+            {% for category, message in messages %}
+            <div class="alert alert-{{ 'error' if category == 'error' else 'success' }}"
+                style="padding: 10px; border-radius: 4px; margin-bottom: 8px; background: {{ '#e74c3c' if category == 'error' else '#2ecc71' }}; color: white;">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    {% endwith %}
+
+    <div style="max-width: 1250px; margin: 0 auto; padding: 0 16px;">
+        {% block content %}{% endblock %}
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            document.querySelectorAll('.searchable-select').forEach((el) => {
+                new TomSelect(el, {
+                    create: false,
+                    sortField: { field: "text", direction: "asc" }
+                });
+            });
+        });
+    </script>
+</body>
+
+</html>

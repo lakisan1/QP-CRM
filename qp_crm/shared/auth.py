@@ -542,13 +542,15 @@ def count_active_admins():
 # on the next boot (users.modules_set stores the last seed version seen).
 # ----------
 
-MODULE_CHOICES = ("pricing", "offer", "rent", "sale")
+MODULE_CHOICES = ("pricing", "offer", "rent", "sale", "deals")
 
 # v1: the original pricing/offer/rent rollout. v2: sale joined the
 # per-user list (it was public before and every staff account could open
 # it, so the v2 rollout grants it to existing materialized staff).
-MODULE_INTRODUCED = {"pricing": 1, "offer": 1, "rent": 1, "sale": 2}
-CURRENT_MODULE_VERSION = 2
+# v3: deals joined (Phase 4 deals spine) -- same exactly-once grant to
+# existing materialized staff accounts on the next boot.
+MODULE_INTRODUCED = {"pricing": 1, "offer": 1, "rent": 1, "sale": 2, "deals": 3}
+CURRENT_MODULE_VERSION = 3
 
 
 def get_user_modules(user_id):

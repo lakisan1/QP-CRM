@@ -1,0 +1,78 @@
+{% extends "deals/base.html" %}
+{% block title %}{{ 'Izmeni kupca' if customer else 'Novi kupac' }}{% endblock %}
+
+{% block content %}
+<h1>{{ 'Izmeni kupca' if customer else 'Novi kupac' }}</h1>
+
+{% if error %}
+<div class="alert alert-error" style="background: #e74c3c; color: white; padding: 10px; border-radius: 4px; margin-bottom: 20px;">
+    {{ error }}
+</div>
+{% endif %}
+
+<div class="card">
+    <form method="post">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <div class="grid-3-col">
+            <div>
+                <h2>Osnovni podaci</h2>
+                <p>
+                    <label>Naziv (firma):<br>
+                        <input type="text" name="name" required class="long-input" value="{{ customer.name if customer else '' }}">
+                    </label>
+                </p>
+                <p>
+                    <label>PIB:<br>
+                        <input type="text" name="pib" class="long-input" value="{{ customer.pib if customer else '' }}">
+                    </label>
+                </p>
+                <p>
+                    <label>MB:<br>
+                        <input type="text" name="mb" class="long-input" value="{{ customer.mb if customer else '' }}">
+                    </label>
+                </p>
+                <p>
+                    <label>Grad:<br>
+                        <input type="text" name="city" class="long-input" value="{{ customer.city if customer else '' }}">
+                    </label>
+                </p>
+                <p>
+                    <label>Država:<br>
+                        <input type="text" name="country" class="long-input" value="{{ customer.country if customer else 'Srbija' }}">
+                    </label>
+                </p>
+            </div>
+            <div>
+                <h2>Faktura podaci</h2>
+                <p>
+                    <label>Faktura adresa:<br>
+                        <input type="text" name="billing_address" class="long-input" value="{{ customer.billing_address if customer else '' }}">
+                    </label>
+                </p>
+                <p>
+                    <label>eMail:<br>
+                        <input type="text" name="email" class="long-input" value="{{ customer.email if customer else '' }}" placeholder="email1@test.com; email2@test.com">
+                    </label>
+                </p>
+                <p>
+                    <label>Telefon:<br>
+                        <input type="text" name="phone" class="long-input" value="{{ customer.phone if customer else '' }}">
+                    </label>
+                </p>
+            </div>
+            <div>
+                <h2>Beleške</h2>
+                <p>
+                    <label>Note:<br>
+                        <textarea name="notes" rows="8">{{ customer.notes if customer else '' }}</textarea>
+                    </label>
+                </p>
+            </div>
+        </div>
+        <div class="form-actions" style="margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 20px; display: flex; gap: 15px;">
+            <button type="submit" class="btn btn-success">Sačuvaj</button>
+            <a href="{{ url_for('deals.view_customer', customer_id=customer.id) if customer else url_for('deals.list_customers') }}" class="btn btn-secondary">Nazad</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

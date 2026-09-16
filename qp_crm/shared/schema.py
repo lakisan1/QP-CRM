@@ -437,6 +437,102 @@ def create_users_table(cur):
 
 
 # ---------------------------------------------------------------------------
+# deals module tables (Phase 4 — the deals spine)
+# ---------------------------------------------------------------------------
+
+def create_deals_tables(cur):
+    """customers, customer_locations, deal_counters, deals, deal_events.
+
+    Three-level party model (blueprint §2, note amendments 1/6):
+      customer (who pays) -> location (where work happens) -> deal (the thread).
+    Conventions applied here (blueprint §4):
+      * names resolved at read time -- callers JOIN customers/locations by id,
+        nothing stores another entity's name as its key;
+      * NO deletes -- customers archive (archived=1), locations and deals
+        stay (no workflow ever deletes a deal row);
+      * statuses are NOT stored -- derived in deal_service from linked
+        documents + events;
+      * deal code D-YYYY-NNN is UNIQUE (it is the human reference in emails)
+        and comes from the per-year deal_counters row (global per-year
+        sequence, per blueprint §5 numbering rule).
+    """
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS customers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            pib TEXT, mb TEXT,
+            billing_address TEXT, city TEXT, country TEXT,
+            email TEXT, phone TEXT,
+            notes TEXT,
+            created_at TEXT,
+            archived INTEGER DEFAULT 0
+        );
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS customer_locations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            customer_id INTEGER NOT NULL REFERENCES customers(id),
+            name TEXT,
+            address TEXT, city TEXT,
+            contact_name TEXT, contact_phone TEXT,
+            notes TEXT
+        );
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS deal_counters (
+            year INTEGER PRIMARY KEY,
+            last_number INTEGER NOT NULL DEFAULT 0
+        );
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS deals (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            code TEXT UNIQUE,
+            customer_id INTEGER NOT NULL REFERENCES customers(id),
+            location_id INTEGER REFERENCES customer_locations(id),
+            title TEXT NOT NULL,
+            owner_user_id INTEGER REFERENCES users(id),
+            created_at TEXT,
+            closed_at TEXT
+        );
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS deal_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            deal_id INTEGER NOT NULL REFERENCES deals(id),
+            event_type TEXT NOT NULL,
+            author_user_id INTEGER REFERENCES users(id),
+            body TEXT,
+            linked_doc_type TEXT,
+            linked_doc_id INTEGER,
+            created_at TEXT
+        );
+    """)
+
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_deals_customer ON deals(customer_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_deals_code ON deals(code);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_deal_events_deal ON deal_events(deal_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_customer_locations_customer ON customer_locations(customer_id);")
+
+
+def migrate_deals(cur):
+    """Deals-side idempotent migrations (Phase 4).
+
+    offers gain deal_id/location_id (blueprint §2: offers keep working,
+    gain the link columns). Legacy databases ALTERed on boot; fresh
+    canonical CREATEs carry the columns already via migrate_offer_tables.
+    """
+    add_column_if_missing(cur, "offers", "deal_id INTEGER REFERENCES deals(id)")
+    add_column_if_missing(cur, "offers", "location_id INTEGER REFERENCES customer_locations(id)")
+
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_offers_deal_id ON offers(deal_id);")
+
+
+# ---------------------------------------------------------------------------
 # idempotent ALTER migrations
 # ---------------------------------------------------------------------------
 
@@ -583,6 +679,13 @@ def migrate_offer_tables(cur):
     add_column_if_missing(cur, "offers", "total_net_after_third_discount REAL DEFAULT 0.0")
 
     add_column_if_missing(cur, "offer_items", "discount_percent REAL DEFAULT 0.0")
+
+    # Phase 4: the deal-spine link columns. Kept here (not only in
+    # migrate_deals) so offer_init_db alone upgrades an offers schema the
+    # same way it historically absorbed its own column ALTERs.
+    add_column_if_missing(cur, "offers", "deal_id INTEGER REFERENCES deals(id)")
+    add_column_if_missing(cur, "offers", "location_id INTEGER REFERENCES customer_locations(id)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_offers_deal_id ON offers(deal_id);")
 
 
 def migrate_rent_tables(cur):

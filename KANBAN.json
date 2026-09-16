@@ -906,15 +906,16 @@
       "rationale": "User confirmed Customer+Offer+Invoice first, then raised two real-world complications: customers with multiple workshops and multiple concurrent projects. Three-level party model (customer → location → deal) answers both structurally instead of patching later; one extra table now is cheap vs backfilling location semantics onto existing deals later.",
       "rejected": "Full history import from old CRM/ticketing — user chose \"Fresh start\" (customers + active work re-entered manually). Full analytics ETL import of old 9k documents was also rejected for phase 1 — historical stats stay in MH fin analitike clean_data db_v2.sqlite.",
       "sourceSessionId": "session-7383d563-60ad-4303-be85-68798dd7746b",
-      "status": "todo",
+      "status": "in_progress",
       "tags": [
         "qp-crm",
         "deals",
         "phase-4",
-        "plan"
+        "plan",
+        "in-flight"
       ],
       "createdAt": 1788771414300,
-      "updatedAt": 1788794809897
+      "updatedAt": 1789560320450
     },
     {
       "id": "card-38a97f87-fb38-41d0-aab7-73b58911a6b9",
@@ -1026,6 +1027,114 @@
       ],
       "createdAt": 1789557577516,
       "updatedAt": 1789557577516
+    },
+    {
+      "id": "card-eceb7420-a250-4a38-b289-de7a5d056cbd",
+      "title": "P4-T1 · Deals schema + module skeleton (customers, locations, deals, deal_events; offers.deal_id/location_id; deals blueprint + grants v3)",
+      "description": "Create the qp_crm/deals/ blueprint package. Schema (shared/schema.py, single source): customers (name, pib, mb, billing_address, city, country, email, phone, notes, created_at, archived), customer_locations (customer_id FK, name, address, city, contact_name, contact_phone, notes), deals (code UNIQUE D-YYYY-NNN, customer_id FK NOT NULL, location_id FK NULL=HQ, title, owner_user_id, created_at, closed_at), deal_events (deal_id FK, event_type call|email|meeting|note|document|decision, author_user_id, body, linked_doc_type, linked_doc_id, created_at). offers gains deal_id + location_id via add_column_if_missing. deals app blueprint: require_module(\"deals\"), MODULE_CHOICES + MODULE_INTRODUCED v3, deals_init_db in wsgi/main/conftest init sequences, /deals registered in main.py.",
+      "rationale": "P4 first task: without schema + module skeleton nothing else can build. The idempotent CREATE + ALTER style follows shared/schema.py conventions so legacy DBs migrate safely on boot.",
+      "rejected": "Separate migration framework/alembic — rejected: repo convention is idempotent DDL in one schema module; adding a framework for 4 tables adds ops risk, not safety.",
+      "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "phase-4",
+        "deals",
+        "task",
+        "schema"
+      ],
+      "createdAt": 1789560320471,
+      "updatedAt": 1789560320471
+    },
+    {
+      "id": "card-f45dd7a2-d510-475e-88b3-e1206ee28e6f",
+      "title": "P4-T2 · Deal service: numbering (D-YYYY-NNN), derived status, event log",
+      "description": "services/deal_service.py: create/list/get/update customers (no delete — archived flag), locations (validate customer ownership), deals (auto code D-YYYY-NNN via per-year counter table deal_counters + retry on race), add_deal_event, list events chronologically. Derived deal status: new (no linked docs) → offered (≥1 offer linked) → won (accepted-offer 'decision' event or offer linked from deal accepted tap) → closed (hand close). Compute from linked offers + events; never stored. No invoice/payments in P4 scope 1 (follow-up card if user wants them early).",
+      "rationale": "Service layer pattern (P2 stage 4): business logic in services/, routes keep HTTP. Derived status is the core of the \"statuses tell themselves\" promise — test it independently of HTTP.",
+      "rejected": "Storing status on the deals row — rejected: the whole design point is that statuses derive from links and can never lie; a stored column would drift.",
+      "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "phase-4",
+        "deals",
+        "task",
+        "service"
+      ],
+      "createdAt": 1789560414889,
+      "updatedAt": 1789560414889
+    },
+    {
+      "id": "card-6547bfb8-3a08-4859-99e6-87a68d160a34",
+      "title": "P4-T3 · Deals UI: customers CRUD, locations CRUD, deals list/thread page, timeline events",
+      "description": "qp_crm/deals/routes/: customers list/new/edit (archived filter), customer detail = locations + deals + totals view; locations CRUD on customer page; deals list (filters: status, customer, search), new deal (customer picker + title + optional location — must stay <30s form), deal page = timeline thread (events newest-first, add event form, linked offers cards). All POSTs CSRF via shared check_csrf. Templates under deals/templates/deals/ with shared _banner macro.",
+      "rationale": "P4-T1 gives tables, P4-T2 gives logic; this is the screens users live in. Deal page as a thread is the replacement for the old CRM/ticketing.",
+      "rejected": "Single-page JS app style — rejected: repo is classic server-rendered Jinja + main.css; consistency wins and keeps tests simple.",
+      "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "phase-4",
+        "deals",
+        "task",
+        "ui"
+      ],
+      "createdAt": 1789560414908,
+      "updatedAt": 1789560414908
+    },
+    {
+      "id": "card-3f323e9e-cd9b-48df-8ad5-7c9f390487c1",
+      "title": "P4-T4 · Offer ↔ deal link: deal/location pickers in offer form, deal code on lists, timeline events",
+      "description": "offer_form.html: deal picker (searchable select of deals \"code — customer — title\") + location picker (locations of the deal's customer, blank = customer billing). new_offer/edit_offer persist offer.deal_id/location_id; when set, changing customer auto-suggests client fields from master data (pre-fill only — snapshots stay authoritative on save). offer_view + offers list show deal code link back to the deal. Linking writes a 'document' event on the deal timeline (both link and unlink). duplicate_offer copies deal_id (same thread).",
+      "rationale": "This is the link that makes the funnel live: offers attach to deals at birth so pipeline/status need no manual upkeep. Blueprint §1: offers gain deal_id + location_id columns.",
+      "rejected": "Auto-populating client fields on every save — rejected: issuance-time snapshot is the frozen-history rule; master data only pre-fills the form.",
+      "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "phase-4",
+        "deals",
+        "offer",
+        "task"
+      ],
+      "createdAt": 1789560414925,
+      "updatedAt": 1789560414925
+    },
+    {
+      "id": "card-6197156a-269f-411f-9011-8d3b07dd8c34",
+      "title": "P4-T5 · Pipeline view + landing card + grants wiring end-to-end",
+      "description": "Pipeline view (/deals/pipeline): deals grouped by derived status with total value (sum of linked offers' gross per currency); customer page shows all deals + document totals; admin Users page gains the deals checkbox automatically via MODULE_CHOICES; landing card \"Poslovi / Deals\" gated by grant; smoke tests cover /deals pages for granted staff + 403 without grant; MODULE_INTRODUCED v3 seeds the grant to existing staff exactly once.",
+      "rationale": "The pipeline is the payoff screen (\"what's in the air at every customer\"), and the acceptance criterion is that it matches reality without anyone maintaining statuses.",
+      "rejected": "Kanban drag-drop status editing — rejected: statuses are derived, nothing to hand-edit; the board is read-only by design.",
+      "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "phase-4",
+        "deals",
+        "task",
+        "ui"
+      ],
+      "createdAt": 1789560414945,
+      "updatedAt": 1789560414945
+    },
+    {
+      "id": "card-60abd16a-cc56-4703-a939-719e9559ccbe",
+      "title": "P4-T6 · Tests + handover: characterization/smoke for deals, full suite green, Agent Note + board",
+      "description": "New tests (mirror conftest fixtures: deals_client): schema migration on legacy DB (old offers DB gains deal_id/location_id, tables created, NULLs fine); deal code uniqueness + per-year increment; derived status transitions (new→offered→won via decision event); customer/location CRUD + archived behavior; offer link writes document events; smoke: /deals/ 200 for granted staff, redirect anon, 403 ungranted; landing shows Deals card only when granted. Full suite green. Commit per task, merge phase-4-deals → Dev, tag qp-crm:phase4, Agent Note (feature) recording the deals-spine implementation, update board.",
+      "rationale": "Repo discipline: every phase lands with tests green on the throwaway DB, a tag, and a decision note; the board is the hand-off record.",
+      "rejected": "Golden-PDF additions for invoices — deferred with the invoice feature itself (P4 scope split approved in planning; invoice+payments is the explicit next card).",
+      "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "phase-4",
+        "deals",
+        "testing",
+        "handover"
+      ],
+      "createdAt": 1789560414963,
+      "updatedAt": 1789560414963
     }
   ]
 }

@@ -1,0 +1,29 @@
+{% extends "deals/base.html" %}
+{% block title %}Pipeline{% endblock %}
+
+{% block content %}
+<h1>Pipeline</h1>
+<p style="color: var(--text-muted);">Statusi se izvode iz dokumenata — ništa se ne održava ručno.</p>
+
+<div class="pipeline-grid">
+    {% for key in ['new', 'offered', 'won', 'closed'] %}
+    {% set label, cls = status_labels[key] if status_labels is defined else (key, key) %}
+    <div class="pipeline-col">
+        <h2><span class="status-badge {{ cls }}">{{ label }}</span> <small>{{ board[key] | length }}</small></h2>
+        {% for d in board[key] %}
+        <div class="card" style="margin-bottom: 10px; padding: 12px;">
+            <a href="{{ url_for('deals.view_deal', deal_id=d.id) }}"><strong>{{ d.code or d.id }}</strong> — {{ d.title }}</a><br>
+            <small>{{ d.customer_name }}</small>
+            {% if d.offer_values %}
+            <br><small style="color: #2ecc71;">
+                {% for v in d.offer_values %}{{ format_amount(v.value) }} {{ v.currency }}{% if not loop.last %}; {% endif %}{% endfor %}
+            </small>
+            {% endif %}
+        </div>
+        {% else %}
+        <div style="color: var(--text-muted);">—</div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
