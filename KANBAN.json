@@ -901,9 +901,9 @@
     },
     {
       "id": "card-1e440fa4-1472-4dca-b1c9-2e42676a4e46",
-      "title": "P4 — Deals spine: deals + timeline + customers + link to offers",
-      "description": "New `deals` table (single-thread case per customer request) + `deal_events` timeline (calls, emails, notes, meetings) + customers unified from offer clients and rent_clients. Deals link to existing offers via deal_id column on offers. Status derived from linked documents (won = accepted offer/invoice exists; paid = payments cover pro-forma) — hand-set status only for \"new\". Replaces the old CRM + ticketing thread tracking.",
-      "rationale": "User confirmed Customer+Offer+Invoice is the first release; the deal spine is the design rule that prevents CRM-rot (everything else hangs off it as a linked document). Existing offers/offer_items/pdf_templates/clients schema is reusable; only the deal link layer is new.",
+      "title": "P4 — Deals spine: customers + locations + deals + timeline + link to offers",
+      "description": "New `customers` table (legal entity: PIB/MB, billing) + `customer_locations` (physical workshop sites) + `deals` (one thread per request; N concurrent per customer) + `deal_events` timeline + link to existing offers via deal_id. Deal may reference a location (defaults to customer HQ when null). Status derived from linked documents (won = accepted offer/invoice; paid = payments cover invoice) — hand-set only \"new\". Concurrency guardrails: global per-type document numbering with per-deal deal code (D-YYYY-NNN) for reference in emails; stock availability computed across ALL active reservations (available = on-hand − Σ reserved); payments attach to invoices, not the customer account. Replaces the old CRM + ticketing thread tracking.",
+      "rationale": "User confirmed Customer+Offer+Invoice first, then raised two real-world complications: customers with multiple workshops and multiple concurrent projects. Three-level party model (customer → location → deal) answers both structurally instead of patching later; one extra table now is cheap vs backfilling location semantics onto existing deals later.",
       "rejected": "Full history import from old CRM/ticketing — user chose \"Fresh start\" (customers + active work re-entered manually). Full analytics ETL import of old 9k documents was also rejected for phase 1 — historical stats stay in MH fin analitike clean_data db_v2.sqlite.",
       "sourceSessionId": "session-7383d563-60ad-4303-be85-68798dd7746b",
       "status": "todo",
@@ -914,7 +914,118 @@
         "plan"
       ],
       "createdAt": 1788771414300,
-      "updatedAt": 1788771414300
+      "updatedAt": 1788794809897
+    },
+    {
+      "id": "card-38a97f87-fb38-41d0-aab7-73b58911a6b9",
+      "title": "P5 — Stock & equipment: custody-only, opt-in tracking, shortfall debts, temp products, rename/merge-safe",
+      "description": "Phase 5 scope after six user follow-ups. (1) Single DB, single `products` catalog; per-product TRACKING REGIME, `untracked` DEFAULT (small parts = catalog entries only, no ledger/counts/movements); `qty` opt-in loose ledger; `serialized` identity tracking (rows live forever, scrap transition only). QP-CRM = custody of machines + debts between machines, NOT inventory value (audit software stays the counting truth). (2) Custody-first movements, nullable doc ref + fixed reason list. (3) Coverage loop: reservations with \"for whom\", first-class POs (derived status), ATP view over tracked products. (4) Fleet vans as internal custodians (NOT customer rows). (5) Donor parts as SHORTFALLS (equipment_shortfalls: device, part, taken-for, PO ref, closed_at) — two-tap mechanic flow, incomplete-device flag, orders-needed hook, auto-close on replacement receipt; timeline-note fallback allowed but loses reminders. (6) TEMP PRODUCTS app-wide: every reference is id (nullable FK) + text snapshot (name/desc/photo) — quotation already does this (offer_items.product_id NULL + item_name); warehouse movements & equipment registrations accept temp products (ad-hoc part/device without catalog row), one-click \"make real product\" promotes snapshot → catalog row and back-fills references. RENAME without breakage: all modules resolve names by id at read time — renaming edits one master row. MERGE 2-or-5-into-1: `product_aliases` (alias_id → canonical_id, UNIQUE alias, no chains); old ids keep resolving through the alias map; duplicate-suspect view + re-point merge tool; same machinery reusable for customers/locations later. Issued documents keep issuance-time snapshots — rename/merge never rewrites history.",
+      "rationale": "User's final two requirements: (a) the quotation temp-product must exist in the warehouse too (one-off parts/devices shouldn't force catalog rows), and (b) the DB being \"just links\" must make renames and N-into-1 merges non-breaking. Both follow from one convention (id + snapshot + alias map) that is cheap to adopt on day one and painful to retrofit — recording it before P4/P5 schemas are written.",
+      "rejected": "Foreign-key-name lookups everywhere (name as key) — rejected: makes renames break references, the exact opposite of the requirement. Auto-updating historical document lines on rename/merge — rejected: issued offers/invoices are legal records; they keep issuance-time snapshots. Cascade-rewriting all references at merge time with no alias map — rejected: irreversible and lossy; alias map keeps old ids resolvable forever. Fancy dedup engines — rejected: alias map + duplicate-suspect view + manual confirm is enough and stays understandable.",
+      "sourceSessionId": "session-7383d563-60ad-4303-be85-68798dd7746b",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "stock",
+        "equipment",
+        "phase-5",
+        "plan"
+      ],
+      "createdAt": 1788800562300,
+      "updatedAt": 1788821723919
+    },
+    {
+      "id": "card-2cf8375c-9aa9-4fd6-8d84-1b7c077ec29b",
+      "title": "Planning pack: technical blueprint + vision + open questions written from design chat",
+      "description": "Full chat distilled into three files in planning/: INTEGRATION_TECHNICAL.md (integration points into existing modules, P4/P5 SQL sketches, cross-cutting conventions incl. id+snapshot/alias map/no-delete, derived status table, ATP formula, phase acceptance criteria, non-goals, risks), VISION.md (plain-language idea file for non-technical readers), OPEN_QUESTIONS.md (18 open questions in 4 groups + 7 ideas + answered-decisions reference table). Also repaired the Agent Note: orphaned donor-parts fragment re-homed as Amendment 5b; Amendment 6 ends cleanly.",
+      "summary": "Wrote planning/INTEGRATION_TECHNICAL.md, planning/VISION.md, planning/OPEN_QUESTIONS.md from the full design chat; fixed the Agent Note's Amendment 6 orphaned fragment (donor-parts text re-homed as Amendment 5b); board P4/P5 cards unchanged (already current).",
+      "rationale": "The design conversation covered the full original brief and produced 6 amendments; a thorough written handover was requested so the knowledge survives outside the chat and the Agent Note. Distilling now, while every decision is fresh, prevents drift between chat, note, and board before the first build task (P4-T1 schema).",
+      "rejected": "Writing a fourth separate \"summary\" file — rejected: three artifacts with distinct audiences (implementer / human / decision-maker) cover it; a fourth would duplicate and drift. Putting open questions only on board cards — rejected: 18 questions would flood the board; one file + one pointer card keeps the board readable.",
+      "sourceSessionId": "session-7383d563-60ad-4303-be85-68798dd7746b",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "planning",
+        "docs",
+        "handover"
+      ],
+      "createdAt": 1788823530107,
+      "updatedAt": 1788823530107
+    },
+    {
+      "id": "card-4f9cbaa9-1575-450c-b687-ff849ca88280",
+      "title": "Move Rent Default Financial Parameters card to /admin/rent/templates + remove redundant Dashboard button",
+      "description": "Card moved verbatim from admin_dashboard.html to admin_rent_templates.html (first .content block, above the Master Šabloni h1). Form posts to admin.update_settings with redirect_to=/admin/rent/templates so save returns to the same page; templates page gained get_flashed_messages block so 'Settings updated.' is visible. Both admin rent_templates routes pass rent_defaults via fetch_rent_defaults(). Redundant '← Dashboard' button removed (shared admin nav already links Dashboard). Committed 1b13ac9; deployed via SKIP_PULL=1 ./deploy.sh (sudo docker), container healthy, image contains new files (verified by docker exec grep). Note: could not do an authenticated live-HTTP click-through because the admin password was rotated from the seed (Admin1 no longer valid) — verified via image inspection + template-render test on isolated DB instead.",
+      "summary": "Moved 'Rent – Default Financial Parameters' from admin dashboard to /admin/rent/templates above the Master Šabloni heading; save redirects back to same page; flash block added; ← Dashboard button removed. Committed (1b13ac9) + deployed, container healthy.",
+      "rationale": "User request: rent financial defaults (kamata/osiguranje/garancija) belong on the templates page where rent settings are managed, not on the dashboard; dashboard button on the page was redundant. Deploy requires image rebuild since code is baked into the image (not bind-mounted).",
+      "rejected": "Keeping the card on both pages — two forms writing the same keys invites divergent values; user asked to move, not copy. url_for() for redirect_to instead of the literal string — the Email Preset form on the same page already hardcodes '/admin/rent/templates'; kept consistency with the existing pattern.",
+      "sourceSessionId": "session-618994ec-9d6f-44d8-a1bd-5adcfcc7c21d",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "rent",
+        "admin",
+        "ui",
+        "deploy"
+      ],
+      "createdAt": 1789555123094,
+      "updatedAt": 1789555123094
+    },
+    {
+      "id": "card-8c119e86-1120-4d09-9867-650d93277b20",
+      "title": "Consolidate API key management into /admin/api_keys (remove dashboard panel)",
+      "description": "Dashboard API Key Management panel (legacy global key: blurred display + Show, Generate, Revoke, curl quick-test) moved to the bottom of /admin/api_keys, below the per-user key table. Legacy POST routes /admin/api_key/generate and /admin/api_key/revoke keep endpoint paths but redirect to /admin/api_keys. Dashboard route no longer fetches key values. API_INSTRUCTIONS.md legacy-key mention updated. Deployed via SKIP_PULL=1 ./deploy.sh (sudo docker).",
+      "summary": "Consolidated all API key management into /admin/api_keys: legacy global-key card moved from dashboard, legacy actions redirect back to api_keys page, dashboard panel removed. Deployed (ec47f84), container healthy, verified live: legacy key 200, per-user key 200, bad key 403, no key 401, /health 200 no-auth.",
+      "rationale": "User request: API settings must live in exactly one place (/admin/api_keys), not split between dashboard panel and API Keys tab. API auth had to keep working for existing integrations after the rebuild.",
+      "rejected": "Retiring the legacy global key outright — live integrations still authenticate with key 73f482ad…; removal would break them. Keeping the panel on both pages — duplicates mutation UI, user asked for a single place.",
+      "sourceSessionId": "session-618994ec-9d6f-44d8-a1bd-5adcfcc7c21d",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "admin",
+        "api",
+        "ui",
+        "deploy"
+      ],
+      "createdAt": 1789555820067,
+      "updatedAt": 1789555820067
+    },
+    {
+      "id": "card-3d2bcac1-d9e4-434b-8630-5dd2643ab606",
+      "title": "Retire legacy global API key — per-user keys are the only API auth",
+      "description": "resolve_api_identity now accepts ONLY per-user keys ((global) fallback removed). require_api_key falls back to the logged-in session WITH pricing grant for same-origin JS (product_sync migrated from embedded Bearer key to credentials=same-origin). Removed: legacy key card on /admin/api_keys, api_key_generate/revoke routes, pricing dev-run auto-generation. Helpers kept as stubs (generate raises NotImplementedError, get_api_key reads leftover rows for old-restore detection, revoke deletes the dead row). Live DB api_key row 73f482ad… deleted after deploy. Deployed ae8c4cf, container healthy.",
+      "summary": "Retired the legacy global API key: per-user keys are the only Bearer auth, product_sync uses session auth, legacy card/routes/key row removed. Suite 268 passed; deployed; live-verified: old key 403, unknown key 403, no key 401, per-user key 200 on products/categories/brands, audit rows attributed to username.",
+      "rationale": "User approved complete removal: the global key was an unattributed shared secret and was embedded into product_sync page source. Session-auth for product_sync keeps that page working with BETTER audit attribution (username instead of NULL).",
+      "rejected": "Silent deprecation (key works, hidden UI) — standing undocumented secret, worse than either extreme. Keeping the row but ignoring it in resolution — dead credentials must be deleted, not just unwired. Scoped key for product_sync — session identity already exists there and gives better audit attribution. Hard-deleting the helper functions — restored old backups would crash on import; stubs keep imports safe and leftover rows removable.",
+      "sourceSessionId": "session-618994ec-9d6f-44d8-a1bd-5adcfcc7c21d",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "security",
+        "api",
+        "deploy"
+      ],
+      "createdAt": 1789557122226,
+      "updatedAt": 1789557122226
+    },
+    {
+      "id": "card-d3f3f380-1e6d-4116-89e2-6e3b43cf8242",
+      "title": "API keys: add Delete for revoked keys + fix Actions cell wrapping",
+      "description": "Follow-up on the API keys consolidation: (1) hard-DELETE action for REVOKED keys — service delete_user_api_key() refuses ACTIVE keys (revoke first), route /admin/api_keys/<id>/delete guarded by acting admin's own password, 🗑 confirm button shown only on revoked rows; (2) Actions cell layout fixed — flex row with nowrap buttons, flexible password field, fixed column widths, container 1100->1250px — Revoke/Re-enable no longer wraps to two rows. Deployed c9a1df1, container healthy; both leftover revoked probe keys (post-retire-verify, live-verify-deploy) deleted from live DB via the new action path, table now empty.",
+      "summary": "Added Delete (🗑) action for revoked API keys with active-key refusal guard; fixed Actions cell so Revoke/Re-enable stays on one row (wider container + flex layout). Suite 269 passed; deployed; live DB probe keys cleaned up.",
+      "rationale": "User feedback after the legacy-key retirement deploy: revoked keys had only Re-enable with no way to delete the dead row, and the narrow Actions cell wrapped the button to two lines.",
+      "rejected": "Allowing deletion of active keys — would bypass the revoke safety step and surprise integrations; delete is strictly cleanup after revoke. Separate delete column — wastes table width; the 🗑 sits beside Revoke/Re-enable in the same cell only when the key is revoked.",
+      "sourceSessionId": "session-618994ec-9d6f-44d8-a1bd-5adcfcc7c21d",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "admin",
+        "api",
+        "ui",
+        "deploy"
+      ],
+      "createdAt": 1789557577516,
+      "updatedAt": 1789557577516
     }
   ]
 }
