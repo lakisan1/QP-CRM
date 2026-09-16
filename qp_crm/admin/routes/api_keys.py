@@ -14,6 +14,7 @@ from flask import flash, redirect, render_template, request, session, url_for
 from ..app import bp
 from qp_crm.shared.auth import (
     confirm_current_password,
+    delete_user_api_key,
     issue_user_api_key,
     list_user_api_keys,
     set_user_api_key_active,
@@ -72,6 +73,24 @@ def toggle_api_key_action(key_id):
     ok, error = set_user_api_key_active(key_id, active)
     if ok:
         flash("API key revoked." if not active else "API key re-enabled.", "success")
+    else:
+        flash(error, "error")
+    return redirect(url_for("admin.list_api_keys"))
+
+
+@bp.route("/api_keys/<int:key_id>/delete", methods=["POST"])
+def delete_api_key_action(key_id):
+    """Hard-delete a revoked key row (cleanup of dead entries).
+
+    Same guard as the other sensitive actions: acting admin's own password.
+    The service refuses to delete an ACTIVE key (revoke first).
+    """
+    acting_id, err = _guard_sensitive()
+    if err:
+        return err
+    ok, error = delete_user_api_key(key_id)
+    if ok:
+        flash("API key deleted.", "success")
     else:
         flash(error, "error")
     return redirect(url_for("admin.list_api_keys"))

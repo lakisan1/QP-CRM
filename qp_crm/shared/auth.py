@@ -202,6 +202,30 @@ def set_user_api_key_active(key_id, active):
     return True, None
 
 
+def delete_user_api_key(key_id):
+    """Hard-delete a REVOKED per-user key row. Returns (ok, error).
+
+    Safety rule: an ACTIVE key cannot be deleted — it must be revoked
+    first (delete is for cleaning up dead entries, not for bypassing
+    revoke). Deleted keys are gone from api_keys; historical api_audit
+    rows keep their username attribution.
+    """
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT id, is_active FROM api_keys WHERE id = ?;", (key_id,))
+    row = cur.fetchone()
+    if row is None:
+        conn.close()
+        return False, "API key not found."
+    if row["is_active"]:
+        conn.close()
+        return False, "Key is active — revoke it first, then delete."
+    cur.execute("DELETE FROM api_keys WHERE id = ?;", (key_id,))
+    conn.commit()
+    conn.close()
+    return True, None
+
+
 def resolve_api_identity(raw_key):
     """Map a Bearer key to an identity.
 

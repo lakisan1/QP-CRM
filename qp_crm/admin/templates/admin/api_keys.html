@@ -11,7 +11,7 @@
 <body>
     {% set active = 'api_keys' %}{% include 'admin/_nav.html' %}
 
-    <div class="container" style="max-width: 1100px;">
+    <div class="container" style="max-width: 1250px;">
         <h1>API Keys Management</h1>
         <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: -8px;">
             Per-user keys for <code>/api/v1</code> — every request is audited with the holder's username.
@@ -58,38 +58,48 @@
         <div class="card">
             <h3>Issued keys</h3>
             {% if keys %}
-            <table class="preset-table" style="width: 100%;">
+            <table class="preset-table" style="width: 100%; table-layout: fixed;">
                 <thead>
                     <tr>
-                        <th>User</th>
-                        <th>Label</th>
-                        <th>Key (prefix…)</th>
-                        <th>Status</th>
-                        <th>Created</th>
-                        <th>Last used</th>
-                        <th>Actions</th>
+                        <th style="width: 9%;">User</th>
+                        <th style="width: 17%;">Label</th>
+                        <th style="width: 15%;">Key (prefix…)</th>
+                        <th style="width: 9%;">Status</th>
+                        <th style="width: 15%;">Created</th>
+                        <th style="width: 15%;">Last used</th>
+                        <th style="width: 20%;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for k in keys %}
                     <tr>
                         <td><strong>{{ k.username or "(deleted user)" }}</strong></td>
-                        <td>{{ k.label or "—" }}</td>
+                        <td style="word-break: break-all;">{{ k.label or "—" }}</td>
                         <td><code>{{ k.key_prefix }}…</code></td>
                         <td>{{ 'active' if k.is_active else 'revoked' }}</td>
                         <td>{{ k.created_at[:19].replace('T', ' ') }}</td>
                         <td>{{ k.last_used[:19].replace('T', ' ') if k.last_used else 'never' }}</td>
                         <td>
-                            <form action="{{ url_for('admin.toggle_api_key_action', key_id=k.id) }}" method="POST"
-                                  style="display: inline-flex; gap: 6px;">
-                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                                <input type="hidden" name="active" value="{{ '0' if k.is_active else '1' }}">
-                                <input type="password" name="current_password" placeholder="Your password" required
-                                       style="width: 130px;" autocomplete="current-password">
-                                <button type="submit" class="btn {{ 'btn-danger' if k.is_active else 'btn-secondary' }}">
-                                    {{ 'Revoke' if k.is_active else 'Re-enable' }}
-                                </button>
-                            </form>
+                            <div style="display: flex; flex-direction: row; flex-wrap: nowrap; gap: 8px; align-items: center;">
+                                <form action="{{ url_for('admin.toggle_api_key_action', key_id=k.id) }}" method="POST"
+                                      style="display: flex; flex: 1; gap: 6px; align-items: center; min-width: 0;">
+                                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="active" value="{{ '0' if k.is_active else '1' }}">
+                                    <input type="password" name="current_password" placeholder="Your password" required
+                                           style="flex: 1; min-width: 100px; width: auto; margin-bottom: 0;" autocomplete="current-password">
+                                    <button type="submit" class="btn {{ 'btn-danger' if k.is_active else 'btn-secondary' }}" style="white-space: nowrap;">
+                                        {{ 'Revoke' if k.is_active else 'Re-enable' }}
+                                    </button>
+                                </form>
+                                {% if not k.is_active %}
+                                <form action="{{ url_for('admin.delete_api_key_action', key_id=k.id) }}" method="POST"
+                                      style="display: flex;">
+                                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-danger" style="white-space: nowrap;"
+                                            onclick="return confirm('Permanently DELETE this revoked key row? This cannot be undone.');">🗑</button>
+                                </form>
+                                {% endif %}
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}

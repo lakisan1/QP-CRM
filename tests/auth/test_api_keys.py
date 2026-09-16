@@ -24,6 +24,7 @@ from conftest import csrf_token_for, login_client
 from qp_crm.main import app
 from qp_crm.shared.auth import (
     DEFAULT_PASSWORDS,
+    delete_user_api_key,
     generate_api_key,
     get_db,
     issue_user_api_key,
@@ -251,6 +252,61 @@ def test_admin_api_keys_page_and_issue_flow():
     assert resp.status_code == 302
     client2 = app.test_client()
     assert _bearer(client2, "/api/v1/products", raw).status_code == 403
+
+
+def test_delete_revoked_key_service_and_ui():
+    """Hard-delete exists for REVOKED keys only; active keys are refused."""
+    conn = get_db()
+    uid = conn.execute("SELECT id FROM users WHERE username='pricing'").fetchone()["id"]
+    conn.close()
+    raw, key_id = issue_user_api_key(uid, "delete-probe")
+
+    # ACTIVE key: service refuses
+    ok, error = delete_user_api_key(key_id)
+    assert not ok and "revoke it first" in error
+
+    # UI delete on an ACTIVE key: flashed error, row still there
+    admin = login_client(app.test_client(), "admin")
+    resp = _post(admin, f"/admin/api_keys/{key_id}/delete", {
+        "current_password": DEFAULT_PASSWORDS["admin"],
+    })
+    assert resp.status_code == 302
+    conn = get_db()
+    assert conn.execute("SELECT COUNT(*) FROM api_keys WHERE id=?", (key_id,)).fetchone()[0] == 1
+    conn.close()
+
+    # revoke, then delete succeeds and the row is GONE
+    set_user_api_key_active(key_id, 0)
+    ok, error = delete_user_api_key(key_id)
+    assert ok and error is None
+    conn = get_db()
+    assert conn.execute("SELECT COUNT(*) FROM api_keys WHERE id=?", (key_id,)).fetchone()[0] == 0
+    conn.close()
+    # a deleted key authenticates nothing (no row -> unknown key)
+    client = app.test_client()
+    assert _bearer(client, "/api/v1/products", raw).status_code == 403
+
+    # UI: wrong password on delete is bounced with an error flash
+    raw2, key_id2 = issue_user_api_key(uid, "delete-probe-2")
+    set_user_api_key_active(key_id2, 0)
+    resp = _post(admin, f"/admin/api_keys/{key_id2}/delete", {
+        "current_password": "WRONG-password",
+    })
+    assert resp.status_code == 302
+    conn = get_db()
+    assert conn.execute("SELECT COUNT(*) FROM api_keys WHERE id=?", (key_id2,)).fetchone()[0] == 1
+    conn.close()
+    # cleanup via the service (revoked -> deletable)
+    assert delete_user_api_key(key_id2) == (True, None)
+
+    # revoked rows show the 🗑 delete button on the page; active ones do not
+    raw3, key_id3 = issue_user_api_key(uid, "ui-delete-btn")
+    page = admin.get("/admin/api_keys").data.decode()
+    assert "/admin/api_keys/%d/delete" % key_id3 not in page  # active: no delete
+    set_user_api_key_active(key_id3, 0)
+    page = admin.get("/admin/api_keys").data.decode()
+    assert "/admin/api_keys/%d/delete" % key_id3 in page      # revoked: delete shown
+    assert delete_user_api_key(key_id3) == (True, None)
 
 
 def test_api_keys_page_admin_only():
