@@ -1034,7 +1034,7 @@
       "id": "card-eceb7420-a250-4a38-b289-de7a5d056cbd",
       "title": "P4-T1 · Deals schema + module skeleton (customers, locations, deals, deal_events; offers.deal_id/location_id; deals blueprint + grants v3)",
       "description": "Create the qp_crm/deals/ blueprint package. Schema (shared/schema.py, single source): customers (name, pib, mb, billing_address, city, country, email, phone, notes, created_at, archived), customer_locations (customer_id FK, name, address, city, contact_name, contact_phone, notes), deals (code UNIQUE D-YYYY-NNN, customer_id FK NOT NULL, location_id FK NULL=HQ, title, owner_user_id, created_at, closed_at), deal_events (deal_id FK, event_type call|email|meeting|note|document|decision, author_user_id, body, linked_doc_type, linked_doc_id, created_at). offers gains deal_id + location_id via add_column_if_missing. deals app blueprint: require_module(\"deals\"), MODULE_CHOICES + MODULE_INTRODUCED v3, deals_init_db in wsgi/main/conftest init sequences, /deals registered in main.py.",
-      "rationale": "P4 first task: without schema + module skeleton nothing else can build. The idempotent CREATE + ALTER style follows shared/schema.py conventions so legacy DBs migrate safely on boot.",
+      "rationale": "P4.x step 1: storage + numbering foundation for the financial tail; global F-YYYY-NNN bucket confirmed by user (supersedes OPEN_QUESTIONS #4).",
       "rejected": "Separate migration framework/alembic — rejected: repo convention is idempotent DDL in one schema module; adding a framework for 4 tables adds ops risk, not safety.",
       "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
       "status": "done",
@@ -1046,27 +1046,27 @@
         "schema"
       ],
       "createdAt": 1789560320471,
-      "updatedAt": 1789565210088,
-      "summary": "committed 1dc7c48: create_deals_tables + migrate_deals in shared/schema.py (customers, customer_locations, deal_counters, deals, deal_events; offers.deal_id/location_id via idempotent ALTERs in both migrate_offer_tables and migrate_deals), qp_crm/deals/ blueprint with require_module('deals'), deals_init_db wired into wsgi.py + main.py + tests/conftest.py"
+      "updatedAt": 1789575845513,
+      "summary": "committed a0cbd1a: create_invoices_tables in shared/schema.py — invoices (code UNIQUE, deal/customer/location/source_offer FKs, frozen client snapshot, voided_at) + invoice_items + payments + invoice_counters(year PK); wired via create_deals_tables → deals_init_db, idempotent re-run verified."
     },
     {
       "id": "card-f45dd7a2-d510-475e-88b3-e1206ee28e6f",
-      "title": "P4-T2 · Deal service: numbering (D-YYYY-NNN), derived status, event log",
+      "title": "P4.x-T2 · Invoice/payment service: issue-from-offer, record_payment, paid derivation (closed > paid > won)",
       "description": "services/deal_service.py: create/list/get/update customers (no delete — archived flag), locations (validate customer ownership), deals (auto code D-YYYY-NNN via per-year counter table deal_counters + retry on race), add_deal_event, list events chronologically. Derived deal status: new (no linked docs) → offered (≥1 offer linked) → won (accepted-offer 'decision' event or offer linked from deal accepted tap) → closed (hand close). Compute from linked offers + events; never stored. No invoice/payments in P4 scope 1 (follow-up card if user wants them early).",
-      "rationale": "Service layer pattern (P2 stage 4): business logic in services/, routes keep HTTP. Derived status is the core of the \"statuses tell themselves\" promise — test it independently of HTTP.",
+      "rationale": "P4.x step 2: business logic in the service layer with pure derivation, per the P2 architecture.",
       "rejected": "Storing status on the deals row — rejected: the whole design point is that statuses derive from links and can never lie; a stored column would drift.",
       "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
       "status": "done",
       "tags": [
         "qp-crm",
-        "phase-4",
-        "deals",
-        "task",
-        "service"
+        "phase-4x",
+        "invoices",
+        "service",
+        "task"
       ],
       "createdAt": 1789560414889,
-      "updatedAt": 1789565210110,
-      "summary": "committed 1dc7c48: services/deal_service.py — customer/location master data (archive, never delete; location ownership validated), deal code D-YYYY-NNN via per-year deal_counters (INSERT..ON CONFLICT + UPDATE..RETURNING) with UNIQUE(code) retry, timeline events (fixed EVENT_TYPES), derived_status_for pure read model (closed > won > offered > new), record_offer_accepted tap, pipeline_board. Verified: new→offered→won→closed→reopen→offered in throwaway DB."
+      "updatedAt": 1789575845536,
+      "summary": "committed a0cbd1a: services/invoice_service.py — issue_invoice_from_offer (one live invoice per offer, snapshot+item copy, gross from offer ITEMS), record_payment (positive-only, voided closed, deal event), void_invoice (idempotent, audit kept), read models; _append_event on the caller's transaction (deal_service.add_event opens its own connection and dead-locks mid-transaction — found over HTTP, fixed). deal_service: derived 'paid' status (precedence closed > paid > won > offered > new), deal_with_offers/pipeline_board extended with the tuple element/column."
     },
     {
       "id": "card-6547bfb8-3a08-4859-99e6-87a68d160a34",
@@ -1165,10 +1165,10 @@
       "id": "card-3d7290cf-d3cd-4b92-9708-8cfafd8f68a0",
       "title": "P4.x-T1 · Invoices schema: invoices + invoice_items + payments tables, F-YYYY-NNN global invoice_counters",
       "description": "Step 1 of P4.x. In shared/schema.py create_deals_tables (or a new create_invoices_tables called from deals_init_db): invoices (id, code UNIQUE, deal_id FK NOT NULL, customer_id FK, location_id FK NULL, source_offer_id FK NULL, issue_date, due_date, currency, exchange_rate, total_gross, total_paid, client_* snapshot fields copied from the accepted offer at issue time, notes, created_at, voided_at) — void not delete; invoice_items (invoice_id FK, position, description, qty, unit, unit_price, discount_percent, vat_percent, line_total); payments (invoice_id FK, paid_at, amount, currency, method, reference, note, created_by_user_id, created_at). Counters: extend deal_counters pattern — invoice_counters(year PK, last_number) issuing F-YYYY-NNN GLOBALLY (user decision: one bucket for all invoices, no per-customer/per-deal series). Status DERIVED, never stored: invoice paid status computed from SUM(payments.amount) >= total_gross at read time.",
-      "rationale": "The deal spine from P4 has no financial tail: won deals cannot graduate to paid. This step adds the storage + numbering foundation; UI and derivation come in the next steps. Global numbering confirmed by the user (supersedes OPEN_QUESTIONS #4).",
-      "rejected": "Storing a status column on invoices — rejected: violates the blueprint's derived-status rule and would drift with every payment insert.",
+      "rationale": "P4.x step 1: storage + numbering foundation for the financial tail; the user confirmed global numbering (supersedes OPEN_QUESTIONS #4).",
+      "rejected": "Storing a paid/status column on invoices — rejected: violates the derived-status rule and would drift with every payment insert.",
       "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
-      "status": "todo",
+      "status": "done",
       "tags": [
         "qp-crm",
         "phase-4x",
@@ -1177,16 +1177,17 @@
         "task"
       ],
       "createdAt": 1789572807711,
-      "updatedAt": 1789572807711
+      "updatedAt": 1789575892038,
+      "summary": "committed a0cbd1a: create_invoices_tables in shared/schema.py — invoices (code UNIQUE, deal/customer/location/source_offer FKs, frozen client snapshot, voided_at), invoice_items, payments, invoice_counters(year PK) for global F-YYYY-NNN; wired via create_deals_tables → deals_init_db; idempotent re-run verified."
     },
     {
       "id": "card-431056ae-cc30-49fe-9793-bf02e16c5428",
       "title": "P4.x-T2 · Invoice/payment service: issue-from-offer, record_payment, paid derivation (closed > paid > won)",
       "description": "Step 2 of P4.x. Extend services/deal_service.py (or new services/invoice_service.py): issue_invoice_from_offer(deal_id, offer_id, ...) — validates offer belongs to deal and deal not closed; copies the offer's frozen client snapshot + items into the invoice (issuance-time snapshot, blueprint §4); allocates F-YYYY-NNN via invoice_counters (same INSERT..ON CONFLICT + UPDATE..RETURNING + UNIQUE(code) retry as deals); writes a 'document' event (linked_doc_type='invoice') on the deal timeline. record_payment(invoice_id, amount, ...) validates amount > 0, writes event on the deal. Derived status extension: derive_status gains 'paid' below 'closed' — paid when the deal has ≥1 invoice and every invoice's SUM(payments) >= total_gross. Precedence becomes closed > paid > won > offered > new. Pure functions kept unit-testable.",
-      "rationale": "Business logic must live in the service layer per the P2 architecture; keeping derivation pure lets the status matrix be pinned by characterization tests before any UI exists.",
-      "rejected": "Multiple invoices per deal with partial per-invoice payments — supported by the data model (each invoice sums its own payments) but 'paid' requires ALL invoices covered; no partial-credit heuristics.",
+      "rationale": "P4.x step 2: business logic in the service layer, pure derivation unit-testable before UI.",
+      "rejected": "Calling deal_service.add_event from inside invoice transactions — rejected after it dead-locked (separate connection); invoice_service appends events inline on its own transaction instead. Partial-payment 'partially paid' status — dropped: binary paid/not-paid derivation only, remaining amount is shown in the UI.",
       "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
-      "status": "todo",
+      "status": "done",
       "tags": [
         "qp-crm",
         "phase-4x",
@@ -1195,16 +1196,17 @@
         "task"
       ],
       "createdAt": 1789572807735,
-      "updatedAt": 1789572807735
+      "updatedAt": 1789575892061,
+      "summary": "committed a0cbd1a: services/invoice_service.py — issue_invoice_from_offer (one LIVE invoice per offer, re-issue after void; frozen snapshot + item copy; gross from offer ITEMS because the offer row's total_gross stays 0 until an edit recalculates), record_payment (positive-only, voided invoices closed, deal event), void_invoice (idempotent, voided drop out of derivation + section, payments kept for audit), deal_invoice_summary/invoice_with_details/deal_is_paid read models. deal_service: derived 'paid' (precedence closed > paid > won > offered > new); _append_event appends events on the CALLER's transaction — deal_service.add_event opens its own connection and dead-locks mid-transaction (found over HTTP: 'database is locked')."
     },
     {
       "id": "card-42e52a89-c09e-4378-9e35-d8bdc325bb02",
       "title": "P4.x-T3 · Deal UI: invoice section on thread page (issue from offer, payments, void) + pipeline paid column",
       "description": "Step 3 of P4.x. Deal thread page (deals/deal_detail.html): Fakture section under documents — per invoice: code (F-YYYY-NNN), issue date, total, paid-so-far, remaining, status chip (Neplaćena/Plaćena), payments sub-list, add-payment inline form, and an 'Izdaj fakturu' button per accepted offer that hasn't been invoiced yet. Void invoice button (voided_at, never delete). Pipeline: add 'paid' column (5 columns) with per-currency totals. Status badge CSS for .status-paid. Invoice numbers clickable in offers/deal views where relevant.",
-      "rationale": "Without UI the spine data is unreachable for the user; this completes the visible workflow issue→pay→paid on the page where staff already work.",
-      "rejected": "Separate /invoices list page — deferred: deal-thread-first keeps the workflow in one place; a global invoices list can come later if volume demands it.",
+      "rationale": "P4.x step 3: without UI the invoice data is unreachable; the thread page is where staff already work, so the financial tail lives there.",
+      "rejected": "Separate global /invoices list page — deferred (deal-thread-first; can be added when volume demands). Editing issued invoices — rejected by design: issuance-time snapshot is frozen; mistakes go through storno + re-issue.",
       "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
-      "status": "todo",
+      "status": "done",
       "tags": [
         "qp-crm",
         "phase-4x",
@@ -1213,7 +1215,8 @@
         "task"
       ],
       "createdAt": 1789572868436,
-      "updatedAt": 1789572868436
+      "updatedAt": 1789575923761,
+      "summary": "committed a0cbd1a: deal thread gains the Fakture section — 'Izdaj fakturu' buttons per accepted-uninvoiced offer (with due date), per-invoice rows (code, issue/due date, ukupno/uplaćeno/ostalo with red/green remaining), inline payment form (amount/date/method/reference), Plaćena chip, Storniraj button with confirm; timeline renders invoice/void/payment events; flash names the CODE (F-2026-001), not the raw id. Pipeline expanded to 5 columns (Novi/Ponuđeno/Dobijeno/Plaćeno/Zatvoreno); .status-paid badge; deals list filter includes Plaćeno; _deal_table tolerates unknown statuses. Verified over HTTP end-to-end (issue → partial → full → paid badge → void drops out + audit event stays)."
     },
     {
       "id": "card-db2b560c-ba00-4cfd-8e68-69d4de85d8ff",
