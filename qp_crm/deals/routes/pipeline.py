@@ -3,6 +3,7 @@ from flask import render_template
 
 from ..app import bp
 from qp_crm.services import deal_service
+from .deals import STATUS_LABELS
 
 
 @bp.route("/pipeline")
@@ -11,4 +12,5 @@ def pipeline():
     return render_template(
         "deals/pipeline.html",
         board=board,
+        status_labels=STATUS_LABELS,
     )

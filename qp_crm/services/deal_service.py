@@ -461,7 +461,7 @@ def derived_status_for(deal_row, offer_rows, event_rows):
       offered: >=1 offer linked
       new:    otherwise
     """
-    if deal_row is not None and getattr(deal_row, "closed_at", None):
+    if deal_row is not None and _row_get(deal_row, "closed_at"):
         return "closed"
     events = [dict(e) for e in (event_rows or [])]
     for e in events:
@@ -471,6 +471,16 @@ def derived_status_for(deal_row, offer_rows, event_rows):
     if offer_rows:
         return "offered"
     return "new"
+
+
+def _row_get(row, key, default=None):
+    """sqlite3.Row has no .get()/attr access; dict rows and Rows both work
+    through item access guarded by a try (Row raises IndexError)."""
+    try:
+        value = row[key]
+        return default if value is None else value
+    except (IndexError, KeyError, TypeError):
+        return default
 
 
 def derive_status(deal_id):

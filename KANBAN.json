@@ -1035,7 +1035,7 @@
       "rationale": "P4 first task: without schema + module skeleton nothing else can build. The idempotent CREATE + ALTER style follows shared/schema.py conventions so legacy DBs migrate safely on boot.",
       "rejected": "Separate migration framework/alembic — rejected: repo convention is idempotent DDL in one schema module; adding a framework for 4 tables adds ops risk, not safety.",
       "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
-      "status": "todo",
+      "status": "done",
       "tags": [
         "qp-crm",
         "phase-4",
@@ -1044,7 +1044,8 @@
         "schema"
       ],
       "createdAt": 1789560320471,
-      "updatedAt": 1789560320471
+      "updatedAt": 1789565210088,
+      "summary": "committed 1dc7c48: create_deals_tables + migrate_deals in shared/schema.py (customers, customer_locations, deal_counters, deals, deal_events; offers.deal_id/location_id via idempotent ALTERs in both migrate_offer_tables and migrate_deals), qp_crm/deals/ blueprint with require_module('deals'), deals_init_db wired into wsgi.py + main.py + tests/conftest.py"
     },
     {
       "id": "card-f45dd7a2-d510-475e-88b3-e1206ee28e6f",
@@ -1053,7 +1054,7 @@
       "rationale": "Service layer pattern (P2 stage 4): business logic in services/, routes keep HTTP. Derived status is the core of the \"statuses tell themselves\" promise — test it independently of HTTP.",
       "rejected": "Storing status on the deals row — rejected: the whole design point is that statuses derive from links and can never lie; a stored column would drift.",
       "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
-      "status": "todo",
+      "status": "done",
       "tags": [
         "qp-crm",
         "phase-4",
@@ -1062,7 +1063,8 @@
         "service"
       ],
       "createdAt": 1789560414889,
-      "updatedAt": 1789560414889
+      "updatedAt": 1789565210110,
+      "summary": "committed 1dc7c48: services/deal_service.py — customer/location master data (archive, never delete; location ownership validated), deal code D-YYYY-NNN via per-year deal_counters (INSERT..ON CONFLICT + UPDATE..RETURNING) with UNIQUE(code) retry, timeline events (fixed EVENT_TYPES), derived_status_for pure read model (closed > won > offered > new), record_offer_accepted tap, pipeline_board. Verified: new→offered→won→closed→reopen→offered in throwaway DB."
     },
     {
       "id": "card-6547bfb8-3a08-4859-99e6-87a68d160a34",
@@ -1071,7 +1073,7 @@
       "rationale": "P4-T1 gives tables, P4-T2 gives logic; this is the screens users live in. Deal page as a thread is the replacement for the old CRM/ticketing.",
       "rejected": "Single-page JS app style — rejected: repo is classic server-rendered Jinja + main.css; consistency wins and keeps tests simple.",
       "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
-      "status": "todo",
+      "status": "done",
       "tags": [
         "qp-crm",
         "phase-4",
@@ -1080,7 +1082,8 @@
         "ui"
       ],
       "createdAt": 1789560414908,
-      "updatedAt": 1789560414908
+      "updatedAt": 1789565233452,
+      "summary": "committed 1dc7c48: deals routes split per domain (customers.py, deals.py, pipeline.py) + templates (base with shared _banner + status badges + flash block, customers list, customer form, customer detail with inline locations CRUD + archive toggle, shared _deal_table, deals list with status/customer/search filters, <30s deal form, deal thread page with derived-status strip + document cards with accept tap + add/delete timeline events, 4-column read-only pipeline board). Verified through HTTP test client: customer→location→deal→event→close all green."
     },
     {
       "id": "card-3f323e9e-cd9b-48df-8ad5-7c9f390487c1",
@@ -1089,7 +1092,7 @@
       "rationale": "This is the link that makes the funnel live: offers attach to deals at birth so pipeline/status need no manual upkeep. Blueprint §1: offers gain deal_id + location_id columns.",
       "rejected": "Auto-populating client fields on every save — rejected: issuance-time snapshot is the frozen-history rule; master data only pre-fills the form.",
       "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
-      "status": "todo",
+      "status": "done",
       "tags": [
         "qp-crm",
         "phase-4",
@@ -1098,7 +1101,8 @@
         "task"
       ],
       "createdAt": 1789560414925,
-      "updatedAt": 1789560414925
+      "updatedAt": 1789565173438,
+      "summary": "committed 42208a7: offer_form gains Posao (deal) + Lokacija selects; ?deal_id= pre-fills client master data (pre-fill only — saved row keeps the user-confirmed snapshot); edit_offer persists link changes + writes 'document' events on the deal timeline (link and unlink, only on change); duplicate_offer continues the same thread; offers list gains the Posao column linking back to the deal; offer_view shows the deal row. Verified end-to-end over HTTP (prefill, link event, offered badge, list column, duplicate)."
     },
     {
       "id": "card-6197156a-269f-411f-9011-8d3b07dd8c34",
