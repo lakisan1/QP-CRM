@@ -6,7 +6,7 @@
 <p style="color: var(--text-muted);">Statusi se izvode iz dokumenata — ništa se ne održava ručno.</p>
 
 <div class="pipeline-grid">
-    {% for key in ['new', 'offered', 'won', 'closed'] %}
+    {% for key in ['new', 'offered', 'won', 'paid', 'closed'] %}
     {% set label, cls = status_labels[key] if status_labels is defined else (key, key) %}
     <div class="pipeline-col">
         <h2><span class="status-badge {{ cls }}">{{ label }}</span> <small>{{ board[key] | length }}</small></h2>

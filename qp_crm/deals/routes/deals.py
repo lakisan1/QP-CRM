@@ -1,8 +1,12 @@
-"""Deal routes (Phase 4): list, create, the thread page, hand close."""
+"""Deal routes (Phase 4): list, create, the thread page, hand close.
+
+Phase 4.x adds the financial tail: issuing invoices from accepted offers,
+recording payments, voiding invoices (deal_service owns the derivation).
+"""
 from flask import flash, redirect, render_template, request, session, url_for
 
 from ..app import bp
-from qp_crm.services import deal_service
+from qp_crm.services import deal_service, invoice_service
 from qp_crm.shared.auth import get_db
 
 
@@ -14,6 +18,7 @@ STATUS_LABELS = {
     "new": ("Novi", "status-new"),
     "offered": ("Ponuđeno", "status-offered"),
     "won": ("Dobijeno", "status-won"),
+    "paid": ("Plaćeno", "status-paid"),
     "closed": ("Zatvoreno", "status-closed"),
 }
 
@@ -84,15 +89,20 @@ def new_deal():
 
 @bp.route("/deals/<int:deal_id>")
 def view_deal(deal_id):
-    deal, offers, events, status = deal_service.deal_with_offers(deal_id)
+    deal, offers, events, invoices, status = deal_service.deal_with_offers(deal_id)
     if deal is None:
         return "Deal not found", 404
     locations = deal_service.list_locations(deal["customer_id"])
+    # accepted offers without a live invoice -> 'Izdaj fakturu' buttons
+    invoiced_offer_ids = {inv["source_offer_id"] for inv in invoices}
+    invoicable = [o for o in offers if o["id"] not in invoiced_offer_ids]
     return render_template(
         "deals/deal_detail.html",
         deal=deal,
         offers=offers,
         events=events,
+        invoices=invoices,
+        invoicable_offers=invoicable,
         status=status,
         status_labels=STATUS_LABELS,
         locations=locations,
@@ -140,6 +150,61 @@ def close_deal(deal_id):
     if not ok:
         flash(message, "error")
     return redirect(url_for("deals.view_deal", deal_id=deal_id))
+
+
+# ---------------------------------------------------------------------------
+# invoices + payments (Phase 4.x)
+# ---------------------------------------------------------------------------
+
+@bp.route("/deals/<int:deal_id>/issue_invoice/<int:offer_id>", methods=["POST"])
+def issue_invoice(deal_id, offer_id):
+    """Issue an invoice from an accepted offer on this deal."""
+    due_date = request.form.get("due_date") or None
+    ok, result = invoice_service.issue_invoice_from_offer(
+        deal_id, offer_id, due_date=due_date,
+        author_user_id=_current_user_id())
+    if not ok:
+        flash(result, "error")
+    else:
+        inv = invoice_service.invoice_with_details(result)
+        code = inv["invoice"]["code"] if inv else result
+        flash(f"Faktura {code} izdata.", "success")
+    return redirect(url_for("deals.view_deal", deal_id=deal_id))
+
+
+@bp.route("/invoices/<int:invoice_id>/pay", methods=["POST"])
+def record_payment(invoice_id):
+    invoice = invoice_service.invoice_with_details(invoice_id)
+    if invoice is None:
+        return "Invoice not found", 404
+    ok, result = invoice_service.record_payment(
+        invoice_id,
+        request.form.get("amount"),
+        paid_at=request.form.get("paid_at") or None,
+        method=request.form.get("method") or None,
+        reference=request.form.get("reference") or None,
+        note=request.form.get("note") or None,
+        created_by_user_id=_current_user_id(),
+    )
+    if not ok:
+        flash(result, "error")
+    else:
+        flash("Uplata zabeležena.", "success")
+    return redirect(url_for("deals.view_deal",
+                            deal_id=invoice["invoice"]["deal_id"]))
+
+
+@bp.route("/invoices/<int:invoice_id>/void", methods=["POST"])
+def void_invoice(invoice_id):
+    invoice = invoice_service.invoice_with_details(invoice_id)
+    if invoice is None:
+        return "Invoice not found", 404
+    ok, message = invoice_service.void_invoice(
+        invoice_id, author_user_id=_current_user_id())
+    if not ok:
+        flash(message, "error")
+    return redirect(url_for("deals.view_deal",
+                            deal_id=invoice["invoice"]["deal_id"]))
 
 
 @bp.route("/deals/<int:deal_id>/set_location", methods=["POST"])

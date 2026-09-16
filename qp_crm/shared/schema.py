@@ -518,6 +518,88 @@ def create_deals_tables(cur):
     cur.execute("CREATE INDEX IF NOT EXISTS idx_deal_events_deal ON deal_events(deal_id);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_customer_locations_customer ON customer_locations(customer_id);")
 
+    # --- invoices + payments (Phase 4.x): the financial tail of a deal ---
+    create_invoices_tables(cur)
+
+
+def create_invoices_tables(cur):
+    """invoices, invoice_items, payments, invoice_counters (Phase 4.x).
+
+    Conventions carried over from the deal spine (blueprint §4/§5):
+      * issuance-time snapshot -- client fields + items are COPIED from the
+        accepted offer when the invoice is issued; later edits to the offer
+        or the customer master data never leak into issued invoices;
+      * NO deletes -- an invoice is voided (voided_at), payments are never
+        deleted (mistakes are corrected by a reversing entry, not a DELETE);
+      * invoice status is NOT stored -- 'paid' is derived at read time by
+        comparing SUM(payments.amount) with total_gross;
+      * code F-YYYY-NNN comes from the GLOBAL per-year invoice_counters
+        bucket (user decision: one sequence for all invoices, no
+        per-customer or per-deal series).
+    """
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS invoice_counters (
+            year INTEGER PRIMARY KEY,
+            last_number INTEGER NOT NULL DEFAULT 0
+        );
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS invoices (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            code TEXT UNIQUE,
+            deal_id INTEGER NOT NULL REFERENCES deals(id),
+            customer_id INTEGER REFERENCES customers(id),
+            location_id INTEGER REFERENCES customer_locations(id),
+            source_offer_id INTEGER REFERENCES offers(id),
+            issue_date TEXT,
+            due_date TEXT,
+            currency TEXT,
+            exchange_rate REAL DEFAULT 1.0,
+            total_gross REAL DEFAULT 0,
+            -- issuance-time client snapshot (frozen copy from the offer)
+            client_name TEXT, client_address TEXT, client_email TEXT,
+            client_phone TEXT, client_pib TEXT, client_mb TEXT, client_country TEXT,
+            notes TEXT,
+            created_at TEXT,
+            voided_at TEXT
+        );
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS invoice_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            invoice_id INTEGER NOT NULL REFERENCES invoices(id),
+            position INTEGER DEFAULT 0,
+            description TEXT,
+            qty REAL DEFAULT 1,
+            unit TEXT,
+            unit_price REAL DEFAULT 0,
+            discount_percent REAL DEFAULT 0,
+            line_total REAL DEFAULT 0
+        );
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS payments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            invoice_id INTEGER NOT NULL REFERENCES invoices(id),
+            paid_at TEXT,
+            amount REAL NOT NULL,
+            currency TEXT,
+            method TEXT,
+            reference TEXT,
+            note TEXT,
+            created_by_user_id INTEGER REFERENCES users(id),
+            created_at TEXT
+        );
+    """)
+
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_invoices_deal ON invoices(deal_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_invoices_code ON invoices(code);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_invoice_items_invoice ON invoice_items(invoice_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_payments_invoice ON payments(invoice_id);")
+
 
 def migrate_deals(cur):
     """Deals-side idempotent migrations (Phase 4).

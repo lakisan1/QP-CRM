@@ -15,7 +15,7 @@
         <td>{% if d.customer_id %}<a href="{{ url_for('deals.view_customer', customer_id=d.customer_id) }}">{{ d.customer_name }}</a>{% else %}{{ d.customer_name }}{% endif %}</td>
         <td>{{ d.location_name or 'Glavna adresa' }}</td>
         <td>
-            {% set label, cls = status_labels[d.status] %}
+            {% set label, cls = status_labels[d.status] if d.status in status_labels else (d.status, 'status-new') %}
             <span class="status-badge {{ cls }}">{{ label }}</span>
         </td>
         <td>{{ (d.created_at or '')[:10] }}</td>

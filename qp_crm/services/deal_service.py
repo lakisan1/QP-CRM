@@ -13,11 +13,14 @@ Business logic for the deals spine; route modules keep HTTP concerns
       new      -- no linked documents and no decision events yet
       offered  -- >=1 offer linked (and none accepted)
       won      -- an accepted-offer decision event recorded (the one hand
-                  tap the model allows) OR any offer linked to a deal while
-                  the deal carries an invoice (P4.x, not yet built)
+                  tap the model allows)
+      paid     -- >=1 non-voided invoice on the deal and every one of them
+                  is fully covered by payments (Phase 4.x; derived from
+                  SUM(payments) vs invoice totals, never stored)
       closed   -- deals.closed_at set (hand close)
+    Precedence: closed > paid > won > offered > new.
     The only hand-set state is the acceptance tap: a 'decision' event with
-    linked_doc_type='offer'.
+    linked_doc_type='offer_accepted'.
 """
 import sqlite3
 from datetime import date, datetime, timezone
@@ -448,21 +451,27 @@ def delete_event(deal_id, event_id):
 # derived status (the read model)
 # ---------------------------------------------------------------------------
 
-def derived_status_for(deal_row, offer_rows, event_rows):
+def derived_status_for(deal_row, offer_rows, event_rows,
+                       invoices_all_paid=False, invoices_count=0):
     """Pure derivation over fetched rows -- unit-testable without HTTP.
 
     offer_rows: rows of offers where deal_id = deal (any is_template value;
     templates are offers too until linked off).
     event_rows: the deal's timeline events.
 
-    Precedence: closed > won > offered > new.
+    Precedence (Phase 4.x): closed > paid > won > offered > new.
       closed: deals.closed_at set (hand close wins -- no further activity)
+      paid:   every non-voided invoice fully covered by payments AND at
+              least one invoice exists (passed in via invoices_all_paid
+              + invoices_count)
       won:    a 'decision' event with linked_doc_type='offer_accepted'
       offered: >=1 offer linked
       new:    otherwise
     """
     if deal_row is not None and _row_get(deal_row, "closed_at"):
         return "closed"
+    if invoices_count and invoices_all_paid:
+        return "paid"
     events = [dict(e) for e in (event_rows or [])]
     for e in events:
         if e.get("event_type") == "decision" and \
@@ -485,6 +494,7 @@ def _row_get(row, key, default=None):
 
 def derive_status(deal_id):
     """Derive the status of one deal from its links (see module docstring)."""
+    from qp_crm.services import invoice_service
     conn = get_db()
     cur = conn.cursor()
     cur.execute("SELECT * FROM deals WHERE id = ?;", (deal_id,))
@@ -496,8 +506,20 @@ def derive_status(deal_id):
     offers = cur.fetchall()
     cur.execute("SELECT * FROM deal_events WHERE deal_id = ?;", (deal_id,))
     events = cur.fetchall()
+    cur.execute(
+        "SELECT COUNT(*) AS n, "
+        "SUM(CASE WHEN voided_at IS NULL THEN 1 ELSE 0 END) AS active "
+        "FROM invoices WHERE deal_id = ?;", (deal_id,))
+    inv_row = cur.fetchone()
     conn.close()
-    return derived_status_for(deal, offers, events)
+    # paid only counts NON-voided invoices; voided-only => not paid
+    active = inv_row["active"] or 0
+    all_paid = False
+    if active:
+        all_paid = invoice_service.deal_is_paid(deal_id)
+    return derived_status_for(deal, offers, events,
+                              invoices_all_paid=all_paid,
+                              invoices_count=active)
 
 
 def record_offer_accepted(deal_id, offer_id, author_user_id=None):
@@ -517,10 +539,12 @@ def record_offer_accepted(deal_id, offer_id, author_user_id=None):
 
 
 def deal_with_offers(deal_id):
-    """Everything the deal thread page needs: deal, events, linked offers."""
+    """Everything the deal thread page needs: deal, events, linked offers,
+    invoices (with paid/remaining), derived status."""
+    from qp_crm.services import invoice_service
     deal = get_deal(deal_id)
     if deal is None:
-        return None, [], []
+        return None, [], [], [], None
     events = list_events(deal_id)
     conn = get_db()
     cur = conn.cursor()
@@ -533,8 +557,13 @@ def deal_with_offers(deal_id):
     )
     offers = cur.fetchall()
     conn.close()
-    status = derived_status_for(deal, offers, events)
-    return deal, offers, events, status
+    invoices = invoice_service.deal_invoice_summary(deal_id)
+    active = len(invoices)
+    all_paid = active > 0 and all(inv["is_paid"] for inv in invoices)
+    status = derived_status_for(deal, offers, events,
+                                invoices_all_paid=all_paid,
+                                invoices_count=active)
+    return deal, offers, events, invoices, status
 
 
 def record_offer_linked(deal_id, offer_id, author_user_id=None, linked=False):
@@ -573,7 +602,7 @@ def pipeline_board():
             {"currency": row["currency"] or "", "value": row["value"] or 0.0}
         )
     conn.close()
-    board = {"new": [], "offered": [], "won": [], "closed": []}
+    board = {"new": [], "offered": [], "won": [], "paid": [], "closed": []}
     for d in deals:
         d["offer_values"] = values.get(d["id"], [])
         board.setdefault(d["status"], []).append(d)

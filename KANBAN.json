@@ -901,21 +901,23 @@
     },
     {
       "id": "card-1e440fa4-1472-4dca-b1c9-2e42676a4e46",
-      "title": "P4 — Deals spine: customers + locations + deals + timeline + link to offers",
+      "title": "P4.x — Invoices + payments on the deal spine (won→paid): invoices + payments + payments counters, global numbering, deal UI",
       "description": "New `customers` table (legal entity: PIB/MB, billing) + `customer_locations` (physical workshop sites) + `deals` (one thread per request; N concurrent per customer) + `deal_events` timeline + link to existing offers via deal_id. Deal may reference a location (defaults to customer HQ when null). Status derived from linked documents (won = accepted offer/invoice; paid = payments cover invoice) — hand-set only \"new\". Concurrency guardrails: global per-type document numbering with per-deal deal code (D-YYYY-NNN) for reference in emails; stock availability computed across ALL active reservations (available = on-hand − Σ reserved); payments attach to invoices, not the customer account. Replaces the old CRM + ticketing thread tracking.",
       "rationale": "User confirmed Customer+Offer+Invoice first, then raised two real-world complications: customers with multiple workshops and multiple concurrent projects. Three-level party model (customer → location → deal) answers both structurally instead of patching later; one extra table now is cheap vs backfilling location semantics onto existing deals later.",
-      "rejected": "Full history import from old CRM/ticketing — user chose \"Fresh start\" (customers + active work re-entered manually). Full analytics ETL import of old 9k documents was also rejected for phase 1 — historical stats stay in MH fin analitike clean_data db_v2.sqlite.",
+      "rejected": "Stored status column + drag-editable pipeline — rejected: statuses are derived from documents (blueprint §6), so any stored copy would drift. Invoices/payments inside P4 — deferred to P4.x card, blocked on invoice numbering format (OPEN_QUESTIONS #4). Stock availability across reservations — explicitly P5.",
       "sourceSessionId": "session-7383d563-60ad-4303-be85-68798dd7746b",
-      "status": "in_progress",
+      "status": "todo",
       "tags": [
         "qp-crm",
         "deals",
         "phase-4",
+        "invoices",
         "plan",
         "in-flight"
       ],
       "createdAt": 1788771414300,
-      "updatedAt": 1789560320450
+      "updatedAt": 1789572721899,
+      "summary": "Phase 4 SHIPPED on Dev (commits 1dc7c48, 42208a7, e6d4334, c6ebb13; tag qp-crm-phase4; suite 288 passed/3 skipped): customers + locations + deals + deal_events + deal_counters schema; deal_service (D-YYYY-NNN per-year numbering, derived statuses closed>won>offered>new, timeline); /deals module (customers CRUD+archive, deals list/thread, read-only pipeline); offer↔deal link (pickers, prefill, link/unlink events, deal code on lists); grants v3 + landing card; 19 new tests. Real bug found & fixed: 'closed' status was unreachable (getattr on sqlite3.Row). Agent Note: feature/2026-09-16-deals-spine.md."
     },
     {
       "id": "card-38a97f87-fb38-41d0-aab7-73b58911a6b9",
@@ -1109,9 +1111,9 @@
       "title": "P4-T5 · Pipeline view + landing card + grants wiring end-to-end",
       "description": "Pipeline view (/deals/pipeline): deals grouped by derived status with total value (sum of linked offers' gross per currency); customer page shows all deals + document totals; admin Users page gains the deals checkbox automatically via MODULE_CHOICES; landing card \"Poslovi / Deals\" gated by grant; smoke tests cover /deals pages for granted staff + 403 without grant; MODULE_INTRODUCED v3 seeds the grant to existing staff exactly once.",
       "rationale": "The pipeline is the payoff screen (\"what's in the air at every customer\"), and the acceptance criterion is that it matches reality without anyone maintaining statuses.",
-      "rejected": "Kanban drag-drop status editing — rejected: statuses are derived, nothing to hand-edit; the board is read-only by design.",
+      "rejected": "Wanted editable pipeline columns (drag between statuses) — dropped: statuses are derived from documents, so dragging has nothing to write; the board is read-only by design.",
       "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
-      "status": "todo",
+      "status": "done",
       "tags": [
         "qp-crm",
         "phase-4",
@@ -1120,16 +1122,17 @@
         "ui"
       ],
       "createdAt": 1789560414945,
-      "updatedAt": 1789560414945
+      "updatedAt": 1789567892527,
+      "summary": "committed e6d4334: pipeline route now passes STATUS_LABELS (board shows Novi/Ponuđeno/Dobijeno/Zatvoreno); grants verified end-to-end over HTTP — anon redirect to /login, ungranted staff 403 with message naming the missing app, granted staff + admins 200 on every deals page, landing card appears/disappears with the grant, grants-v3 exactly-once seeding pinned by tests (v2-materialized staff gain deals on next boot; explicitly emptied sets stay empty)."
     },
     {
       "id": "card-60abd16a-cc56-4703-a939-719e9559ccbe",
       "title": "P4-T6 · Tests + handover: characterization/smoke for deals, full suite green, Agent Note + board",
       "description": "New tests (mirror conftest fixtures: deals_client): schema migration on legacy DB (old offers DB gains deal_id/location_id, tables created, NULLs fine); deal code uniqueness + per-year increment; derived status transitions (new→offered→won via decision event); customer/location CRUD + archived behavior; offer link writes document events; smoke: /deals/ 200 for granted staff, redirect anon, 403 ungranted; landing shows Deals card only when granted. Full suite green. Commit per task, merge phase-4-deals → Dev, tag qp-crm:phase4, Agent Note (feature) recording the deals-spine implementation, update board.",
       "rationale": "Repo discipline: every phase lands with tests green on the throwaway DB, a tag, and a decision note; the board is the hand-off record.",
-      "rejected": "Golden-PDF additions for invoices — deferred with the invoice feature itself (P4 scope split approved in planning; invoice+payments is the explicit next card).",
+      "rejected": "SQLite direct connection in the funnel test (sqlite3.connect(temp_db)) — replaced with the shared get_db() to respect the conftest DB root patching.",
       "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
-      "status": "todo",
+      "status": "done",
       "tags": [
         "qp-crm",
         "phase-4",
@@ -1138,7 +1141,98 @@
         "handover"
       ],
       "createdAt": 1789560414963,
-      "updatedAt": 1789560414963
+      "updatedAt": 1789567892549,
+      "summary": "committed e6d4334 + merge c6ebb13 on Dev, tag qp-crm-phase4: 11 service characterization tests (per-year codes, counter survives boot replay, ownership, archive-not-delete, full derived lifecycle, unlink revert, birth event, pipeline grouping) + 8 HTTP tests (gating matrix, landing card, v3 seeding, full funnel customer→deal→offer→accept→won). Full suite 288 passed / 3 skipped. The tests caught a REAL bug: derived_status_for used getattr() on sqlite3.Row (no attribute access) so 'closed' was unreachable — fixed via _row_get(). test_user_management's hardcoded 4-module lists replaced with list(MODULE_CHOICES) so the deals grant survives deactivate/reactivate tests."
+    },
+    {
+      "id": "card-5eb67b7c-087f-4ee9-9c16-c965e124368d",
+      "title": "BUG · factory_reset + reprovision leaves stale session user_id (pre-existing, test-order dependent)",
+      "description": "Symptom: after Admin→Factory reset (users table wiped + provision_staff_accounts re-seeds), a test client logged in BEFORE the reset keeps the old session user_id, which after re-seed belongs to a different/no row → require_module sends it to /login instead of 403/200 → cross-test failures (e.g. test_role_gates assert 302==200). Reproduced on Dev, phase-3-auth, 4f3a2a1, 94ee464. Not a P4 regression; P4 suite passes when ordering differs (288 passed full suite after P4 test fixes — residual risk only in specific orderings).\nFix direction (when picked up): invalidate sessions whose user_id no longer matches the same username (store username in session alongside id and re-check in require_role/require_module), or make factory_reset reprovision deterministic ids in tests.",
+      "rationale": "A pre-existing landmine for future test ordering — logging it now so it isn't rediscovered as a regression during P5; the P4 test fixes (MODULE_CHOICES in test_user_management) removed the visible symptom but not the root cause.",
+      "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "bug",
+        "testing",
+        "pre-existing",
+        "auth"
+      ],
+      "createdAt": 1789567953393,
+      "updatedAt": 1789567953393
+    },
+    {
+      "id": "card-3d7290cf-d3cd-4b92-9708-8cfafd8f68a0",
+      "title": "P4.x-T1 · Invoices schema: invoices + invoice_items + payments tables, F-YYYY-NNN global invoice_counters",
+      "description": "Step 1 of P4.x. In shared/schema.py create_deals_tables (or a new create_invoices_tables called from deals_init_db): invoices (id, code UNIQUE, deal_id FK NOT NULL, customer_id FK, location_id FK NULL, source_offer_id FK NULL, issue_date, due_date, currency, exchange_rate, total_gross, total_paid, client_* snapshot fields copied from the accepted offer at issue time, notes, created_at, voided_at) — void not delete; invoice_items (invoice_id FK, position, description, qty, unit, unit_price, discount_percent, vat_percent, line_total); payments (invoice_id FK, paid_at, amount, currency, method, reference, note, created_by_user_id, created_at). Counters: extend deal_counters pattern — invoice_counters(year PK, last_number) issuing F-YYYY-NNN GLOBALLY (user decision: one bucket for all invoices, no per-customer/per-deal series). Status DERIVED, never stored: invoice paid status computed from SUM(payments.amount) >= total_gross at read time.",
+      "rationale": "The deal spine from P4 has no financial tail: won deals cannot graduate to paid. This step adds the storage + numbering foundation; UI and derivation come in the next steps. Global numbering confirmed by the user (supersedes OPEN_QUESTIONS #4).",
+      "rejected": "Storing a status column on invoices — rejected: violates the blueprint's derived-status rule and would drift with every payment insert.",
+      "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "phase-4x",
+        "invoices",
+        "schema",
+        "task"
+      ],
+      "createdAt": 1789572807711,
+      "updatedAt": 1789572807711
+    },
+    {
+      "id": "card-431056ae-cc30-49fe-9793-bf02e16c5428",
+      "title": "P4.x-T2 · Invoice/payment service: issue-from-offer, record_payment, paid derivation (closed > paid > won)",
+      "description": "Step 2 of P4.x. Extend services/deal_service.py (or new services/invoice_service.py): issue_invoice_from_offer(deal_id, offer_id, ...) — validates offer belongs to deal and deal not closed; copies the offer's frozen client snapshot + items into the invoice (issuance-time snapshot, blueprint §4); allocates F-YYYY-NNN via invoice_counters (same INSERT..ON CONFLICT + UPDATE..RETURNING + UNIQUE(code) retry as deals); writes a 'document' event (linked_doc_type='invoice') on the deal timeline. record_payment(invoice_id, amount, ...) validates amount > 0, writes event on the deal. Derived status extension: derive_status gains 'paid' below 'closed' — paid when the deal has ≥1 invoice and every invoice's SUM(payments) >= total_gross. Precedence becomes closed > paid > won > offered > new. Pure functions kept unit-testable.",
+      "rationale": "Business logic must live in the service layer per the P2 architecture; keeping derivation pure lets the status matrix be pinned by characterization tests before any UI exists.",
+      "rejected": "Multiple invoices per deal with partial per-invoice payments — supported by the data model (each invoice sums its own payments) but 'paid' requires ALL invoices covered; no partial-credit heuristics.",
+      "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "phase-4x",
+        "invoices",
+        "service",
+        "task"
+      ],
+      "createdAt": 1789572807735,
+      "updatedAt": 1789572807735
+    },
+    {
+      "id": "card-42e52a89-c09e-4378-9e35-d8bdc325bb02",
+      "title": "P4.x-T3 · Deal UI: invoice section on thread page (issue from offer, payments, void) + pipeline paid column",
+      "description": "Step 3 of P4.x. Deal thread page (deals/deal_detail.html): Fakture section under documents — per invoice: code (F-YYYY-NNN), issue date, total, paid-so-far, remaining, status chip (Neplaćena/Plaćena), payments sub-list, add-payment inline form, and an 'Izdaj fakturu' button per accepted offer that hasn't been invoiced yet. Void invoice button (voided_at, never delete). Pipeline: add 'paid' column (5 columns) with per-currency totals. Status badge CSS for .status-paid. Invoice numbers clickable in offers/deal views where relevant.",
+      "rationale": "Without UI the spine data is unreachable for the user; this completes the visible workflow issue→pay→paid on the page where staff already work.",
+      "rejected": "Separate /invoices list page — deferred: deal-thread-first keeps the workflow in one place; a global invoices list can come later if volume demands it.",
+      "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "phase-4x",
+        "invoices",
+        "ui",
+        "task"
+      ],
+      "createdAt": 1789572868436,
+      "updatedAt": 1789572868436
+    },
+    {
+      "id": "card-db2b560c-ba00-4cfd-8e68-69d4de85d8ff",
+      "title": "P4.x-T4 · Tests + full green + reboot app + Agent Note + write-down of all changes",
+      "description": "Step 4 of P4.x. Tests: characterization for invoice numbering (global per-year F-YYYY-NNN, counter survives boot replay), issue-from-offer snapshot copy (client fields + items), payment validation, paid derivation matrix (partial payment, overpay, multi-invoice, voided invoice excluded), event writes. Smoke: deal thread shows invoice section, issue via HTTP, record payment, paid badge on pipeline. Full suite green. Then: reboot the production app (docker rebuild + restart so the new module + schema land on :5000), update board (all P4.x cards), Agent Note for the invoices/payments feature, and write the requested write-down of all changes.",
+      "rationale": "The P4 pattern (tests first caught the closed_at bug) proved characterization tests pay off; the reboot makes the shipped code actually visible to the user on their server, and the write-down is an explicit user request.",
+      "rejected": "Skipping the reboot until P5 — rejected: user explicitly asked to reboot when done so the changes are live.",
+      "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "phase-4x",
+        "invoices",
+        "testing",
+        "handover",
+        "task"
+      ],
+      "createdAt": 1789572868461,
+      "updatedAt": 1789572868461
     }
   ]
 }
