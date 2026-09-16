@@ -82,8 +82,59 @@
     {% set active = 'rent_templates' %}{% include 'admin/_nav.html' %}
 
 <div class="content">
+    <!-- Rent Module Defaults (moved from dashboard) -->
+    <div class="card" style="margin-bottom:24px;">
+        <h3 style="margin-top:0;">📋 Rent – Default Financial Parameters</h3>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px;">
+            These values load automatically when a new rent contract is created.
+            They can be edited per individual contract.
+        </p>
+        <form action="{{ url_for('admin.update_settings') }}" method="POST">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="redirect_to" value="/admin/rent/templates">
+            <div class="grid-2-col-asymmetric" style="grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px;">
+                <label>Annual Interest Rate (%)
+                    <input type="number" name="rent_default_interest_rate" step="0.01" min="0"
+                           value="{{ rent_defaults.rent_default_interest_rate }}">
+                </label>
+                <label>Insurance Rate – annual (%)
+                    <input type="number" name="rent_default_insurance_rate" step="0.001" min="0"
+                           value="{{ rent_defaults.rent_default_insurance_rate }}">
+                </label>
+                <label>Guarantee Rate – annual (%)
+                    <input type="number" name="rent_default_guarantee_rate" step="0.01" min="0"
+                           value="{{ rent_defaults.rent_default_guarantee_rate }}">
+                </label>
+                <label>Administrative Cost (€)
+                    <input type="number" name="rent_default_admin_fee" step="0.01" min="0"
+                           value="{{ rent_defaults.rent_default_admin_fee }}">
+                </label>
+                <label>VAT (%)
+                    <input type="number" name="rent_default_vat_percent" step="0.01" min="0"
+                           value="{{ rent_defaults.rent_default_vat_percent }}">
+                </label>
+                <label>Residual Value (%)
+                    <input type="number" name="rent_default_salvage_value_percent" step="0.01" min="0"
+                           value="{{ rent_defaults.rent_default_salvage_value_percent }}">
+                </label>
+                <label>Down Payment / Advance (%)
+                    <input type="number" name="rent_default_downpayment_percent" step="0.01" min="0" max="100"
+                           value="{{ rent_defaults.rent_default_downpayment_percent }}">
+                </label>
+                <label>Default Number of Months
+                    <input type="number" name="rent_default_period_months" step="1" min="1"
+                           value="{{ rent_defaults.rent_default_period_months }}">
+                </label>
+            </div>
+            <div style="margin-top: 16px;">
+                <label style="color: var(--accent-warning);">Confirm Current Admin Password</label>
+                <input type="password" name="current_admin_password" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Save Rent Parameters</button>
+        </form>
+    </div>
+
     <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;">
-        <a href="/admin/" class="btn btn-secondary">← Dashboard</a>
         <div>
             <h1 style="margin:0;font-size:1.4rem;">📄 Rent – Master Šabloni dokumenata</h1>
             <p style="margin:4px 0 0;color:var(--text-muted);font-size:0.9rem;">
@@ -95,6 +146,16 @@
     {% if msg %}
     <div class="msg-ok" style="margin-bottom:16px;">{{ msg }}</div>
     {% endif %}
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="alert alert-{{ 'success' if category == 'success' else 'error' }}" style="margin-bottom:16px;">
+        {{ message }}
+    </div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
 
     <div class="layout">
         <!-- Sidebar: template list -->

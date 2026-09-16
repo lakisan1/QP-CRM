@@ -9,7 +9,7 @@ admin was bounced into an endless /login?next=/admin/ loop.
 
 from flask import render_template, request
 
-from ..app import bp, get_db, sort_rent_templates
+from ..app import bp, get_db, sort_rent_templates, fetch_rent_defaults
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Rent Master Template Editor (Admin)
@@ -40,10 +40,13 @@ def admin_rent_templates():
     cur.execute("SELECT value FROM global_settings WHERE key='rent_email_subject';")
     subj_row = cur.fetchone()
     rent_email_subject = subj_row["value"] if subj_row else "Ugovor i prilozi za zakup opreme - {{ contract_number }} - {{ client_name }}"
+    # Rent financial defaults for the defaults card (moved from the dashboard)
+    rent_defaults = fetch_rent_defaults(cur)
     conn.close()
     return render_template("admin/admin_rent_templates.html", templates=templates, selected=None, msg=None,
                            rent_email_preset=rent_email_preset,
-                           rent_email_subject=rent_email_subject)
+                           rent_email_subject=rent_email_subject,
+                           rent_defaults=rent_defaults)
 
 
 @bp.route("/rent/templates/<slug>", methods=["GET", "POST"])
@@ -87,10 +90,14 @@ def admin_rent_template_edit(slug):
     subj_row2 = cur.fetchone()
     rent_email_subject = subj_row2["value"] if subj_row2 else "Ugovor i prilozi za zakup opreme - {{ contract_number }} - {{ client_name }}"
 
+    # Rent financial defaults for the defaults card (moved from the dashboard)
+    rent_defaults = fetch_rent_defaults(cur)
+
     conn.close()
     return render_template("admin/admin_rent_templates.html",
                            templates=templates,
                            selected=selected,
                            msg=msg,
                            rent_email_preset=rent_email_preset,
-                           rent_email_subject=rent_email_subject)
+                           rent_email_subject=rent_email_subject,
+                           rent_defaults=rent_defaults)
