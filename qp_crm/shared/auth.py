@@ -72,28 +72,27 @@ def seed_users_from_legacy(cur):
             ),
         )
 
-# ---------- API Key Management ----------
+# ---------- API Key Management (legacy global key RETIRED 2026-09-16) ----------
+#
+# The global api_key (global_settings row 'api_key') was removed: /api/v1
+# authenticates ONLY by per-user keys (see the section below). The lifecycle
+# helpers remain for backwards compatibility with restored old databases —
+# get_api_key() still READS a leftover row (None when absent) so callers can
+# detect one, but nothing authenticates against it anymore.
 
 def generate_api_key():
-    """
-    Generate a new 48-character hex API key and store it in global_settings.
-    Returns the generated key.
-    """
-    new_key = secrets.token_hex(24)  # 48 hex chars
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("""
-        INSERT OR REPLACE INTO global_settings (key, value)
-        VALUES ('api_key', ?);
-    """, (new_key,))
-    conn.commit()
-    conn.close()
-    return new_key
+    """RETIRED: kept only so accidental imports do not crash. Raises."""
+    raise NotImplementedError(
+        "The legacy global API key was retired. Issue per-user keys on "
+        "/admin/api_keys (issue_user_api_key) instead."
+    )
 
 def get_api_key():
-    """
-    Retrieve the current API key from global_settings.
-    Returns None if no key has been generated yet.
+    """Return a leftover global_settings 'api_key' row, or None.
+
+    The returned value NO LONGER authenticates anything: the API accepts
+    per-user keys exclusively. Exists so a restored old database's key can
+    be detected (and manually deleted) if ever present.
     """
     conn = get_db()
     cur = conn.cursor()
@@ -108,20 +107,14 @@ def get_api_key():
     return None
 
 def validate_api_key(key):
-    """
-    Validate that the given API key matches the stored key.
-    Returns True if valid, False otherwise.
-    """
-    if not key:
-        return False
-    stored = get_api_key()
-    if not stored:
-        return False
-    return secrets.compare_digest(key, stored)
+    """RETIRED with the global key: always False. Kept for import safety."""
+    return False
 
 def revoke_api_key():
-    """
-    Remove the API key from global_settings (revoke access).
+    """Delete a leftover global_settings 'api_key' row (manual cleanup).
+
+    Nothing authenticates against that row anymore; this only removes the
+    dead secret from a restored old database.
     """
     conn = get_db()
     cur = conn.cursor()
@@ -133,9 +126,10 @@ def revoke_api_key():
 # ----------
 # Per-user API keys (Phase 3 step 7). The raw key exists only at issue time
 # (shown once to the issuing admin); storage is sha256(key) + a display
-# prefix. resolve_api_identity() checks user keys FIRST, then the legacy
-# global key (transition). The key holder's account must be active for the
-# key to authenticate -- deactivation revokes access instantly.
+# prefix. resolve_api_identity() accepts ONLY per-user keys (the legacy
+# global api_key fallback was removed 2026-09-16). The key holder's account
+# must be active for the key to authenticate -- deactivation revokes access
+# instantly.
 # ----------
 
 API_KEY_PREFIX_LEN = 12
@@ -214,8 +208,13 @@ def resolve_api_identity(raw_key):
     Returns ('user', username, user_id) for a valid, active per-user key;
     ('user-denied', username, user_id) when the hash matches a key that is
     revoked or whose holder is deactivated (audited as refused, then 403);
-    ('global', None, None) for the legacy global api_key (transition);
     None when the key matches nothing. Updates last_used only on success.
+
+    The legacy global api_key fallback ('global', None, None) was REMOVED
+    (2026-09-16, user decision): only per-user keys authenticate /api/v1,
+    every audited call carries a username. A leftover global_settings
+    'api_key' row (e.g. from a restored old database) no longer
+    authenticates anything.
     """
     if not raw_key:
         return None
@@ -241,10 +240,6 @@ def resolve_api_identity(raw_key):
         conn.close()
         return ("user", row["username"], row["user_id"])
     conn.close()
-    # Legacy global key (transition; deprecated -- see API_INSTRUCTIONS.md).
-    stored = get_api_key()
-    if stored and secrets.compare_digest(raw_key, stored):
-        return ("global", None, None)
     return None
 
 

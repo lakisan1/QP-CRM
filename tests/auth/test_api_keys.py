@@ -1,16 +1,18 @@
-"""Phase 3 step 7: per-user API keys for /api/v1.
+"""Phase 3 step 7 + legacy-key retirement (2026-09-16): per-user API keys for /api/v1.
 
 Pinned behavior:
 
 * issue_user_api_key returns the raw key exactly once; storage is its
   SHA-256 hash + a display prefix (the raw key is NEVER stored);
-* resolve_api_identity prefers per-user keys, falls back to the legacy
-  global api_key (transition, deprecated);
+* resolve_api_identity accepts ONLY per-user keys — the legacy global
+  api_key fallback ('global', None, None) was REMOVED, an old global key
+  authenticates NOTHING;
 * a revoked key or a key whose holding user is deactivated -> 403;
   missing Bearer header -> 401; unknown key -> 403;
-* the legacy global key keeps working (transition);
 * every authenticated API request lands one row in api_audit: kind='user'
-  with the holder's username, or kind='global' with NULL username;
+  with the holder's username (kind='global' no longer occurs);
+* same-origin session fallback: a logged-in user with the pricing grant
+  may call /api/v1 without a Bearer header (product_sync page JS);
 * admin UI: issue + revoke require the acting admin's own password.
 """
 
@@ -88,11 +90,14 @@ def test_resolve_prefers_user_keys_and_stamps_last_used():
     assert last_used["last_used"] is not None
 
 
-def test_resolve_global_key_is_transition_fallback():
-    global_key = generate_api_key()
-    assert resolve_api_identity(global_key) == ("global", None, None)
+def test_resolve_rejects_global_key_and_unknown_keys():
+    # The global-key fallback is retired: a key that is NOT a per-user key
+    # (including any leftover global_settings 'api_key' value) matches nothing.
     assert resolve_api_identity("totally-unknown-key") is None
     assert resolve_api_identity("") is None
+    # generate_api_key() raises: the legacy lifecycle is closed.
+    with pytest.raises(NotImplementedError):
+        generate_api_key()
 
 
 # --------------------------------------------------------------------- HTTP
@@ -162,14 +167,31 @@ def test_api_v1_auth_error_codes():
     assert before == after
 
 
-def test_api_v1_global_key_still_works_and_is_audited_as_global():
-    global_key = generate_api_key()
-    client = app.test_client()
-    resp = _bearer(client, "/api/v1/products", global_key)
+def test_api_v1_session_fallback_for_logged_in_pricing_user():
+    """Same-origin page JS (product_sync) calls /api/v1 without a Bearer
+    header: a logged-in user WITH the pricing grant is authenticated as
+    themselves; anonymous and grant-less sessions are 401/403."""
+    client = login_client(app.test_client(), "pricing")
+    resp = client.get("/api/v1/products")
     assert resp.status_code == 200
     row = _last_audit()
-    assert row["kind"] == "global"
-    assert row["username"] is None
+    assert row["kind"] == "user" and row["username"] == "pricing" and row["status"] == 200
+
+    # staff WITHOUT the pricing grant: 403
+    from qp_crm.shared.auth import set_user_modules, MODULE_CHOICES
+    conn = get_db()
+    uid = conn.execute("SELECT id FROM users WHERE username='offer'").fetchone()["id"]
+    conn.close()
+    set_user_modules(uid, ["offer"])
+    try:
+        offer_client = login_client(app.test_client(), "offer")
+        assert offer_client.get("/api/v1/products").status_code == 403
+    finally:
+        set_user_modules(uid, list(MODULE_CHOICES))
+
+    # anonymous: 401 (not a redirect — this is an API)
+    anon = app.test_client()
+    assert anon.get("/api/v1/products").status_code == 401
 
 
 # ----------------------------------------------------------------- admin UI

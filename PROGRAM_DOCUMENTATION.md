@@ -121,18 +121,21 @@ iz `global_settings` su pri Phase 3 migrirane u `users` redove i obrisane.
 - **Per-user API ključevi (`api_keys`):** `issue_user_api_key(user_id, label)`
   vraća sirovi ključ **tačno jednom** (čuva se samo SHA-256 heš + prefix za
   prikaz), `resolve_api_identity(raw)` → `('user', username, user_id)` /
-  `('global', None, None)` (legacy ključ — DEPRECATED, tranzicija) /
   `('user-denied', ...)` (revoke ili neaktivan vlasnik — audited, pa 403) /
-  None. `log_api_call()` piše `api_audit` (metoda, putanja, kind, username,
-  status) za svaki autentifikovani API poziv.
+  None. Legacy globalni ključ (`('global', None, None)` fallback) je UKLONJEN
+  2026-09-16 — samo per-user ključevi autentifikuju `/api/v1`; dodatno, isti
+  origin pozivi iz prijavljene sesije SA pricing grantom prolaze bez Bearer
+  hedera (product_sync JS). `log_api_call()` piše `api_audit` (metoda, putanja,
+  kind, username, status) za svaki autentifikovani API poziv.
 - **Login audit + lockout (Phase 3 step 8, bez Redis-a):** `log_login_attempt()`
   piše `login_audit` (ts, username, ip, success, detail); brojač neuspeha je
   in-process dict po `(ip, username)` paru pod `threading.Lock` —
   `LOGIN_MAX_FAILURES=5` u `LOGIN_WINDOW_SECONDS=15min` → lockout
   `LOGIN_LOCKOUT_SECONDS=15min` (`is_login_locked`), uspešan login briše brojač.
-- **Legacy API ključ:** `generate_api_key()`/`get_api_key()`/`revoke_api_key()`
-  rade nad `global_settings.api_key` — i dalje važi za `/api/v1` (tranzicija),
-  ali je deprecated (vidi `API_INSTRUCTIONS.md`).
+- **Legacy API ključ (RETIRIRAN):** `get_api_key()` čita eventualni zaostali
+  `global_settings.api_key` red (radi detekcije prilikom restore-a starog
+  backup-a), ali taj ključ **ne autentifikuje ništa**; `generate_api_key()`
+  raise-uje `NotImplementedError`, `revoke_api_key()` briše mrtvi red.
 
 ### 2.4 `shared/utils.py` — Pomoćne funkcije i prevodi
 
@@ -354,7 +357,7 @@ Upravlja ugovorima o zakupu, dokumentima, PDF šablonima i obračunom rata.
   - `list_pdf_templates` / `add_pdf_template` / `edit_pdf_template` / `delete_pdf_template` / `set_active_pdf_template` — PDF template-ovi (System Default je read-only).
   - `cleanup_images` — standardizuje imena slika proizvoda i briše orphaned fajlove.
   - `list_rounding_rules` / `add_rounding_rule` / `delete_rounding_rule` — pravila zaokruživanja cena.
-  - `api_key_generate` / `api_key_revoke` — LEGACY globalni ključ (`global_settings.api_key`, DEPRECATED — tranzicija; vidi API_INSTRUCTIONS.md), zahteva admin password.
+  - `api_key_generate` / `api_key_revoke` — UKLONJENI 2026-09-16 zajedno sa legacy globalnim ključem (`global_settings.api_key`); per-user ključevi na `/admin/api_keys` su jedini API auth.
   - (Phase 3) Korisnici: `list_users` / `create_user_action` / `save_user_action` (Admin → Users) — kreira/edituje naloge: active, rola (admin/staff), per-modul grantovi (pricing/offer/rent/sale), opcioni novi password; osetljive akcije traže admin-ovu sopstvenu lozinku (`confirm_current_password`), sa čuvarima (ne deaktiviraš sebe, ne smanjuješ sebi rolu, poslednji aktivni admin se ne dira).
   - (Phase 3) Per-user API ključevi: `list_api_keys` / `issue_api_key_action` / `toggle_api_key_action` (Admin → API Keys) — ključ vezan za korisnika; raw se prikazuje tačno jednom; revoke/re-enable; sve pod require_role("admin") + CSRF + potvrda admin lozinke.
   - `admin_rent_templates` / `admin_rent_template_edit` — editor rent master template-a (u bazi `rent_templates`).

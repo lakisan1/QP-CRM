@@ -14,7 +14,6 @@ from ..app import (
     apply_rounding,
     bp,
     download_image_from_url,
-    get_api_key,
     get_db,
     save_product_image,
 )
@@ -23,11 +22,14 @@ from ..app import (
 
 @bp.route("/products/product_sync")
 def product_sync():
-    """Sajt <-> CRM product comparison/sync page (manual sync only)."""
-    return render_template(
-        "pricing/product_sync.html",
-        api_key=get_api_key(),
-    )
+    """Sajt <-> CRM product comparison/sync page (manual sync only).
+
+    The page's JS calls /api/v1 same-origin; since the legacy global API
+    key was removed, api_v1 authenticates those calls by the logged-in
+    session (the user already passed require_module('pricing') to reach
+    this page) -- no API key is embedded in the page anymore.
+    """
+    return render_template("pricing/product_sync.html")
 
 @bp.route("/products")
 def list_products():

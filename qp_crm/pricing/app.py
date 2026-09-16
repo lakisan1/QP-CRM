@@ -24,7 +24,7 @@ from qp_crm.shared.web import (
 )
 
 from qp_crm.shared.utils import format_amount, format_date, get_nbs_rate
-from qp_crm.shared.auth import get_api_key, generate_api_key
+from qp_crm.shared.auth import get_api_key, revoke_api_key
 from qp_crm.services.pricing_service import apply_rounding
 
 # ---------------------------------------------------------------------------
@@ -99,18 +99,14 @@ if __name__ == "__main__":
     init_db()
     migrate_schema()
 
-    # Auto-generate API key on first run if none exists
-    existing_key = get_api_key()
-    if not existing_key:
-        new_key = generate_api_key()
-        print(f"\n{'='*60}")
-        print(f"  🔑 API v1: No API key found. Generated new key:")
-        print(f"  {new_key}")
-        print(f"  Manage this key in: Admin Panel → API Key Management")
-        print(f"  Use: Authorization: Bearer {new_key}")
-        print(f"{'='*60}\n")
-    else:
-        print(f"\n  🔑 API v1 key loaded. Manage in Admin Panel → API Key Management\n")
+    # API auth is per-user keys only (the legacy global key was retired).
+    # A leftover global_settings 'api_key' row no longer authenticates;
+    # delete it so the dead secret does not linger.
+    leftover = get_api_key()
+    if leftover:
+        revoke_api_key()
+        print("  🔑 Removed retired global api_key row from global_settings "
+              "(per-user keys on /admin/api_keys are the only API auth now).\n")
 
     app = Flask(__name__, static_folder=STATIC_DIR, static_url_path="/static")
     app.register_blueprint(bp, url_prefix="/pricing")

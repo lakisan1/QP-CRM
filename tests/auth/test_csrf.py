@@ -25,7 +25,7 @@ import pytest
 
 from conftest import login_client
 from qp_crm.main import app
-from qp_crm.shared.auth import generate_api_key
+from qp_crm.shared.auth import get_db
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -156,7 +156,11 @@ def test_csrf_token_accepted_via_header():
 
 def test_api_v1_exempt_from_csrf():
     # Bearer-authenticated POST without any CSRF token must reach the handler.
-    key = generate_api_key()
+    from qp_crm.shared.auth import issue_user_api_key
+    conn = get_db()
+    uid = conn.execute("SELECT id FROM users WHERE username='pricing'").fetchone()["id"]
+    conn.close()
+    key, _ = issue_user_api_key(uid, "csrf-probe")
     client = app.test_client()
     resp = client.post(
         "/api/v1/products",

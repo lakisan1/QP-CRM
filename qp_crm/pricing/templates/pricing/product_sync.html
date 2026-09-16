@@ -138,7 +138,8 @@
 </div>
 
 <script>
-    const API_KEY = {{ api_key|tojson }};
+    // Same-origin calls to /api/v1 authenticate by the logged-in session
+    // (the legacy global API key was removed) -- no key in the page source.
     let currentFilter = 'all';
     let currentQ = '';
     let brands = [];
@@ -148,7 +149,7 @@
     function apiFetch(url, opts) {
         opts = opts || {};
         opts.headers = opts.headers || {};
-        opts.headers['Authorization'] = 'Bearer ' + API_KEY;
+        opts.credentials = 'same-origin';
         return fetch(url, opts).then(r => r.json());
     }
 

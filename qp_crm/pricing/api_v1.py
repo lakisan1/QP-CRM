@@ -28,28 +28,52 @@ api_v1 = Blueprint("api_v1", __name__)
 # ---------- Auth Decorator ----------
 
 def require_api_key(f):
-    """Decorator checking the Bearer token (Phase 3 step 7).
+    """Authenticate a /api/v1 request by per-user Bearer key OR session.
 
-    Accepts a per-user API key (resolved to ('user', username, user_id) and
-    stamped on flask.g for the audit log) or, during the transition, the
-    legacy global api_key (('global', None, None) -- deprecated, see
-    API_INSTRUCTIONS.md). Everything else is 401/403.
+    Two accepted identities (the legacy global api_key was removed
+    2026-09-16):
+
+    1. Per-user key: Authorization: Bearer <key> -> resolve_api_identity()
+       -> ('user', username, user_id). External integrations use this.
+    2. Logged-in session with the pricing app grant: the product_sync page
+       calls /api/v1 from its own JS while the user is already
+       authenticated (require_module('pricing') established the session).
+       The identity is the session user; CSRF does not apply because these
+       are same-origin GETs/JSON POSTs issued by first-party JS (the CSRF
+       shield has always exempted api_v1 endpoints).
+
+    Everything else is 401 (no credentials) / 403 (bad credentials).
     """
     @wraps(f)
     def decorated(*args, **kwargs):
         auth_header = request.headers.get("Authorization", "")
-        if not auth_header.startswith("Bearer "):
-            return jsonify({"success": False, "error": "Missing or invalid Authorization header. Use: Bearer <api_key>"}), 401
-        token = auth_header[7:]  # Strip "Bearer "
-        identity = resolve_api_identity(token)
-        if identity is None:
-            return jsonify({"success": False, "error": "Invalid API key."}), 403
-        g.api_key_kind = identity[0]
-        g.api_key_username = identity[1]
-        if identity[0] == "user-denied":
-            # The key hashes to a revoked key / deactivated holder: refuse,
-            # but still audit it with the holder's username (security signal).
-            return jsonify({"success": False, "error": "Invalid API key."}), 403
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:]  # Strip "Bearer "
+            identity = resolve_api_identity(token)
+            if identity is None:
+                return jsonify({"success": False, "error": "Invalid API key."}), 403
+            g.api_key_kind = identity[0]
+            g.api_key_username = identity[1]
+            if identity[0] == "user-denied":
+                # The key hashes to a revoked key / deactivated holder: refuse,
+                # but still audit it with the holder's username (security signal).
+                return jsonify({"success": False, "error": "Invalid API key."}), 403
+            return f(*args, **kwargs)
+        # No Bearer header: fall back to the logged-in session (same-origin
+        # first-party JS, e.g. product_sync). Identity must carry a username
+        # so the audit log stays attributed.
+        from flask import session as _session
+        from qp_crm.shared.auth import get_user_by_id, user_has_module
+        user_id = _session.get("user_id")
+        if not user_id:
+            return jsonify({"success": False, "error": "Missing Authorization header and no session. Use: Bearer <api_key>"}), 401
+        user = get_user_by_id(user_id)
+        if user is None:
+            return jsonify({"success": False, "error": "Session user is inactive. Log in again."}), 403
+        if not user_has_module(user_id, "pricing"):
+            return jsonify({"success": False, "error": "Your account has no pricing app access."}), 403
+        g.api_key_kind = "user"
+        g.api_key_username = user["username"]
         return f(*args, **kwargs)
     return decorated
 

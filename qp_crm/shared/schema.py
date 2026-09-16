@@ -393,8 +393,9 @@ def create_users_table(cur):
     """)
 
     # API audit log (Phase 3 step 7): one row per authenticated /api/v1
-    # request. kind='user' carries the username attribution; kind='global'
-    # marks the legacy shared key (no per-user attribution possible).
+    # request. kind='user' carries the username attribution; 'user-denied'
+    # audits a refused revoked key / deactivated holder. The legacy 'global'
+    # kind stopped occurring when the shared key was retired (2026-09-16).
     cur.execute("""
         CREATE TABLE IF NOT EXISTS api_audit (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

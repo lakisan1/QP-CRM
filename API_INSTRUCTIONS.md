@@ -16,18 +16,18 @@ All endpoints (except `/health`) require an API key passed as a Bearer token:
 Authorization: Bearer <api_key>
 ```
 
-Two kinds of key are accepted (Phase 3):
+One kind of key is accepted:
 
-1. **Per-user API keys (preferred).** Issued in **Admin Panel → API Keys** by an
+1. **Per-user API keys.** Issued in **Admin Panel → API Keys** by an
    admin, bound to a user account. Every API request is logged in the API audit
    log **with that username**, and revoking a user's key (or deactivating the
    user) cuts access immediately. The raw key is shown **exactly once** at
    issue time — store it in your integration immediately; it cannot be
    re-displayed (only a `abcdef123456…` prefix is kept for identification).
-2. **The legacy global key — DEPRECATED.** The shared key from
-   **Admin Panel → API Keys → Legacy Global API Key** still works during the
-   transition, but it identifies nobody in the audit log and will be retired in
-   a later phase. Migrate integrations to per-user keys.
+
+The former legacy global key was **removed** (2026-09-16): it no longer
+authenticates anything, and integrations still sending it receive 403 —
+issue a per-user key instead.
 
 A key whose holding user has been deactivated is rejected (403) even though the
 key record itself still exists.

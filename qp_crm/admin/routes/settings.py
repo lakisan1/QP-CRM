@@ -6,7 +6,7 @@ import os
 from qp_crm.shared.config import STATIC_DIR, APP_ASSETS_DIR
 from qp_crm.shared.web import MANDATORY_FIELD_KEYS, RENT_DEFAULT_KEYS
 
-from ..app import bp, get_db, check_password, set_password, generate_api_key, revoke_api_key
+from ..app import bp, get_db, check_password, set_password
 
 @bp.route("/update_passwords", methods=["POST"])
 def update_passwords():
@@ -245,27 +245,7 @@ def update_settings():
 # ─────────────────────────────────────────────────────────────────────────────
 # API Key Management
 # ─────────────────────────────────────────────────────────────────────────────
-
-@bp.route("/api_key/generate", methods=["POST"])
-def api_key_generate():
-    """Generate a new API key (requires admin password)."""
-    current_admin_pass = request.form.get("current_admin_password")
-    if not check_password("admin", current_admin_pass):
-        flash("Invalid Admin Password.", "error")
-        return redirect(url_for("admin.list_api_keys"))
-
-    generate_api_key()
-    flash("New API key generated.", "success")
-    return redirect(url_for("admin.list_api_keys"))
-
-@bp.route("/api_key/revoke", methods=["POST"])
-def api_key_revoke():
-    """Revoke (delete) the current API key (requires admin password)."""
-    current_admin_pass = request.form.get("current_admin_password")
-    if not check_password("admin", current_admin_pass):
-        flash("Invalid Admin Password.", "error")
-        return redirect(url_for("admin.list_api_keys"))
-
-    revoke_api_key()
-    flash("API key revoked. All existing API integrations will stop working.", "warning")
-    return redirect(url_for("admin.list_api_keys"))
+# The legacy global-key routes (/admin/api_key/generate, /admin/api_key/revoke)
+# were REMOVED 2026-09-16 together with the key itself: /api/v1 authenticates
+# ONLY by per-user keys issued on /admin/api_keys. global_settings no longer
+# keeps an 'api_key' row.

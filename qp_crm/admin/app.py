@@ -15,7 +15,7 @@ PACKAGE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 from qp_crm.shared.config import STATIC_DIR, DATABASE, APP_ASSETS_DIR, IMAGE_DIR
 from qp_crm.shared.db import get_db
-from qp_crm.shared.auth import check_password, set_password, get_api_key, generate_api_key, revoke_api_key
+from qp_crm.shared.auth import check_password, set_password
 from qp_crm.shared.countries import get_country_list
 from qp_crm.shared.web import (
     require_role,
