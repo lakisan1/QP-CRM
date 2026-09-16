@@ -37,6 +37,26 @@
                     </label>
                 </p>
                 <p>
+                    <label>Posao (deal) — opciono:<br>
+                        <select name="deal_id" id="deal-select" class="long-input">
+                            <option value="">-- bez posla --</option>
+                            {% for deal_id, label in deal_choices %}
+                            <option value="{{ deal_id }}" {% if selected_deal_id == deal_id %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                </p>
+                <p>
+                    <label>Lokacija (opciono — prazno = glavna adresa):<br>
+                        <select name="location_id" id="location-select" class="long-input">
+                            <option value="">-- glavna adresa --</option>
+                            {% for loc_id, label in location_choices %}
+                            <option value="{{ loc_id }}" {% if selected_location_id == loc_id %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                </p>
+                <p>
                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-top: 10px;">
                         <input type="checkbox" name="is_template" value="1" {% if offer and offer.is_template
                             %}checked{% endif %} style="width: auto; margin: 0;">
@@ -48,7 +68,7 @@
                 <p>
                     <label>Naziv musterije:<br>
                         <input type="text" name="client_name" required class="long-input"
-                            value="{{ offer.client_name if offer else '' }}">
+                            value="{{ offer.client_name if offer else (prefill.client_name if prefill and prefill.client_name else '') }}">
                     </label>
                 </p>
                 <p>
@@ -70,7 +90,7 @@
                     <label>Adresa musterije:{% if mandatory_fields.req_client_address %} <span
                             style="color:red">*</span>{% endif %}<br>
                         <input type="text" name="client_address" class="long-input"
-                            value="{{ offer.client_address if offer else '' }}" {% if
+                            value="{{ offer.client_address if offer else (prefill.client_address if prefill and prefill.client_address else '') }}" {% if
                             mandatory_fields.req_client_address %}required{% endif %}>
                     </label>
                 </p>
@@ -78,7 +98,7 @@
                     <label>eMail musterije:{% if mandatory_fields.req_client_email %} <span style="color:red">*</span>{%
                         endif %}<br>
                         <input type="text" name="client_email" class="long-input"
-                            value="{{ offer.client_email if offer else '' }}" {% if mandatory_fields.req_client_email
+                            value="{{ offer.client_email if offer else (prefill.client_email if prefill and prefill.client_email else '') }}" {% if mandatory_fields.req_client_email
                             %}required{% endif %} placeholder="email1@test.com; email2@test.com">
                     </label>
                 </p>
@@ -86,21 +106,21 @@
                     <label>Broj telefona musterije:{% if mandatory_fields.req_client_phone %} <span
                             style="color:red">*</span>{% endif %}<br>
                         <input type="text" name="client_phone" class="long-input"
-                            value="{{ offer.client_phone if offer else '' }}" {% if mandatory_fields.req_client_phone
-                            %}required{% endif %}>
+                            value="{{ offer.client_phone if offer else (prefill.client_phone if prefill and prefill.client_phone else '') }}" {% if
+                            mandatory_fields.req_client_phone %}required{% endif %}>
                     </label>
                 </p>
                 <p>
                     <label>PIB:{% if mandatory_fields.req_client_pib %} <span style="color:red">*</span>{% endif %}<br>
                         <input type="text" name="client_pib" class="long-input"
-                            value="{{ offer.client_pib if offer else '' }}" {% if mandatory_fields.req_client_pib
+                            value="{{ offer.client_pib if offer else (prefill.client_pib if prefill and prefill.client_pib else '') }}" {% if mandatory_fields.req_client_pib
                             %}required{% endif %}>
                     </label>
                 </p>
                 <p>
                     <label>MB:{% if mandatory_fields.req_client_mb %} <span style="color:red">*</span>{% endif %}<br>
                         <input type="text" name="client_mb" class="long-input"
-                            value="{{ offer.client_mb if offer else '' }}" {% if mandatory_fields.req_client_mb
+                            value="{{ offer.client_mb if offer else (prefill.client_mb if prefill and prefill.client_mb else '') }}" {% if mandatory_fields.req_client_mb
                             %}required{% endif %}>
                     </label>
                 </p>
@@ -771,6 +791,23 @@
                 }
             });
         });
+
+        // --- Deal -> location cascade + master-data prefill ---
+        // Changing the deal reloads the form with ?deal_id= so the server
+        // supplies the right location list AND pre-fills client master data
+        // (pre-fill only -- the saved row keeps what the user confirms).
+        const dealSelect = document.getElementById('deal-select');
+        if (dealSelect) {
+            let initialDeal = dealSelect.value;
+            dealSelect.addEventListener('change', function () {
+                if (this.value !== initialDeal) {
+                    const base = window.location.pathname;
+                    const params = new URLSearchParams(window.location.search);
+                    if (this.value) { params.set('deal_id', this.value); } else { params.delete('deal_id'); }
+                    window.location.href = base + (params.toString() ? '?' + params.toString() : '');
+                }
+            });
+        }
 
         // --- Print and Send logic ---
         const btnPrintSend = document.getElementById('btn-print-send');

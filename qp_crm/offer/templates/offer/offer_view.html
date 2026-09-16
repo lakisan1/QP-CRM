@@ -12,6 +12,14 @@
             <td>{{ offer.offer_number or offer.id }}</td>
         </tr>
         <tr>
+            <th>Posao</th>
+            <td>
+                {% if deal %}
+                <a href="{{ url_for('deals.view_deal', deal_id=deal.id) }}">{{ deal.code }}</a> — {{ deal.title }}
+                {% else %}—{% endif %}
+            </td>
+        </tr>
+        <tr>
             <th>Datum</th>
             <td>{{ offer.date | format_date }}</td>
         </tr>
