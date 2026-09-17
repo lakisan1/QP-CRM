@@ -1,0 +1,95 @@
+{% extends "contacts/base.html" %}
+{% from "contacts/_badges.html" import role_badges, kind_badge %}
+{% block title %}{{ contact.display_name }}{% endblock %}
+
+{% block content %}
+<h1>{{ contact.display_name }} {{ kind_badge(contact.kind) }}</h1>
+
+<div style="display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;">
+    <a href="{{ url_for('contacts.edit_contact', contact_id=contact.id) }}" class="btn btn-primary">Izmeni</a>
+    <form method="post" action="{{ url_for('contacts.archive_contact', contact_id=contact.id) }}" onsubmit="return confirm('{{ 'Vratiti kontakt u aktivne?' if contact.archived else 'Arhivirati kontakt? (ne može se obrisati, samo arhivirati)' }}');">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="archive" value="{{ '0' if contact.archived else '1' }}">
+        <button type="submit" class="btn btn-warning">{{ 'Vrati u aktivne' if contact.archived else 'Arhiviraj' }}</button>
+    </form>
+</div>
+
+<div class="card">
+    <h2>Uloge</h2>
+    {{ role_badges(contact.roles) }}
+    {% if contact.job_title %}<p style="margin-top: 8px;">Radno mesto: <strong>{{ contact.job_title }}</strong></p>{% endif %}
+    {% if contact.user_id %}<p>Nalog: <strong>{{ contact.user_id }}</strong> (zaposleni)</p>{% endif %}
+    {% if contact.customer_id %}<p>Kupac (poslovi): <strong>#{{ contact.customer_id }}</strong></p>{% endif %}
+</div>
+
+<div class="card">
+    <h2>Podaci</h2>
+    <table class="larg-table">
+        {% if contact.kind == 'person' %}
+        <tr><th>Ime i prezime</th><td>{{ contact.first_name or '—' }} {{ contact.last_name or '' }}</td></tr>
+        <tr><th>JMBG</th><td>{{ contact.jmbg or '—' }}</td></tr>
+        {% else %}
+        <tr><th>PIB</th><td>{{ contact.pib or '—' }}</td></tr>
+        <tr><th>Matični broj</th><td>{{ contact.mb or '—' }}</td></tr>
+        <tr><th>Broj računa</th><td>{{ contact.account or '—' }}</td></tr>
+        {% endif %}
+        <tr><th>Adresa</th><td>{{ contact.billing_address or '—' }}{% if contact.city %}, {{ contact.city }}{% endif %}{% if contact.country %}, {{ contact.country }}{% endif %}</td></tr>
+        <tr><th>eMail</th><td>{{ contact.email or '—' }}</td></tr>
+        <tr><th>Telefon</th><td>{{ contact.phone or '—' }}</td></tr>
+        {% if contact.notes %}<tr><th>Beleške</th><td>{{ contact.notes | md | safe }}</td></tr>{% endif %}
+    </table>
+</div>
+
+<div class="card">
+    <h2>Veze sa kupcima / lokacijama</h2>
+    <table class="larg-table">
+        <tr>
+            <th scope="col">Kupac</th>
+            <th scope="col">Lokacija</th>
+            <th scope="col">Odnos</th>
+            <th scope="col">Glavni kontakt</th>
+            <th scope="col">Akcija</th>
+        </tr>
+        {% for l in links %}
+        <tr>
+            <td>{{ l.customer_name or '—' }}</td>
+            <td>{{ l.location_name or '—' }}</td>
+            <td>{{ l.relation or '' }}</td>
+            <td>{{ 'Da' if l.is_primary else '' }}</td>
+            <td>
+                <form method="post" action="{{ url_for('contacts.delete_link', contact_id=contact.id, link_id=l.id) }}" onsubmit="return confirm('Obrisati vezu?');">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-danger btn-sm">Obriši vezu</button>
+                </form>
+            </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" style="color: var(--text-muted);">Nema veza — kontakt nije vezan za kupca ili lokaciju.</td></tr>
+        {% endfor %}
+    </table>
+
+    <h3 style="margin-top: 16px;">Dodaj vezu</h3>
+    <form method="post" action="{{ url_for('contacts.create_link', contact_id=contact.id) }}" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end;">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <label>Kupac:<br>
+            <select name="customer_id" id="link-customer" class="searchable-select">
+                <option value="">— izaberi —</option>
+                {% for c in customer_choices %}
+                <option value="{{ c.id }}">{{ c.name }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>Lokacija:<br>
+            <select name="location_id" id="link-location" class="searchable-select">
+                <option value="">— glavna adresa —</option>
+                {% for loc in location_choices %}
+                <option value="{{ loc.id }}">{{ loc.customer_name }} — {{ loc.name }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>Odnos:<br><input type="text" name="relation" placeholder="kontakt na licu mesta"></label>
+        <label style="font-weight: normal;"><input type="checkbox" name="is_primary" value="1"> Glavni kontakt</label>
+        <button type="submit" class="btn btn-success">Dodaj</button>
+    </form>
+</div>
+{% endblock %}

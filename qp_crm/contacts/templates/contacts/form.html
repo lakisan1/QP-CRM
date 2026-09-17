@@ -1,0 +1,164 @@
+{% extends "contacts/base.html" %}
+{% block title %}{{ 'Izmeni kontakt' if contact else 'Novi kontakt' }}{% endblock %}
+
+{% block content %}
+<h1>{{ 'Izmeni kontakt' if contact else 'Novi kontakt' }}</h1>
+
+{% if error %}
+<div class="alert alert-error" style="background: #e74c3c; color: white; padding: 10px; border-radius: 4px; margin-bottom: 20px;">
+    {{ error }}
+</div>
+{% endif %}
+
+<div class="card">
+    <form method="post">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <div class="grid-3-col">
+            <div>
+                <h2>Osnovni podaci</h2>
+                <p>
+                    <label>Vrsta:<br>
+                        <select name="kind" id="kind-select" class="long-input">
+                            <option value="company" {{ 'selected' if contact and contact.kind == 'company' }}>Pravno lice (firma)</option>
+                            <option value="person" {{ 'selected' if contact and contact.kind == 'person' }}>Fizičko lice</option>
+                        </select>
+                    </label>
+                </p>
+                <p>
+                    <label>Naziv / Ime i prezime *:<br>
+                        <input type="text" name="display_name" required class="long-input"
+                               value="{{ contact.display_name if contact else '' }}"
+                               placeholder="Firma ili Ime i prezime">
+                    </label>
+                </p>
+                <p>
+                    <label>Uloge (više možete čekirati):</label>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        {% for r in contact_roles %}
+                        <label style="font-weight: normal; text-transform: capitalize;">
+                            <input type="checkbox" name="roles" value="{{ r }}"
+                                {{ 'checked' if contact and r in (contact.roles if contact.roles is defined else []) }}> {{ r }}
+                        </label>
+                        {% endfor %}
+                    </div>
+                </p>
+                <p>
+                    <label>Radno mesto / funkcija:<br>
+                        <input type="text" name="job_title" class="long-input" value="{{ contact.job_title if contact else '' }}">
+                    </label>
+                </p>
+            </div>
+            <div>
+                <h2>Lični podaci <small>(fizičko lice)</small></h2>
+                <p>
+                    <label>Ime:<br>
+                        <input type="text" name="first_name" class="long-input" value="{{ contact.first_name if contact else '' }}">
+                    </label>
+                </p>
+                <p>
+                    <label>Prezime:<br>
+                        <input type="text" name="last_name" class="long-input" value="{{ contact.last_name if contact else '' }}">
+                    </label>
+                </p>
+                <p>
+                    <label>JMBG:<br>
+                        <input type="text" name="jmbg" class="long-input" value="{{ contact.jmbg if contact else '' }}">
+                    </label>
+                </p>
+                <h2 style="margin-top: 12px;">Firma <small>(pravno lice)</small></h2>
+                <p>
+                    <label>PIB:<br>
+                        <input type="text" name="pib" class="long-input" value="{{ contact.pib if contact else '' }}">
+                    </label>
+                </p>
+                <p>
+                    <label>Matični broj:<br>
+                        <input type="text" name="mb" class="long-input" value="{{ contact.mb if contact else '' }}">
+                    </label>
+                </p>
+                <p>
+                    <label>Broj računa:<br>
+                        <input type="text" name="account" class="long-input" value="{{ contact.account if contact else '' }}">
+                    </label>
+                </p>
+            </div>
+            <div>
+                <h2>Kontakt podaci</h2>
+                <p>
+                    <label>Adresa:<br>
+                        <input type="text" name="billing_address" class="long-input" value="{{ contact.billing_address if contact else '' }}">
+                    </label>
+                </p>
+                <p>
+                    <label>Grad:<br>
+                        <input type="text" name="city" class="long-input" value="{{ contact.city if contact else '' }}">
+                    </label>
+                </p>
+                <p>
+                    <label>Država:<br>
+                        <input type="text" name="country" class="long-input" value="{{ contact.country if contact else 'Srbija' }}">
+                    </label>
+                </p>
+                <p>
+                    <label>eMail:<br>
+                        <input type="text" name="email" class="long-input" value="{{ contact.email if contact else '' }}" placeholder="email1@test.com; email2@test.com">
+                    </label>
+                </p>
+                <p>
+                    <label>Telefon:<br>
+                        <input type="text" name="phone" class="long-input" value="{{ contact.phone if contact else '' }}">
+                    </label>
+                </p>
+                <h2 style="margin-top: 12px;">Veze</h2>
+                <p>
+                    <label>Nalog (zaposleni):<br>
+                        <select name="user_id" class="long-input">
+                            <option value="">— nema —</option>
+                            {% for u in user_choices %}
+                            <option value="{{ u.id }}" {{ 'selected' if contact and contact.user_id == u.id }}>{{ u.username }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                </p>
+                <p>
+                    <label>Kupac (poslovi):<br>
+                        <select name="customer_id" class="long-input">
+                            <option value="">— nema —</option>
+                            {% for c in customer_choices %}
+                            <option value="{{ c.id }}" {{ 'selected' if contact and contact.customer_id == c.id }}>{{ c.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                </p>
+                <p>
+                    <label>Beleške:<br>
+                        <textarea name="notes" rows="4">{{ contact.notes if contact else '' }}</textarea>
+                    </label>
+                </p>
+            </div>
+        </div>
+        <div class="form-actions" style="margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 20px; display: flex; gap: 15px;">
+            <button type="submit" class="btn btn-success">Sačuvaj</button>
+            <a href="{{ url_for('contacts.view_contact', contact_id=contact.id) if contact else url_for('contacts.list_contacts') }}" class="btn btn-secondary">Nazad</a>
+        </div>
+    </form>
+</div>
+
+<script>
+    // Vrsta kontakta: hide the irrelevant half (person vs company fields)
+    // live, so the form matches the selected kind without a reload.
+    document.addEventListener("DOMContentLoaded", function () {
+        const kindSelect = document.getElementById('kind-select');
+        if (!kindSelect) return;
+        const apply = () => {
+            const person = kindSelect.value === 'person';
+            document.querySelectorAll('[name="pib"], [name="mb"], [name="account"]')
+                .forEach(el => { el.closest('p').style.display = person ? 'none' : ''; });
+            document.querySelectorAll('[name="first_name"], [name="last_name"], [name="jmbg"]')
+                .forEach(el => { el.closest('p').style.display = person ? '' : 'none'; });
+        };
+        kindSelect.addEventListener('change', apply);
+        apply();
+    });
+</script>
+{% endblock %}

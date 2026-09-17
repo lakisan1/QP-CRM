@@ -7,6 +7,7 @@ from flask import jsonify, redirect, render_template, request, url_for
 from qp_crm.shared.web import fetch_rent_defaults
 
 from ..app import bp, calculate_rent, get_db
+from qp_crm.services import contact_service
 
 
 @bp.route("/contracts")
@@ -112,8 +113,20 @@ def generate_next_contract_number(db_conn, contract_date_str):
 def _contract_form(contract_id):
     conn = get_db()
     cur = conn.cursor()
+    # P5-pre: the picker feeds from the SHARED directory (Zajednički imenik)
+    # -- every active contact with the 'client' role, company OR person
+    # (fizičko lice). Legacy rent_clients rows stay in the list unchanged;
+    # both sources are merged in the template (deduped by name).
     cur.execute("SELECT * FROM rent_clients ORDER BY name;")
-    clients = cur.fetchall()
+    legacy_clients = cur.fetchall()
+    directory_clients = [
+        {"id": f"c{row['id']}", "name": row["display_name"]}
+        for row in contact_service.list_contacts(roles=["client"])
+    ]
+    known_names = {cl["name"] for cl in legacy_clients}
+    clients = list(legacy_clients) + [
+        d for d in directory_clients if d["name"] not in known_names
+    ]
     cur.execute("SELECT * FROM rent_equipment ORDER BY name;")
     equipment = cur.fetchall()
 
@@ -211,11 +224,37 @@ def duplicate_contract(contract_id):
 
 
 # ─── API endpoints ─────────────────────────────────────────────────────────────
-@bp.route("/api/client/<int:client_id>")
-def api_client(client_id):
+@bp.route("/api/client/<client_ref>")
+def api_client(client_ref):
+    """Client autofill feed for the contract form.
+
+    client_ref is either a legacy rent_clients id (plain int) or a shared
+    directory contact id (c<int>, P5-pre). The JSON keeps the legacy field
+    names the form JS expects; a directory contact maps its fields onto
+    them (kind=person rows leave the company fields empty).
+    """
+    if client_ref.startswith("c"):
+        try:
+            contact_id = int(client_ref[1:])
+        except ValueError:
+            return jsonify({}), 404
+        contact = contact_service.get_contact(contact_id)
+        if not contact:
+            return jsonify({}), 404
+        return jsonify({
+            "name": contact["display_name"],
+            "mb": contact["mb"] or "",
+            "pib": contact["pib"] or "",
+            "account": contact["account"] or "",
+            "address": contact["billing_address"] or "",
+            "representative": contact["job_title"] or "",
+            "email": contact["email"] or "",
+            "rent_address": contact["city"] or "",
+            "guarantor": "",
+        })
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM rent_clients WHERE id=?;", (client_id,))
+    cur.execute("SELECT * FROM rent_clients WHERE id=?;", (client_ref,))
     row = cur.fetchone()
     conn.close()
     if not row:

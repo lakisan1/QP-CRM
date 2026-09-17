@@ -135,6 +135,7 @@ TRANSLATIONS = {
         'Discount': 'Popust',
         'Discount %': 'Popust %',
         'Discounted Price': 'Cena sa popustom',
+        'Directory': 'Imenik',
         'Down Payment / Advance (%)': 'Učešće / Avans (%)',
         'Duplicate this product?': 'Duplirati ovaj proizvod?',
         'Equipment': 'Oprema',

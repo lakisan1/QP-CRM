@@ -773,3 +773,105 @@ def migrate_offer_tables(cur):
 def migrate_rent_tables(cur):
     """rent ALTERs for legacy databases (verbatim from rent/app.py)."""
     add_column_if_missing(cur, "rent_contracts", "is_signed INTEGER DEFAULT 0")
+
+
+# ---------------------------------------------------------------------------
+# contacts module tables (P5-pre — the shared directory)
+# ---------------------------------------------------------------------------
+
+# Fixed KIND list (extend only by migration -- same discipline as the stock
+# movement reasons, blueprint §5). One row per directory entry, human OR
+# organization; legal-entity fields are simply empty for a person.
+CONTACT_KINDS = ("company", "person")
+
+# Fixed ROLE list: what the entry IS to the business. A contact may hold
+# several roles at once (a company can be a supplier AND a client; an
+# external collaborator is a person who is also a supplier).
+CONTACT_ROLES = (
+    "client",                # kupac / klijent
+    "supplier",              # dobavljač
+    "employee",              # zaposleni
+    "external_collaborator", # spoljni saradnik
+    "partner",               # partner
+    "other",                 # ostalo
+)
+
+
+def create_contacts_tables(cur):
+    """contacts, contact_roles, contact_links (P5-pre). Roles are ROWS
+    (contact_roles), not boolean columns: a role arriving later is a new
+    value in the fixed list, never a new column.
+
+    Conventions carried over from the deal spine (blueprint §4):
+      * NO deletes -- a contact archives (archived=1); documents that
+        reference one keep resolving it by id (rename-safe, amendment 6b).
+      * id + snapshot: consumers snapshot the fields they print (rent
+        contracts already copy client_* columns; offers keep their client
+        header) -- the directory never rewrites issued documents.
+      * names resolved at read time: nothing stores a contact's name as a
+        key. display_name is THE master name for humans and orgs alike
+        (amendment 6b: rename = editing one master row).
+      * person OR organization in one table (user decision, P5-pre chat):
+        kind='person' rows hold first/last name + JMBG and leave PIB/MB
+        empty; kind='company' rows are the inverse. One party model instead
+        of two parallel tables that would need a union view everywhere.
+      * user_id links an employee role to the app login account
+        (nullable: the directory may list employees who never log in, and
+        a login account may exist without a directory entry).
+      * customer_id links a client-role entry to the P4 customers row when
+        the same party also buys -- the directory IS the wider registry;
+        customers stays the deal/billing spine and is NOT merged away
+        (blueprint §2 party model untouched).
+    """
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS contacts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            kind TEXT NOT NULL DEFAULT 'company',
+            display_name TEXT NOT NULL,
+            first_name TEXT, last_name TEXT,
+            jmbg TEXT,
+            pib TEXT, mb TEXT,
+            account TEXT,
+            billing_address TEXT, city TEXT, country TEXT,
+            email TEXT, phone TEXT,
+            job_title TEXT,
+            user_id INTEGER REFERENCES users(id),
+            customer_id INTEGER REFERENCES customers(id),
+            notes TEXT,
+            created_at TEXT,
+            archived INTEGER DEFAULT 0
+        );
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS contact_roles (
+            contact_id INTEGER NOT NULL REFERENCES contacts(id),
+            role TEXT NOT NULL,
+            PRIMARY KEY (contact_id, role)
+        );
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS contact_links (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            contact_id INTEGER NOT NULL REFERENCES contacts(id),
+            customer_id INTEGER REFERENCES customers(id),
+            location_id INTEGER REFERENCES customer_locations(id),
+            relation TEXT,
+            is_primary INTEGER DEFAULT 0,
+            notes TEXT
+        );
+    """)
+
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_contacts_name ON contacts(display_name);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_contacts_user ON contacts(user_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_contacts_customer ON contacts(customer_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_contact_links_contact ON contact_links(contact_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_contact_links_customer ON contact_links(customer_id);")
+
+
+def migrate_contacts(cur):
+    """Contacts-side idempotent migrations (P5-pre). Empty today: the
+    canonical CREATE already carries every column; future ALTERs for legacy
+    databases join here, matching the migrate_deals pattern."""
+    pass

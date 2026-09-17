@@ -17,6 +17,7 @@
     <a href="{{ url_for('rent.list_contracts') }}" {% if request.endpoint=='rent.list_contracts' %}class="active"{% endif %}>{{ _('Contracts') }}</a>
     <a href="{{ url_for('rent.list_clients') }}"   {% if request.endpoint=='rent.list_clients'   %}class="active"{% endif %}>{{ _('Clients') }}</a>
     <a href="{{ url_for('rent.list_equipment') }}" {% if request.endpoint=='rent.list_equipment' %}class="active"{% endif %}>{{ _('Equipment') }}</a>
+    <a href="{{ url_for('contacts.list_contacts') }}" title="Zajednički imenik (svi kontakti: firme i fizička lica)">📇 {{ _('Directory') }}</a>
 {% endcall %}
 {% endif %}
 {% block content %}{% endblock %}

@@ -73,6 +73,7 @@ def temp_db():
     from qp_crm.admin.app import init_db as admin_init_db
     from qp_crm.rent.app import init_db as rent_init_db
     from qp_crm.deals.app import init_db as deals_init_db
+    from qp_crm.contacts.app import init_db as contacts_init_db
 
     pricing_init_db()
     pricing_migrate_schema()
@@ -80,6 +81,7 @@ def temp_db():
     admin_init_db()
     rent_init_db()
     deals_init_db()
+    contacts_init_db()
     return TEST_DATABASE
 
 
