@@ -4,7 +4,7 @@ from datetime import date
 from flask import jsonify, redirect, render_template, request, session, url_for
 
 from ..app import bp, get_country_list, get_db, get_mandatory_fields, recalc_totals
-from qp_crm.services import deal_service
+from qp_crm.services import deal_service, contact_service
 from qp_crm.shared.auth import get_db as _get_db
 
 
@@ -12,6 +12,16 @@ def _deal_choices():
     """(id, label) for the offer-form deal picker: code — customer — title."""
     deals = deal_service.list_deals()
     return [(d["id"], f"{d['code']} — {d['customer_name']} — {d['title']}") for d in deals]
+
+
+def _directory_party_choices():
+    """(id, label) for the offer-form party picker (P5-unification).
+
+    Every active directory contact -- companies AND persons -- regardless of
+    role (a supplier can be a musterija tomorrow; the directory IS the
+    single base now). Label: name + PIB/JMBG badge.
+    """
+    return contact_service.directory_choices()
 
 
 def _link_offer_to_deal(offer_id, deal_id, linked, acting_user_id=None):
@@ -238,8 +248,10 @@ def list_offers():
 @bp.route("/offers/new", methods=["GET", "POST"])
 def new_offer():
     # Deal context (?deal_id=... from the deal page's "Nova ponuda na posao"
-    # button, or the form's picker). Master data PRE-FILLS the client fields
-    # only; the saved row keeps the issuance-time snapshot.
+    # button, or the form's picker) AND directory party context
+    # (?contact_id=... from the offer form's party picker). Master data
+    # PRE-FILLS the client fields only; the saved row keeps the
+    # issuance-time snapshot.
     prefill = {}
     prefill_deal_id = request.values.get("deal_id", type=int)
     if prefill_deal_id:
@@ -252,6 +264,23 @@ def new_offer():
                 "client_phone": deal["customer_phone"] or "",
                 "client_pib": deal["customer_pib"] or "",
                 "client_mb": deal["customer_mb"] or "",
+            }
+    prefill_contact_id = request.values.get("contact_id", type=int)
+    if prefill_contact_id:
+        contact = contact_service.get_contact(prefill_contact_id)
+        if contact is not None:
+            # fizičko lice: display first/last as the name; entity fields
+            # are empty by construction.
+            full_name = " ".join(
+                part for part in (contact["first_name"], contact["last_name"]) if part
+            ) or contact["display_name"]
+            prefill = {
+                "client_name": full_name,
+                "client_address": contact["billing_address"] or "",
+                "client_email": contact["email"] or "",
+                "client_phone": contact["phone"] or "",
+                "client_pib": contact["pib"] or "",
+                "client_mb": contact["mb"] or "",
             }
 
     if request.method == "POST":
@@ -267,6 +296,9 @@ def new_offer():
         country = (request.form.get("country") or "").strip()
         deal_id = request.form.get("deal_id", type=int) or None
         location_id = request.form.get("location_id", type=int) or None
+        # P5-unification: link to the directory party (NULL = free-typed
+        # musterija; the saved row keeps the snapshot the user confirmed).
+        contact_id = request.form.get("contact_id", type=int) or None
 
         currency = (request.form.get("currency") or "EUR").strip()
         exchange_rate = float(request.form.get("exchange_rate") or 0)
@@ -353,11 +385,13 @@ def new_offer():
                 "napomena": napomena,
                 "country": country
             }
-            return render_template("offer/offer_form.html", offer=preserved_offer, today=date.today().isoformat(), 
+            return render_template("offer/offer_form.html", offer=preserved_offer, today=date.today().isoformat(),
                                    error=" ".join(errors), mandatory_fields=mandatory, presets_by_cat=presets_by_cat,
                                    countries=get_country_list(),
                                    email_offer_subject=email_offer_subject, email_offer_body=email_offer_body,
-                                   current_language=current_language)
+                                   current_language=current_language,
+                                   party_choices=_directory_party_choices(),
+                                   selected_contact_id=None)
 
         conn = get_db()
         cur = conn.cursor()
@@ -402,10 +436,12 @@ def new_offer():
             "napomena": napomena,
             "country": country
         }
-                return render_template("offer/offer_form.html", offer=preserved_offer, today=date.today().isoformat(), 
+                return render_template("offer/offer_form.html", offer=preserved_offer, today=date.today().isoformat(),
                                        email_offer_subject=email_offer_subject, email_offer_body=email_offer_body,
                                        countries=get_country_list(),
-                                       current_language=current_language)
+                                       current_language=current_language,
+                                       party_choices=_directory_party_choices(),
+                                       selected_contact_id=None)
 
         cur.execute("""
             INSERT INTO offers (
@@ -418,16 +454,16 @@ def new_offer():
                 total_third_discount, total_net_after_third_discount,
                 total_vat, total_gross,
                 payment_terms, delivery_terms, validity_days, notes, napomena, is_template, country,
-                deal_id, location_id
+                deal_id, location_id, contact_id
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """, (
             offer_number, date_str,
             client_name, client_address, client_email, client_phone, client_pib, client_mb,
             currency, exchange_rate,
             discount_percent, special_discount_percent, third_discount_percent, vat_percent,
             payment_terms, delivery_terms, validity_days, notes, napomena, is_template, country,
-            deal_id, location_id
+            deal_id, location_id, contact_id
         ))
         offer_id = cur.lastrowid
         conn.commit()
@@ -510,6 +546,8 @@ def new_offer():
                            location_choices=[],
                            selected_deal_id=prefill_deal_id,
                            selected_location_id=None,
+                           party_choices=_directory_party_choices(),
+                           selected_contact_id=prefill_contact_id,
                            prefill=prefill)
 
 
@@ -572,6 +610,7 @@ def edit_offer(offer_id):
             # UPDATE below never touches deal_id/location_id).
             new_deal_id = request.form.get("deal_id", type=int) or None
             new_location_id = request.form.get("location_id", type=int) or None
+            new_contact_id = request.form.get("contact_id", type=int) or None
 
             # Validate mandatory fields
             mandatory = get_mandatory_fields()
@@ -641,6 +680,16 @@ def edit_offer(offer_id):
                     deal_service.record_offer_linked(
                         new_deal_id, offer_id, linked=True,
                         author_user_id=session.get("user_id"))
+
+            # Directory party link (P5-unification): pure link update --
+            # the snapshot fields above stay what the user confirmed.
+            if new_contact_id != offer["contact_id"]:
+                conn2 = _get_db()
+                conn2.execute(
+                    "UPDATE offers SET contact_id = ? WHERE id = ?;",
+                    (new_contact_id, offer_id))
+                conn2.commit()
+                conn2.close()
 
         elif action == "add_item":
             product_id = request.form.get("product_id")
@@ -917,6 +966,8 @@ def edit_offer(offer_id):
         location_choices=location_choices,
         selected_deal_id=offer["deal_id"],
         selected_location_id=offer["location_id"],
+        party_choices=_directory_party_choices(),
+        selected_contact_id=offer["contact_id"],
         prefill={}
     )
 

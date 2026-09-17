@@ -66,6 +66,16 @@
 
                 <h2 style="margin-top:20px;">Informacije o musteriji</h2>
                 <p>
+                    <label>Izaberi iz imenika <small>(firme i fizička lica — zajednička baza)</small>:<br>
+                        <select name="contact_id" id="contact-select" class="searchable-select long-input">
+                            <option value="">-- slobodan unos --</option>
+                            {% for contact_id, label in party_choices %}
+                            <option value="{{ contact_id }}" {% if selected_contact_id == contact_id %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                </p>
+                <p>
                     <label>Naziv musterije:<br>
                         <input type="text" name="client_name" required class="long-input"
                             value="{{ offer.client_name if offer else (prefill.client_name if prefill and prefill.client_name else '') }}">
@@ -806,6 +816,21 @@
                     if (this.value) { params.set('deal_id', this.value); } else { params.delete('deal_id'); }
                     window.location.href = base + (params.toString() ? '?' + params.toString() : '');
                 }
+            });
+        }
+
+        // --- Directory party picker (P5-unification) ---
+        // Choosing an entry from the shared imenik reloads the form with
+        // ?contact_id= so the server pre-fills the musterija fields from
+        // ONE base (companies AND fizička lica); "-- slobodan unos --"
+        // clears the param but keeps any typed values.
+        const contactSelect = document.getElementById('contact-select');
+        if (contactSelect) {
+            contactSelect.addEventListener('change', function () {
+                const base = window.location.pathname;
+                const params = new URLSearchParams(window.location.search);
+                if (this.value) { params.set('contact_id', this.value); } else { params.delete('contact_id'); }
+                window.location.href = base + (params.toString() ? '?' + params.toString() : '');
             });
         }
 

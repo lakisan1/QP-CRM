@@ -871,7 +871,86 @@ def create_contacts_tables(cur):
 
 
 def migrate_contacts(cur):
-    """Contacts-side idempotent migrations (P5-pre). Empty today: the
-    canonical CREATE already carries every column; future ALTERs for legacy
-    databases join here, matching the migrate_deals pattern."""
-    pass
+    """Contacts-side idempotent migrations (P5-pre + unification).
+
+    1. Link columns: consumers reference the directory by id; issued
+       documents keep their field snapshots (amendment 6d -- the directory
+       never rewrites them). offers/rent_contracts gain contact_id.
+    2. Backfill: legacy rent_clients rows become directory contacts
+       (kind=company, role=client) exactly once, tracked by
+       rent_clients.migrated_contact_id. The legacy table survives as a
+       read-only seed source -- /rent/clients redirects to the directory.
+    """
+    add_column_if_missing(cur, "offers", "contact_id INTEGER REFERENCES contacts(id)")
+    add_column_if_missing(cur, "rent_contracts", "contact_id INTEGER REFERENCES contacts(id)")
+    add_column_if_missing(cur, "rent_clients", "migrated_contact_id INTEGER REFERENCES contacts(id)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_offers_contact_id ON offers(contact_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_rent_contracts_contact ON rent_contracts(contact_id);")
+
+    backfill_rent_clients_into_contacts(cur)
+
+
+def backfill_rent_clients_into_contacts(cur):
+    """Copy every not-yet-migrated rent_clients row into contacts.
+
+    One-way, idempotent, name-merge aware:
+      * map legacy fields -> directory fields (representative -> job_title,
+        rent_address/guarantor -> notes so no legacy data is dropped);
+      * a rent_client whose (PIB, MB) already exists on a directory contact
+        links to it instead of duplicating (second occurrence of the same
+        company is the same party);
+      * migrated_contact_id records the copy so re-boots never duplicate;
+      * role is always 'client' (these were renters -- the klijent base).
+    """
+    cur.execute("""
+        SELECT id, name, mb, pib, account, address, representative, email,
+               rent_address, guarantor, migrated_contact_id
+        FROM rent_clients
+        WHERE migrated_contact_id IS NULL;
+    """)
+    legacy_rows = cur.fetchall()
+    for row in legacy_rows:
+        match = None
+        if (row["pib"] and row["pib"].strip()) or (row["mb"] and row["mb"].strip()):
+            cur.execute(
+                """
+                SELECT id FROM contacts
+                WHERE (pib IS NOT NULL AND pib = ?) OR (mb IS NOT NULL AND mb = ?)
+                LIMIT 1;
+                """,
+                (row["pib"] or "\0", row["mb"] or "\0"),
+            )
+            match = cur.fetchone()
+        if match is not None:
+            contact_id = match["id"]
+        else:
+            notes_parts = []
+            if row["rent_address"]:
+                notes_parts.append(f"Adresa zakupa: {row['rent_address']}")
+            if row["guarantor"]:
+                notes_parts.append(f"Jemac: {row['guarantor']}")
+            cur.execute(
+                """
+                INSERT INTO contacts (kind, display_name, pib, mb, account,
+                                      billing_address, email, phone, job_title,
+                                      notes, created_at, archived)
+                VALUES ('company', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0);
+                """,
+                (
+                    row["name"],
+                    row["pib"], row["mb"], row["account"],
+                    row["address"], row["email"], None,
+                    row["representative"],
+                    "\n".join(notes_parts) or None,
+                    row["rent_address"] or None,
+                ),
+            )
+            contact_id = cur.lastrowid
+            cur.execute(
+                "INSERT OR IGNORE INTO contact_roles (contact_id, role) VALUES (?, 'client');",
+                (contact_id,),
+            )
+        cur.execute(
+            "UPDATE rent_clients SET migrated_contact_id = ? WHERE id = ?;",
+            (contact_id, row["id"]),
+        )

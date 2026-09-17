@@ -75,6 +75,7 @@ details > summary::-webkit-details-marker { display:none; }
     <option value="{{ cl.id }}" {% if contract and contract.client_name == cl.name %}selected{% endif %}>{{ cl.name }}</option>
     {% endfor %}
 </select>
+<input type="hidden" name="contact_id" id="contact_id" value="{{ contract.contact_id if contract and contract.contact_id else '' }}">
 <div class="form-grid">
     <label>Ime firme (Zakupac) *<input type="text" name="client_name" id="client_name" value="{{ contract.client_name if contract else '' }}" required></label>
     <label>Matični broj<input type="text" name="client_mb" id="client_mb" value="{{ contract.client_mb if contract else '' }}"></label>
@@ -251,11 +252,12 @@ function recalc(){
 }
 
 document.getElementById('clientSelect').addEventListener('change',function(){
-    const id=this.value; if(!id) return;
+    const id=this.value;
+    // P5-unification: remember the directory link (c<id>); empty selection
+    // clears it so a free-typed client saves with contact_id NULL.
+    document.getElementById('contact_id').value = id && id.startsWith('c') ? id.slice(1) : '';
+    if(!id) return;
     fetch(`/rent/api/client/${id}`).then(r=>r.json()).then(d=>{
-        ['client_name','client_mb','client_pib','client_account',
-         'client_address','rent_address','client_representative','client_email','guarantor']
-        .forEach(f=>{ const el=document.getElementById(f); if(el) el.value=d[f.replace('client_','')] ?? d[f] ?? ''; });
         document.getElementById('client_name').value=d.name||'';
         document.getElementById('client_mb').value=d.mb||'';
         document.getElementById('client_pib').value=d.pib||'';

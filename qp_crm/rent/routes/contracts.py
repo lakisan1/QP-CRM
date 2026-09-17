@@ -113,19 +113,14 @@ def generate_next_contract_number(db_conn, contract_date_str):
 def _contract_form(contract_id):
     conn = get_db()
     cur = conn.cursor()
-    # P5-pre: the picker feeds from the SHARED directory (Zajednički imenik)
-    # -- every active contact with the 'client' role, company OR person
-    # (fizičko lice). Legacy rent_clients rows stay in the list unchanged;
-    # both sources are merged in the template (deduped by name).
-    cur.execute("SELECT * FROM rent_clients ORDER BY name;")
-    legacy_clients = cur.fetchall()
-    directory_clients = [
+    # P5-unification: the picker feeds ONLY from the shared directory
+    # (Zajednički imenik) -- every active contact with the 'client' role,
+    # company OR person (fizičko lice). Legacy rent_clients rows were
+    # backfilled into contacts on boot (schema.backfill_rent_clients_into_
+    # contacts), so the legacy table is no longer a picker source.
+    clients = [
         {"id": f"c{row['id']}", "name": row["display_name"]}
         for row in contact_service.list_contacts(roles=["client"])
-    ]
-    known_names = {cl["name"] for cl in legacy_clients}
-    clients = list(legacy_clients) + [
-        d for d in directory_clients if d["name"] not in known_names
     ]
     cur.execute("SELECT * FROM rent_equipment ORDER BY name;")
     equipment = cur.fetchall()
@@ -167,6 +162,10 @@ def _contract_form(contract_id):
             "insurance_rate": float(request.form.get("insurance_rate") or 1.13),
             "guarantee_rate": float(request.form.get("guarantee_rate") or 5),
             "admin_fee": float(request.form.get("admin_fee") or 50),
+            # P5-unification: link to the directory (NULL = free-typed
+            # client; the printed snapshot fields stay whatever the user
+            # confirmed -- linking never rewrites them).
+            "contact_id": request.form.get("contact_id", type=int) or None,
         }
         cols = ", ".join(data.keys())
         placeholders = ", ".join(["?"] * len(data))
@@ -228,19 +227,14 @@ def duplicate_contract(contract_id):
 def api_client(client_ref):
     """Client autofill feed for the contract form.
 
-    client_ref is either a legacy rent_clients id (plain int) or a shared
-    directory contact id (c<int>, P5-pre). The JSON keeps the legacy field
-    names the form JS expects; a directory contact maps its fields onto
-    them (kind=person rows leave the company fields empty).
+    client_ref is a shared directory contact id (c<int>, P5-unification).
+    The JSON keeps the legacy field names the form JS expects; a directory
+    contact maps its fields onto them (kind=person rows leave the company
+    fields empty). A plain-int ref is accepted for backwards compatibility
+    and resolves through rent_clients.migrated_contact_id (the boot
+    backfill), so old bookmarks/API callers keep autofilling.
     """
-    if client_ref.startswith("c"):
-        try:
-            contact_id = int(client_ref[1:])
-        except ValueError:
-            return jsonify({}), 404
-        contact = contact_service.get_contact(contact_id)
-        if not contact:
-            return jsonify({}), 404
+    def _contact_json(contact):
         return jsonify({
             "name": contact["display_name"],
             "mb": contact["mb"] or "",
@@ -252,14 +246,28 @@ def api_client(client_ref):
             "rent_address": contact["city"] or "",
             "guarantor": "",
         })
+
+    if client_ref.startswith("c"):
+        try:
+            contact_id = int(client_ref[1:])
+        except ValueError:
+            return jsonify({}), 404
+        contact = contact_service.get_contact(contact_id)
+        if not contact:
+            return jsonify({}), 404
+        return _contact_json(contact)
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM rent_clients WHERE id=?;", (client_ref,))
+    cur.execute("SELECT migrated_contact_id FROM rent_clients WHERE id=?;",
+                (client_ref,))
     row = cur.fetchone()
     conn.close()
-    if not row:
+    if not row or not row["migrated_contact_id"]:
         return jsonify({}), 404
-    return jsonify(dict(row))
+    contact = contact_service.get_contact(row["migrated_contact_id"])
+    if not contact:
+        return jsonify({}), 404
+    return _contact_json(contact)
 
 
 @bp.route("/api/equipment/<int:eq_id>")

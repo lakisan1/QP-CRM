@@ -46,6 +46,7 @@ def test_temp_db_is_initialized(temp_db, conn_factory):
             "offers", "offer_items", "pdf_templates", "text_presets",
             "rent_clients", "rent_equipment", "rent_contracts",
             "rent_templates", "rent_contract_documents",
+            "contacts", "contact_roles", "contact_links",
         ):
             cur.execute(
                 "SELECT count(*) FROM sqlite_master WHERE type='table' AND name=?;",
