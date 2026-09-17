@@ -904,9 +904,9 @@
       "title": "P4.x — Invoices + payments on the deal spine (won→paid): invoices + payments + payments counters, global numbering, deal UI",
       "description": "New `customers` table (legal entity: PIB/MB, billing) + `customer_locations` (physical workshop sites) + `deals` (one thread per request; N concurrent per customer) + `deal_events` timeline + link to existing offers via deal_id. Deal may reference a location (defaults to customer HQ when null). Status derived from linked documents (won = accepted offer/invoice; paid = payments cover invoice) — hand-set only \"new\". Concurrency guardrails: global per-type document numbering with per-deal deal code (D-YYYY-NNN) for reference in emails; stock availability computed across ALL active reservations (available = on-hand − Σ reserved); payments attach to invoices, not the customer account. Replaces the old CRM + ticketing thread tracking.",
       "rationale": "User confirmed Customer+Offer+Invoice first, then raised two real-world complications: customers with multiple workshops and multiple concurrent projects. Three-level party model (customer → location → deal) answers both structurally instead of patching later; one extra table now is cheap vs backfilling location semantics onto existing deals later.",
-      "rejected": "Stored status column + drag-editable pipeline — rejected: statuses are derived from documents (blueprint §6), so any stored copy would drift. Invoices/payments inside P4 — deferred to P4.x card, blocked on invoice numbering format (OPEN_QUESTIONS #4). Stock availability across reservations — explicitly P5.",
+      "rejected": "Stored paid status / partial-payment states — derived from SUM(payments) instead (blueprint rule). Invoices inside P4 proper — deferred until the user confirmed numbering (done 2026-09-16: global).",
       "sourceSessionId": "session-7383d563-60ad-4303-be85-68798dd7746b",
-      "status": "todo",
+      "status": "done",
       "tags": [
         "qp-crm",
         "deals",
@@ -916,8 +916,8 @@
         "in-flight"
       ],
       "createdAt": 1788771414300,
-      "updatedAt": 1789572721899,
-      "summary": "Phase 4 SHIPPED on Dev (commits 1dc7c48, 42208a7, e6d4334, c6ebb13; tag qp-crm-phase4; suite 288 passed/3 skipped): customers + locations + deals + deal_events + deal_counters schema; deal_service (D-YYYY-NNN per-year numbering, derived statuses closed>won>offered>new, timeline); /deals module (customers CRUD+archive, deals list/thread, read-only pipeline); offer↔deal link (pickers, prefill, link/unlink events, deal code on lists); grants v3 + landing card; 19 new tests. Real bug found & fixed: 'closed' status was unreachable (getattr on sqlite3.Row). Agent Note: feature/2026-09-16-deals-spine.md."
+      "updatedAt": 1789576197622,
+      "summary": "P4.x SHIPPED on Dev (a0cbd1a, 02b86ee; container rebuilt + restarted, healthy on :5000; suite 304 passed/3 skipped): invoices + invoice_items + payments + global invoice_counters (F-YYYY-NNN, user-confirmed); invoice_service (issue-from-offer with frozen snapshot+items, payments, void, deal_is_paid); derived 'paid' status (closed > paid > won > offered > new); Fakture section on the deal thread + 5-column pipeline + .status-paid badge; 16 new tests. Two real bugs found & fixed over HTTP: invoice→add_event dead-lock (database is locked) and invoice gross taken from the stale offer-row total instead of the offer items. Agent Note: feature/2026-09-16-invoices-payments-spine.md. Follow-ups (not blocking): invoice PDF template, global /invoices list page."
     },
     {
       "id": "card-38a97f87-fb38-41d0-aab7-73b58911a6b9",
@@ -1222,10 +1222,10 @@
       "id": "card-db2b560c-ba00-4cfd-8e68-69d4de85d8ff",
       "title": "P4.x-T4 · Tests + full green + reboot app + Agent Note + write-down of all changes",
       "description": "Step 4 of P4.x. Tests: characterization for invoice numbering (global per-year F-YYYY-NNN, counter survives boot replay), issue-from-offer snapshot copy (client fields + items), payment validation, paid derivation matrix (partial payment, overpay, multi-invoice, voided invoice excluded), event writes. Smoke: deal thread shows invoice section, issue via HTTP, record payment, paid badge on pipeline. Full suite green. Then: reboot the production app (docker rebuild + restart so the new module + schema land on :5000), update board (all P4.x cards), Agent Note for the invoices/payments feature, and write the requested write-down of all changes.",
-      "rationale": "The P4 pattern (tests first caught the closed_at bug) proved characterization tests pay off; the reboot makes the shipped code actually visible to the user on their server, and the write-down is an explicit user request.",
-      "rejected": "Skipping the reboot until P5 — rejected: user explicitly asked to reboot when done so the changes are live.",
+      "rationale": "P4.x step 4: tests-first caught two real bugs (dead-lock, stale gross); the reboot makes the feature live for the user as requested.",
+      "rejected": "Skipping the reboot until P5 — rejected: user explicitly asked to reboot when done.",
       "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
-      "status": "todo",
+      "status": "done",
       "tags": [
         "qp-crm",
         "phase-4x",
@@ -1235,7 +1235,28 @@
         "task"
       ],
       "createdAt": 1789572868461,
-      "updatedAt": 1789572868461
+      "updatedAt": 1789576197594,
+      "summary": "committed a0cbd1a + 02b86ee on Dev: 12 characterization tests (global per-year codes, counter survives boot replay, snapshot+item copy, one-live-invoice-per-offer, paid derivation matrix incl. void/overpay/close precedence, payment validation, timeline events) + 4 smoke tests (HTTP issue/pay/void/regression on offers pages). Full suite 304 passed / 3 skipped. App REBOOTED: sudo ./deploy.sh rebuilt the image, recreated the container, healthcheck healthy at t+7s; live DB invoice schema verified in-container; anon gating on /deals/ confirmed on :5000. Agent Note: feature/2026-09-16-invoices-payments-spine.md. Write-down delivered in chat."
+    },
+    {
+      "id": "card-31c3b9fe-6393-44cf-b803-e57420ea2b7b",
+      "title": "P5-pre — Zajednički imenik (contacts): nezavisna app za kupce/saradnice koju dele rent, ponude, poslovi, radni nalozi",
+      "description": "Problem: party data is fragmented per module — offers keep client fields frozen on the document (fine), but there is no SHARED master registry: rent has its own rent_clients table, deals has customers/customer_locations, pricing has nothing, sale will need one too, radni nalozi (P5+) will need one. Every new module growing its own client table duplicates data and drifts.\n\nTarget state: ONE directory app (/contacts or /imennik) owning the party model:\n- contacts: legal entities AND persons (type: company/person), name, PIB/MB/JMBG, address, city, country, email, phone, notes, archived flag (NO deletes — same convention as customers today)\n- contact_locations stays as the child table (sites)\n- optional tagging/categorization (kupac / saradnik / oba) so 'kupci' vs 'saradnici' is a VIEW/filter, not separate tables\n- per-user grants: new module slug 'contacts' in MODULE_CHOICES (v4 rollout seeds existing staff), landing card, require_module gate — same pattern as deals\n- service layer (contact_service) + UI (list with search+archive, form, detail with locations + all linked documents across modules)\n\nMigration: rent_clients rows → contacts (one-time, idempotent, keeps ids mapped); rent_contracts keeps its FROZEN client snapshot (issuance-time convention — documents never re-resolve), but the rent UI switches its client picker to the shared directory; deals customers → contacts; offers' prefill switches to the directory.\n\nRule to keep: documents (offers, invoices, contracts) stay frozen snapshots — the directory is MASTER DATA only, it never retro-actively changes issued documents.\n\nSplit into tasks when picked up: T1 schema+migration, T2 service, T3 UI+grants, T4 rent switch-over, T5 offers/deals switch-over, T6 tests+reboot+handover.",
+      "rationale": "The user asked for the client/partner directory to be ONE independent shared app consumed by rent, offers, deals, future work-orders — not each module keeping its own client store. The deals-spine (customers table) and rent_clients already drifted into two stores; P5 (radni nalozi) will need the same data, so the unification must land before or with P5. Sequenced after P4.x which just shipped.",
+      "rejected": "Fork of the P4 customers table rejected (would pollute deal/billing spine with suppliers/employees); two parallel company/person tables rejected (union views everywhere forever); boolean role columns rejected (open-ended list needs rows, not migrations); immediate rent_clients→contacts data migration deferred to P5 rent-unification (picker merge only, non-breaking); directory inside deals app rejected (user asked for independent app).",
+      "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
+      "status": "in_progress",
+      "tags": [
+        "qp-crm",
+        "contacts",
+        "directory",
+        "phase-5-candidate",
+        "unification",
+        "in-flight"
+      ],
+      "createdAt": 1789629226338,
+      "updatedAt": 1789633063326,
+      "summary": "Built and deployed (commit 10e31f9, image rebuilt, container restarted, live on :5000): /contacts app with contacts/contact_roles/contact_links tables in shared/schema.py; kind=company|person (fizičko lice: ime/prezime/JMBG); roles as fixed-row list incl. supplier (dobavljač), employee (zaposleni), external_collaborator (spoljni saradnik), client, partner, other — several roles per contact; optional user_id→login-nalog and customer_id→P4-kupac links; archive-only (no deletes); rent contract picker + autofill read the directory (c<id> refs); grants v4 auto-grants existing staff once on boot; landing Imenik card; 16 new tests, suite 320 passed. REMAINING for this card: offer-form party picker integration + rent_clients data backfill (P5 rent-unification), API v1 endpoints if needed."
     }
   ]
 }
