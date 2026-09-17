@@ -1256,6 +1256,24 @@
       "createdAt": 1789629226338,
       "updatedAt": 1789635775109,
       "summary": "DONE — two commits: P5-pre (10e31f9) + P5-unification (6bfa4d0), image rebuilt, live on :5000. /contacts app: contacts/contact_roles/contact_links in shared/schema.py; kind=company|person (fizičko lice: ime/prezime/JMBG); fixed-row roles incl. supplier/employee/external_collaborator/client/partner/other, several per contact; optional user_id→nalog and customer_id→P4-kupac links; archive-only. UNIFICATION: boot-time backfill copies legacy rent_clients→contacts (merge-aware by PIB/MB, marker migrated_contact_id, idempotent); offers + rent_contracts gain contact_id (link column, snapshots stay frozen); offer form gains imenik party picker (companies+persons, ?contact_id= prefill); rent contract picker feeds ONLY from directory; /rent/clients redirects to /contacts?role=client + translates legacy POSTs; legacy rent_clients.html deleted; factory-reset clears directory. Suite 327 passed (7 new unification tests). Note: admin dev password overwritten during testing (TestPass123 on host dev DB — rotate if applicable)."
+    },
+    {
+      "id": "card-db51604a-7d9a-4dcb-a691-f3210cfaaaa5",
+      "title": "DELETE /deals app entirely (deals spine + P4.x invoices/payments) — /contacts is the only party registry",
+      "summary": "commit 8e8f863 + note 267c868 on Dev, app rebuilt/rebooted (healthy on :5000): deleted qp_crm/deals/ package, deal_service + invoice_service, all deals/invoices/payments DDL, offers.deal_id/location_id (+ Posao column/picker), 'deals' grant + Poslovi landing card, conftest deals_client, deal/invoice tests; factory_reset fixed (contact_links → contact_locations). /contacts is the only party registry: contact_locations sites + linked_documents (offers + rent_contracts by contact_id). Suite: 293 passed / 3 skipped. Dead tables DROPped from production DB on user confirmation. P4.x parent card superseded by this removal.",
+      "rationale": "User decision 2026-09-17: the whole /deals app (incl. P4 deals spine and P4.x invoices/payments) was unusable for them and was removed at their explicit request after a confirmation question; /contacts (built in P5-pre) becomes the only party registry. Recorded so the next session does not resurrect deals code or reference deal tables.",
+      "rejected": "Keeping customers tables as directory seed — user chose clean drop; rent_clients backfill already carried the renter base. Soft-deprecation behind a flag — rejected: half-alive code rots.",
+      "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "deals",
+        "removal",
+        "phase-4",
+        "done"
+      ],
+      "createdAt": 1789663777626,
+      "updatedAt": 1789663777626
     }
   ]
 }
