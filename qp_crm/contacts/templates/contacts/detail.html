@@ -19,7 +19,6 @@
     {{ role_badges(contact.roles) }}
     {% if contact.job_title %}<p style="margin-top: 8px;">Radno mesto: <strong>{{ contact.job_title }}</strong></p>{% endif %}
     {% if contact.user_id %}<p>Nalog: <strong>{{ contact.user_id }}</strong> (zaposleni)</p>{% endif %}
-    {% if contact.customer_id %}<p>Kupac (poslovi): <strong>#{{ contact.customer_id }}</strong></p>{% endif %}
 </div>
 
 <div class="card">
@@ -41,55 +40,67 @@
 </div>
 
 <div class="card">
-    <h2>Veze sa kupcima / lokacijama</h2>
+    <h2>Lokacije (objekti, sajtovi)</h2>
     <table class="larg-table">
         <tr>
-            <th scope="col">Kupac</th>
-            <th scope="col">Lokacija</th>
-            <th scope="col">Odnos</th>
-            <th scope="col">Glavni kontakt</th>
+            <th scope="col">Naziv</th>
+            <th scope="col">Adresa</th>
+            <th scope="col">Grad</th>
+            <th scope="col">Kontakt osoba</th>
+            <th scope="col">Telefon</th>
             <th scope="col">Akcija</th>
         </tr>
-        {% for l in links %}
+        {% for loc in locations %}
         <tr>
-            <td>{{ l.customer_name or '—' }}</td>
-            <td>{{ l.location_name or '—' }}</td>
-            <td>{{ l.relation or '' }}</td>
-            <td>{{ 'Da' if l.is_primary else '' }}</td>
+            <td>{{ loc.name }}</td>
+            <td>{{ loc.address or '—' }}</td>
+            <td>{{ loc.city or '—' }}</td>
+            <td>{{ loc.contact_name or '—' }}</td>
+            <td>{{ loc.contact_phone or '—' }}</td>
             <td>
-                <form method="post" action="{{ url_for('contacts.delete_link', contact_id=contact.id, link_id=l.id) }}" onsubmit="return confirm('Obrisati vezu?');">
+                <form method="post" action="{{ url_for('contacts.edit_contact_location', location_id=loc.id) }}" style="display: flex; gap: 6px; flex-wrap: wrap;">
                     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" class="btn btn-danger btn-sm">Obriši vezu</button>
+                    <input type="hidden" name="name" value="{{ loc.name }}">
+                    <button type="submit" class="btn btn-sm">Izmeni</button>
                 </form>
             </td>
         </tr>
         {% else %}
-        <tr><td colspan="5" style="color: var(--text-muted);">Nema veza — kontakt nije vezan za kupca ili lokaciju.</td></tr>
+        <tr><td colspan="6" style="color: var(--text-muted);">Nema unetih lokacija.</td></tr>
         {% endfor %}
     </table>
 
-    <h3 style="margin-top: 16px;">Dodaj vezu</h3>
-    <form method="post" action="{{ url_for('contacts.create_link', contact_id=contact.id) }}" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end;">
+    <h3 style="margin-top: 16px;">Dodaj lokaciju</h3>
+    <form method="post" action="{{ url_for('contacts.create_contact_location', contact_id=contact.id) }}" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end;">
         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-        <label>Kupac:<br>
-            <select name="customer_id" id="link-customer" class="searchable-select">
-                <option value="">— izaberi —</option>
-                {% for c in customer_choices %}
-                <option value="{{ c.id }}">{{ c.name }}</option>
-                {% endfor %}
-            </select>
-        </label>
-        <label>Lokacija:<br>
-            <select name="location_id" id="link-location" class="searchable-select">
-                <option value="">— glavna adresa —</option>
-                {% for loc in location_choices %}
-                <option value="{{ loc.id }}">{{ loc.customer_name }} — {{ loc.name }}</option>
-                {% endfor %}
-            </select>
-        </label>
-        <label>Odnos:<br><input type="text" name="relation" placeholder="kontakt na licu mesta"></label>
-        <label style="font-weight: normal;"><input type="checkbox" name="is_primary" value="1"> Glavni kontakt</label>
+        <label>Naziv:<br><input type="text" name="name" required placeholder="Sajt / objekat"></label>
+        <label>Adresa:<br><input type="text" name="address"></label>
+        <label>Grad:<br><input type="text" name="city"></label>
+        <label>Kontakt osoba:<br><input type="text" name="contact_name"></label>
+        <label>Telefon:<br><input type="text" name="contact_phone"></label>
         <button type="submit" class="btn btn-success">Dodaj</button>
     </form>
+</div>
+
+<div class="card">
+    <h2>Povezani dokumenti</h2>
+    <table class="larg-table">
+        <tr>
+            <th scope="col">Vrsta</th>
+            <th scope="col">Broj</th>
+            <th scope="col">Datum</th>
+            <th scope="col">Klijent (snimak)</th>
+        </tr>
+        {% for d in documents %}
+        <tr>
+            <td>{{ 'Ponuda' if d.doc_type == 'offer' else 'Ugovor o zakupu' }}</td>
+            <td>{{ d.doc_number or d.url_id or d.id }}</td>
+            <td>{{ format_date(d.doc_date) if d.doc_date else '—' }}</td>
+            <td>{{ d.title_hint or '—' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" style="color: var(--text-muted);">Nema povezanih dokumenata — kontakt još nije korišćen u modulima.</td></tr>
+        {% endfor %}
+    </table>
 </div>
 {% endblock %}

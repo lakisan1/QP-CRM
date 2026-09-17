@@ -15,14 +15,12 @@ Business logic for the contacts app; route modules keep HTTP concerns
     account) or 'person' (first/last name, JMBG, job_title). The service
     rejects an empty display_name and normalizes kind/role values so the
     fixed lists stay closed.
-  * user_id (employee role -> login account) and customer_id (client role
-    -> deals-spine customers row) are optional links -- set/cleared through
-    update_contact only, never touched by archive.
+  * user_id (employee role -> login account) is an optional link --
+    set/cleared through update_contact only, never touched by archive.
 
-The directory is INDEPENDENT of the P4 customers spine: customers keeps
-being the billing/deal party model; contacts is the wider registry every
-module shares. When the same party both buys and appears in the directory,
-the contact row carries customer_id so both worlds resolve each other by id.
+The directory is the ONLY party registry (user decision 2026-09-16: the
+deals-spine customers tables were removed). Every module -- rent, offers,
+future poslovi/radni nalozi -- reads parties from here.
 """
 from qp_crm.shared.db import get_db
 
@@ -36,7 +34,7 @@ _VALID_ROLES = frozenset(CONTACT_ROLES)
 _CONTACT_FIELDS = (
     "kind", "display_name", "first_name", "last_name", "jmbg", "pib", "mb",
     "account", "billing_address", "city", "country", "email", "phone",
-    "job_title", "user_id", "customer_id", "notes",
+    "job_title", "user_id", "notes",
 )
 
 
@@ -124,9 +122,9 @@ def create_contact(display_name, kind="company", roles=(), fields=None):
         """
         INSERT INTO contacts (kind, display_name, first_name, last_name, jmbg,
                               pib, mb, account, billing_address, city, country,
-                              email, phone, job_title, user_id, customer_id,
+                              email, phone, job_title, user_id,
                               notes, created_at, archived)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0);
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0);
         """,
         (
             kind,
@@ -144,7 +142,6 @@ def create_contact(display_name, kind="company", roles=(), fields=None):
             (fields.get("phone") or "").strip(),
             (fields.get("job_title") or "").strip(),
             fields.get("user_id") or None,
-            fields.get("customer_id") or None,
             (fields.get("notes") or "").strip(),
             _utcnow_iso(),
         ),
@@ -185,7 +182,7 @@ def update_contact(contact_id, display_name, kind=None, roles=None, fields=None)
         if field in ("kind", "display_name"):
             continue
         value = fields.get(field)
-        if field in ("user_id", "customer_id"):
+        if field == "user_id":
             value = value or None
         else:
             value = (value or "").strip()
@@ -277,26 +274,15 @@ def find_by_user_id(user_id):
 
 
 # ---------------------------------------------------------------------------
-# contact ↔ customer/location links
+# contact locations (sites of one contact -- the directory's own children)
 # ---------------------------------------------------------------------------
 
-def list_links(contact_id):
-    """All directory links of one contact, resolved with party names.
-
-    Names join live at read time (customers.display-name equivalents), so
-    renaming a customer/location never orphans a link label.
-    """
+def list_contact_locations(contact_id):
+    """All site rows of one contact, oldest first."""
     conn = get_db()
     cur = conn.cursor()
     cur.execute(
-        """
-        SELECT l.*, c.name AS customer_name, loc.name AS location_name
-        FROM contact_links l
-        LEFT JOIN customers c ON c.id = l.customer_id
-        LEFT JOIN customer_locations loc ON loc.id = l.location_id
-        WHERE l.contact_id = ?
-        ORDER BY l.is_primary DESC, l.id;
-        """,
+        "SELECT * FROM contact_locations WHERE contact_id = ? ORDER BY id;",
         (contact_id,),
     )
     rows = cur.fetchall()
@@ -304,66 +290,83 @@ def list_links(contact_id):
     return rows
 
 
-def create_link(contact_id, customer_id=None, location_id=None, relation="",
-                is_primary=False, notes=""):
-    """Attach a contact to a customer (optionally one of its sites).
-
-    Returns (ok, id_or_message). A location must belong to the given
-    customer -- the link records where AT WHOM the contact matters, and a
-    site of another customer would be a data error, not a style choice.
-    """
-    customer_id = customer_id or None
-    location_id = location_id or None
-    if customer_id is None and location_id is None:
-        return False, "Veza zahteva kupca ili lokaciju."
+def create_contact_location(contact_id, name, address="", city="",
+                            contact_name="", contact_phone="", notes=""):
+    """Add a site to a contact. Returns (ok, id_or_message)."""
+    name = (name or "").strip()
+    if not name:
+        return False, "Naziv lokacije je obavezan."
     conn = get_db()
     cur = conn.cursor()
     cur.execute("SELECT id FROM contacts WHERE id = ?;", (contact_id,))
     if cur.fetchone() is None:
         conn.close()
         return False, "Kontakt nije pronađen."
-    if customer_id is not None:
-        cur.execute("SELECT id FROM customers WHERE id = ?;", (customer_id,))
-        if cur.fetchone() is None:
-            conn.close()
-            return False, "Kupac nije pronađen."
-    if location_id is not None:
-        cur.execute("SELECT customer_id FROM customer_locations WHERE id = ?;",
-                    (location_id,))
-        row = cur.fetchone()
-        if row is None:
-            conn.close()
-            return False, "Lokacija nije pronađena."
-        if customer_id is None:
-            customer_id = row["customer_id"]
-        elif customer_id != row["customer_id"]:
-            conn.close()
-            return False, "Lokacija ne pripada datom kupcu."
     cur.execute(
         """
-        INSERT INTO contact_links (contact_id, customer_id, location_id,
-                                   relation, is_primary, notes)
-        VALUES (?, ?, ?, ?, ?, ?);
+        INSERT INTO contact_locations (contact_id, name, address, city,
+                                       contact_name, contact_phone, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?);
         """,
-        (contact_id, customer_id, location_id, (relation or "").strip(),
-         1 if is_primary else 0, (notes or "").strip()),
+        (contact_id, name, (address or "").strip(), (city or "").strip(),
+         (contact_name or "").strip(), (contact_phone or "").strip(),
+         (notes or "").strip()),
     )
-    link_id = cur.lastrowid
+    location_id = cur.lastrowid
     conn.commit()
     conn.close()
-    return True, link_id
+    return True, location_id
 
 
-def delete_link(contact_id, link_id):
-    """Remove one link row (the LINK, never the contact)."""
+def update_contact_location(location_id, name, address="", city="",
+                            contact_name="", contact_phone="", notes=""):
+    """Edit one site row. Returns (ok, message)."""
+    name = (name or "").strip()
+    if not name:
+        return False, "Naziv lokacije je obavezan."
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("SELECT id FROM contact_links WHERE id = ? AND contact_id = ?;",
-                (link_id, contact_id))
+    cur.execute("SELECT id FROM contact_locations WHERE id = ?;", (location_id,))
     if cur.fetchone() is None:
         conn.close()
-        return False, "Veza nije pronađena."
-    cur.execute("DELETE FROM contact_links WHERE id = ?;", (link_id,))
+        return False, "Lokacija nije pronađena."
+    cur.execute(
+        """
+        UPDATE contact_locations SET name = ?, address = ?, city = ?,
+                                     contact_name = ?, contact_phone = ?, notes = ?
+        WHERE id = ?;
+        """,
+        (name, (address or "").strip(), (city or "").strip(),
+         (contact_name or "").strip(), (contact_phone or "").strip(),
+         (notes or "").strip(), location_id),
+    )
     conn.commit()
     conn.close()
     return True, "ok"
+
+
+def linked_documents(contact_id):
+    """Everything across modules that references one directory entry.
+
+    Read-time joins over the consumers' id links (offers.contact_id,
+    rent_contracts.contact_id); issued documents stay frozen snapshots, so
+    this list is WHO the party did business with, resolved live.
+    """
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT 'offer' AS doc_type, id, offer_number AS doc_number,
+               date AS doc_date, client_name AS title_hint, NULL AS url_id
+        FROM offers WHERE contact_id = ?
+        UNION ALL
+        SELECT 'rent_contract' AS doc_type, id, contract_number AS doc_number,
+               contract_date AS doc_date, client_name AS title_hint, NULL AS url_id
+        FROM rent_contracts WHERE contact_id = ?
+        ORDER BY doc_date, doc_type;
+        """,
+        (contact_id, contact_id),
+    )
+    rows = cur.fetchall()
+    conn.close()
+    return rows

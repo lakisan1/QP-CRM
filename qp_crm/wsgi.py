@@ -52,7 +52,6 @@ from qp_crm.pricing.app import init_db as pricing_init_db, migrate_schema as pri
 from qp_crm.offer.app import init_db as offer_init_db  # noqa: E402
 from qp_crm.admin.app import init_db as admin_init_db  # noqa: E402
 from qp_crm.rent.app import init_db as rent_init_db  # noqa: E402
-from qp_crm.deals.app import init_db as deals_init_db  # noqa: E402
 from qp_crm.contacts.app import init_db as contacts_init_db  # noqa: E402
 
 pricing_init_db()
@@ -60,7 +59,6 @@ pricing_migrate_schema()
 offer_init_db()
 admin_init_db()
 rent_init_db()
-deals_init_db()
 contacts_init_db()
 
 print("Database initialization complete.", flush=True)

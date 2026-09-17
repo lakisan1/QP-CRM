@@ -49,7 +49,7 @@ def _restore_grants():
 def _clean_contacts():
     """Isolate each test: wipe the directory tables."""
     conn = get_db()
-    conn.execute("DELETE FROM contact_links;")
+    conn.execute("DELETE FROM contact_locations;")
     conn.execute("DELETE FROM contact_roles;")
     conn.execute("DELETE FROM contacts;")
     conn.commit()

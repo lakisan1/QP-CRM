@@ -437,184 +437,6 @@ def create_users_table(cur):
 
 
 # ---------------------------------------------------------------------------
-# deals module tables (Phase 4 — the deals spine)
-# ---------------------------------------------------------------------------
-
-def create_deals_tables(cur):
-    """customers, customer_locations, deal_counters, deals, deal_events.
-
-    Three-level party model (blueprint §2, note amendments 1/6):
-      customer (who pays) -> location (where work happens) -> deal (the thread).
-    Conventions applied here (blueprint §4):
-      * names resolved at read time -- callers JOIN customers/locations by id,
-        nothing stores another entity's name as its key;
-      * NO deletes -- customers archive (archived=1), locations and deals
-        stay (no workflow ever deletes a deal row);
-      * statuses are NOT stored -- derived in deal_service from linked
-        documents + events;
-      * deal code D-YYYY-NNN is UNIQUE (it is the human reference in emails)
-        and comes from the per-year deal_counters row (global per-year
-        sequence, per blueprint §5 numbering rule).
-    """
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS customers (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            pib TEXT, mb TEXT,
-            billing_address TEXT, city TEXT, country TEXT,
-            email TEXT, phone TEXT,
-            notes TEXT,
-            created_at TEXT,
-            archived INTEGER DEFAULT 0
-        );
-    """)
-
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS customer_locations (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            customer_id INTEGER NOT NULL REFERENCES customers(id),
-            name TEXT,
-            address TEXT, city TEXT,
-            contact_name TEXT, contact_phone TEXT,
-            notes TEXT
-        );
-    """)
-
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS deal_counters (
-            year INTEGER PRIMARY KEY,
-            last_number INTEGER NOT NULL DEFAULT 0
-        );
-    """)
-
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS deals (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            code TEXT UNIQUE,
-            customer_id INTEGER NOT NULL REFERENCES customers(id),
-            location_id INTEGER REFERENCES customer_locations(id),
-            title TEXT NOT NULL,
-            owner_user_id INTEGER REFERENCES users(id),
-            created_at TEXT,
-            closed_at TEXT
-        );
-    """)
-
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS deal_events (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            deal_id INTEGER NOT NULL REFERENCES deals(id),
-            event_type TEXT NOT NULL,
-            author_user_id INTEGER REFERENCES users(id),
-            body TEXT,
-            linked_doc_type TEXT,
-            linked_doc_id INTEGER,
-            created_at TEXT
-        );
-    """)
-
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_deals_customer ON deals(customer_id);")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_deals_code ON deals(code);")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_deal_events_deal ON deal_events(deal_id);")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_customer_locations_customer ON customer_locations(customer_id);")
-
-    # --- invoices + payments (Phase 4.x): the financial tail of a deal ---
-    create_invoices_tables(cur)
-
-
-def create_invoices_tables(cur):
-    """invoices, invoice_items, payments, invoice_counters (Phase 4.x).
-
-    Conventions carried over from the deal spine (blueprint §4/§5):
-      * issuance-time snapshot -- client fields + items are COPIED from the
-        accepted offer when the invoice is issued; later edits to the offer
-        or the customer master data never leak into issued invoices;
-      * NO deletes -- an invoice is voided (voided_at), payments are never
-        deleted (mistakes are corrected by a reversing entry, not a DELETE);
-      * invoice status is NOT stored -- 'paid' is derived at read time by
-        comparing SUM(payments.amount) with total_gross;
-      * code F-YYYY-NNN comes from the GLOBAL per-year invoice_counters
-        bucket (user decision: one sequence for all invoices, no
-        per-customer or per-deal series).
-    """
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS invoice_counters (
-            year INTEGER PRIMARY KEY,
-            last_number INTEGER NOT NULL DEFAULT 0
-        );
-    """)
-
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS invoices (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            code TEXT UNIQUE,
-            deal_id INTEGER NOT NULL REFERENCES deals(id),
-            customer_id INTEGER REFERENCES customers(id),
-            location_id INTEGER REFERENCES customer_locations(id),
-            source_offer_id INTEGER REFERENCES offers(id),
-            issue_date TEXT,
-            due_date TEXT,
-            currency TEXT,
-            exchange_rate REAL DEFAULT 1.0,
-            total_gross REAL DEFAULT 0,
-            -- issuance-time client snapshot (frozen copy from the offer)
-            client_name TEXT, client_address TEXT, client_email TEXT,
-            client_phone TEXT, client_pib TEXT, client_mb TEXT, client_country TEXT,
-            notes TEXT,
-            created_at TEXT,
-            voided_at TEXT
-        );
-    """)
-
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS invoice_items (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            invoice_id INTEGER NOT NULL REFERENCES invoices(id),
-            position INTEGER DEFAULT 0,
-            description TEXT,
-            qty REAL DEFAULT 1,
-            unit TEXT,
-            unit_price REAL DEFAULT 0,
-            discount_percent REAL DEFAULT 0,
-            line_total REAL DEFAULT 0
-        );
-    """)
-
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS payments (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            invoice_id INTEGER NOT NULL REFERENCES invoices(id),
-            paid_at TEXT,
-            amount REAL NOT NULL,
-            currency TEXT,
-            method TEXT,
-            reference TEXT,
-            note TEXT,
-            created_by_user_id INTEGER REFERENCES users(id),
-            created_at TEXT
-        );
-    """)
-
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_invoices_deal ON invoices(deal_id);")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_invoices_code ON invoices(code);")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_invoice_items_invoice ON invoice_items(invoice_id);")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_payments_invoice ON payments(invoice_id);")
-
-
-def migrate_deals(cur):
-    """Deals-side idempotent migrations (Phase 4).
-
-    offers gain deal_id/location_id (blueprint §2: offers keep working,
-    gain the link columns). Legacy databases ALTERed on boot; fresh
-    canonical CREATEs carry the columns already via migrate_offer_tables.
-    """
-    add_column_if_missing(cur, "offers", "deal_id INTEGER REFERENCES deals(id)")
-    add_column_if_missing(cur, "offers", "location_id INTEGER REFERENCES customer_locations(id)")
-
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_offers_deal_id ON offers(deal_id);")
-
-
-# ---------------------------------------------------------------------------
 # idempotent ALTER migrations
 # ---------------------------------------------------------------------------
 
@@ -762,13 +584,6 @@ def migrate_offer_tables(cur):
 
     add_column_if_missing(cur, "offer_items", "discount_percent REAL DEFAULT 0.0")
 
-    # Phase 4: the deal-spine link columns. Kept here (not only in
-    # migrate_deals) so offer_init_db alone upgrades an offers schema the
-    # same way it historically absorbed its own column ALTERs.
-    add_column_if_missing(cur, "offers", "deal_id INTEGER REFERENCES deals(id)")
-    add_column_if_missing(cur, "offers", "location_id INTEGER REFERENCES customer_locations(id)")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_offers_deal_id ON offers(deal_id);")
-
 
 def migrate_rent_tables(cur):
     """rent ALTERs for legacy databases (verbatim from rent/app.py)."""
@@ -798,11 +613,13 @@ CONTACT_ROLES = (
 
 
 def create_contacts_tables(cur):
-    """contacts, contact_roles, contact_links (P5-pre). Roles are ROWS
+    """contacts, contact_roles, contact_links (P5-pre; the deals-spine
+    customers tables were REMOVED by user decision 2026-09-16 -- the
+    directory is now the ONLY party registry). Roles are ROWS
     (contact_roles), not boolean columns: a role arriving later is a new
     value in the fixed list, never a new column.
 
-    Conventions carried over from the deal spine (blueprint §4):
+    Conventions:
       * NO deletes -- a contact archives (archived=1); documents that
         reference one keep resolving it by id (rename-safe, amendment 6b).
       * id + snapshot: consumers snapshot the fields they print (rent
@@ -818,10 +635,6 @@ def create_contacts_tables(cur):
       * user_id links an employee role to the app login account
         (nullable: the directory may list employees who never log in, and
         a login account may exist without a directory entry).
-      * customer_id links a client-role entry to the P4 customers row when
-        the same party also buys -- the directory IS the wider registry;
-        customers stays the deal/billing spine and is NOT merged away
-        (blueprint §2 party model untouched).
     """
     cur.execute("""
         CREATE TABLE IF NOT EXISTS contacts (
@@ -836,7 +649,6 @@ def create_contacts_tables(cur):
             email TEXT, phone TEXT,
             job_title TEXT,
             user_id INTEGER REFERENCES users(id),
-            customer_id INTEGER REFERENCES customers(id),
             notes TEXT,
             created_at TEXT,
             archived INTEGER DEFAULT 0
@@ -852,22 +664,19 @@ def create_contacts_tables(cur):
     """)
 
     cur.execute("""
-        CREATE TABLE IF NOT EXISTS contact_links (
+        CREATE TABLE IF NOT EXISTS contact_locations (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             contact_id INTEGER NOT NULL REFERENCES contacts(id),
-            customer_id INTEGER REFERENCES customers(id),
-            location_id INTEGER REFERENCES customer_locations(id),
-            relation TEXT,
-            is_primary INTEGER DEFAULT 0,
+            name TEXT,
+            address TEXT, city TEXT,
+            contact_name TEXT, contact_phone TEXT,
             notes TEXT
         );
     """)
 
     cur.execute("CREATE INDEX IF NOT EXISTS idx_contacts_name ON contacts(display_name);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_contacts_user ON contacts(user_id);")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_contacts_customer ON contacts(customer_id);")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_contact_links_contact ON contact_links(contact_id);")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_contact_links_customer ON contact_links(customer_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_contact_locations_contact ON contact_locations(contact_id);")
 
 
 def migrate_contacts(cur):

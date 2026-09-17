@@ -1,12 +1,12 @@
-"""Directory routes (P5-pre): list, add/edit, detail, archive.
+"""Directory routes (P5-pre): list, add/edit, detail, archive, locations.
 
 No delete anywhere: contacts archive (set_contact_archived) -- documents
 that reference a contact keep resolving it by id (rename-safe, amendment
 6b). Role and kind filters come from the fixed schema lists.
 """
-from flask import flash, redirect, render_template, request, session, url_for
+from flask import flash, redirect, render_template, request, url_for
 
-from ..app import bp, get_db
+from ..app import bp
 from qp_crm.services import contact_service
 from qp_crm.shared.schema import CONTACT_KINDS, CONTACT_ROLES
 
@@ -27,7 +27,6 @@ def _form_fields():
         "phone": request.form.get("phone"),
         "job_title": request.form.get("job_title"),
         "user_id": request.form.get("user_id", type=int),
-        "customer_id": request.form.get("customer_id", type=int),
         "notes": request.form.get("notes"),
     }
 
@@ -39,36 +38,11 @@ def _form_roles():
 
 def _user_choices():
     """Active app login accounts (feed for the employee -> nalog link)."""
-    from qp_crm.shared.auth import get_db as auth_get_db
-    conn = auth_get_db()
-    cur = conn.cursor()
-    cur.execute(
-        "SELECT id, username FROM users WHERE is_active = 1 ORDER BY username;")
-    rows = cur.fetchall()
-    conn.close()
-    return rows
-
-
-def _customer_choices():
-    """Active P4 customers (feed for the contact -> kupac link)."""
-    from qp_crm.services import deal_service
-    return deal_service.list_customers(include_archived=False)
-
-
-def _location_choices():
-    """All customer sites with the customer name resolved (feed for the
-    contact -> lokacija link on the detail page)."""
+    from qp_crm.shared.auth import get_db
     conn = get_db()
     cur = conn.cursor()
     cur.execute(
-        """
-        SELECT loc.id, loc.name, loc.customer_id, c.name AS customer_name
-        FROM customer_locations loc
-        JOIN customers c ON c.id = loc.customer_id
-        WHERE c.archived = 0
-        ORDER BY c.name COLLATE NOCASE, loc.name COLLATE NOCASE;
-        """
-    )
+        "SELECT id, username FROM users WHERE is_active = 1 ORDER BY username;")
     rows = cur.fetchall()
     conn.close()
     return rows
@@ -122,7 +96,6 @@ def new_contact():
         "contacts/form.html",
         contact=None,
         user_choices=_user_choices(),
-        customer_choices=_customer_choices(),
     )
 
 
@@ -131,13 +104,13 @@ def view_contact(contact_id):
     contact = contact_service.get_contact(contact_id)
     if contact is None:
         return "Kontakt nije pronađen.", 404
-    links = contact_service.list_links(contact_id)
+    locations = contact_service.list_contact_locations(contact_id)
+    documents = contact_service.linked_documents(contact_id)
     return render_template(
         "contacts/detail.html",
         contact=contact,
-        links=links,
-        customer_choices=_customer_choices(),
-        location_choices=_location_choices(),
+        locations=locations,
+        documents=documents,
     )
 
 
@@ -167,7 +140,6 @@ def edit_contact(contact_id):
         "contacts/form.html",
         contact=contact,
         user_choices=_user_choices(),
-        customer_choices=_customer_choices(),
     )
 
 
@@ -178,3 +150,51 @@ def archive_contact(contact_id):
     if not ok:
         flash(message, "error")
     return redirect(url_for("contacts.view_contact", contact_id=contact_id))
+
+
+# ---------------------------------------------------------------------------
+# locations (sites of one contact)
+# ---------------------------------------------------------------------------
+
+@bp.route("/contacts/<int:contact_id>/locations/new", methods=["POST"])
+def create_contact_location(contact_id):
+    ok, result = contact_service.create_contact_location(
+        contact_id,
+        request.form.get("name"),
+        address=request.form.get("address"),
+        city=request.form.get("city"),
+        contact_name=request.form.get("contact_name"),
+        contact_phone=request.form.get("contact_phone"),
+        notes=request.form.get("notes"),
+    )
+    if not ok:
+        flash(result, "error")
+    else:
+        flash("Lokacija sačuvana.", "success")
+    return redirect(url_for("contacts.view_contact", contact_id=contact_id))
+
+
+@bp.route("/contacts/locations/<int:location_id>/edit", methods=["POST"])
+def edit_contact_location(location_id):
+    ok, message = contact_service.update_contact_location(
+        location_id,
+        request.form.get("name"),
+        address=request.form.get("address"),
+        city=request.form.get("city"),
+        contact_name=request.form.get("contact_name"),
+        contact_phone=request.form.get("contact_phone"),
+        notes=request.form.get("notes"),
+    )
+    if not ok:
+        flash(message, "error")
+        return redirect(url_for("contacts.list_contacts"))
+    from qp_crm.shared.auth import get_db
+    conn = get_db()
+    row = conn.execute(
+        "SELECT contact_id FROM contact_locations WHERE id = ?;", (location_id,)
+    ).fetchone()
+    conn.close()
+    if row:
+        return redirect(url_for("contacts.view_contact",
+                                contact_id=row["contact_id"]))
+    return redirect(url_for("contacts.list_contacts"))

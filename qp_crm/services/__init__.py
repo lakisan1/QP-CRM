@@ -5,4 +5,4 @@ moved verbatim from the route modules they serve (zero behavior change);
 the route modules import them back so their own call sites stay untouched.
 """
 
-from qp_crm.services import contact_service, deal_service, invoice_service, offer_service, pdf_service, pricing_service, rent_service  # noqa: F401
+from qp_crm.services import contact_service, offer_service, pdf_service, pricing_service, rent_service  # noqa: F401

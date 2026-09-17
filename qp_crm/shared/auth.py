@@ -542,15 +542,16 @@ def count_active_admins():
 # on the next boot (users.modules_set stores the last seed version seen).
 # ----------
 
-MODULE_CHOICES = ("pricing", "offer", "rent", "sale", "deals", "contacts")
+MODULE_CHOICES = ("pricing", "offer", "rent", "sale", "contacts")
 
 # v1: the original pricing/offer/rent rollout. v2: sale joined the
 # per-user list (it was public before and every staff account could open
 # it, so the v2 rollout grants it to existing materialized staff).
-# v3: deals joined (Phase 4 deals spine) -- same exactly-once grant to
-# existing materialized staff accounts on the next boot.
+# v3: deals joined (Phase 4 deals spine) -- REMOVED by user decision
+# 2026-09-16 (the whole /deals app was deleted; leftover user_modules rows
+# for 'deals' are inert and simply never appear again).
 # v4: contacts joined (P5-pre shared directory) -- same exactly-once grant.
-MODULE_INTRODUCED = {"pricing": 1, "offer": 1, "rent": 1, "sale": 2, "deals": 3,
+MODULE_INTRODUCED = {"pricing": 1, "offer": 1, "rent": 1, "sale": 2,
                      "contacts": 4}
 CURRENT_MODULE_VERSION = 4
 

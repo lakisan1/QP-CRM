@@ -1,20 +1,20 @@
 """Contacts module (P5-pre): the shared directory (Zajednički imenik).
 
-Blueprint on the single QP-CRM app, mounted at /contacts by main.py — same
-pattern as deals (Phase 4). The module owns:
+Blueprint on the single QP-CRM app, mounted at /contacts by main.py.
+The module owns:
 
-  * contacts + contact_roles + contact_links (schema in shared/schema.py,
-    single source);
+  * contacts + contact_roles + contact_locations (schema in
+    shared/schema.py, single source);
   * the directory UI (list with role/kind filters, add/edit form, detail
-    page) shared by rent, ponude, poslovi and future radni nalozi.
+    page with sites + linked documents) shared by rent, ponude, poslovi
+    and future radni nalozi.
 
 Access: require_module("contacts") — per-user app access like every other
 module (MODULE_CHOICES v4 in shared/auth.py); admins bypass grants.
 
-The module is deliberately INDEPENDENT of the deals customers pages: the
-directory is the wider registry (suppliers, employees, external
-collaborators, partners — companies AND persons); the deals spine keeps
-its own billing-focused customer screens on top of the customers table.
+The directory is the ONLY party registry (user decision 2026-09-16: the
+deals-spine customers tables were removed entirely). Every module reads
+parties from here; issued documents keep frozen field snapshots.
 """
 import os
 
@@ -33,8 +33,7 @@ bp.before_request(require_module("contacts"))
 def init_db():
     """Thin wrapper -- the DDL lives in shared/schema.py (single source).
 
-    Runs in the boot sequence after deals_init_db (see wsgi.py / main.py);
-    both steps are idempotent.
+    Runs in the boot sequence (see wsgi.py / main.py); idempotent.
     """
     from qp_crm.shared.schema import create_contacts_tables, migrate_contacts
 

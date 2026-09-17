@@ -72,7 +72,6 @@ def temp_db():
     from qp_crm.offer.app import init_db as offer_init_db
     from qp_crm.admin.app import init_db as admin_init_db
     from qp_crm.rent.app import init_db as rent_init_db
-    from qp_crm.deals.app import init_db as deals_init_db
     from qp_crm.contacts.app import init_db as contacts_init_db
 
     pricing_init_db()
@@ -80,7 +79,6 @@ def temp_db():
     offer_init_db()
     admin_init_db()
     rent_init_db()
-    deals_init_db()
     contacts_init_db()
     return TEST_DATABASE
 
@@ -213,16 +211,6 @@ def csrf_token_for(client):
 def offer_client(temp_db):
     """Flask test client for the offer module, pre-authenticated through the
     unified login as the seeded 'offer' (staff) account."""
-    from qp_crm.main import app
-
-    return login_client(app.test_client(), "offer")
-
-
-@pytest.fixture(scope="session")
-def deals_client(temp_db):
-    """Flask test client pre-authenticated as the seeded 'offer' (staff)
-    account -- usable for deals pages too, since provision_staff_accounts
-    grants every current module (incl. 'deals', v3 rollout)."""
     from qp_crm.main import app
 
     return login_client(app.test_client(), "offer")

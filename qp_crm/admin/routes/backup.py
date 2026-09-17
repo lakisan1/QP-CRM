@@ -249,8 +249,8 @@ def factory_reset():
             "rent_clients", "rent_equipment", "rent_contracts",
             "rent_contract_documents", "rent_templates",
             # P5-unification: the shared directory resets too (children
-            # first -- links and roles reference contacts)
-            "contact_links", "contact_roles", "contacts",
+            # first -- locations and roles reference contacts)
+            "contact_locations", "contact_roles", "contacts",
         ]
         # G31: Use parameterized queries — table names come from a fixed allow-list
         allowed_tables = set(tables_to_clear)

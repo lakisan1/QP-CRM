@@ -28,7 +28,11 @@ def _db(temp_db):
 def _clean_directory():
     conn = get_db()
     conn.execute("PRAGMA foreign_keys = OFF;")
-    conn.execute("DELETE FROM contact_links;")
+    # issued documents referencing wiped contacts are wiped too (offers +
+    # rent contracts are this suite's fixtures, not user data)
+    conn.execute("DELETE FROM offers;")
+    conn.execute("DELETE FROM rent_contracts;")
+    conn.execute("DELETE FROM contact_locations;")
     conn.execute("DELETE FROM contact_roles;")
     conn.execute("DELETE FROM contacts;")
     conn.execute("UPDATE rent_clients SET migrated_contact_id = NULL;")

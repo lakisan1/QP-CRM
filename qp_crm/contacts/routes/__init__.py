@@ -1,7 +1,7 @@
-"""Contacts route groups (P5-pre layout, mirrors deals/routes).
+"""Contacts route groups (P5-pre layout).
 
 Importing this package registers every route group on contacts.app's
 blueprint. Split per domain, P2-stage-5 style: directory (list/detail/
-form/archive), links (contact ↔ customer/location links).
+form/archive/locations).
 """
-from . import directory, links  # noqa: F401
+from . import directory  # noqa: F401

@@ -112,7 +112,6 @@
         <tr>
             <th scope="col">Datum</th>
             <th scope="col">Broj / ime ponude</th>
-            <th scope="col">Posao</th>
             <th scope="col">Država (Country)</th>
             <th scope="col">Naziv musterije</th>
             <th scope="col">Vrednost ponude</th>
@@ -123,11 +122,6 @@
             <td style="text-align: center; width: 80px;">{{ o.date | format_date }}</td>
             <td>
                 <a href="{{ url_for('offer.edit_offer', offer_id=o.id) }}">{{ o.offer_number or o.id }}</a>
-            </td>
-            <td>
-                {% if o.deal_id and deal_codes.get(o.deal_id) %}
-                <a href="{{ url_for('deals.view_deal', deal_id=o.deal_id) }}">{{ deal_codes[o.deal_id] }}</a>
-                {% else %}—{% endif %}
             </td>
             <td>{{ o.country }}</td>
             <td>{{ o.client_name }}</td>

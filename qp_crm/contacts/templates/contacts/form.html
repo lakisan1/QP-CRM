@@ -121,16 +121,6 @@
                     </label>
                 </p>
                 <p>
-                    <label>Kupac (poslovi):<br>
-                        <select name="customer_id" class="long-input">
-                            <option value="">— nema —</option>
-                            {% for c in customer_choices %}
-                            <option value="{{ c.id }}" {{ 'selected' if contact and contact.customer_id == c.id }}>{{ c.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </label>
-                </p>
-                <p>
                     <label>Beleške:<br>
                         <textarea name="notes" rows="4">{{ contact.notes if contact else '' }}</textarea>
                     </label>

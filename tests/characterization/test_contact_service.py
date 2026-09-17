@@ -8,8 +8,9 @@ Characterization discipline: these pin the NEW module's intended behavior
 * no delete: contacts archive only, rows survive;
 * role filter matches ANY of the requested roles;
 * person vs company rows coexist in one table (fizičko/pravno lice);
-* links: a location must belong to its customer; link deletion never
-  touches the contact.
+* locations: a contact's sites live in contact_locations (the directory is
+  the ONLY party registry -- the deals-spine customers tables are gone);
+* linked_documents resolves offers + rent contracts by contact_id.
 """
 
 import pytest
@@ -25,10 +26,15 @@ def _db(temp_db):
 
 @pytest.fixture(autouse=True)
 def _clean_contacts():
-    """Isolate each test: wipe the directory tables (contacts only --
-    customers/users belong to other suites)."""
+    """Isolate each test: wipe the directory tables. Document rows that
+    reference a wiped contact are wiped too (they are this suite's
+    fixtures, not user data) -- offers.contact_id / rent_contracts.contact_id
+    would otherwise block the wipe (FK)."""
     conn = get_db()
-    conn.execute("DELETE FROM contact_links;")
+    conn.execute("PRAGMA foreign_keys = OFF;")
+    conn.execute("DELETE FROM offers;")
+    conn.execute("DELETE FROM rent_contracts;")
+    conn.execute("DELETE FROM contact_locations;")
     conn.execute("DELETE FROM contact_roles;")
     conn.execute("DELETE FROM contacts;")
     conn.commit()
@@ -134,38 +140,60 @@ def test_search_matches_identity_fields():
     assert any(r["id"] == pid for r in by_phone)
 
 
-def test_link_location_must_belong_to_customer():
-    from qp_crm.services import deal_service
-    ok, customer_id = deal_service.create_customer("Link Kupac A")
-    assert ok
-    ok, other_id = deal_service.create_customer("Link Kupac B")
-    assert ok
-    ok, location_id = deal_service.create_location(customer_id, "Sajt 1")
-    assert ok
+def test_contact_locations_crud():
     cid = _company("Firma F", roles=("supplier",))
-
-    # location without customer: customer inferred from the site
-    ok, link_id = contact_service.create_link(cid, location_id=location_id)
+    ok, location_id = contact_service.create_contact_location(
+        cid, "Sajt 1", address="Ulica 1", city="Beograd",
+        contact_name="Marko", contact_phone="064/000-000")
     assert ok
-    links = contact_service.list_links(cid)
-    assert links[0]["customer_id"] == customer_id
-    assert links[0]["location_name"] == "Sajt 1"
+    locs = contact_service.list_contact_locations(cid)
+    assert len(locs) == 1 and locs[0]["name"] == "Sajt 1"
 
-    # location of ANOTHER customer: rejected
-    ok, message = contact_service.create_link(
-        cid, customer_id=other_id, location_id=location_id)
+    # empty name rejected
+    ok, message = contact_service.create_contact_location(cid, "  ")
     assert not ok
-    assert "ne pripada" in message.lower()
+    assert "obavezan" in message.lower()
 
-    # neither customer nor location: rejected
-    ok, message = contact_service.create_link(cid)
+    # unknown contact rejected
+    ok, message = contact_service.create_contact_location(99999, "X")
     assert not ok
 
-    # deleting the link leaves the contact intact
-    ok, _ = contact_service.delete_link(cid, link_id)
+    # update works
+    ok, message = contact_service.update_contact_location(
+        location_id, "Sajt 1 renamed", city="Novi Sad")
     assert ok
-    assert contact_service.list_links(cid) == []
-    assert contact_service.get_contact(cid) is not None
+    locs = contact_service.list_contact_locations(cid)
+    assert locs[0]["name"] == "Sajt 1 renamed" and locs[0]["city"] == "Novi Sad"
+
+
+def test_linked_documents_resolves_by_contact():
+    cid = _company("Firma G", roles=("client",))
+    # no documents yet
+    assert contact_service.linked_documents(cid) == []
+    # an offer referencing the contact shows up
+    conn = get_db()
+    conn.execute(
+        """
+        INSERT INTO offers (offer_number, date, client_name, client_pib,
+                            total_net, total_gross, contact_id)
+        VALUES ('P-TEST-1', '2026-09-16', 'Firma G', '100000001', 0, 0, ?);
+        """, (cid,))
+    conn.commit()
+    docs = contact_service.linked_documents(cid)
+    assert len(docs) == 1
+    assert docs[0]["doc_type"] == "offer"
+    assert docs[0]["doc_number"] == "P-TEST-1"
+    # a rent contract referencing it shows up too
+    conn.execute(
+        """
+        INSERT INTO rent_contracts (contract_number, contract_date, client_name,
+                                    contact_id, price)
+        VALUES ('Z-TEST-1', '2026-09-16', 'Firma G', ?, 0);
+        """, (cid,))
+    conn.commit()
+    docs = contact_service.linked_documents(cid)
+    assert {d["doc_type"] for d in docs} == {"offer", "rent_contract"}
+    conn.close()
 
 
 def test_directory_choices_label():

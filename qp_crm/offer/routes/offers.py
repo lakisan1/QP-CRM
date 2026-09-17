@@ -4,14 +4,8 @@ from datetime import date
 from flask import jsonify, redirect, render_template, request, session, url_for
 
 from ..app import bp, get_country_list, get_db, get_mandatory_fields, recalc_totals
-from qp_crm.services import deal_service, contact_service
+from qp_crm.services import contact_service
 from qp_crm.shared.auth import get_db as _get_db
-
-
-def _deal_choices():
-    """(id, label) for the offer-form deal picker: code — customer — title."""
-    deals = deal_service.list_deals()
-    return [(d["id"], f"{d['code']} — {d['customer_name']} — {d['title']}") for d in deals]
 
 
 def _directory_party_choices():
@@ -22,27 +16,6 @@ def _directory_party_choices():
     single base now). Label: name + PIB/JMBG badge.
     """
     return contact_service.directory_choices()
-
-
-def _link_offer_to_deal(offer_id, deal_id, linked, acting_user_id=None):
-    """Persist offer.deal_id and record the timeline event on the deal.
-
-    linked=False unlinks (deal_id NULL). Snapshot client fields stay
-    untouched: linking never rewrites the issued billing copy.
-    """
-    conn = _get_db()
-    cur = conn.cursor()
-    old = cur.execute("SELECT deal_id FROM offers WHERE id = ?;", (offer_id,)).fetchone()
-    cur.execute("UPDATE offers SET deal_id = ? WHERE id = ?;",
-                (deal_id if linked else None, offer_id))
-    conn.commit()
-    conn.close()
-    if old and old["deal_id"] and old["deal_id"] != deal_id:
-        deal_service.record_offer_linked(old["deal_id"], offer_id,
-                                         author_user_id=acting_user_id, linked=False)
-    if linked and deal_id:
-        deal_service.record_offer_linked(deal_id, offer_id,
-                                         author_user_id=acting_user_id, linked=True)
 
 
 @bp.route("/offers")
@@ -212,14 +185,6 @@ def list_offers():
     cur.execute(query, params)
     offers = cur.fetchall()
 
-    # Deal codes for the list column (resolved live by id; renames safe).
-    deal_codes = {}
-    deal_ids = [o["deal_id"] for o in offers if o["deal_id"]]
-    if deal_ids:
-        placeholders = ",".join("?" for _ in deal_ids)
-        cur.execute(f"SELECT id, code FROM deals WHERE id IN ({placeholders});", deal_ids)
-        deal_codes = {r["id"]: r["code"] for r in cur.fetchall()}
-
     cur.execute("SELECT value FROM global_settings WHERE key = 'language';")
     row = cur.fetchone()
     current_language = row["value"] if row else "en"
@@ -229,7 +194,6 @@ def list_offers():
     return render_template(
         "offer/offers.html",
         offers=offers,
-        deal_codes=deal_codes,
         search_term=search_term,
         date_from=date_from,
         date_to=date_to,
@@ -247,24 +211,10 @@ def list_offers():
 
 @bp.route("/offers/new", methods=["GET", "POST"])
 def new_offer():
-    # Deal context (?deal_id=... from the deal page's "Nova ponuda na posao"
-    # button, or the form's picker) AND directory party context
-    # (?contact_id=... from the offer form's party picker). Master data
-    # PRE-FILLS the client fields only; the saved row keeps the
-    # issuance-time snapshot.
+    # Directory party context (?contact_id=... from the directory's
+    # "Nova ponuda" action). Master data PRE-FILLS the client fields only;
+    # the saved row keeps the issuance-time snapshot.
     prefill = {}
-    prefill_deal_id = request.values.get("deal_id", type=int)
-    if prefill_deal_id:
-        deal = deal_service.get_deal(prefill_deal_id)
-        if deal is not None:
-            prefill = {
-                "client_name": deal["customer_name"] or "",
-                "client_address": deal["customer_billing_address"] or "",
-                "client_email": deal["customer_email"] or "",
-                "client_phone": deal["customer_phone"] or "",
-                "client_pib": deal["customer_pib"] or "",
-                "client_mb": deal["customer_mb"] or "",
-            }
     prefill_contact_id = request.values.get("contact_id", type=int)
     if prefill_contact_id:
         contact = contact_service.get_contact(prefill_contact_id)
@@ -294,8 +244,6 @@ def new_offer():
         client_pib = (request.form.get("client_pib") or "").strip()
         client_mb = (request.form.get("client_mb") or "").strip()
         country = (request.form.get("country") or "").strip()
-        deal_id = request.form.get("deal_id", type=int) or None
-        location_id = request.form.get("location_id", type=int) or None
         # P5-unification: link to the directory party (NULL = free-typed
         # musterija; the saved row keeps the snapshot the user confirmed).
         contact_id = request.form.get("contact_id", type=int) or None
@@ -454,24 +402,20 @@ def new_offer():
                 total_third_discount, total_net_after_third_discount,
                 total_vat, total_gross,
                 payment_terms, delivery_terms, validity_days, notes, napomena, is_template, country,
-                deal_id, location_id, contact_id
+                contact_id
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?);
         """, (
             offer_number, date_str,
             client_name, client_address, client_email, client_phone, client_pib, client_mb,
             currency, exchange_rate,
             discount_percent, special_discount_percent, third_discount_percent, vat_percent,
             payment_terms, delivery_terms, validity_days, notes, napomena, is_template, country,
-            deal_id, location_id, contact_id
+            contact_id
         ))
         offer_id = cur.lastrowid
         conn.commit()
         conn.close()
-
-        if deal_id:
-            _link_offer_to_deal(offer_id, deal_id, linked=True,
-                                acting_user_id=session.get("user_id"))
 
         return redirect(url_for("offer.edit_offer", offer_id=offer_id))
 
@@ -542,10 +486,6 @@ def new_offer():
                            email_offer_subject=email_offer_subject,
                            email_offer_body=email_offer_body,
                            current_language=current_language,
-                           deal_choices=_deal_choices(),
-                           location_choices=[],
-                           selected_deal_id=prefill_deal_id,
-                           selected_location_id=None,
                            party_choices=_directory_party_choices(),
                            selected_contact_id=prefill_contact_id,
                            prefill=prefill)
@@ -606,10 +546,6 @@ def edit_offer(offer_id):
             napomena = (request.form.get("napomena") or "").strip()
             is_template = 1 if request.form.get("is_template") else 0
 
-            # Deal link changes are handled AFTER the header UPDATE (the
-            # UPDATE below never touches deal_id/location_id).
-            new_deal_id = request.form.get("deal_id", type=int) or None
-            new_location_id = request.form.get("location_id", type=int) or None
             new_contact_id = request.form.get("contact_id", type=int) or None
 
             # Validate mandatory fields
@@ -663,23 +599,6 @@ def edit_offer(offer_id):
             conn.commit()
             # recalc with new discount/vat
             recalc_totals(offer_id)
-
-            # Deal link: record events only when the link actually changed.
-            if new_deal_id != offer["deal_id"] or new_location_id != offer["location_id"]:
-                conn2 = _get_db()
-                conn2.execute(
-                    "UPDATE offers SET deal_id = ?, location_id = ? WHERE id = ?;",
-                    (new_deal_id, new_location_id, offer_id))
-                conn2.commit()
-                conn2.close()
-                if offer["deal_id"] and offer["deal_id"] != new_deal_id:
-                    deal_service.record_offer_linked(
-                        offer["deal_id"], offer_id, linked=False,
-                        author_user_id=session.get("user_id"))
-                if new_deal_id:
-                    deal_service.record_offer_linked(
-                        new_deal_id, offer_id, linked=True,
-                        author_user_id=session.get("user_id"))
 
             # Directory party link (P5-unification): pure link update --
             # the snapshot fields above stay what the user confirmed.
@@ -930,19 +849,6 @@ def edit_offer(offer_id):
 
     conn.close()
 
-    # Deal/location pickers: all open deals (any status — linking into a
-    # closed deal is still legitimate evidence) + the locations of the
-    # offer's current deal's customer.
-    deal_choices = _deal_choices()
-    location_choices = []
-    if offer["deal_id"]:
-        deal = deal_service.get_deal(offer["deal_id"])
-        if deal is not None:
-            location_choices = [
-                (l["id"], l["name"] + (f" — {l['address']}" if l["address"] else ""))
-                for l in deal_service.list_locations(deal["customer_id"])
-            ]
-
     return render_template(
         "offer/offer_form.html",
         offer=offer,
@@ -962,10 +868,6 @@ def edit_offer(offer_id):
         email_offer_body=email_offer_body,
         countries=get_country_list(),
         current_language=current_language,
-        deal_choices=deal_choices,
-        location_choices=location_choices,
-        selected_deal_id=offer["deal_id"],
-        selected_location_id=offer["location_id"],
         party_choices=_directory_party_choices(),
         selected_contact_id=offer["contact_id"],
         prefill={}
@@ -990,11 +892,6 @@ def view_offer(offer_id):
     """, (offer_id,))
     items = cur.fetchall()
 
-    # Deal context for the "Posao" row (resolved by id at read time).
-    deal = None
-    if offer["deal_id"]:
-        cur.execute("SELECT id, code, title FROM deals WHERE id = ?;", (offer["deal_id"],))
-        deal = cur.fetchone()
     cur.execute("SELECT value FROM global_settings WHERE key = 'language';")
     row = cur.fetchone()
     current_language = row["value"] if row else "en"
@@ -1004,7 +901,6 @@ def view_offer(offer_id):
         "offer/offer_view.html",
         offer=offer,
         items=items,
-        deal=deal,
         countries=get_country_list(),
         current_language=current_language
     )
@@ -1037,10 +933,9 @@ def duplicate_offer(offer_id):
             total_special_discount, total_net_after_special_discount,
             total_third_discount, total_net_after_third_discount,
             total_vat, total_gross,
-            payment_terms, delivery_terms, validity_days, notes, napomena, is_template, country,
-            deal_id, location_id
+            payment_terms, delivery_terms, validity_days, notes, napomena, is_template, country
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?);
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?);
     """, (
         "", today,
         offer["client_name"], offer["client_address"], offer["client_email"], offer["client_phone"], offer["client_pib"], offer["client_mb"],
@@ -1050,19 +945,9 @@ def duplicate_offer(offer_id):
         offer["total_special_discount"], offer["total_net_after_special_discount"],
         offer["total_third_discount"], offer["total_net_after_third_discount"],
         offer["total_vat"], offer["total_gross"],
-        offer["payment_terms"], offer["delivery_terms"], offer["validity_days"], offer["notes"], offer["napomena"], offer["country"],
-        offer["deal_id"], offer["location_id"]
+        offer["payment_terms"], offer["delivery_terms"], offer["validity_days"], offer["notes"], offer["napomena"], offer["country"]
     ))
     new_offer_id = cur.lastrowid
-
-    # Same thread: the duplicate continues the original deal (documented
-    # P4-T4 behavior); record the link event when it carries one.
-    if offer["deal_id"]:
-        conn.commit()
-        conn.close()
-        _link_offer_to_deal(new_offer_id, offer["deal_id"], linked=True,
-                            acting_user_id=session.get("user_id"))
-        return redirect(url_for("offer.edit_offer", offer_id=new_offer_id))
 
     # 3. Copy items
     cur.execute("SELECT * FROM offer_items WHERE offer_id = ? ORDER BY line_order;", (offer_id,))

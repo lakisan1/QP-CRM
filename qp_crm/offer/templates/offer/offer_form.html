@@ -37,26 +37,6 @@
                     </label>
                 </p>
                 <p>
-                    <label>Posao (deal) — opciono:<br>
-                        <select name="deal_id" id="deal-select" class="long-input">
-                            <option value="">-- bez posla --</option>
-                            {% for deal_id, label in deal_choices %}
-                            <option value="{{ deal_id }}" {% if selected_deal_id == deal_id %}selected{% endif %}>{{ label }}</option>
-                            {% endfor %}
-                        </select>
-                    </label>
-                </p>
-                <p>
-                    <label>Lokacija (opciono — prazno = glavna adresa):<br>
-                        <select name="location_id" id="location-select" class="long-input">
-                            <option value="">-- glavna adresa --</option>
-                            {% for loc_id, label in location_choices %}
-                            <option value="{{ loc_id }}" {% if selected_location_id == loc_id %}selected{% endif %}>{{ label }}</option>
-                            {% endfor %}
-                        </select>
-                    </label>
-                </p>
-                <p>
                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-top: 10px;">
                         <input type="checkbox" name="is_template" value="1" {% if offer and offer.is_template
                             %}checked{% endif %} style="width: auto; margin: 0;">
@@ -801,23 +781,6 @@
                 }
             });
         });
-
-        // --- Deal -> location cascade + master-data prefill ---
-        // Changing the deal reloads the form with ?deal_id= so the server
-        // supplies the right location list AND pre-fills client master data
-        // (pre-fill only -- the saved row keeps what the user confirms).
-        const dealSelect = document.getElementById('deal-select');
-        if (dealSelect) {
-            let initialDeal = dealSelect.value;
-            dealSelect.addEventListener('change', function () {
-                if (this.value !== initialDeal) {
-                    const base = window.location.pathname;
-                    const params = new URLSearchParams(window.location.search);
-                    if (this.value) { params.set('deal_id', this.value); } else { params.delete('deal_id'); }
-                    window.location.href = base + (params.toString() ? '?' + params.toString() : '');
-                }
-            });
-        }
 
         // --- Directory party picker (P5-unification) ---
         // Choosing an entry from the shared imenik reloads the form with
