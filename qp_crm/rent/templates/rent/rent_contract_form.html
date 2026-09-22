@@ -68,14 +68,24 @@ details > summary::-webkit-details-marker { display:none; }
 <!-- ── Klijent ── -->
 <div class="card">
 <div class="sec">Klijent</div>
-<label style="margin-bottom:4px;font-size:13px;">Izaberi iz baze klijenata <small>(imenik: firme i fizička lica)</small></label>
-<select id="clientSelect" class="searchable-select" style="margin-bottom:14px;">
-    <option value="">-- Izaberi klijenta --</option>
-    {% for cl in clients %}
-    <option value="{{ cl.id }}" {% if contract and contract.client_name == cl.name %}selected{% endif %}>{{ cl.name }}</option>
-    {% endfor %}
-</select>
+{# ── Musterija-first gate (P5-unification) ─────────────────────────────
+   The shared directory (Zajednički imenik) is the ONLY place a new
+   musterija is created; this form keeps only search + a shortcut there.
+   The rest of the client card stays hidden until a party is picked, so
+   nobody fills everything and loses it navigating away to create it. #}
+<div id="musterija-step">
+    <label style="margin-bottom:4px;font-size:13px;">Izaberi iz baze klijenata <small>(imenik: firme i fizička lica)</small></label>
+    <select id="clientSelect" class="searchable-select" style="margin-bottom:8px;">
+        <option value="">-- Izaberi klijenta --</option>
+        {% for cl in clients %}
+        <option value="{{ cl.id }}" {% if contract and contract.client_name == cl.name %}selected{% endif %}>{{ cl.name }}</option>
+        {% endfor %}
+    </select>
+    <a href="{{ url_for('contacts.new_contact', return_to=request.path) }}" class="btn btn-success" id="btn-new-musterija" style="display:inline-block;margin-bottom:14px;">+ Dodaj novu musteriju</a>
+    <small style="display:block;margin-bottom:14px;color:var(--text-muted);">Prvo izaberite postojeću musteriju ili je dodajte u Imenik — preostala polja se automatski popune.</small>
+</div>
 <input type="hidden" name="contact_id" id="contact_id" value="{{ contract.contact_id if contract and contract.contact_id else '' }}">
+<div id="musterija-rest" style="display: none;">
 <div class="form-grid">
     <label>Ime firme (Zakupac) *<input type="text" name="client_name" id="client_name" value="{{ contract.client_name if contract else '' }}" required></label>
     <label>Matični broj<input type="text" name="client_mb" id="client_mb" value="{{ contract.client_mb if contract else '' }}"></label>
@@ -93,6 +103,7 @@ details > summary::-webkit-details-marker { display:none; }
     <label>e-Mail<input type="email" name="client_email" id="client_email" value="{{ contract.client_email if contract else '' }}"></label>
 </div>
 <label>Jemac (Ime, Grad, JMBG)<input type="text" name="guarantor" id="guarantor" value="{{ contract.guarantor if contract else '' }}"></label>
+</div>{# /musterija-rest — visible once a musterija is chosen #}
 </div>
 
 <!-- ── Oprema ── -->
@@ -251,8 +262,18 @@ function recalc(){
     s('r_admin',fmt(adm)); s('r_admin_bruto',fmt(adm_bruto));
 }
 
+// Musterija-first gate (P5-unification): the Imenik is the ONLY place a
+// new musterija is created; the client fields stay hidden until a party
+// is picked so nobody fills everything and loses it navigating away.
+const musterijaRest = document.getElementById('musterija-rest');
+const applyMusterijaGate = () => {
+    if (musterijaRest) musterijaRest.style.display = document.getElementById('clientSelect').value ? '' : 'none';
+};
+applyMusterijaGate();
+
 document.getElementById('clientSelect').addEventListener('change',function(){
     const id=this.value;
+    applyMusterijaGate();
     // P5-unification: remember the directory link (c<id>); empty selection
     // clears it so a free-typed client saves with contact_id NULL.
     document.getElementById('contact_id').value = id && id.startsWith('c') ? id.slice(1) : '';

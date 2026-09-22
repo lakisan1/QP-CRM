@@ -45,16 +45,26 @@
                 </p>
 
                 <h2 style="margin-top:20px;">Informacije o musteriji</h2>
-                <p>
-                    <label>Izaberi iz imenika <small>(firme i fizička lica — zajednička baza)</small>:<br>
-                        <select name="contact_id" id="contact-select" class="searchable-select long-input">
-                            <option value="">-- slobodan unos --</option>
-                            {% for contact_id, label in party_choices %}
-                            <option value="{{ contact_id }}" {% if selected_contact_id == contact_id %}selected{% endif %}>{{ label }}</option>
-                            {% endfor %}
-                        </select>
-                    </label>
-                </p>
+                {# ── Musterija-first gate (P5-unification) ──────────────────
+                   The shared directory (Imenik) is the ONLY place a new
+                   musterija is created. The rest of the form stays hidden
+                   until a party is picked, so nobody fills everything and
+                   loses it by navigating away to create the musterija. #}
+                <div id="musterija-step" style="border: 1px solid var(--border-color); border-radius: 6px; padding: 12px; margin-bottom: 12px;">
+                    <p style="margin-top: 0;">
+                        <label>Izaberi iz imenika <small>(firme i fizička lica — zajednička baza)</small>:<br>
+                            <select name="contact_id" id="contact-select" class="searchable-select long-input">
+                                <option value="">-- izaberi musteriju --</option>
+                                {% for contact_id, label in party_choices %}
+                                <option value="{{ contact_id }}" {% if selected_contact_id == contact_id %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </label>
+                    </p>
+                    <a href="{{ url_for('contacts.new_contact', return_to=request.path) }}" class="btn btn-success" id="btn-new-musterija">+ Dodaj novu musteriju</a>
+                    <small style="display: block; margin-top: 8px; color: var(--text-muted);">Prvo izaberite postojeću musteriju ili je dodajte u Imenik — preostala polja se automatski popune.</small>
+                </div>
+                <div id="musterija-rest" style="display: none;">
                 <p>
                     <label>Naziv musterije:<br>
                         <input type="text" name="client_name" required class="long-input"
@@ -114,6 +124,7 @@
                             %}required{% endif %}>
                     </label>
                 </p>
+                </div>{# /musterija-rest — visible once a musterija is chosen #}
             </div>
 
             <!-- Col 2: Payment Info -->
@@ -782,13 +793,22 @@
             });
         });
 
-        // --- Directory party picker (P5-unification) ---
-        // Choosing an entry from the shared imenik reloads the form with
-        // ?contact_id= so the server pre-fills the musterija fields from
-        // ONE base (companies AND fizička lica); "-- slobodan unos --"
-        // clears the param but keeps any typed values.
+        // --- Directory party picker (P5-unification, musterija-first) ---
+        // The Imenik is the ONLY place a new musterija is created. Choosing
+        // an entry reloads the form with ?contact_id= so the server
+        // pre-fills the musterija fields from ONE base (companies AND
+        // fizička lica). The rest of the form stays hidden until a party
+        // is picked, so nobody fills everything and then loses it by
+        // navigating away to create the musterija.
         const contactSelect = document.getElementById('contact-select');
         if (contactSelect) {
+            const musterijaRest = document.getElementById('musterija-rest');
+            const applyGate = () => {
+                if (musterijaRest) {
+                    musterijaRest.style.display = contactSelect.value ? '' : 'none';
+                }
+            };
+            applyGate();
             contactSelect.addEventListener('change', function () {
                 const base = window.location.pathname;
                 const params = new URLSearchParams(window.location.search);

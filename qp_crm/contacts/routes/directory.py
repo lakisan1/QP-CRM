@@ -78,8 +78,25 @@ def list_contacts():
     )
 
 
+def _safe_return_to():
+    """Validated ?return_to= target (musterija-first flow, P5-unification).
+
+    Only same-site absolute paths under /offer or /rent are accepted --
+    the two picker consumers -- so the param cannot smuggle an open
+    redirect (same discipline as shared.web.safe_next_url). The create
+    form re-submits the value as a hidden field, so request.values (GET
+    arg or POST field) carries the return target through the round-trip.
+    """
+    candidate = request.values.get("return_to") or ""
+    if (candidate.startswith("/offer/") or candidate.startswith("/rent/")) \
+            and not candidate.startswith("//"):
+        return candidate
+    return None
+
+
 @bp.route("/contacts/new", methods=["GET", "POST"])
 def new_contact():
+    return_to = _safe_return_to()
     if request.method == "POST":
         ok, result = contact_service.create_contact(
             request.form.get("display_name"),
@@ -89,13 +106,23 @@ def new_contact():
         )
         if not ok:
             return render_template("contacts/form.html",
-                                   contact=None, error=result), 200
+                                   contact=None, error=result,
+                                   return_to=return_to), 200
         flash("Kontakt sačuvan.", "success")
+        # Musterija-first flow: when the user came from a document form
+        # (Ponude/Rent 'Dodaj novu musteriju'), land back there with the
+        # new party already selected -- the document form pre-fills the
+        # musterija fields from ?contact_id (offers) / picker autofill
+        # (rent). Without return_to the normal directory detail follows.
+        if return_to:
+            separator = "&" if "?" in return_to else "?"
+            return redirect(f"{return_to}{separator}contact_id={result}")
         return redirect(url_for("contacts.view_contact", contact_id=result))
     return render_template(
         "contacts/form.html",
         contact=None,
         user_choices=_user_choices(),
+        return_to=return_to,
     )
 
 

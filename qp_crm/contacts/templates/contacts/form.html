@@ -13,6 +13,12 @@
 <div class="card">
     <form method="post">
         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        {# Musterija-first flow: a document form (Ponude/Rent) sent the user
+           here with ?return_to=; carrying it through the POST so 'Sačuvaj'
+           lands back in the document with the new party pre-selected. #}
+        {% if return_to %}
+        <input type="hidden" name="return_to" value="{{ return_to }}">
+        {% endif %}
         <div class="grid-3-col">
             <div>
                 <h2>Osnovni podaci</h2>
@@ -128,7 +134,7 @@
             </div>
         </div>
         <div class="form-actions" style="margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 20px; display: flex; gap: 15px;">
-            <button type="submit" class="btn btn-success">Sačuvaj</button>
+            <button type="submit" class="btn btn-success">{{ 'Sačuvaj i vrati se u dokument' if return_to else 'Sačuvaj' }}</button>
             <a href="{{ url_for('contacts.view_contact', contact_id=contact.id) if contact else url_for('contacts.list_contacts') }}" class="btn btn-secondary">Nazad</a>
         </div>
     </form>
