@@ -2,7 +2,30 @@
 {% block content %}
 <h1>{% if offer %}Izmeni ponudu{% else %}New offer{% endif %}</h1>
 
-<div class="card">
+{# ── Musterija-first (P5-unification): step 1 sits ABOVE the form grid, so
+   picking/creating the musterija is literally the first thing on the page.
+   The directory (Imenik) is the ONLY place a new musterija is created;
+   the whole form stays dimmed until a party is picked, so nobody fills
+   everything and loses it by navigating away to create the musterija. #}
+<div class="card" id="musterija-card">
+    <h2 style="margin-top:0;">1. Musterija <small style="color: var(--text-muted);">(prvo izaberite ili dodajte musteriju)</small></h2>
+    <div id="musterija-step" style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
+        <p style="margin: 0; flex: 1; min-width: 260px;">
+            <label>Izaberi iz imenika <small>(firme i fizička lica — zajednička baza)</small>:<br>
+                <select name="contact_id" id="contact-select" class="searchable-select long-input">
+                    <option value="">-- izaberi musteriju --</option>
+                    {% for contact_id, label in party_choices %}
+                    <option value="{{ contact_id }}" {% if selected_contact_id == contact_id %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+        </p>
+        <a href="{{ url_for('contacts.new_contact', return_to=request.path) }}" class="btn btn-success" id="btn-new-musterija" style="margin-bottom: 1px;">+ Dodaj novu musteriju</a>
+    </div>
+    <small id="musterija-hint" style="display: block; margin-top: 8px; color: var(--text-muted);">Prvo izaberite postojeću musteriju ili je dodajte u Imenik — preostala polja se automatski popune.</small>
+</div>
+
+<div class="card" id="offer-main-card">
     <form method="post">
         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="action" value="update_header">
@@ -21,10 +44,10 @@
         </div>
         {% endif %}
 
-        <div class="grid-3-col">
+        <div class="grid-3-col" id="offer-grid">
             <!-- Col 1: Offer Info & Client Info -->
             <div class="offer-section">
-                <h2>Informacije o ponudi</h2>
+                <h2>2. Informacije o ponudi</h2>
                 <p>
                     <label>Broj / ime ponude:<br>
                         <input type="text" name="offer_number" required
@@ -44,26 +67,11 @@
                     </label>
                 </p>
 
-                <h2 style="margin-top:20px;">Informacije o musteriji</h2>
+                <h2 style="margin-top:20px;">Musterija</h2>
                 {# ── Musterija-first gate (P5-unification) ──────────────────
-                   The shared directory (Imenik) is the ONLY place a new
-                   musterija is created. The rest of the form stays hidden
-                   until a party is picked, so nobody fills everything and
-                   loses it by navigating away to create the musterija. #}
-                <div id="musterija-step" style="border: 1px solid var(--border-color); border-radius: 6px; padding: 12px; margin-bottom: 12px;">
-                    <p style="margin-top: 0;">
-                        <label>Izaberi iz imenika <small>(firme i fizička lica — zajednička baza)</small>:<br>
-                            <select name="contact_id" id="contact-select" class="searchable-select long-input">
-                                <option value="">-- izaberi musteriju --</option>
-                                {% for contact_id, label in party_choices %}
-                                <option value="{{ contact_id }}" {% if selected_contact_id == contact_id %}selected{% endif %}>{{ label }}</option>
-                                {% endfor %}
-                            </select>
-                        </label>
-                    </p>
-                    <a href="{{ url_for('contacts.new_contact', return_to=request.path) }}" class="btn btn-success" id="btn-new-musterija">+ Dodaj novu musteriju</a>
-                    <small style="display: block; margin-top: 8px; color: var(--text-muted);">Prvo izaberite postojeću musteriju ili je dodajte u Imenik — preostala polja se automatski popune.</small>
-                </div>
+                   Picker lives in step-1 card above; these snapshot fields
+                   (editable, pre-filled from the directory) stay hidden
+                   until a party is picked. #}
                 <div id="musterija-rest" style="display: none;">
                 <p>
                     <label>Naziv musterije:<br>
@@ -129,7 +137,7 @@
 
             <!-- Col 2: Payment Info -->
             <div class="offer-section">
-                <h2>Informacije o placanju</h2>
+                <h2>3. Informacije o placanju</h2>
                 <p>
                     <label>Valuta:<br>
                         <select name="currency">
@@ -198,7 +206,7 @@
 
             <!-- Col 3: Delivery Info & Notes -->
             <div class="offer-section">
-                <h2>Informacije o isporuci</h2>
+                <h2>4. Informacije o isporuci</h2>
                 <p>
                     <label>Uslovi isporuke:<br>
                         <select class="preset-select" data-target="delivery_terms"
@@ -794,18 +802,26 @@
         });
 
         // --- Directory party picker (P5-unification, musterija-first) ---
-        // The Imenik is the ONLY place a new musterija is created. Choosing
-        // an entry reloads the form with ?contact_id= so the server
-        // pre-fills the musterija fields from ONE base (companies AND
-        // fizička lica). The rest of the form stays hidden until a party
-        // is picked, so nobody fills everything and then loses it by
-        // navigating away to create the musterija.
+        // Step 1 card sits ABOVE the form; the picker (TomSelect search)
+        // reloads the form with ?contact_id= so the server pre-fills the
+        // musterija fields from ONE base (companies AND fizička lica).
+        // Until a party is picked the whole form below stays dimmed, so
+        // the page reads: first the musterija, then everything else.
         const contactSelect = document.getElementById('contact-select');
         if (contactSelect) {
             const musterijaRest = document.getElementById('musterija-rest');
+            const mainCard = document.getElementById('offer-main-card');
+            const hint = document.getElementById('musterija-hint');
             const applyGate = () => {
-                if (musterijaRest) {
-                    musterijaRest.style.display = contactSelect.value ? '' : 'none';
+                const picked = Boolean(contactSelect.value);
+                if (musterijaRest) musterijaRest.style.display = picked ? '' : 'none';
+                if (mainCard) mainCard.style.opacity = picked ? '1' : '0.35';
+                if (mainCard) mainCard.style.pointerEvents = picked ? 'auto' : 'none';
+                if (mainCard) mainCard.style.filter = picked ? 'none' : 'grayscale(0.6)';
+                if (hint) {
+                    hint.textContent = picked
+                        ? 'Musterija izabrana — polja ispod su popunjena iz Imenika (možete ih izmeniti, snimak se čuva uz dokument).'
+                        : 'Prvo izaberite postojeću musteriju ili je dodajte u Imenik — preostala polja se automatski popune.';
                 }
             };
             applyGate();

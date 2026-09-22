@@ -49,12 +49,33 @@ details > summary::-webkit-details-marker { display:none; }
 
 <!-- ════════════════════ LEFT: FORM ═════════════════════════════ -->
 <div>
+
+{# ── Musterija-first (P5-unification): step 1 card sits ABOVE the contract
+   form, so picking/creating the musterija is literally the first thing on
+   the page. The directory (Imenik) is the ONLY place a new musterija is
+   created; the whole form stays dimmed until a party is picked. #}
+<div class="card" id="musterija-card">
+<div class="sec" style="margin-top:0;">1. Musterija <span style="color:var(--text-muted);text-transform:none;letter-spacing:0;">(prvo izaberite ili dodajte musteriju)</span></div>
+<div id="musterija-step" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+    <label style="flex:1;min-width:240px;margin:0;">Izaberi iz baze klijenata <small>(imenik: firme i fizička lica)</small>
+    <select id="clientSelect" class="searchable-select" style="margin-bottom:0;">
+        <option value="">-- Izaberi klijenta --</option>
+        {% for cl in clients %}
+        <option value="{{ cl.id }}" {% if contract and contract.client_name == cl.name %}selected{% endif %}>{{ cl.name }}</option>
+        {% endfor %}
+    </select>
+    </label>
+    <a href="{{ url_for('contacts.new_contact', return_to=request.path) }}" class="btn btn-success" id="btn-new-musterija" style="margin-bottom:1px;">+ Dodaj novu musteriju</a>
+</div>
+<small id="musterija-hint" style="display:block;margin-top:8px;color:var(--text-muted);">Prvo izaberite postojeću musteriju ili je dodajte u Imenik — preostala polja se automatski popune.</small>
+</div>
+
 <form method="post" id="contractForm">
         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
 
 <!-- ── Ugovor ── -->
-<div class="card">
-<div class="sec">Podaci o Ugovoru</div>
+<div class="card" id="contract-main-card">
+<div class="sec">2. Podaci o Ugovoru</div>
 <div class="form-grid">
     <label>Broj Ugovora<input type="text" name="contract_number" placeholder="Automatsko generisanje ako je prazno" value="{{ contract.contract_number if contract else '' }}"></label>
     <label>Datum zaključenja<input type="date" name="contract_date" value="{{ contract.contract_date if contract else today }}" required></label>
@@ -65,25 +86,12 @@ details > summary::-webkit-details-marker { display:none; }
 </div>
 </div>
 
-<!-- ── Klijent ── -->
+<!-- ── Klijent (snapshot fields; picker = step-1 card above) ── -->
 <div class="card">
-<div class="sec">Klijent</div>
+<div class="sec">3. Klijent</div>
 {# ── Musterija-first gate (P5-unification) ─────────────────────────────
-   The shared directory (Zajednički imenik) is the ONLY place a new
-   musterija is created; this form keeps only search + a shortcut there.
-   The rest of the client card stays hidden until a party is picked, so
-   nobody fills everything and loses it navigating away to create it. #}
-<div id="musterija-step">
-    <label style="margin-bottom:4px;font-size:13px;">Izaberi iz baze klijenata <small>(imenik: firme i fizička lica)</small></label>
-    <select id="clientSelect" class="searchable-select" style="margin-bottom:8px;">
-        <option value="">-- Izaberi klijenta --</option>
-        {% for cl in clients %}
-        <option value="{{ cl.id }}" {% if contract and contract.client_name == cl.name %}selected{% endif %}>{{ cl.name }}</option>
-        {% endfor %}
-    </select>
-    <a href="{{ url_for('contacts.new_contact', return_to=request.path) }}" class="btn btn-success" id="btn-new-musterija" style="display:inline-block;margin-bottom:14px;">+ Dodaj novu musteriju</a>
-    <small style="display:block;margin-bottom:14px;color:var(--text-muted);">Prvo izaberite postojeću musteriju ili je dodajte u Imenik — preostala polja se automatski popune.</small>
-</div>
+   Picker lives in step-1 card above; these snapshot fields (editable,
+   autofilled from the directory) stay hidden until a party is picked. #}
 <input type="hidden" name="contact_id" id="contact_id" value="{{ contract.contact_id if contract and contract.contact_id else '' }}">
 <div id="musterija-rest" style="display: none;">
 <div class="form-grid">
@@ -108,7 +116,7 @@ details > summary::-webkit-details-marker { display:none; }
 
 <!-- ── Oprema ── -->
 <div class="card">
-<div class="sec">Oprema</div>
+<div class="sec">4. Oprema</div>
 <label style="margin-bottom:4px;font-size:13px;">Izaberi iz baze opreme</label>
 <select id="equipSelect" class="searchable-select" style="margin-bottom:14px;">
     <option value="">-- Izaberi opremu --</option>
@@ -123,7 +131,7 @@ details > summary::-webkit-details-marker { display:none; }
 
 <!-- ── Finansijski parametri ── -->
 <div class="card">
-<div class="sec">Finansijski parametri</div>
+<div class="sec">5. Finansijski parametri</div>
 <div class="form-grid">
     <label>Prodajna cena neto (€)
         <input type="number" name="price" id="price" step="0.01" min="0"
@@ -263,11 +271,23 @@ function recalc(){
 }
 
 // Musterija-first gate (P5-unification): the Imenik is the ONLY place a
-// new musterija is created; the client fields stay hidden until a party
-// is picked so nobody fills everything and loses it navigating away.
+// new musterija is created. Step-1 card sits above the form; until a
+// party is picked the whole contract form stays dimmed, so the page
+// reads: first the musterija, then everything else.
 const musterijaRest = document.getElementById('musterija-rest');
+const mainCard = document.getElementById('contract-main-card');
+const hint = document.getElementById('musterija-hint');
 const applyMusterijaGate = () => {
-    if (musterijaRest) musterijaRest.style.display = document.getElementById('clientSelect').value ? '' : 'none';
+    const picked = Boolean(document.getElementById('clientSelect').value);
+    if (musterijaRest) musterijaRest.style.display = picked ? '' : 'none';
+    if (mainCard) { mainCard.style.opacity = picked ? '1' : '0.35';
+                    mainCard.style.pointerEvents = picked ? 'auto' : 'none';
+                    mainCard.style.filter = picked ? 'none' : 'grayscale(0.6)'; }
+    if (hint) {
+        hint.textContent = picked
+            ? 'Musterija izabrana — polja ispod su popunjena iz Imenika (možete ih izmeniti, snimak se čuva uz dokument).'
+            : 'Prvo izaberite postojeću musteriju ili je dodajte u Imenik — preostala polja se automatski popune.';
+    }
 };
 applyMusterijaGate();
 
