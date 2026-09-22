@@ -1311,6 +1311,24 @@
       "createdAt": 1790093923093,
       "updatedAt": 1790094187790,
       "summary": "Konverzija + restore završeni (commit f8b282e + .gitignore backups/). Staging konverzija realnim boot sekvencem: 253 proizvoda, 77 ponuda, 213 stavki, 152 cene, 4 rentClients→contacts kopirana sa 'client' rolama, 4 rent ugovora, custom 'MarinkovicHofmann' PDF template sačuvan + aktivan. HTTP smoke kroz sve module 200 (products/offers/rent/admin/sale/contacts/settings + offer PDF custom-template branch 417KB + rent doc PDF + product images). Kontejner stop→swap→start, healthcheck healthy. Admin šifra = QP-ZcpJw9yGctQS; zorica sačuvana. Suite 299 passed."
+    },
+    {
+      "id": "card-73382bb3-e560-4e2b-ae80-2cb801d94c3a",
+      "title": "Import kupaca iz ponuda u zajednički imenik (16 kontakata)",
+      "description": "Izvučeno 17 različitih kupaca iz ponuda (offers.client_name + PIB/MB/email/telefon/adresa/država), spojen AUTO-BELI i DOO AutoBeli (isti PIB 100929458) po korisničkoj odluci, sve uneto kao kind='company' (korisnička odluka — i fizička lica), role='client'. Idempotentno (skip po PIB-u ili imenu). Notes nose broj ponuda + period + alternativna imena. 16 novih kontakata, imenik sada ima 20 unosa.",
+      "summary": "16 novih kontakata u imeniku iz ponuda (17 klijenata, 2 spojena po PIB-u). Verifikovano na živom serveru: imenik prikazuje sve, offer form party-picker ih vidi. Suite 299 passed. Idempotentno — ponovni run ne bi duplirao.",
+      "rationale": "Korisnički zahtev: kupci iz ponuda treba da budu u zajedničkom imeniku (contacts) tako da budu dostupni pickeru pri novim ponudama/ugovorima — ponude drže samo snapshot tekst, imenik je master registrator.",
+      "rejected": "Spajanje DELTA MOTORS / Delta Automoto: različiti PIB (104646704 vs 104764599) — ostavljena kao dva kontakta. Dopuna PIB-a iz starih rent_clients: korisnik je odbio ('samo iz ponuda'). kind='person' za fizička lica: korisnik je odbio ('sve kao firme').",
+      "sourceSessionId": "session-5e6becdc-fe0e-48b5-bcea-45a06b10f179",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "contacts",
+        "offers",
+        "data-import"
+      ],
+      "createdAt": 1790094709662,
+      "updatedAt": 1790094709662
     }
   ]
 }
