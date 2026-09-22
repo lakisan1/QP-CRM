@@ -1274,6 +1274,24 @@
       ],
       "createdAt": 1789663777626,
       "updatedAt": 1789663777626
+    },
+    {
+      "id": "card-8b332541-9210-4b37-be89-bf4a8f9683af",
+      "title": "Product: polja website_url + manufacturer_url (opciona), van ponuda + restart app",
+      "description": "Dodati dva opciona URL polja na Product (products.website_url, products.manufacturer_url): unos na /pricing/products/add i edit, prikaz na products listi, sale view_product. NE sme se pojaviti u ponudama (offer form, offer items, PDF ponude) — samo opciona podataka na samom proizvodu. Nakon implementacije rebuild+restart Docker kontejnera (deploy.sh) da promene budu vidljive na :5000.",
+      "rationale": "Direktan korisnički zahtev: opciona polja na proizvodu bez ikakvog prikaza u ponudama; restart aplikacije obavezan da se ALTER migracija primeni na produkcionu bazu.",
+      "sourceSessionId": "session-5e6becdc-fe0e-48b5-bcea-45a06b10f179",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "products",
+        "feature",
+        "deploy"
+      ],
+      "createdAt": 1790092334546,
+      "updatedAt": 1790092957779,
+      "summary": "Commit aa70032: products.website_url + products.manufacturer_url (schema CREATE + idempotentne ALTER migracije), unos na pricing product formi (add/edit), prikaz na products listi i sale view_product, api_v1 list/detail/create/update nose polja, API_INSTRUCTIONS.md dopunjen. OFFER-INVISIBLE po konstrukciji (add_item snapshot prenosi samo name/description/photo) — pinovano tests/smoke/test_product_links.py (6 testova). Suite 299 passed. Docker image rebuild + container recreate urađeni, healthcheck healthy, produkciona baza verifikovana (obe kolone postoje u /app/app_data/pricing.db).",
+      "rejected": "Offer-item snapshot kolone i checkboxovi u offer formi su odbačeni — zahtev je bio da linkovi nikad ne uđu u ponude; linkovi se šire samo preko product-stranica, a offer add_item snapshot (name/description/photo) nema kanala da ih povuče."
     }
   ]
 }
