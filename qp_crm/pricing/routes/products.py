@@ -419,6 +419,8 @@ def add_product():
         description = request.form.get("description") or ""
         category = request.form.get("category") or ""
         brand = request.form.get("brand") or ""
+        website_url = (request.form.get("website_url") or "").strip() or None
+        manufacturer_url = (request.form.get("manufacturer_url") or "").strip() or None
 
         # 1) check duplicate name
         cur.execute("""
@@ -476,6 +478,8 @@ def add_product():
                 "description": description,
                 "category": category,
                 "brand": brand,
+                "website_url": website_url,
+                "manufacturer_url": manufacturer_url,
                 "photo_url": photo_url,
                 "id": None
             }
@@ -489,9 +493,11 @@ def add_product():
             )
 
         cur.execute("""
-            INSERT INTO products (name, description, category, brand, photo_path)
-            VALUES (?, ?, ?, ?, ?);
-        """, (name, description, category, brand, photo_path))
+            INSERT INTO products (name, description, category, brand, photo_path,
+                                  website_url, manufacturer_url)
+            VALUES (?, ?, ?, ?, ?, ?, ?);
+        """, (name, description, category, brand, photo_path,
+              website_url, manufacturer_url))
         
         new_product_id = cur.lastrowid
         conn.commit()
@@ -552,6 +558,8 @@ def edit_product(product_id):
         description = request.form.get("description") or ""
         category = request.form.get("category") or ""
         brand = request.form.get("brand") or ""
+        website_url = (request.form.get("website_url") or "").strip() or None
+        manufacturer_url = (request.form.get("manufacturer_url") or "").strip() or None
 
         # check duplicate name (but ignore this product's own id)
         cur.execute("""
@@ -579,6 +587,8 @@ def edit_product(product_id):
             product_dict["description"] = description
             product_dict["category"] = category
             product_dict["brand"] = brand
+            product_dict["website_url"] = website_url
+            product_dict["manufacturer_url"] = manufacturer_url
             
             return render_template(
                 "pricing/product_form.html",
@@ -642,6 +652,8 @@ def edit_product(product_id):
             product["description"] = description
             product["category"] = category
             product["brand"] = brand
+            product["website_url"] = website_url
+            product["manufacturer_url"] = manufacturer_url
             product["photo_url"] = photo_url # Carry over the failed URL so user can see/fix it
             
             conn.close()
@@ -664,9 +676,11 @@ def edit_product(product_id):
 
         cur.execute("""
             UPDATE products
-            SET name = ?, description = ?, category = ?, brand = ?, photo_path = ?
+            SET name = ?, description = ?, category = ?, brand = ?, photo_path = ?,
+                website_url = ?, manufacturer_url = ?
             WHERE id = ?;
-        """, (name, description, category, brand, photo_path, product_id))
+        """, (name, description, category, brand, photo_path,
+              website_url, manufacturer_url, product_id))
         conn.commit()
         conn.close()
 

@@ -126,6 +126,20 @@
                 <span class="label">{{ _('Category')|default('Kategorija') }}</span>
                 <span class="value">{{ product.category or '-' }}</span>
             </div>
+            {% if product.website_url %}
+            <div>
+                <span class="label">{{ _('Website')|default('Sajt') }}</span>
+                <span class="value"><a href="{{ product.website_url }}" target="_blank"
+                    rel="noopener noreferrer">{{ product.website_url }}</a></span>
+            </div>
+            {% endif %}
+            {% if product.manufacturer_url %}
+            <div>
+                <span class="label">{{ _('Manufacturer')|default('Proizvođač') }}</span>
+                <span class="value"><a href="{{ product.manufacturer_url }}" target="_blank"
+                    rel="noopener noreferrer">{{ product.manufacturer_url }}</a></span>
+            </div>
+            {% endif %}
             
             <div>
                 <span class="label">{{ _('Current Price')|default('Trenutna cena') }}</span>

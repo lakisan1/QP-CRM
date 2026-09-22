@@ -77,6 +77,22 @@
             </label>
         </p>
         <p>
+            <label>{{ _('Website link') }}:<br>
+                <input type="url" name="website_url" class="long-input"
+                    placeholder="https://example.com/product-page"
+                    value="{% if product %}{{ product.website_url or '' }}{% endif %}">
+                <br><small>{{ _('Optional — shown only on product pages, never in offers.') }}</small>
+            </label>
+        </p>
+        <p>
+            <label>{{ _('Manufacturer link') }}:<br>
+                <input type="url" name="manufacturer_url" class="long-input"
+                    placeholder="https://manufacturer.com/product"
+                    value="{% if product %}{{ product.manufacturer_url or '' }}{% endif %}">
+                <br><small>{{ _('Optional — shown only on product pages, never in offers.') }}</small>
+            </label>
+        </p>
+        <p>
             <label>{{ _('Image (JPG, PNG, WEBP):') }}<br>
                 <div class="file-upload-wrapper">
                     {% if product and product.photo_path %}

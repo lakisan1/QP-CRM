@@ -92,6 +92,8 @@ All query parameters are optional.
       "description": "20V MAX cordless drill",
       "category": "Tools",
       "brand": "DeWalt",
+      "website_url": "https://example.com/products/cordless-drill-xr",
+      "manufacturer_url": "https://dewalt.com/products/drill-xr",
       "photo_path": "cordless_drill_xr.jpg",
       "photo_url": "/api/v1/products/1/photo",
       "current_price": 249.99,
@@ -135,6 +137,8 @@ curl -X POST http://localhost:5000/api/v1/products \
     "description": "Product description",
     "category": "Tools",
     "brand": "DeWalt",
+    "website_url": "https://example.com/products/drill",
+    "manufacturer_url": "https://dewalt.com/drill",
     "photo_url": "https://example.com/image.jpg"
   }'
 ```
@@ -151,6 +155,8 @@ curl -X POST http://localhost:5000/api/v1/products \
 ```
 
 Only `name` is required. Returns `201 Created`.
+
+`website_url` and `manufacturer_url` are optional informational links stored on the product. They appear only on product pages (pricing list, sale product view) — they are never copied into offer items or offer PDFs.
 
 **Response:** `409 Conflict` if a product with the same name already exists.
 
