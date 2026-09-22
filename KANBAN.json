@@ -1329,6 +1329,26 @@
       ],
       "createdAt": 1790094709662,
       "updatedAt": 1790094709662
+    },
+    {
+      "id": "card-736030d0-d959-4b06-9af2-3243a0056c89",
+      "title": "Musterija-first UX: picker-only u Ponudama i Rentu + \"Dodaj novu musteriju\" → imenik sa return-to",
+      "description": "Korisnik: u Ponudama i Rentu postoji cela procedura/UI za dodavanje musterije; sve treba da se kreira ISKLJUČIVO iz /contacts/contacts. U Rent i Ponudama ostaje samo pretraga + link \"Dodaj novu musteriju\" koji vodi na /contacts/contacts. UI zahtev: pri kreiranju nove ponude ili novog renta dokumenta musterija se prva dodaje/sačuva pre ostalih podataka, da ne bi došlo do situacije da korisnik sve popuni, krene da pravi musteriju, vrati se nazad i izgubi rad. Odluke (potvrđeno chatom): (1) enforcement SAMO frontend — ni server promena ni za postojeće dokumente; (2) poništavanje izbora musterije u postojećem dokumentu zadržava print-snapshot i poništava samo link; (3) \"Dodaj novu musteriju\" ide na imenik sa ?return_to= parametrom i posle čuvanja se automatski vraća u dokument sa novom musterijom već izabranom (prefill preko postojećeg ?contact_id mehanizma); (4) picker prikazuje SVE aktivne kontakte (firme + fizička lica) u oba modula.",
+      "rationale": "Korisnikov direktan zahtev; zatvara poslednji korak P5-unifikacije — imenik postaje JEDINI registar musterija, a UI sprečava gubitak rada na dokumentu. Sada jer je imenik live (16 uvezenih kontakata) i pre nego što se krene u P5 stock/equipment.",
+      "rejected": "Server-validacija contact_id — korisnik izabrao frontend-only; inline/modal forma za musteriju unutar dokumenta — treći UI za unos kontakta bi oživelo dupliranje koje unifikacija uklanja; return_to bez ograničenja — otvoren redirect, ograničeno na /offer/* i /rent/*; session za return target — hidden field je stateless i ne trpi paralelno otvorene forme; brisanje podataka musterije pri poništavanju izbora — snapshot-dokumenta su zamrznuta po pravilu 6d, gubitak korisničkih ispravki.",
+      "sourceSessionId": "session-3daff000-cffa-4645-90a7-23cb7645de32",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "contacts",
+        "offer",
+        "rent",
+        "ui",
+        "unification"
+      ],
+      "createdAt": 1790096062163,
+      "updatedAt": 1790096701587,
+      "summary": "Urađeno i commitovano (d30e358 na Dev). Imenik: contacts.new_contact prima ?return_to= (validirano — samo same-site /offer/* i /rent/* putanje, open-redirect bezbedno), forma ga nosi kroz POST kao hidden field i posle čuvanja redirectuje nazad u DOKUMENT sa ?contact_id=<novi> — offer prefill odmah popunjava musterija-polja, rent picker autofill-uje novu musteriju. Ponude (offer_form.html): sekcija Informacije o musteriji = picker + '+ Dodaj novu musteriju' link; Naziv/Država/Adresa/eMail/Telefon/PIB/MB u skrivenom #musterija-rest wrapperu koji picker JS (applyGate) otkriva tek kad je musterija izabrana — i na load-u, pa edit postojećih ponuda radi normalno. Rent (rent_contract_form.html): isti gate oko klijent-kartice sa applyMusterijaGate() u postojećem clientSelect handleru. Oba picker-a su TomSelect (pretraga po nazivu/PIB/JMBG). Server kod dokument-forma netaknut (contact_id opcion, snapshot polja po pravilu 6d, poništavanje izbora čisti samo link). Novi tests/characterization/test_musterija_first_ux.py: 12 testova (linkovi sa return_to, skriveni wrapperi, round-trip za oba modula, unsafe-target fallbackovi). Puna svita 311 passed, 3 skipped. Agent Note: feature/2026-09-22-musterija-first-document-forms.md. Za vidljivost na :5000 potreban image rebuild (deploy.sh) — korisnička akcija."
     }
   ]
 }
