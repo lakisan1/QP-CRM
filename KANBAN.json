@@ -1292,6 +1292,24 @@
       "updatedAt": 1790092957779,
       "summary": "Commit aa70032: products.website_url + products.manufacturer_url (schema CREATE + idempotentne ALTER migracije), unos na pricing product formi (add/edit), prikaz na products listi i sale view_product, api_v1 list/detail/create/update nose polja, API_INSTRUCTIONS.md dopunjen. OFFER-INVISIBLE po konstrukciji (add_item snapshot prenosi samo name/description/photo) — pinovano tests/smoke/test_product_links.py (6 testova). Suite 299 passed. Docker image rebuild + container recreate urađeni, healthcheck healthy, produkciona baza verifikovana (obe kolone postoje u /app/app_data/pricing.db).",
       "rejected": "Offer-item snapshot kolone i checkboxovi u offer formi su odbačeni — zahtev je bio da linkovi nikad ne uđu u ponude; linkovi se šire samo preko product-stranica, a offer add_item snapshot (name/description/photo) nema kanala da ih povuče."
+    },
+    {
+      "id": "card-a12e4e34-3344-47de-8d2c-3082c388633f",
+      "title": "Konverzija starog backupa (pre-Phase-3) u aktuelnu šemu + učitavanje kao test",
+      "description": "Korisnik je dostavio FULL_SYSTEM_BACKUP_2026-09-22.zip (stara pre-Phase-3 verzija: legacy plaintext password ključevi, nema users/contacts/API tabelu). Konvertovati u aktuelnu šemu i ubaciti kao TEST bazu — NE preko produkcione. Plan: staging konverzija realnim boot sekvencem + HTTP smoke kroz sve module + razmena produkcionog pricing.db sa konvertovanom (sa backupom trenutnog).",
+      "rationale": "Korisnički zahtev: stari backup treba konvertovati i učitati kao test svega u lokalnu verziju. Proizvodna baza sa današnjim podacima mora biti backup-ovana pre zamene.",
+      "rejected": "Direktan restore_full preko admin UI (briše današnje produkcione podatke bez predhodne ručne sigurnosne kopije sa strane; i zahteva admin pass u formi). Ručna SQL migracija skriptom (duplira ono što boot migracija već radi idempotentno i rizikuje drift od šeme).",
+      "sourceSessionId": "session-5e6becdc-fe0e-48b5-bcea-45a06b10f179",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "backup",
+        "restore",
+        "migration",
+        "deploy"
+      ],
+      "createdAt": 1790093923093,
+      "updatedAt": 1790093923093
     }
   ]
 }

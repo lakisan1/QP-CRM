@@ -43,3 +43,4 @@ deps/
 # Repo hygiene (wave3) - root scratch & backup litter
 *.bak
 app_data/*.pre-*
+backups/
