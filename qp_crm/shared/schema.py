@@ -707,6 +707,13 @@ def migrate_contacts(cur):
 
     backfill_rent_clients_into_contacts(cur)
 
+    # Musterija-first era (user request 2026-09-22): link legacy documents
+    # to the directory so the imenik shows every client's history. Idem-
+    # potent: only contact_id IS NULL rows are matched; ambiguous rows
+    # (PIB/MB vs name conflicts) stay unlinked for manual review.
+    from qp_crm.services.contact_service import link_documents_to_contacts
+    link_documents_to_contacts(cur)
+
 
 def backfill_rent_clients_into_contacts(cur):
     """Copy every not-yet-migrated rent_clients row into contacts.

@@ -370,3 +370,98 @@ def linked_documents(contact_id):
     rows = cur.fetchall()
     conn.close()
     return rows
+
+
+# ---------------------------------------------------------------------------
+# legacy-document backfill (musterija-first era): link existing documents
+# ---------------------------------------------------------------------------
+
+def _contact_indexes(cur):
+    """PIB / MB / normalized-name indexes over ACTIVE directory contacts.
+
+    Name key is case-folded and whitespace-squeezed so 'Delta Automoto
+    d.o.o.' and 'delta  automoto D.O.O.' hit the same entry; unicode
+    letters (Greek ΣΥΝΕΡΓΕΙΟ) pass through unchanged.
+    """
+    cur.execute("SELECT id, display_name, pib, mb FROM contacts WHERE archived = 0;")
+    by_pib, by_mb, by_name = {}, {}, {}
+    for row in cur.fetchall():
+        if row["pib"] and row["pib"].strip():
+            by_pib.setdefault(row["pib"].strip(), row["id"])
+        if row["mb"] and row["mb"].strip():
+            by_mb.setdefault(row["mb"].strip(), row["id"])
+        key = " ".join((row["display_name"] or "").split()).casefold()
+        if key:
+            by_name.setdefault(key, row["id"])
+    return by_pib, by_mb, by_name
+
+
+def link_documents_to_contacts(cur):
+    """Backfill offers.contact_id / rent_contracts.contact_id (idempotent).
+
+    Only rows with contact_id IS NULL are considered. Match order per row:
+
+      1. PIB match (the tax id is THE identity for companies) — but ONLY
+         when the document's name casefold-matches the contact too OR the
+         document has no name; a PIB hit on a DIFFERENT name is a data
+         conflict and stays unlinked;
+      2. MB match, same guard;
+      3. exact normalized name match (PIB/MB absent on the document) —
+         covers ΣΥΝΕΡΓΕΙΟ-type rows where no tax id was captured.
+
+    Rows whose PIB/MB disagree with the name-matched contact (HIDRAULIK
+    FLEX carrying two different PIBs) are deliberately left unlinked --
+    wrong-identity links corrupt the directory's document history; they
+    surface as reusable pickers with a NULL link for manual review.
+
+    Snapshot fields are NEVER rewritten; this only sets the id link.
+    Returns the number of newly linked rows (offers + rent contracts).
+    """
+    cur.execute("SELECT id, client_name, client_pib, client_mb FROM offers WHERE contact_id IS NULL;")
+    offer_rows = cur.fetchall()
+    cur.execute("SELECT id, client_name, client_pib, client_mb FROM rent_contracts WHERE contact_id IS NULL;")
+    rent_rows = cur.fetchall()
+    if not offer_rows and not rent_rows:
+        return 0
+
+    by_pib, by_mb, by_name = _contact_indexes(cur)
+
+    def resolve(client_name, pib, mb):
+        name_key = " ".join((client_name or "").split()).casefold()
+        pib = (pib or "").strip()
+        mb = (mb or "").strip()
+        if pib:
+            hit = by_pib.get(pib)
+            if hit is None:
+                return None  # PIB present but unknown -> no guesswork
+            hit_name = None
+            for key, cid in by_name.items():
+                if cid == hit:
+                    hit_name = key
+                    break
+            # PIB hit accepted only when the name agrees (or doc has no name)
+            if not name_key or hit_name == name_key:
+                return hit
+            return None  # PIB belongs to a differently-named party
+        if mb:
+            hit = by_mb.get(mb)
+            if hit is None:
+                return None
+            hit_name = next((key for key, cid in by_name.items() if cid == hit), None)
+            if not name_key or hit_name == name_key:
+                return hit
+            return None
+        return by_name.get(name_key)  # no tax id: exact name only
+
+    linked = 0
+    for row in offer_rows:
+        cid = resolve(row["client_name"], row["client_pib"], row["client_mb"])
+        if cid is not None:
+            cur.execute("UPDATE offers SET contact_id = ? WHERE id = ?;", (cid, row["id"]))
+            linked += 1
+    for row in rent_rows:
+        cid = resolve(row["client_name"], row["client_pib"], row["client_mb"])
+        if cid is not None:
+            cur.execute("UPDATE rent_contracts SET contact_id = ? WHERE id = ?;", (cid, row["id"]))
+            linked += 1
+    return linked
