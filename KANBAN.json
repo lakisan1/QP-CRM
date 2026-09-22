@@ -1296,11 +1296,11 @@
     {
       "id": "card-a12e4e34-3344-47de-8d2c-3082c388633f",
       "title": "Konverzija starog backupa (pre-Phase-3) u aktuelnu šemu + učitavanje kao test",
-      "description": "Korisnik je dostavio FULL_SYSTEM_BACKUP_2026-09-22.zip (stara pre-Phase-3 verzija: legacy plaintext password ključevi, nema users/contacts/API tabelu). Konvertovati u aktuelnu šemu i ubaciti kao TEST bazu — NE preko produkcione. Plan: staging konverzija realnim boot sekvencem + HTTP smoke kroz sve module + razmena produkcionog pricing.db sa konvertovanom (sa backupom trenutnog).",
-      "rationale": "Korisnički zahtev: stari backup treba konvertovati i učitati kao test svega u lokalnu verziju. Proizvodna baza sa današnjim podacima mora biti backup-ovana pre zamene.",
-      "rejected": "Direktan restore_full preko admin UI (briše današnje produkcione podatke bez predhodne ručne sigurnosne kopije sa strane; i zahteva admin pass u formi). Ručna SQL migracija skriptom (duplira ono što boot migracija već radi idempotentno i rizikuje drift od šeme).",
+      "description": "Zamenjeno produkcionim podacima: FULL_SYSTEM_BACKUP_2026-09-22.zip (pre-Phase-3: legacy plaintext lozinke, nema users/contacts/API tabela, 253 proizvoda, 77 ponuda, 213 stavki, 4 ugovora) konvertovan REALNIM boot sekvencem (pricing init+migrate, offer, admin users, rent, contacts backfill) u staging sandbox, verifikovan HTTP smoke-om kroz sve module (stranice + PDF-ovi + slike + pretraga), pa ubačen kao živa baza. Pre zamene: WAL-safe backup trenutne baze + images u /home/dsh/QP-CRM/backups/. Admin šifra postavljena na QP-ZcpJw9yGctQS (ista kao današnji reset), zorica staff nalog sačuvan (contacts/offer/sale grantovi, stale 'deals' grant uklonjen). Legacy plaintext ključevi (admin/pricing/offer/rent/quotation_password) i retired api_key red izbačeni.",
+      "rationale": "Korisnički zahtev: stari backup konvertovati i učitati kao test svega. Realni boot migrations put garantuje da konverzija koristi ISTU šema-logiku kao produkcija, bez ručnog SQL-a koji bi mogao driftovati.",
+      "rejected": "restore_full preko admin UI: briše žive podatke pre nego što bi backup bio sačuvan sa strane, i zahteva admin pass u formi — umesto toga ručni swap sa stop/start kontejnera + WAL-safe backup pre. Ručna SQL skripta: duplira boot migracije i rizikuje šema-drift.",
       "sourceSessionId": "session-5e6becdc-fe0e-48b5-bcea-45a06b10f179",
-      "status": "todo",
+      "status": "done",
       "tags": [
         "qp-crm",
         "backup",
@@ -1309,7 +1309,8 @@
         "deploy"
       ],
       "createdAt": 1790093923093,
-      "updatedAt": 1790093923093
+      "updatedAt": 1790094187790,
+      "summary": "Konverzija + restore završeni (commit f8b282e + .gitignore backups/). Staging konverzija realnim boot sekvencem: 253 proizvoda, 77 ponuda, 213 stavki, 152 cene, 4 rentClients→contacts kopirana sa 'client' rolama, 4 rent ugovora, custom 'MarinkovicHofmann' PDF template sačuvan + aktivan. HTTP smoke kroz sve module 200 (products/offers/rent/admin/sale/contacts/settings + offer PDF custom-template branch 417KB + rent doc PDF + product images). Kontejner stop→swap→start, healthcheck healthy. Admin šifra = QP-ZcpJw9yGctQS; zorica sačuvana. Suite 299 passed."
     }
   ]
 }
