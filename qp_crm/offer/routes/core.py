@@ -3,6 +3,8 @@ from flask import jsonify, redirect, request, send_from_directory, url_for
 
 from ..app import bp, APP_ASSETS_DIR, get_nbs_rate
 
+from qp_crm.services import contact_service
+
 
 @bp.route("/api/nbs_eur_rate")
 def api_nbs_eur_rate():
@@ -10,6 +12,35 @@ def api_nbs_eur_rate():
     if rate is None:
         return jsonify({"success": False, "message": "Neuspešno preuzimanje kursa sa NBS."}), 500
     return jsonify({"success": True, "rate": rate})
+
+
+@bp.route("/api/contact/<int:contact_id>")
+def api_contact(contact_id):
+    """Musterija autofill feed for the offer form's step-1 picker
+    (musterija-first, P5-unification).
+
+    Mirrors the rent contract form's in-place fill: the picker JS fetches
+    this JSON and fills the musterija fields WITHOUT a page reload -- a
+    reload on the new-offer URL would drop the param on edit pages and
+    visually reset the picker (user report 2026-09-22). Snapshot fields
+    stay user-editable after the fill (issuance-time snapshot rule).
+    """
+    contact = contact_service.get_contact(contact_id)
+    if contact is None:
+        return jsonify({}), 404
+    full_name = " ".join(
+        part for part in (contact["first_name"], contact["last_name"]) if part
+    ) or contact["display_name"]
+    return jsonify({
+        "contact_id": contact["id"],
+        "name": full_name,
+        "address": contact["billing_address"] or "",
+        "email": contact["email"] or "",
+        "phone": contact["phone"] or "",
+        "pib": contact["pib"] or "",
+        "mb": contact["mb"] or "",
+        "country": contact["country"] or "",
+    })
 
 # /product-image route: shared implementation (also on pricing and sale)
 

@@ -12,7 +12,7 @@
     <div id="musterija-step" style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
         <p style="margin: 0; flex: 1; min-width: 260px;">
             <label>Izaberi iz imenika <small>(firme i fizička lica — zajednička baza)</small>:<br>
-                <select name="contact_id" id="contact-select" class="searchable-select long-input">
+                <select name="picked_party_ref" id="contact-select" class="searchable-select long-input">
                     <option value="">-- izaberi musteriju --</option>
                     {% for contact_id, label in party_choices %}
                     <option value="{{ contact_id }}" {% if selected_contact_id == contact_id %}selected{% endif %}>{{ label }}</option>
@@ -29,6 +29,11 @@
     <form method="post">
         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="action" value="update_header">
+        {# Directory party link (P5-unification). The step-1 picker (outside
+           this form) keeps its display value in picked_party_ref; THIS
+           hidden input carries the actual saved contact_id. The picker JS
+           keeps both in sync. #}
+        <input type="hidden" name="contact_id" id="picked-contact-id" value="{{ selected_contact_id or '' }}">
 
         {% if error %}
         <div class="alert alert-error"
@@ -802,11 +807,12 @@
         });
 
         // --- Directory party picker (P5-unification, musterija-first) ---
-        // Step 1 card sits ABOVE the form; the picker (TomSelect search)
-        // reloads the form with ?contact_id= so the server pre-fills the
-        // musterija fields from ONE base (companies AND fizička lica).
-        // Until a party is picked the whole form below stays dimmed, so
-        // the page reads: first the musterija, then everything else.
+        // Step 1 card sits ABOVE the form. Picking a party fills the
+        // musterija fields IN-PLACE via /offer/api/contact/<id> — no page
+        // reload (a reload resets the picker and drops context; user
+        // report 2026-09-22). Fields stay editable: the saved row keeps
+        // the snapshot the user confirmed. Clearing the picker empties
+        // the fields and unlinks the party.
         const contactSelect = document.getElementById('contact-select');
         if (contactSelect) {
             const musterijaRest = document.getElementById('musterija-rest');
@@ -815,9 +821,9 @@
             const applyGate = () => {
                 const picked = Boolean(contactSelect.value);
                 if (musterijaRest) musterijaRest.style.display = picked ? '' : 'none';
-                if (mainCard) mainCard.style.opacity = picked ? '1' : '0.35';
-                if (mainCard) mainCard.style.pointerEvents = picked ? 'auto' : 'none';
-                if (mainCard) mainCard.style.filter = picked ? 'none' : 'grayscale(0.6)';
+                if (mainCard) { mainCard.style.opacity = picked ? '1' : '0.35';
+                                mainCard.style.pointerEvents = picked ? 'auto' : 'none';
+                                mainCard.style.filter = picked ? 'none' : 'grayscale(0.6)'; }
                 if (hint) {
                     hint.textContent = picked
                         ? 'Musterija izabrana — polja ispod su popunjena iz Imenika (možete ih izmeniti, snimak se čuva uz dokument).'
@@ -826,10 +832,28 @@
             };
             applyGate();
             contactSelect.addEventListener('change', function () {
-                const base = window.location.pathname;
-                const params = new URLSearchParams(window.location.search);
-                if (this.value) { params.set('contact_id', this.value); } else { params.delete('contact_id'); }
-                window.location.href = base + (params.toString() ? '?' + params.toString() : '');
+                const id = this.value;
+                applyGate();
+                // hidden contact_id drives the saved link (NULL = free-typed);
+                // the display select carries picked_party_ref, the real link
+                // lives in the form's hidden #picked-contact-id.
+                const hidden = document.getElementById('picked-contact-id');
+                if (hidden) hidden.value = id && id.startsWith('c') ? id.slice(1) : '';
+                if (!id) {  // cleared: empty the musterija fields
+                    ['client_name', 'client_address', 'client_email', 'client_phone', 'client_pib', 'client_mb']
+                        .forEach(n => { const el = document.getElementsByName(n)[0]; if (el) el.value = ''; });
+                    return;
+                }
+                const cid = id.startsWith('c') ? id.slice(1) : id;
+                fetch(`/offer/api/contact/${cid}`).then(r => r.json()).then(d => {
+                    const set = (n, v) => { const el = document.getElementsByName(n)[0]; if (el) el.value = v || ''; };
+                    set('client_name', d.name);
+                    set('client_address', d.address);
+                    set('client_email', d.email);
+                    set('client_phone', d.phone);
+                    set('client_pib', d.pib);
+                    set('client_mb', d.mb);
+                });
             });
         }
 
