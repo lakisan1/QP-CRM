@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="{{ theme|default('dark') }}">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Backup & Restore Points</title>
+    <link rel="icon" type="image/png" href="/app_assets/favicon.png">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+</head>
+
+<body>
+    {% set active = 'backups' %}{% include 'admin/_nav.html' %}
+
+    <div class="container" style="max-width: 1250px;">
+        <h1>Backup & Restore Points</h1>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: -8px;">
+            <strong>Quick backups</strong> are database snapshots stored ON THIS SERVER (folder <code>backups/</code>) —
+            one click to make, one click to restore. Restore points written by the update system
+            (<code>pre-deploy</code> / <code>pre-rollback</code>) are listed here too.
+            For copies on OTHER servers or data migration, use the <strong>Full System Backup (.zip)</strong> below.
+        </p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ 'success' if category == 'success' else ('warning' if category == 'warning' else 'error') }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <!-- Quick backup: create a local restore point -->
+        <div class="card">
+            <h3>Quick backup (restore point on this server)</h3>
+            <p style="color: var(--text-muted); font-size: 0.85rem;">
+                Saves a WAL-safe snapshot of the whole database — users, passwords, offers, contracts —
+                into the server's <code>backups/</code> folder. The 30 newest quick backups are kept.
+                Images and branding are NOT inside a quick backup (use the full .zip for that).
+            </p>
+            <form action="{{ url_for('admin.backup_quick') }}" method="POST">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-primary"
+                        onclick="return confirm('Create a quick backup of the database now?');">
+                    + Create quick backup
+                </button>
+            </form>
+        </div>
+
+        <!-- Restore points table -->
+        <div class="card">
+            <h3>Restore points on this server</h3>
+            {% if backups %}
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr>
+                        <th style="text-align: left; padding: 8px; border-bottom: 1px solid var(--border-color);">File</th>
+                        <th style="text-align: left; padding: 8px; border-bottom: 1px solid var(--border-color);">Kind</th>
+                        <th style="text-align: left; padding: 8px; border-bottom: 1px solid var(--border-color);">Created</th>
+                        <th style="text-align: left; padding: 8px; border-bottom: 1px solid var(--border-color);">Size</th>
+                        <th style="text-align: left; padding: 8px; border-bottom: 1px solid var(--border-color);">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for b in backups %}
+                    <tr>
+                        <td style="padding: 8px; border-bottom: 1px solid var(--border-color); font-family: monospace; word-break: break-all;">
+                            {{ b.name }}
+                        </td>
+                        <td style="padding: 8px; border-bottom: 1px solid var(--border-color);">
+                            {% if b.kind == 'pre-deploy' %}
+                                <span style="color: var(--accent-primary);">pre-deploy (update)</span>
+                            {% elif b.kind == 'pre-rollback' %}
+                                <span style="color: var(--accent-warning);">pre-rollback</span>
+                            {% elif b.kind == 'pre-restore' %}
+                                <span style="color: var(--accent-warning);">pre-restore</span>
+                            {% else %}
+                                <span style="color: var(--accent-success);">quick</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 8px; border-bottom: 1px solid var(--border-color); white-space: nowrap;">{{ b.mtime }}</td>
+                        <td style="padding: 8px; border-bottom: 1px solid var(--border-color); white-space: nowrap;">{{ b.size }}</td>
+                        <td style="padding: 8px; border-bottom: 1px solid var(--border-color); white-space: nowrap;">
+                            <a href="{{ url_for('admin.backup_quick_download', name=b.name) }}"
+                               class="btn btn-secondary" style="text-decoration: none; display: inline-block; padding: 4px 10px; font-size: 0.85rem;">
+                                Download
+                            </a>
+                            <form action="{{ url_for('admin.backup_quick_restore', name=b.name) }}" method="POST" style="display: inline;"
+                                  onsubmit="return confirm('RESTORE {{ b.name }}?\\n\\nThis OVERWRITES the current database (all users, offers, contracts) with this snapshot. A safety snapshot of the current state is saved first. Proceed?');">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="current_admin_password" value="{{ restore_password or '' }}">
+                                <button type="submit" class="btn btn-primary" style="padding: 4px 10px; font-size: 0.85rem;">Restore</button>
+                            </form>
+                            <form action="{{ url_for('admin.backup_quick_delete', name=b.name) }}" method="POST" style="display: inline;"
+                                  onsubmit="return confirm('DELETE {{ b.name }} permanently? This cannot be undone.');">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="current_admin_password" value="{{ restore_password or '' }}">
+                                <button type="submit" class="btn btn-danger" style="padding: 4px 10px; font-size: 0.85rem;">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <!-- One password field confirms all Restore/Delete actions on this page -->
+            <div style="margin-top: 20px; background: var(--bg-input); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
+                <label style="color: var(--accent-warning); font-size: 0.9rem; font-weight: 500;">
+                    Admin password — required for Restore and Delete
+                </label>
+                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 4px 0 10px 0;">
+                    Type it here ONCE, then use Restore / Delete on any row above.
+                </p>
+                <input type="password" id="admin-confirm-password" autocomplete="current-password"
+                       placeholder="Enter Admin password"
+                       oninput="document.querySelectorAll('input[name=current_admin_password]').forEach(i => i.value = this.value);">
+            </div>
+            {% else %}
+            <p style="color: var(--text-muted);">
+                No restore points yet — create the first one with the button above, or run
+                <code>./deploy.sh</code> (it saves a snapshot before every update).
+            </p>
+            {% endif %}
+        </div>
+
+        <!-- Manual full backup: other servers / migrations -->
+        <div class="card">
+            <h3>Full System Backup (.zip) — manual copies / migration</h3>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 15px;">
+                Downloads a .zip with the <strong>database + all product images + assets</strong>.
+                Keep copies on other servers or cloud storage; upload one here to restore everything.
+            </p>
+            <div class="split-layout">
+                <div>
+                    <h5 style="margin-top: 0;">Download</h5>
+                    <a href="{{ url_for('admin.backup_full') }}" class="btn btn-primary"
+                       style="text-decoration: none; display: inline-block;">
+                        Download Full System Backup (.zip)
+                    </a>
+                </div>
+                <div>
+                    <h5 style="margin-top: 0;">Restore from .zip</h5>
+                    <p style="font-size: 0.85rem; color: var(--text-muted);">
+                        Upload a .zip backup. <strong style="color: var(--accent-warning);">Overwrites ALL data & images!</strong>
+                    </p>
+                    <form action="{{ url_for('admin.restore_full') }}" method="POST" enctype="multipart/form-data">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <div class="file-upload-wrapper" style="margin-bottom: 10px;">
+                            <input type="file" name="backup_file" accept=".zip" required>
+                            <span class="file-upload-text">Select .zip file</span>
+                        </div>
+                        <div style="margin-bottom: 10px;">
+                            <label style="color: var(--accent-warning); font-size: 0.85rem;">Admin Password Required</label>
+                            <input type="password" name="current_admin_password" required placeholder="Enter password">
+                        </div>
+                        <button type="submit" class="btn btn-danger"
+                                onclick="return confirm('CRITICAL WARNING: This will overwrite your DATABASE and ALL IMAGES. This cannot be undone. Are you sure?');">
+                            Restore System
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
