@@ -52,9 +52,14 @@ RUN chmod -R a+rX /app
 # the bind mounts in docker-compose.yml (./app_data, ./app_assets,
 # ./static/img), so the container can read/write them without root.
 # Only the mutable data dirs are chowned — code stays root-owned read-only.
+# /app/backups (BACKUP_DIR): the Admin -> Backup tab writes quick backups and
+# reads restore-point snapshots here — appuser must own it, or every quick
+# backup/restore (and the test suite exercising them) hits
+# 'Permission denied: /app/backups'. In compose deployments the ./backups
+# bind mount (deploy.sh snapshots) overlays this directory.
 RUN groupadd -g 1000 appuser && useradd -m -u 1000 -g appuser appuser \
-    && mkdir -p /app/app_data/product_images /app/app_assets /app/static/img \
-    && chown -R appuser:appuser /app/app_data /app/app_assets /app/static/img
+    && mkdir -p /app/app_data/product_images /app/app_assets /app/static/img /app/backups \
+    && chown -R appuser:appuser /app/app_data /app/app_assets /app/static/img /app/backups
 
 USER appuser
 
