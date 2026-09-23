@@ -90,54 +90,10 @@
         {% endif %}
         {% endwith %}
 
-        <!-- Password Management -->
-        <div class="card">
-            <h3>Change Passwords</h3>
-            <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px;">
-                Enter a new password for any app you want to change. Leave blank to keep current.
-                <br><strong>You must enter the current Admin password to apply changes.</strong>
-            </p>
-
-            <form action="{{ url_for('admin.update_passwords') }}" method="POST">
-        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                <div class="grid-2-col-asymmetric" style="grid-template-columns: 1fr 1fr;">
-                    <div>
-                        <label>New Admin Password</label>
-                        <input type="password" name="new_admin_password" placeholder="Leave blank to keep unchanged">
-                        <input type="password" name="new_admin_password_confirm" placeholder="Confirm new password"
-                            style="margin-top: -10px;">
-                    </div>
-
-                    <div>
-                        <label>New Pricing App Password</label>
-                        <input type="password" name="new_pricing_password" placeholder="Leave blank to keep unchanged">
-                        <input type="password" name="new_pricing_password_confirm" placeholder="Confirm new password"
-                            style="margin-top: -10px;">
-                    </div>
-
-                    <div>
-                        <label>New Offer App Password</label>
-                        <input type="password" name="new_offer_password" placeholder="Leave blank to keep unchanged">
-                        <input type="password" name="new_offer_password_confirm" placeholder="Confirm new password"
-                            style="margin-top: -10px;">
-                    </div>
-
-                    <div>
-                        <label>New Rent App Password (Zakup)</label>
-                        <input type="password" name="new_rent_password" placeholder="Leave blank to keep unchanged">
-                        <input type="password" name="new_rent_password_confirm" placeholder="Confirm new password"
-                            style="margin-top: -10px;">
-                    </div>
-                </div>
-
-                <hr style="margin: 20px 0;">
-
-                <label style="color: var(--accent-warning);">Confirm Current Admin Password (Required)</label>
-                <input type="password" name="current_admin_password" required>
-
-                <button type="submit" class="btn btn-primary">Update Passwords</button>
-            </form>
-        </div>
+        <!-- Password management lives exclusively in Admin -> Users (the user
+             save form's optional 'New password' field). The old dashboard
+             'Change Passwords' per-app form and its /admin/update_passwords
+             route were removed as dead duplicate UI (pre-unified-auth era). -->
 
         <!-- API key management lives exclusively in Admin → API Keys (/admin/api_keys). -->
 

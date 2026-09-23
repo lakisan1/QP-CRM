@@ -1,4 +1,11 @@
-"""Admin settings routes: passwords, branding uploads, global settings and API key management."""
+"""Admin settings routes: branding uploads and global settings.
+
+The legacy /admin/update_passwords route (per-app password form on the
+dashboard) was REMOVED: it duplicated Admin -> Users (password changes
+live exclusively in the user save form's optional 'New password' field,
+backed by admin_reset_user_password) and predated the unified users
+table.
+"""
 
 from flask import request, redirect, url_for, flash
 import os
@@ -6,46 +13,9 @@ import os
 from qp_crm.shared.config import STATIC_DIR, APP_ASSETS_DIR
 from qp_crm.shared.web import MANDATORY_FIELD_KEYS, RENT_DEFAULT_KEYS
 
-from ..app import bp, get_db, check_password, set_password
+from ..app import bp, get_db, check_password
 
-@bp.route("/update_passwords", methods=["POST"])
-def update_passwords():
-    current_admin_pass = request.form.get("current_admin_password")
-    
-    # Security check setup
-    if not check_password("admin", current_admin_pass):
-        flash("Incorrect Request: Invalid current Admin password.", "error")
-        return redirect(url_for("admin.index"))
 
-    # Helpers to process changes
-    # Each app has new_pass and confirm_pass
-    changes = [
-        ("admin", request.form.get("new_admin_password"), request.form.get("new_admin_password_confirm")),
-        ("pricing", request.form.get("new_pricing_password"), request.form.get("new_pricing_password_confirm")),
-        ("offer", request.form.get("new_offer_password"), request.form.get("new_offer_password_confirm")),
-        ("rent", request.form.get("new_rent_password"), request.form.get("new_rent_password_confirm")),
-    ]
-
-    updated_count = 0
-    
-    for app_name, new_p, confirm_p in changes:
-        if new_p: # if not empty
-            if len(new_p) < 8:
-                flash(f"Error: Password for {app_name} must be at least 8 characters.", "error")
-                return redirect(url_for("admin.index"))
-            if new_p != confirm_p:
-                flash(f"Error: Passwords for {app_name} did not match.", "error")
-                return redirect(url_for("admin.index"))
-            set_password(app_name, new_p)
-            updated_count += 1
-            
-    if updated_count > 0:
-        flash(f"Successfully updated {updated_count} password(s).", "success")
-    else:
-        flash("No password changes requested.", "success")
-        
-    return redirect(url_for("admin.index"))
-        
 @bp.route("/upload_logo", methods=["POST"])
 def upload_logo():
     current_admin_pass = request.form.get("current_admin_password")

@@ -27,7 +27,6 @@ from flask import request, redirect, url_for, flash, send_file, abort, render_te
 import os
 import time
 import zipfile
-import io
 import shutil
 import sqlite3
 

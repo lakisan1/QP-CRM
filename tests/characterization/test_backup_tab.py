@@ -172,3 +172,39 @@ def test_removed_db_only_routes_are_gone(admin_client):
     quick backup IS the DB-only backup — server-side and listable."""
     assert admin_client.get("/admin/backup_db").status_code == 404
     assert admin_client.get("/admin/restore_db").status_code == 404
+
+
+def test_dashboard_has_no_change_passwords_section(admin_client):
+    """The dashboard 'Change Passwords' per-app form was removed (user
+    decision): password changes live exclusively in Admin -> Users. The
+    legacy /admin/update_passwords route is gone (404)."""
+    page = admin_client.get("/admin/")
+    assert page.status_code == 200
+    html = page.data.decode()
+    # the FORM is gone (the explanatory HTML comment may still mention the URL)
+    assert 'action="/admin/update_passwords"' not in html
+    assert 'name="new_admin_password"' not in html  # the per-app fields are gone
+
+    # the route itself is gone from the url map (an unauthenticated POST hits
+    # the app-level CSRF guard first — 400 — but the map itself must not list it)
+    from qp_crm.main import application as app
+    assert "/admin/update_passwords" not in {str(r) for r in app.url_map.iter_rules()}
+
+
+def test_users_page_is_the_password_management_place(admin_client):
+    """Admin -> Users keeps the password management: each row has the ONE
+    optional 'new password' field + Save."""
+    page = admin_client.get("/admin/users")
+    assert page.status_code == 200
+    html = page.data.decode()
+    assert "new_password" in html or "New password" in html
+
+
+def test_backup_page_has_danger_zone(admin_client):
+    """The Factory Reset Danger Zone lives on the Backup tab now (moved from
+    the dashboard), with the same double-confirm flow."""
+    page = admin_client.get("/admin/backup")
+    html = page.data.decode()
+    assert "Danger Zone" in html
+    assert "Factory Reset" in html
+    assert "/admin/factory_reset" in html
