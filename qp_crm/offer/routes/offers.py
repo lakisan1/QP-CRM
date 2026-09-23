@@ -920,9 +920,10 @@ def duplicate_offer(offer_id):
 
     # 2. Insert new offer based on original
     # We set is_template=0 for the new offer, and clear the offer_number so user can set a new one
-    # Also set today's date
+    # Also set today's date. contact_id is carried over so the copy stays
+    # linked to the same directory party as the original.
     today = date.today().isoformat()
-    
+
     cur.execute("""
         INSERT INTO offers (
             offer_number, date,
@@ -933,9 +934,9 @@ def duplicate_offer(offer_id):
             total_special_discount, total_net_after_special_discount,
             total_third_discount, total_net_after_third_discount,
             total_vat, total_gross,
-            payment_terms, delivery_terms, validity_days, notes, napomena, is_template, country
+            payment_terms, delivery_terms, validity_days, notes, napomena, contact_id, is_template, country
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?);
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?);
     """, (
         "", today,
         offer["client_name"], offer["client_address"], offer["client_email"], offer["client_phone"], offer["client_pib"], offer["client_mb"],
@@ -945,7 +946,7 @@ def duplicate_offer(offer_id):
         offer["total_special_discount"], offer["total_net_after_special_discount"],
         offer["total_third_discount"], offer["total_net_after_third_discount"],
         offer["total_vat"], offer["total_gross"],
-        offer["payment_terms"], offer["delivery_terms"], offer["validity_days"], offer["notes"], offer["napomena"], offer["country"]
+        offer["payment_terms"], offer["delivery_terms"], offer["validity_days"], offer["notes"], offer["napomena"], offer["contact_id"], offer["country"]
     ))
     new_offer_id = cur.lastrowid
 
