@@ -21,22 +21,6 @@
         content: element(doc-footer);
         width: 100%;
     }
-
-    /* Continuation indicator (user request 2026-09-23): rows are kept whole
-       (break-inside: avoid), so a tall next row can leave visible empty
-       space at the bottom of a page. Every items-row sets the 'nastavak'
-       running string; the LAST row clears it. string(..., last) takes the
-       final value set on the page, so pages where the table continues show
-       '▼ nastavlja se…' in the bottom-right margin, and the page where the
-       table ends (and every page before it) shows nothing. */
-    @bottom-right {
-        content: string(nastavak, last);
-        font-size: 7.5pt;
-        font-style: italic;
-        color: #999999;
-        vertical-align: top;
-        margin-top: 4mm;
-    }
 }
 
 .pdf-header {
@@ -171,22 +155,6 @@ h3 {
 .items-table tr {
     page-break-inside: avoid;
     break-inside: avoid;
-}
-
-/* Continuation marker for the @bottom-right margin box (see @page): the
-   LAST cell of each row (Total — always plain text) sets the running
-   string; the table's last row clears it. Setting it on the last CELL
-   rather than the whole row is deliberate: WeasyPrint 69 silently drops a
-   tr/td string-set when the row contains a nested table (markdown spec
-   tables) or similar complex content, which made the marker unreliable.
-   Pages where the items table continues show '▼ nastavlja se…'; the page
-   holding the last row (and every page after) shows nothing. */
-.items-table td:last-child {
-    string-set: nastavak "▼ nastavlja se na sledećoj strani";
-}
-
-.items-table tr:last-child td:last-child {
-    string-set: nastavak "";
 }
 
 /* Totals styling */
