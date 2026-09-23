@@ -161,6 +161,57 @@
                 </div>
             </div>
         </div>
+
+        <!-- Danger Zone -->
+        <div class="card"
+            style="border: 1px solid var(--accent-error); margin-top: 40px; background: rgba(255, 0, 0, 0.05);">
+            <h3 style="color: var(--accent-error);">⚠️ Danger Zone</h3>
+            <p style="color: var(--text-main); font-weight: 600;">Factory Reset</p>
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px;">
+                This will download a <strong>full system backup</strong> and then <strong>RESET EVERYTHING</strong> to
+                factory defaults.
+                All products, prices, offers, and settings will be deleted. This action is
+                <strong>NON-REVERSIBLE</strong>.
+            </p>
+
+            <form id="factoryResetForm" action="{{ url_for('admin.factory_reset') }}" method="POST">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <div style="margin-bottom: 15px; max-width: 400px;">
+                    <label style="color: var(--accent-error); font-weight: 600;">Confirm Admin Password to
+                        Proceed</label>
+                    <input type="password" name="current_admin_password" required placeholder="Enter Admin Password">
+                </div>
+
+                <button type="button" class="btn btn-danger" onclick="confirmFactoryReset()">
+                    Download Backup & Factory Reset
+                </button>
+            </form>
+        </div>
     </div>
+
+    <script>
+        function confirmFactoryReset() {
+            const pwd = document.querySelector('#factoryResetForm input[name="current_admin_password"]').value;
+            if (!pwd) {
+                alert("Please enter the Admin password first.");
+                return;
+            }
+
+            const confirm1 = confirm("FINAL WARNING: This will DELETE ALL DATA and reset all settings to defaults.\n\nA backup will be downloaded first, but the current live data will be GONE.\n\nAre you sure you want to proceed?");
+            if (confirm1) {
+                const confirm2 = confirm("ARE YOU ABSOLUTELY SURE? This is your last chance to cancel.\n\nYou will be logged out and all data will be cleared.");
+                if (confirm2) {
+                    document.getElementById('factoryResetForm').submit();
+
+                    // Since it's a file download, the page won't redirect automatically.
+                    // We'll show a message or redirect manually after a timeout.
+                    setTimeout(() => {
+                        alert("Reset initiated. If the download doesn't start, please check your password. You will now be redirected to the login page.");
+                        window.location.href = "{{ url_for('admin.logout') }}";
+                    }, 3000);
+                }
+            }
+        }
+    </script>
 </body>
 </html>
