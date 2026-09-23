@@ -1,14 +1,17 @@
-# QP-CRM — Docker operations (Phase 0)
+# QP-CRM — Docker operations
 
 Single-container deployment: the Flask multi-app stack (pricing / offer / rent /
-admin / sale / settings, merged by `qp_crm/main.py` via DispatcherMiddleware and served
-by gunicorn through `qp_crm/wsgi.py`) runs in one container on **port 5000**.
+admin / sale / settings, merged by `qp_crm/main.py`) runs in one container on
+**port 5000**.
 
-- Image: `qp-crm:phase3` — built from `./Dockerfile` (phase-1 added the pytest
-test layer; phase-2 is the unified-app/package-layout image; phase-3 adds the
-unified auth/roles/CSRF layer; `qp-crm:phase2` remains the rollback tag)
+- Image: `ghcr.io/lakisan1/qp-crm:latest` — built and pushed by CI
+  (`.github/workflows/ci.yml`) after the pytest suite passes; remote servers
+  PULL it, they don't build (`docker-compose.yml` keeps a `build:` section for
+  local dev only). Every build is also tagged `sha-<commit>` (immutable,
+  what `rollback.sh` pins).
 - Container name: `qp-crm` — stack file: `docker-compose.yml`
 - Secrets: `.env` (see `.env.example`)
+- Guides: first install in [INSTALL.md](INSTALL.md), updates in [UPDATE.md](UPDATE.md)
 
 ## Prerequisites
 
@@ -26,8 +29,11 @@ unified auth/roles/CSRF layer; `qp-crm:phase2` remains the rollback tag)
 cp .env.example .env
 # fill in all six keys, e.g. per entry:
 #   python3 -c "import secrets; print(secrets.token_hex(32))"
-docker compose up -d --build
+docker compose up -d
 ```
+
+(Offline / local dev without GHCR: `docker compose up -d --build` builds
+from the local Dockerfile instead of pulling.)
 
 Then open `http://<host>:5000/`. First boot imports WeasyPrint and creates the
 SQLite schema, so the healthcheck has `start_period: 60s`; wait for
@@ -40,15 +46,21 @@ them). Bare-metal runs (`./run_apps.sh`, `python -m qp_crm.main`) do not read
 ## Updating
 
 ```bash
-./deploy.sh               # git pull --ff-only → docker compose build → up -d → wait for health
-SKIP_PULL=1 ./deploy.sh   # same, but skip the git pull
+./deploy.sh               # backup DB → record rollback tag → compose pull → up -d → wait for health
+SKIP_PULL=1 ./deploy.sh   # skip the git pull step
+./rollback.sh             # back to the previous image tag (own pre-rollback backup first)
 ```
 
-`deploy.sh` replaces the old `run_apps.sh` update flow (git pull + `pkill`
-qp_crm.main`, audit finding M11): instead of killing processes it rebuilds the
-image, recreates the container, then polls
-`docker inspect --format '{{.State.Health.Status}}' qp-crm` for up to ~90 s and
-prints the last 50 log lines if the container never turns healthy.
+`deploy.sh` (update system v2, pull-deploy): the image comes from GHCR —
+CI pushes it only after the whole pytest suite passes. The script takes a
+WAL-safe DB snapshot (`backups/pre-deploy-<ts>.db`, keeps 10) and ABORTS if
+the backup fails, records the running tag into `backups/last-deployed-tag`,
+then `docker compose pull` + `up -d` + health-wait (~90 s, logs on failure).
+Bind mounts keep all user data — updates swap code only.
+
+Automatic (unattended) updates: Watchtower checks GHCR daily and applies new
+images by itself — see [UPDATE.md](UPDATE.md) and
+`watchtower-compose.example.yml`.
 
 `run_apps.sh` still exists for bare-metal users (no Docker): it
 creates the venv, installs requirements and runs `python -m qp_crm.main` directly.
