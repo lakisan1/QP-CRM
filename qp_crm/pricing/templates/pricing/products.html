@@ -37,6 +37,17 @@
                 </div>
             </label>
             <label style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
+                <span style="font-weight: 500; font-size: 14px; white-space: nowrap;">{{ _('Item type') }}:</span>
+                <div style="width: 160px;">
+                    <select name="item_type" class="searchable-select" onchange="this.form.submit()"
+                        style="margin-bottom: 0;">
+                        <option value="">-- {{ _('all') }} --</option>
+                        <option value="proizvod" {% if item_type_filter=='proizvod' %}selected{% endif %}>{{ _('Physical product') }}</option>
+                        <option value="usluga" {% if item_type_filter=='usluga' %}selected{% endif %}>{{ _('Service') }}</option>
+                    </select>
+                </div>
+            </label>
+            <label style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
                 <span style="font-weight: 500; font-size: 14px; white-space: nowrap;">{{ _('Search by name:') }}</span>
                 <input type="text" name="search" value="{{ search_term or '' }}" aria-label="{{ _('Search by name') }}" onchange="this.form.submit()"
                     style="margin-bottom: 0; width: 200px;">
@@ -94,6 +105,9 @@
                 <a href="{{ url_for('pricing.price_history', product_id=p.id) }}">
                     {{ p.name }}
                 </a>
+                {% if p.item_type == 'usluga' %}
+                <span style="font-size: 11px; background: #8e44ad; color: white; padding: 2px 8px; border-radius: 10px; margin-left: 4px;">{{ _('Service') }}</span>
+                {% endif %}
                 {% if p.product_code %}
                 <br><span style="font-size: 12px; color: var(--text-muted);">ID: {{ p.product_code }}</span>
                 {% endif %}

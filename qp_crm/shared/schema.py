@@ -52,7 +52,8 @@ def create_pricing_tables(cur):
             photo_path TEXT,
             website_url TEXT,        -- optional link to the product's web page
             manufacturer_url TEXT,   -- optional link to the manufacturer's page
-            product_code TEXT        -- optional external ID / catalogue code (offer-invisible)
+            product_code TEXT,       -- optional external ID / catalogue code (offer-invisible)
+            item_type TEXT NOT NULL DEFAULT 'proizvod'  -- 'proizvod' | 'usluga'
         );
     """)
 
@@ -514,6 +515,10 @@ def migrate_pricing(cur):
     # 3d. Optional external product ID / catalogue code (vendor sku, kataloški
     # broj). Free text, empty-as-NULL, offer-invisible like 3c.
     add_column_if_missing(cur, "products", "product_code TEXT")
+    # 3e. Item type: physical product or service (user request 2026-09-23,
+    # REQUIRED on the form). NOT NULL DEFAULT 'proizvod' backfills every
+    # existing row as a physical product (user: everything so far is one).
+    add_column_if_missing(cur, "products", "item_type TEXT NOT NULL DEFAULT 'proizvod'")
     cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_products_site_product_id ON products(site_product_id);")
     # Index for fast lookups by name when building the comparison table
     cur.execute("CREATE INDEX IF NOT EXISTS idx_products_name ON products(name);")

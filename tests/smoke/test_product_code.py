@@ -41,6 +41,7 @@ def _create_product(client, name, product_code=""):
             "category": "Alati",
             "brand": "TestBrand",
             "description": "opis",
+            "item_type": "proizvod",
             "product_code": product_code,
         },
         follow_redirects=True,
@@ -82,6 +83,7 @@ def test_edit_product_updates_and_clears_code():
             "category": "Alati",
             "brand": "TestBrand",
             "description": "opis",
+            "item_type": "proizvod",
             "product_code": "",  # cleared
         },
         follow_redirects=True,

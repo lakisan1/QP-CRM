@@ -38,6 +38,7 @@ def list_products():
         session.pop("products_filter_brand", None)
         session.pop("products_filter_category", None)
         session.pop("products_filter_search", None)
+        session.pop("products_filter_item_type", None)
         return redirect(url_for("pricing.list_products"))
 
     # Load from request or fallback to session
@@ -58,6 +59,12 @@ def list_products():
         search_term = session.get("products_filter_search", "")
     else:
         session["products_filter_search"] = search_term
+
+    item_type_filter = request.args.get("item_type")
+    if item_type_filter is None:
+        item_type_filter = session.get("products_filter_item_type", "")
+    else:
+        session["products_filter_item_type"] = item_type_filter
 
     sort_option = request.args.get("sort")
     if sort_option is None:
@@ -103,6 +110,9 @@ def list_products():
         # search by name (case-insensitive-ish)
         where_clauses.append("p.name LIKE ?")
         params.append(f"%{search_term}%")
+    if item_type_filter in ("proizvod", "usluga"):
+        where_clauses.append("p.item_type = ?")
+        params.append(item_type_filter)
 
     if where_clauses:
         where_stmt = " WHERE " + " AND ".join(where_clauses)
@@ -163,6 +173,7 @@ def list_products():
         brand_options=brand_options,
         category_options=category_options,
         search_term=search_term,
+        item_type_filter=item_type_filter,
         sort_option=sort_option,
         current_page=page,
         total_pages=total_pages,
@@ -422,6 +433,31 @@ def add_product():
         website_url = (request.form.get("website_url") or "").strip() or None
         manufacturer_url = (request.form.get("manufacturer_url") or "").strip() or None
         product_code = (request.form.get("product_code") or "").strip() or None
+        item_type = request.form.get("item_type") or ""
+
+        # reload categories/brands for error cases
+        cur.execute("SELECT category FROM category_pricing_defaults ORDER BY category;")
+        cat_rows = cur.fetchall()
+        cur.execute("SELECT name FROM brands ORDER BY name;")
+        brand_rows = cur.fetchall()
+
+        categories = [row["category"] for row in cat_rows]
+        brand_options = [row["name"] for row in brand_rows]
+
+        if item_type not in ("proizvod", "usluga"):
+            conn.close()
+            return render_template(
+                "pricing/product_form.html",
+                categories=categories,
+                brand_options=brand_options,
+                product={
+                    "name": name, "description": description, "category": category,
+                    "brand": brand, "website_url": website_url,
+                    "manufacturer_url": manufacturer_url, "product_code": product_code,
+                    "item_type": item_type, "id": None,
+                },
+                error="Vrsta stavke je obavezna: fizički proizvod ili usluga."
+            )
 
         # 1) check duplicate name
         cur.execute("""
@@ -431,13 +467,6 @@ def add_product():
         """, (name,))
         existing = cur.fetchone()
 
-        # reload categories/brands for error cases
-        cur.execute("SELECT category FROM category_pricing_defaults ORDER BY category;")
-        cat_rows = cur.fetchall()
-        cur.execute("SELECT name FROM brands ORDER BY name;")
-        brand_rows = cur.fetchall()
-
-        categories = [row["category"] for row in cat_rows]
         brand_options = [row["name"] for row in brand_rows]
 
         if existing:
@@ -496,10 +525,10 @@ def add_product():
 
         cur.execute("""
             INSERT INTO products (name, description, category, brand, photo_path,
-                                  website_url, manufacturer_url, product_code)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+                                  website_url, manufacturer_url, product_code, item_type)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
         """, (name, description, category, brand, photo_path,
-              website_url, manufacturer_url, product_code))
+              website_url, manufacturer_url, product_code, item_type))
         
         new_product_id = cur.lastrowid
         conn.commit()
@@ -563,6 +592,22 @@ def edit_product(product_id):
         website_url = (request.form.get("website_url") or "").strip() or None
         manufacturer_url = (request.form.get("manufacturer_url") or "").strip() or None
         product_code = (request.form.get("product_code") or "").strip() or None
+        item_type = request.form.get("item_type") or ""
+        if item_type not in ("proizvod", "usluga"):
+            product_dict = dict(product)
+            product_dict.update({
+                "name": name, "description": description, "category": category,
+                "brand": brand, "website_url": website_url,
+                "manufacturer_url": manufacturer_url, "product_code": product_code,
+                "item_type": item_type,
+            })
+            return render_template(
+                "pricing/product_form.html",
+                categories=categories,
+                brand_options=brand_options,
+                product=product_dict,
+                error="Vrsta stavke je obavezna: fizički proizvod ili usluga."
+            )
 
         # check duplicate name (but ignore this product's own id)
         cur.execute("""
@@ -593,6 +638,7 @@ def edit_product(product_id):
             product_dict["website_url"] = website_url
             product_dict["manufacturer_url"] = manufacturer_url
             product_dict["product_code"] = product_code
+            product_dict["item_type"] = item_type
             
             return render_template(
                 "pricing/product_form.html",
@@ -659,6 +705,7 @@ def edit_product(product_id):
             product["website_url"] = website_url
             product["manufacturer_url"] = manufacturer_url
             product["product_code"] = product_code
+            product["item_type"] = item_type
             product["photo_url"] = photo_url # Carry over the failed URL so user can see/fix it
             
             conn.close()
@@ -682,10 +729,10 @@ def edit_product(product_id):
         cur.execute("""
             UPDATE products
             SET name = ?, description = ?, category = ?, brand = ?, photo_path = ?,
-                website_url = ?, manufacturer_url = ?, product_code = ?
+                website_url = ?, manufacturer_url = ?, product_code = ?, item_type = ?
             WHERE id = ?;
         """, (name, description, category, brand, photo_path,
-              website_url, manufacturer_url, product_code, product_id))
+              website_url, manufacturer_url, product_code, item_type, product_id))
         conn.commit()
         conn.close()
 

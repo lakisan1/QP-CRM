@@ -95,6 +95,7 @@ All query parameters are optional.
       "website_url": "https://example.com/products/cordless-drill-xr",
       "manufacturer_url": "https://dewalt.com/products/drill-xr",
       "product_code": "DW-XR-2233",
+      "item_type": "proizvod",
       "photo_path": "cordless_drill_xr.jpg",
       "photo_url": "/api/v1/products/1/photo",
       "current_price": 249.99,
@@ -141,6 +142,7 @@ curl -X POST http://localhost:5000/api/v1/products \
     "website_url": "https://example.com/products/drill",
     "manufacturer_url": "https://dewalt.com/drill",
     "product_code": "DW-12345",
+    "item_type": "proizvod",
     "photo_url": "https://example.com/image.jpg"
   }'
 ```
@@ -161,6 +163,8 @@ Only `name` is required. Returns `201 Created`.
 `website_url` and `manufacturer_url` are optional informational links stored on the product. They appear only on product pages (pricing list, sale product view) — they are never copied into offer items or offer PDFs.
 
 `product_code` is an optional free-text external ID / catalogue code (vendor sku, kataloški broj) on the product, same visibility rule: product pages only, never in offers. On update, absent = keep current, empty string = clear.
+
+`item_type` is REQUIRED on create: `'proizvod'` (physical product) or `'usluga'` (service). Every pre-existing product row was migrated as `'proizvod'`. On update, absent = keep current; present must be one of the two values.
 
 **Response:** `409 Conflict` if a product with the same name already exists.
 

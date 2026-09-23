@@ -180,6 +180,7 @@ def list_products():
             "website_url": p["website_url"],
             "manufacturer_url": p["manufacturer_url"],
             "product_code": p["product_code"],
+            "item_type": p["item_type"],
             "photo_path": p["photo_path"],
             "photo_url": photo_url,
             "current_price": p["current_price"],
@@ -238,6 +239,7 @@ def get_product(product_id):
             "website_url": row["website_url"],
             "manufacturer_url": row["manufacturer_url"],
             "product_code": row["product_code"],
+            "item_type": row["item_type"],
             "photo_path": row["photo_path"],
             "photo_url": photo_url,
             "current_price": row["current_price"],
@@ -278,6 +280,9 @@ def create_product():
         website_url = (data.get("website_url") or "").strip() or None
         manufacturer_url = (data.get("manufacturer_url") or "").strip() or None
         product_code = (data.get("product_code") or "").strip() or None
+        item_type = (data.get("item_type") or "").strip()
+        if item_type not in ("proizvod", "usluga"):
+            return jsonify({"success": False, "error": "item_type is required: 'proizvod' or 'usluga'."}), 400
         photo_url_field = (data.get("photo_url") or "").strip()
         photo_file = None
     else:
@@ -288,6 +293,9 @@ def create_product():
         website_url = (request.form.get("website_url") or "").strip() or None
         manufacturer_url = (request.form.get("manufacturer_url") or "").strip() or None
         product_code = (request.form.get("product_code") or "").strip() or None
+        item_type = (request.form.get("item_type") or "").strip()
+        if item_type not in ("proizvod", "usluga"):
+            return jsonify({"success": False, "error": "item_type is required: 'proizvod' or 'usluga'."}), 400
         photo_url_field = (request.form.get("photo_url") or "").strip()
         photo_file = request.files.get("photo")
 
@@ -324,10 +332,10 @@ def create_product():
 
     cur.execute("""
         INSERT INTO products (name, description, category, brand, photo_path,
-                              website_url, manufacturer_url, product_code)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+                              website_url, manufacturer_url, product_code, item_type)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
     """, (name, description, category, brand, photo_path,
-          website_url, manufacturer_url, product_code))
+          website_url, manufacturer_url, product_code, item_type))
     new_id = cur.lastrowid
     conn.commit()
     conn.close()
@@ -344,6 +352,7 @@ def create_product():
             "website_url": website_url,
             "manufacturer_url": manufacturer_url,
             "product_code": product_code,
+            "item_type": item_type,
             "photo_path": photo_path,
             "photo_url": photo_url,
         }
@@ -372,6 +381,7 @@ def update_product(product_id):
         website_url = data.get("website_url")
         manufacturer_url = data.get("manufacturer_url")
         product_code = data.get("product_code")
+        item_type = data.get("item_type")
         photo_url_field = (data.get("photo_url") or "").strip()
         photo_file = None
     else:
@@ -382,6 +392,7 @@ def update_product(product_id):
         website_url = request.form.get("website_url")
         manufacturer_url = request.form.get("manufacturer_url")
         product_code = request.form.get("product_code")
+        item_type = request.form.get("item_type")
         photo_url_field = (request.form.get("photo_url") or "").strip()
         photo_file = request.files.get("photo")
 
@@ -402,6 +413,11 @@ def update_product(product_id):
     final_manufacturer_url = (manufacturer_url.strip() or None) if manufacturer_url is not None else product["manufacturer_url"]
     # product_code: absent -> keep current; present -> empty string clears it
     final_product_code = (product_code.strip() or None) if product_code is not None else product["product_code"]
+    # item_type: absent -> keep current; present -> must be a valid choice
+    if item_type is not None and item_type not in ("proizvod", "usluga"):
+        conn.close()
+        return jsonify({"success": False, "error": "item_type must be 'proizvod' or 'usluga'."}), 400
+    final_item_type = item_type if item_type is not None else product["item_type"]
 
     # Handle photo
     photo_path = product["photo_path"]
@@ -457,10 +473,10 @@ def update_product(product_id):
     cur.execute("""
         UPDATE products
         SET name = ?, description = ?, category = ?, brand = ?, photo_path = ?,
-            website_url = ?, manufacturer_url = ?, product_code = ?
+            website_url = ?, manufacturer_url = ?, product_code = ?, item_type = ?
         WHERE id = ?;
     """, (final_name, final_description, final_category, final_brand, photo_path,
-          final_website_url, final_manufacturer_url, final_product_code, product_id))
+          final_website_url, final_manufacturer_url, final_product_code, final_item_type, product_id))
     conn.commit()
     conn.close()
 
@@ -476,6 +492,7 @@ def update_product(product_id):
             "website_url": final_website_url,
             "manufacturer_url": final_manufacturer_url,
             "product_code": final_product_code,
+            "item_type": final_item_type,
             "photo_path": photo_path,
             "photo_url": photo_url,
         }
@@ -1464,8 +1481,8 @@ def sync_add_product():
 
     # Create the CRM product
     cur.execute("""
-        INSERT INTO products (name, description, category, brand, photo_path)
-        VALUES (?, ?, ?, ?, ?);
+        INSERT INTO products (name, description, category, brand, photo_path, item_type)
+        VALUES (?, ?, ?, ?, ?, 'proizvod');
     """, (name, description, category, brand, photo_path))
     new_id = cur.lastrowid
 

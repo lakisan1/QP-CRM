@@ -164,7 +164,7 @@ def test_api_v1_exempt_from_csrf():
     client = app.test_client()
     resp = client.post(
         "/api/v1/products",
-        json={"name": "CSRF Exempt Probe"},
+        json={"name": "CSRF Exempt Probe", "item_type": "proizvod"},
         headers={"Authorization": f"Bearer {key}"},
     )
     assert resp.status_code == 201

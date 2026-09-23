@@ -65,6 +65,15 @@
             {% endif %}
         </p>
         <p>
+            <label>{{ _('Item type') }} *:<br>
+                <select name="item_type" required class="long-input">
+                    <option value="proizvod" {% if (product and (product.item_type or 'proizvod') == 'proizvod') %}selected{% endif %}>{{ _('Physical product') }}</option>
+                    <option value="usluga" {% if product and product.item_type == 'usluga' %}selected{% endif %}>{{ _('Service') }}</option>
+                </select>
+                <br><small>{{ _('Required — existing products are all physical products.') }}</small>
+            </label>
+        </p>
+        <p>
             <label>Naziv:<br>
                 <input type="text" name="name" required class="long-input"
                     value="{% if product %}{{ product.name }}{% endif %}">

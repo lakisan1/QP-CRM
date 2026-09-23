@@ -35,6 +35,17 @@
                 </div>
             </label>
             <label style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
+                <span style="font-weight: 500; font-size: 14px; white-space: nowrap;">{{ _('Item type')|default('Vrsta stavke') }}:</span>
+                <div style="width: 160px;">
+                    <select name="item_type" class="searchable-select" onchange="this.form.submit()"
+                        style="margin-bottom: 0;">
+                        <option value="">-- {{ _('all')|default('sve') }} --</option>
+                        <option value="proizvod" {% if item_type_filter=='proizvod' %}selected{% endif %}>{{ _('Physical product')|default('Fizički proizvod') }}</option>
+                        <option value="usluga" {% if item_type_filter=='usluga' %}selected{% endif %}>{{ _('Service')|default('Usluga') }}</option>
+                    </select>
+                </div>
+            </label>
+            <label style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
                 <span style="font-weight: 500; font-size: 14px; white-space: nowrap;">Pretraga po imenu:</span>
                 <input type="text" name="search" value="{{ search_term or '' }}" onchange="this.form.submit()"
                     style="margin-bottom: 0; width: 200px;">
@@ -91,6 +102,9 @@
                 <a href="{{ url_for('sale.view_product', product_id=p.id) }}"
                     style="text-decoration: none; color: var(--accent-primary, #3498db); font-weight: 500;">{{ p.name
                     }}</a>
+                {% if p.item_type == 'usluga' %}
+                <span style="font-size: 11px; background: #8e44ad; color: white; padding: 2px 8px; border-radius: 10px; margin-left: 4px;">{{ _('Service')|default('Usluga') }}</span>
+                {% endif %}
             </td>
             <td>{{ p.category }}</td>
             <td>{{ p.brand }}</td>

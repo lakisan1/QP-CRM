@@ -61,6 +61,7 @@ def list_sale():
         session.pop("sale_filter_brand", None)
         session.pop("sale_filter_category", None)
         session.pop("sale_filter_search", None)
+        session.pop("sale_filter_item_type", None)
         return redirect(url_for("sale.list_sale"))
 
     # Load from request or fallback to session
@@ -81,6 +82,12 @@ def list_sale():
         search_term = session.get("sale_filter_search", "")
     else:
         session["sale_filter_search"] = search_term
+
+    item_type_filter = request.args.get("item_type")
+    if item_type_filter is None:
+        item_type_filter = session.get("sale_filter_item_type", "")
+    else:
+        session["sale_filter_item_type"] = item_type_filter
 
     sort_option = request.args.get("sort")
     if sort_option is None:
@@ -133,6 +140,9 @@ def list_sale():
         if search_term:
             where_clauses.append("p.name LIKE ?")
             params.append(f"%{search_term}%")
+        if item_type_filter in ("proizvod", "usluga"):
+            where_clauses.append("p.item_type = ?")
+            params.append(item_type_filter)
 
         if where_clauses:
             where_stmt = " WHERE " + " AND ".join(where_clauses)
@@ -200,6 +210,7 @@ def list_sale():
         brand_options=brand_options,
         category_options=category_options,
         search_term=search_term,
+        item_type_filter=item_type_filter,
         sort_option=sort_option,
         current_page=page,
         total_pages=total_pages,

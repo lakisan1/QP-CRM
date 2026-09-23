@@ -47,6 +47,7 @@ def _create_product(client, name, website_url="", manufacturer_url=""):
             "category": "Alati",
             "brand": "TestBrand",
             "description": "opis",
+            "item_type": "proizvod",
             "website_url": website_url,
             "manufacturer_url": manufacturer_url,
         },
@@ -100,6 +101,7 @@ def test_edit_product_updates_and_clears_links():
             "category": "Alati",
             "brand": "TestBrand",
             "description": "opis",
+            "item_type": "proizvod",
             "website_url": "https://new.example.com",
             "manufacturer_url": "",  # cleared
         },

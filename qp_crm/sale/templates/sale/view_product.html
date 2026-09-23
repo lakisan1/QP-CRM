@@ -132,6 +132,10 @@
                 <span class="value">{{ product.product_code }}</span>
             </div>
             {% endif %}
+            <div>
+                <span class="label">{{ _('Item type')|default('Vrsta stavke') }}</span>
+                <span class="value">{{ _('Service')|default('Usluga') if product.item_type == 'usluga' else _('Physical product')|default('Fizički proizvod') }}</span>
+            </div>
             {% if product.website_url %}
             <div>
                 <span class="label">{{ _('Website')|default('Sajt') }}</span>
