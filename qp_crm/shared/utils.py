@@ -66,6 +66,7 @@ TRANSLATIONS = {
         'Brands': 'Brendovi',
         'Website link': 'Link ka sajtu',
         'Manufacturer link': 'Link ka proizvođaču',
+        'Product ID / code': 'ID / šifra proizvoda',
         'Website': 'Sajt',
         'Manufacturer': 'Proizvođač',
         'Optional — shown only on product pages, never in offers.': 'Opciono — prikazuje se samo na stranici proizvoda, nikada u ponudama.',

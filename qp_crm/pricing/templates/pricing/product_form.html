@@ -77,6 +77,14 @@
             </label>
         </p>
         <p>
+            <label>{{ _('Product ID / code') }}:<br>
+                <input type="text" name="product_code" class="long-input"
+                    placeholder="npr. kataloški broj, šifra dobavljača"
+                    value="{% if product %}{{ product.product_code or '' }}{% endif %}">
+                <br><small>{{ _('Optional — shown only on product pages, never in offers.') }}</small>
+            </label>
+        </p>
+        <p>
             <label>{{ _('Website link') }}:<br>
                 <input type="url" name="website_url" class="long-input"
                     placeholder="https://example.com/product-page"

@@ -126,6 +126,12 @@
                 <span class="label">{{ _('Category')|default('Kategorija') }}</span>
                 <span class="value">{{ product.category or '-' }}</span>
             </div>
+            {% if product.product_code %}
+            <div>
+                <span class="label">{{ _('Product ID / code')|default('ID / šifra proizvoda') }}</span>
+                <span class="value">{{ product.product_code }}</span>
+            </div>
+            {% endif %}
             {% if product.website_url %}
             <div>
                 <span class="label">{{ _('Website')|default('Sajt') }}</span>

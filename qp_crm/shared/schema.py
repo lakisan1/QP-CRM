@@ -51,7 +51,8 @@ def create_pricing_tables(cur):
             brand TEXT,
             photo_path TEXT,
             website_url TEXT,        -- optional link to the product's web page
-            manufacturer_url TEXT    -- optional link to the manufacturer's page
+            manufacturer_url TEXT,   -- optional link to the manufacturer's page
+            product_code TEXT        -- optional external ID / catalogue code (offer-invisible)
         );
     """)
 
@@ -504,12 +505,15 @@ def migrate_pricing(cur):
     # index (NULLs are treated as distinct in a unique index - which is correct).
     add_column_if_missing(cur, "products", "site_product_id INTEGER")
 
-    # 3c. Optional informational links on the product itself. Deliberately
+    # 3c. Optional informational fields on the product itself. Deliberately
     # offer-invisible: they never flow into offer_items snapshots or any
     # offer/PDF template -- they surface only on product pages (pricing form,
     # products list, sale view).
     add_column_if_missing(cur, "products", "website_url TEXT")
     add_column_if_missing(cur, "products", "manufacturer_url TEXT")
+    # 3d. Optional external product ID / catalogue code (vendor sku, kataloški
+    # broj). Free text, empty-as-NULL, offer-invisible like 3c.
+    add_column_if_missing(cur, "products", "product_code TEXT")
     cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_products_site_product_id ON products(site_product_id);")
     # Index for fast lookups by name when building the comparison table
     cur.execute("CREATE INDEX IF NOT EXISTS idx_products_name ON products(name);")

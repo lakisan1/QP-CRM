@@ -179,6 +179,7 @@ def list_products():
             "brand": p["brand"],
             "website_url": p["website_url"],
             "manufacturer_url": p["manufacturer_url"],
+            "product_code": p["product_code"],
             "photo_path": p["photo_path"],
             "photo_url": photo_url,
             "current_price": p["current_price"],
@@ -236,6 +237,7 @@ def get_product(product_id):
             "brand": row["brand"],
             "website_url": row["website_url"],
             "manufacturer_url": row["manufacturer_url"],
+            "product_code": row["product_code"],
             "photo_path": row["photo_path"],
             "photo_url": photo_url,
             "current_price": row["current_price"],
@@ -275,6 +277,7 @@ def create_product():
         brand = data.get("brand") or ""
         website_url = (data.get("website_url") or "").strip() or None
         manufacturer_url = (data.get("manufacturer_url") or "").strip() or None
+        product_code = (data.get("product_code") or "").strip() or None
         photo_url_field = (data.get("photo_url") or "").strip()
         photo_file = None
     else:
@@ -284,6 +287,7 @@ def create_product():
         brand = request.form.get("brand") or ""
         website_url = (request.form.get("website_url") or "").strip() or None
         manufacturer_url = (request.form.get("manufacturer_url") or "").strip() or None
+        product_code = (request.form.get("product_code") or "").strip() or None
         photo_url_field = (request.form.get("photo_url") or "").strip()
         photo_file = request.files.get("photo")
 
@@ -320,10 +324,10 @@ def create_product():
 
     cur.execute("""
         INSERT INTO products (name, description, category, brand, photo_path,
-                              website_url, manufacturer_url)
-        VALUES (?, ?, ?, ?, ?, ?, ?);
+                              website_url, manufacturer_url, product_code)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?);
     """, (name, description, category, brand, photo_path,
-          website_url, manufacturer_url))
+          website_url, manufacturer_url, product_code))
     new_id = cur.lastrowid
     conn.commit()
     conn.close()
@@ -339,6 +343,7 @@ def create_product():
             "brand": brand,
             "website_url": website_url,
             "manufacturer_url": manufacturer_url,
+            "product_code": product_code,
             "photo_path": photo_path,
             "photo_url": photo_url,
         }
@@ -366,6 +371,7 @@ def update_product(product_id):
         brand = data.get("brand")
         website_url = data.get("website_url")
         manufacturer_url = data.get("manufacturer_url")
+        product_code = data.get("product_code")
         photo_url_field = (data.get("photo_url") or "").strip()
         photo_file = None
     else:
@@ -375,6 +381,7 @@ def update_product(product_id):
         brand = request.form.get("brand")
         website_url = request.form.get("website_url")
         manufacturer_url = request.form.get("manufacturer_url")
+        product_code = request.form.get("product_code")
         photo_url_field = (request.form.get("photo_url") or "").strip()
         photo_file = request.files.get("photo")
 
@@ -393,6 +400,8 @@ def update_product(product_id):
     # URL fields: absent -> keep current; present -> empty string clears the link
     final_website_url = (website_url.strip() or None) if website_url is not None else product["website_url"]
     final_manufacturer_url = (manufacturer_url.strip() or None) if manufacturer_url is not None else product["manufacturer_url"]
+    # product_code: absent -> keep current; present -> empty string clears it
+    final_product_code = (product_code.strip() or None) if product_code is not None else product["product_code"]
 
     # Handle photo
     photo_path = product["photo_path"]
@@ -448,10 +457,10 @@ def update_product(product_id):
     cur.execute("""
         UPDATE products
         SET name = ?, description = ?, category = ?, brand = ?, photo_path = ?,
-            website_url = ?, manufacturer_url = ?
+            website_url = ?, manufacturer_url = ?, product_code = ?
         WHERE id = ?;
     """, (final_name, final_description, final_category, final_brand, photo_path,
-          final_website_url, final_manufacturer_url, product_id))
+          final_website_url, final_manufacturer_url, final_product_code, product_id))
     conn.commit()
     conn.close()
 
@@ -466,6 +475,7 @@ def update_product(product_id):
             "brand": final_brand,
             "website_url": final_website_url,
             "manufacturer_url": final_manufacturer_url,
+            "product_code": final_product_code,
             "photo_path": photo_path,
             "photo_url": photo_url,
         }
