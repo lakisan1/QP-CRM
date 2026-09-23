@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="{{ current_lang|default('en') }}" data-theme="{{ theme|default('dark') }}">
+
+<head>
+    <meta charset="utf-8">
+    <title>{% block title %}Offers{% endblock %}</title>
+    <link rel="icon" type="image/png" href="/app_assets/favicon.png">
+
+    {# Only load main.css for normal UI pages, not for PDF rendering #}
+    {% if pdf_mode is not defined or not pdf_mode %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+    <!-- SortableJS (drag and drop) -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <!-- Custom PDF Utils -->
+    <script src="{{ url_for('static', filename='js/pdf_utils.js') }}"></script>
+    {% endif %}
+</head>
+
+<body>
+    {% if pdf_mode is not defined or not pdf_mode %}
+    {% from '_banner.html' import banner with context %}
+    {% call banner() %}
+        <a href="{{ url_for('offer.list_offers') }}" {% if request.endpoint=='offer.list_offers' %}class="active" {% endif %}>{{ _('Offers') }}</a>
+        <a href="{{ url_for('offer.compare_offers') }}" {% if request.endpoint=='offer.compare_offers' %}class="active" {% endif %}>{{ _('Compare Offers') }}</a>
+    {% endcall %}
+    {% endif %}
+
+    {% block content %}{% endblock %}
+
+    {% if pdf_mode is not defined or not pdf_mode %}
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            // Initialize Tom Select on elements with .searchable-select class
+            document.querySelectorAll('.searchable-select').forEach((el) => {
+                new TomSelect(el, {
+                    create: false,
+                    sortField: {
+                        field: "text",
+                        direction: "asc"
+                    }
+                });
+            });
+        });
+    </script>
+    {% endif %}
+</body>
+
+</html>

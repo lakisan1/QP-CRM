@@ -1,0 +1,118 @@
+"""Core admin routes: login, logout and the admin dashboard."""
+
+from flask import render_template, redirect, url_for
+import time
+
+from ..app import bp, get_db, get_country_list, fetch_mandatory_fields, fetch_rent_defaults, DEFAULT_RENT_EMAIL
+from qp_crm.shared.web import get_theme
+
+@bp.route("/login", methods=["GET", "POST"])
+def login():
+    # Phase 3: ONE unified login on the top-level app (/login); redirect
+    # keeps old bookmarks alive.
+    return redirect(url_for("auth.login", next=url_for("admin.index")))
+
+@bp.route("/logout")
+def logout():
+    # Unified logout everywhere (Phase 3 step 3).
+    return redirect(url_for("auth.logout"))
+
+@bp.route("/")
+def index():
+    conn = get_db()
+    cur = conn.cursor()
+    
+    # Get current settings
+    cur.execute("SELECT value FROM global_settings WHERE key = 'date_format';")
+    row = cur.fetchone()
+    current_date_format = row["value"] if row else "YYYY-MM-DD"
+
+    # Theme is a per-browser cookie (the single store; /settings and the
+    # dashboard Theme select write it). The old global_settings 'theme' row
+    # is no longer read anywhere -- dashboard renders the cookie exactly
+    # like every other screen page.
+    current_theme = get_theme()
+    
+    cur.execute("SELECT value FROM global_settings WHERE key = 'allow_duplicate_names';")
+    row = cur.fetchone()
+    allow_duplicate_names = row["value"] if row else "false"
+
+    cur.execute("SELECT value FROM global_settings WHERE key = 'enable_product_discount';")
+    row = cur.fetchone()
+    enable_product_discount = row["value"] if row else "true"
+
+    cur.execute("SELECT value FROM global_settings WHERE key = 'language';")
+    row = cur.fetchone()
+    current_language = row["value"] if row else "en"
+
+    cur.execute("SELECT value FROM global_settings WHERE key = 'default_vat_percent';")
+    row = cur.fetchone()
+    default_vat_percent = row["value"] if row else "20"
+
+    cur.execute("SELECT value FROM global_settings WHERE key = 'default_validity_days';")
+    row = cur.fetchone()
+    default_validity_days = row["value"] if row else "10"
+
+    cur.execute("SELECT value FROM global_settings WHERE key = 'default_country';")
+    row = cur.fetchone()
+    default_country = row["value"] if row else "Srbija"
+
+    cur.execute("SELECT value FROM global_settings WHERE key = 'email_offer_subject';")
+    row = cur.fetchone()
+    email_offer_subject = row["value"] if row else "Ponuda br. {offer_number}"
+
+    cur.execute("SELECT value FROM global_settings WHERE key = 'email_offer_body';")
+    row = cur.fetchone()
+    email_offer_body = row["value"] if row else "Postovani,\n\nU prilogu vam saljemo ponudu br. {offer_number}.\n\nSrdacan pozdrav,\nVas Tim"
+
+    cur.execute("SELECT value FROM global_settings WHERE key = 'default_items_per_page';")
+    row = cur.fetchone()
+    default_items_per_page = row["value"] if row else "25"
+
+    # Fetch rent module defaults (shared key map + reader)
+    rent_defaults = fetch_rent_defaults(cur)
+
+    # Fetch rent email preset
+    _DEFAULT_RENT_EMAIL = DEFAULT_RENT_EMAIL
+    cur.execute("SELECT value FROM global_settings WHERE key = 'rent_email_preset';")
+    row = cur.fetchone()
+    rent_email_preset = row["value"] if row else _DEFAULT_RENT_EMAIL
+
+    # Fetch all presets and group by category
+    cur.execute("SELECT * FROM text_presets ORDER BY name ASC;")
+    all_presets = cur.fetchall()
+    presets_by_cat = {'delivery': [], 'payment': [], 'note': [], 'extra': []}
+    for p in all_presets:
+        if p['category'] in presets_by_cat:
+            presets_by_cat[p['category']].append(p)
+
+    # Fetch mandatory fields settings (shared reader)
+    mandatory_fields = fetch_mandatory_fields(cur)
+
+    # API key management lives exclusively in Admin -> API Keys
+    # (/admin/api_keys) -- the dashboard no longer renders the legacy
+    # global-key panel, so the key values are not fetched here anymore.
+
+    conn.close()
+
+    return render_template(
+        "admin/admin_dashboard.html",
+        current_date_format=current_date_format,
+        current_theme=current_theme,
+        allow_duplicate_names=allow_duplicate_names,
+        enable_product_discount=enable_product_discount,
+        current_language=current_language,
+        default_vat_percent=default_vat_percent,
+        default_validity_days=default_validity_days,
+        default_country=default_country,
+        countries=get_country_list(),
+        presets_by_cat=presets_by_cat,
+        mandatory_fields=mandatory_fields,
+        email_offer_subject=email_offer_subject,
+        email_offer_body=email_offer_body,
+        default_items_per_page=default_items_per_page,
+        rent_defaults=rent_defaults,
+        rent_email_preset=rent_email_preset,
+        timestamp=int(time.time()),
+        theme=current_theme
+    )

@@ -1,0 +1,51 @@
+# Build-context hygiene (P0-T5): keep the image small and secrets/data out
+# of the build context. Runtime state (app_data, app_assets, static/img)
+# reaches the container via bind mounts — not via COPY of these files.
+
+# Virtualenv, VCS, editor, workspace noise
+venv/
+.git/
+.agents/
+.vscode/
+KANBAN.json
+README_Images/
+
+# Runtime data / secrets (bind-mounted or injected at runtime instead).
+# backups/ holds pre-deploy DB snapshots (users + password hashes) — it must
+# NEVER enter the build context, especially now the image is public on GHCR.
+app_data/
+backups/
+.env
+
+# Python + log junk
+__pycache__/
+*.pyc
+*.log
+main.log
+
+# Binary artifacts and one-off dev scripts. The legacy root test_*.py
+# scratch scripts are named individually (NOT blanket-ignored) because the
+# pytest suite itself lives in tests/ and MUST ship in the image.
+*.pdf
+*.xlsx
+*.xlsb
+pricing.db
+success.pdf
+download_pdf*.py
+measure_pdf*.py
+test_dests.py
+test_dests2.py
+test_pdf_flask.py
+test_weasy.py
+
+# Same junk nested in subpackages (plain `*.pyc` etc. only match the root)
+**/__pycache__/
+**/*.pyc
+**/*.log
+
+# The pytest suite + golden PDF baselines ship in the image so the suite can
+# run with one command (docker compose run --rm app pytest). Negations come
+# last on purpose: later rules override earlier ones, so this also un-ignores
+# tests/golden/baselines/*.pdf matched by `*.pdf` above.
+!tests/
+!tests/**

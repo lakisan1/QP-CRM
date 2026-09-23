@@ -5,6 +5,10 @@
     <meta charset="UTF-8">
     <title>Izbor Aplikacije</title>
     <link rel="icon" type="image/png" href="/app_assets/favicon.png">
+    <!-- PWA (installable app window): manifest + browser theme matching the
+         dark theme CSS variables (--bg-body #121212 / --nav-bg #2d2d2d). -->
+    <link rel="manifest" href="/static/manifest.webmanifest">
+    <meta name="theme-color" content="#2d2d2d">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
@@ -94,48 +98,82 @@
     </style>
 </head>
 
-<body data-theme="dark">
+<body data-theme="{{ theme|default('dark') }}">
     <div class="landing-container">
         <h1>Dobrodošli</h1>
         <p class="subtitle">Izaberite aplikaciju za nastavak</p>
 
         <div class="app-selection">
+            {% if is_admin or 'pricing' in granted %}
             <a href="/pricing/" class="app-card">
                 <span class="app-icon">🏷️</span>
                 <span class="app-title">Cenovnik</span>
                 <span class="app-desc">Upravljanje proizvodima, troškovima, maržama i istorijom cena.</span>
             </a>
+            {% endif %}
 
+            {% if is_admin or 'sale' in granted %}
             <a href="/sale/pricelist" class="app-card">
                 <span class="app-icon">🛒</span>
                 <span class="app-title">Prodaja</span>
                 <span class="app-desc">Pregled cena proizvoda.</span>
             </a>
+            {% endif %}
 
+            {% if is_admin or 'offer' in granted %}
             <a href="/offer/" class="app-card">
                 <span class="app-icon">📝</span>
                 <span class="app-title">Ponude</span>
                 <span class="app-desc">Kreiranje i upravljanje profesionalnim ponudama za klijente.</span>
             </a>
+            {% endif %}
+
+            {% if is_admin or 'contacts' in granted %}
+            <a href="/contacts/" class="app-card">
+                <span class="app-icon">📇</span>
+                <span class="app-title">Imenik</span>
+                <span class="app-desc">Zajednički imenik: kupci, dobavljači, zaposleni, spoljni saradnici — firme i fizička lica.</span>
+            </a>
+            {% endif %}
             <a href="/settings/" class="app-card">
                 <span class="app-icon">🛠️</span>
                 <span class="app-title">Podešavanja</span>
                 <span class="app-desc">Lokalna podešavanja.</span>
             </a>
 
+            {% if is_admin or 'rent' in granted %}
             <a href="/rent/" class="app-card">
                 <span class="app-icon">📋</span>
                 <span class="app-title">Zakup Opreme</span>
                 <span class="app-desc">Ugovori o zakupu, kalkulacija mesečnih rata, ponude i planovi plaćanja.</span>
             </a>
+            {% endif %}
 
+            {% if is_admin %}
             <a href="/admin/" class="app-card">
                 <span class="app-icon">⚙️</span>
                 <span class="app-title">Admin Panel</span>
                 <span class="app-desc">Konfiguracija podešavanja, lozinki i brendiranja.</span>
             </a>
+            {% endif %}
         </div>
     </div>
+
+    <!-- PWA: register the static-only service worker (cache-first for
+         /static assets; everything else network-only). Service workers are
+         unavailable outside a secure context (HTTPS / localhost) -- over
+         plain HTTP on a LAN IP Chrome ignores it, so skip quietly there. -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            if (window.isSecureContext) {
+                navigator.serviceWorker.register('/static/sw.js', { scope: '/' })
+                    .then(function () { console.info('[PWA] service worker registered (scope /).'); })
+                    .catch(function (err) { console.warn('[PWA] service worker registration failed:', err); });
+            } else {
+                console.info('[PWA] service workers unavailable: not a secure context (use HTTPS or localhost).');
+            }
+        }
+    </script>
 </body>
 
 </html>

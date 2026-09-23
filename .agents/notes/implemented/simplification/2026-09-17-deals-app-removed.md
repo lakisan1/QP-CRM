@@ -1,0 +1,18 @@
+# Agent Note: deals-app-removed
+
+Status: implemented
+
+## Problem
+
+The user found the /deals app (http://192.168.1.34:5000/deals/deals) unusable as built and ordered it removed entirely — the app, its routes/templates, the deal spine (customers, locations, deal threads, pipeline) AND the P4.x invoices/payments built on it, plus every reference. The shared directory (/contacts) built in P5-pre stays and becomes the single party registry.
+
+## Decision
+
+Shipped in commit 8e8f863 on Dev; container rebuilt + restarted via deploy.sh (healthcheck healthy); the dead tables were DROPped from the production DB on user confirmation (customers, customer_locations, deals, deal_events, deal_counters, invoices, invoice_items, payments, invoice_counters, contact_links). Removed: qp_crm/deals/ (blueprint + routes + templates), qp_crm/services/deal_service.py, qp_crm/services/invoice_service.py, their tests, offers deal/location pickers + Posao column/view row + duplicate-thread logic, schema DDL for all ten tables (create_deals_tables/create_invoices_tables/migrate_deals and the offers.deal_id/location_id ALTERs), the 'deals' grant from MODULE_CHOICES (leftover user_modules rows are inert; version stays 4), the Poslovi landing card, conftest deals_client + deals_init_db, and factory_reset's DELETE FROM contact_links (now contact_locations). Contacts is now the ONLY party registry: contacts/contact_roles/contact_locations; contact_service gained create/update/list_contact_locations and a linked_documents read model (offers + rent_contracts UNION by contact_id, names from frozen snapshots); the detail page shows sites + linked documents; the Kupac link UI is gone. Offers keep the directory party picker + ?contact_id prefill (P5-unification behavior untouched).
+## Alternatives considered
+
+**Keeping the customers tables as a seed for the directory**: rejected by the user — "obrisi sve", clean break; the directory's rent_clients backfill already carried the real renter base into contacts. **Keeping deal/invoice code for a future rebuild**: rejected — dead code with dead references (offers.deal_id) would rot; git history (tag qp-crm-phase4, commits 1dc7c48..a0cbd1a) preserves everything if a deals-like spine returns. **Soft-deprecating /deals behind a flag**: rejected — user wants it GONE, not hidden; a flag would keep the code path half-alive. **Reusing the deals module skeleton for contacts**: rejected during P5-pre — contacts is its own blueprint (qp_crm/contacts) with its own grants; the deals module was never shared code, only a pattern reference.
+## Consequences
+
+Bought: one party model (contacts + contact_roles + contact_locations) for every current and future module; ~1.5k lines of deal/invoice code and 10 tables gone; suite shrank to 293 tests, all green; the directory's linked_documents view (offers + rent_contracts by contact_id) replaces the old deal-thread timeline as the "who did business with whom" read. Cost: the P4/P4.x work (deal threads, pipeline, invoices F-YYYY-NNN, payments) is deleted outright — if invoice numbering returns, it must be rebuilt against offers/contacts directly (no deal spine); leftover user_modules rows with module='deals' are inert (MODULE_CHOICES no longer contains it; get_user_modules still returns the stale name until each user is re-saved in Admin → Users — harmless: nothing registers a /deals route); offers.duplicate no longer preserves deal/location links (they do not exist). Edge: old test root dirs with the pre-change schema are unaffected (each run gets a fresh QP_TEST_ROOT). The docker volume keeps rent_clients (legacy, backfill source) — untouched by design.
+

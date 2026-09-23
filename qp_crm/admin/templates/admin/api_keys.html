@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="{{ theme|default('dark') }}">
+
+<head>
+    <meta charset="UTF-8">
+    <title>API Keys Management</title>
+    <link rel="icon" type="image/png" href="/app_assets/favicon.png">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+</head>
+
+<body>
+    {% set active = 'api_keys' %}{% include 'admin/_nav.html' %}
+
+    <div class="container" style="max-width: 1250px;">
+        <h1>API Keys Management</h1>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: -8px;">
+            Per-user keys for <code>/api/v1</code> — every request is audited with the holder's username.
+            These keys are the ONLY way to authenticate API access.
+        </p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ 'success' if category == 'success' else ('warning' if category == 'warning' else 'error') }}"
+             {% if 'shown only once' in message %}style="font-family: monospace; word-break: break-all;"{% endif %}>
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <div class="card">
+            <h3>Issue new key</h3>
+            <form action="{{ url_for('admin.issue_api_key_action') }}" method="POST"
+                  style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <div style="flex: 1; min-width: 160px;">
+                    <label>User</label>
+                    <select name="user_id" required>
+                        {% for u in users %}
+                        <option value="{{ u.id }}">{{ u.username }} ({{ u.role }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div style="flex: 1; min-width: 180px;">
+                    <label>Label (what is it for)</label>
+                    <input type="text" name="label" maxlength="80" placeholder="e.g. webshop sync">
+                </div>
+                <div style="min-width: 180px;">
+                    <label>Your current password</label>
+                    <input type="password" name="current_password" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn btn-primary"
+                        onclick="return confirm('Issue a new API key for the selected user?');">Issue</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h3>Issued keys</h3>
+            {% if keys %}
+            <table class="preset-table" style="width: 100%; table-layout: fixed;">
+                <thead>
+                    <tr>
+                        <th style="width: 9%;">User</th>
+                        <th style="width: 17%;">Label</th>
+                        <th style="width: 15%;">Key (prefix…)</th>
+                        <th style="width: 9%;">Status</th>
+                        <th style="width: 15%;">Created</th>
+                        <th style="width: 15%;">Last used</th>
+                        <th style="width: 20%;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for k in keys %}
+                    <tr>
+                        <td><strong>{{ k.username or "(deleted user)" }}</strong></td>
+                        <td style="word-break: break-all;">{{ k.label or "—" }}</td>
+                        <td><code>{{ k.key_prefix }}…</code></td>
+                        <td>{{ 'active' if k.is_active else 'revoked' }}</td>
+                        <td>{{ k.created_at[:19].replace('T', ' ') }}</td>
+                        <td>{{ k.last_used[:19].replace('T', ' ') if k.last_used else 'never' }}</td>
+                        <td>
+                            <div style="display: flex; flex-direction: row; flex-wrap: nowrap; gap: 8px; align-items: center;">
+                                <form action="{{ url_for('admin.toggle_api_key_action', key_id=k.id) }}" method="POST"
+                                      style="display: flex; flex: 1; gap: 6px; align-items: center; min-width: 0;">
+                                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="active" value="{{ '0' if k.is_active else '1' }}">
+                                    <input type="password" name="current_password" placeholder="Your password" required
+                                           style="flex: 1; min-width: 100px; width: auto; margin-bottom: 0;" autocomplete="current-password">
+                                    <button type="submit" class="btn {{ 'btn-danger' if k.is_active else 'btn-secondary' }}" style="white-space: nowrap;">
+                                        {{ 'Revoke' if k.is_active else 'Re-enable' }}
+                                    </button>
+                                </form>
+                                {% if not k.is_active %}
+                                <form action="{{ url_for('admin.delete_api_key_action', key_id=k.id) }}" method="POST"
+                                      style="display: flex;">
+                                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-danger" style="white-space: nowrap;"
+                                            onclick="return confirm('Permanently DELETE this revoked key row? This cannot be undone.');">🗑</button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p style="color: var(--text-muted);">No per-user keys issued yet.</p>
+            {% endif %}
+        </div>
+    </div>
+</body>
+
+</html>

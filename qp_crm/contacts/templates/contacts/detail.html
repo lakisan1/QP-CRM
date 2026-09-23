@@ -1,0 +1,106 @@
+{% extends "contacts/base.html" %}
+{% from "contacts/_badges.html" import role_badges, kind_badge %}
+{% block title %}{{ contact.display_name }}{% endblock %}
+
+{% block content %}
+<h1>{{ contact.display_name }} {{ kind_badge(contact.kind) }}</h1>
+
+<div style="display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;">
+    <a href="{{ url_for('contacts.edit_contact', contact_id=contact.id) }}" class="btn btn-primary">Izmeni</a>
+    <form method="post" action="{{ url_for('contacts.archive_contact', contact_id=contact.id) }}" onsubmit="return confirm('{{ 'Vratiti kontakt u aktivne?' if contact.archived else 'Arhivirati kontakt? (ne može se obrisati, samo arhivirati)' }}');">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="archive" value="{{ '0' if contact.archived else '1' }}">
+        <button type="submit" class="btn btn-warning">{{ 'Vrati u aktivne' if contact.archived else 'Arhiviraj' }}</button>
+    </form>
+</div>
+
+<div class="card">
+    <h2>Uloge</h2>
+    {{ role_badges(contact.roles) }}
+    {% if contact.job_title %}<p style="margin-top: 8px;">Radno mesto: <strong>{{ contact.job_title }}</strong></p>{% endif %}
+    {% if contact.user_id %}<p>Nalog: <strong>{{ contact.user_id }}</strong> (zaposleni)</p>{% endif %}
+</div>
+
+<div class="card">
+    <h2>Podaci</h2>
+    <table class="larg-table">
+        {% if contact.kind == 'person' %}
+        <tr><th>Ime i prezime</th><td>{{ contact.first_name or '—' }} {{ contact.last_name or '' }}</td></tr>
+        <tr><th>JMBG</th><td>{{ contact.jmbg or '—' }}</td></tr>
+        {% else %}
+        <tr><th>PIB</th><td>{{ contact.pib or '—' }}</td></tr>
+        <tr><th>Matični broj</th><td>{{ contact.mb or '—' }}</td></tr>
+        <tr><th>Broj računa</th><td>{{ contact.account or '—' }}</td></tr>
+        {% endif %}
+        <tr><th>Adresa</th><td>{{ contact.billing_address or '—' }}{% if contact.city %}, {{ contact.city }}{% endif %}{% if contact.country %}, {{ contact.country }}{% endif %}</td></tr>
+        <tr><th>eMail</th><td>{{ contact.email or '—' }}</td></tr>
+        <tr><th>Telefon</th><td>{{ contact.phone or '—' }}</td></tr>
+        {% if contact.notes %}<tr><th>Beleške</th><td>{{ contact.notes | md | safe }}</td></tr>{% endif %}
+    </table>
+</div>
+
+<div class="card">
+    <h2>Lokacije (objekti, sajtovi)</h2>
+    <table class="larg-table">
+        <tr>
+            <th scope="col">Naziv</th>
+            <th scope="col">Adresa</th>
+            <th scope="col">Grad</th>
+            <th scope="col">Kontakt osoba</th>
+            <th scope="col">Telefon</th>
+            <th scope="col">Akcija</th>
+        </tr>
+        {% for loc in locations %}
+        <tr>
+            <td>{{ loc.name }}</td>
+            <td>{{ loc.address or '—' }}</td>
+            <td>{{ loc.city or '—' }}</td>
+            <td>{{ loc.contact_name or '—' }}</td>
+            <td>{{ loc.contact_phone or '—' }}</td>
+            <td>
+                <form method="post" action="{{ url_for('contacts.edit_contact_location', location_id=loc.id) }}" style="display: flex; gap: 6px; flex-wrap: wrap;">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="name" value="{{ loc.name }}">
+                    <button type="submit" class="btn btn-sm">Izmeni</button>
+                </form>
+            </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" style="color: var(--text-muted);">Nema unetih lokacija.</td></tr>
+        {% endfor %}
+    </table>
+
+    <h3 style="margin-top: 16px;">Dodaj lokaciju</h3>
+    <form method="post" action="{{ url_for('contacts.create_contact_location', contact_id=contact.id) }}" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end;">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <label>Naziv:<br><input type="text" name="name" required placeholder="Sajt / objekat"></label>
+        <label>Adresa:<br><input type="text" name="address"></label>
+        <label>Grad:<br><input type="text" name="city"></label>
+        <label>Kontakt osoba:<br><input type="text" name="contact_name"></label>
+        <label>Telefon:<br><input type="text" name="contact_phone"></label>
+        <button type="submit" class="btn btn-success">Dodaj</button>
+    </form>
+</div>
+
+<div class="card">
+    <h2>Povezani dokumenti</h2>
+    <table class="larg-table">
+        <tr>
+            <th scope="col">Vrsta</th>
+            <th scope="col">Broj</th>
+            <th scope="col">Datum</th>
+            <th scope="col">Klijent (snimak)</th>
+        </tr>
+        {% for d in documents %}
+        <tr>
+            <td>{{ 'Ponuda' if d.doc_type == 'offer' else 'Ugovor o zakupu' }}</td>
+            <td>{{ d.doc_number or d.url_id or d.id }}</td>
+            <td>{{ format_date(d.doc_date) if d.doc_date else '—' }}</td>
+            <td>{{ d.title_hint or '—' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" style="color: var(--text-muted);">Nema povezanih dokumenata — kontakt još nije korišćen u modulima.</td></tr>
+        {% endfor %}
+    </table>
+</div>
+{% endblock %}

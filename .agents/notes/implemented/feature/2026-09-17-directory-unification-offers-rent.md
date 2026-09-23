@@ -1,0 +1,26 @@
+# Agent Note: directory-unification-offers-rent
+
+Status: implemented
+
+## Problem
+
+After P5-pre the directory existed but offers (`/offer/offers/N/edit`) and rent (`/rent/clients`) still kept independent klient bases: rent had its own rent_clients table + CRUD page, and the offer form had no party picker at all (free-typed musterija fields, prefill only via deal context). The user asked to merge everything into one main base and carefully clean up or add what's missing.
+
+## Decision
+
+Boot-time backfill in `qp_crm/shared/schema.py::migrate_contacts` — `backfill_rent_clients_into_contacts` copies every `rent_clients` row lacking `migrated_contact_id` into `contacts` (kind=company, role=client), merging by PIB/MB onto an existing directory contact when one matches, and stamping `rent_clients.migrated_contact_id` so re-boots never duplicate. Legacy columns map: representative→job_title, rent_address/guarantor→notes ("Adresa zakupa: …" / "Jemac: …"), everything else direct. The legacy table survives as a read-only seed source; no row is ever deleted or modified.
+
+Link columns: `offers.contact_id` and `rent_contracts.contact_id` (nullable FKs, added idempotently) reference the directory. Saved documents keep their printed snapshot fields exactly as typed — the link is metadata for analytics, never a print-time name source (amendment 6d: history frozen).
+
+Offer integration (`qp_crm/offer/routes/offers.py`): `_directory_party_choices()` feeds a new "Izaberi iz imenika" TomSelect above Naziv musterije on new/edit offer — ALL active contacts (companies AND persons, any role: one base). Selecting an entry reloads with `?contact_id=` and the server pre-fills the musterija fields (person rows prefill "First Last" from first/last name); "slobodan unos" clears the param. POST persists contact_id on both insert (new_offer) and header update (edit_offer, link-only UPDATE after the header UPDATE). All four offer_form render call sites pass party_choices.
+
+Rent integration (`qp_crm/rent/routes/`): the contract picker lists ONLY directory contacts with the client role (`c<id>` refs — no legacy merge anymore); `/rent/api/client/<ref>` maps directory fields onto the legacy autofill JSON and resolves plain-int refs through `migrated_contact_id` (old callers keep working); contract POST persists `contact_id` (NULL for free-typed clients). `/rent/clients` redirects (GET) to `/contacts/contacts?role=client` and translates legacy POSTs (save→create/update directory entry role=client, delete→archive); the unused legacy `rent_clients.html` template is deleted.
+
+Cleanup: factory-reset (`admin/routes/backup.py`) clears contact_links/contact_roles/contacts (children first); `tests/test_infra_isolation.py` asserts the three directory tables exist after init.
+## Alternatives considered
+
+["**Backfill via one-time migration script** (python script run manually per deploy): rejected — boot-time idempotent backfill is the established repo pattern (all schema evolution happens in init_db/migrate_*), and a manual script would silently skip restored old volumes.", "**Rewrite rent_contracts.client_* into FK references and read names at print time**: rejected — violates amendment 6d (history is frozen): an issued contract is a legal record; renaming a contact must never rewrite a signed contract. Link column + snapshot is the codebase's established id+snapshot convention.", "**Drop rent_clients immediately (copy + DELETE)**: rejected — the legacy table still owns the rent CSV seed path and duplicates-as-markers; keeping it as a read-only seed source with migrated_contact_id markers costs nothing and preserves idempotence across restored volumes.", "**Offer picker filtered to role=client only**: rejected — the user's direction is ONE base for everything; a supplier can be a musterija tomorrow, and role filtering belongs to the directory UI (role=client), not the picker."]
+## Consequences
+
+Bought: one party base for the whole suite — offers and rent contracts now link real directory entries (companies AND fizička lica) instead of accumulating parallel client copies; legacy rentClients data arrives in the directory automatically on next boot with zero admin action; the legacy /rent/clients URL keeps working via redirect + POST translation, so old bookmarks and muscle memory do not break. Cost: rent_clients remains as a dead-ish table (seed source + backfill markers only) until the P5 stock card's cleanup removes the seed path; contract PDFs still print snapshot fields, so a directory rename does not propagate to re-printed old contracts (by design — history frozen); the offer party picker lists all active contacts regardless of role, which can grow large as the directory grows (TomSelect search mitigates; role-filtered feeds remain available via contact_service.directory_choices(roles=[...])). Negative guarantees: no automatic contact creation from free-typed musterija fields (free-typed offers save contact_id NULL by design — promoting a free-typed musterija into a directory entry is manual, in the directory app); the backfill never deletes or modifies legacy rent_clients rows; factory_reset clears the directory but the next boot re-seeds it from rent_clients markers... which factory_reset also clears — after a reset the directory is empty.
+

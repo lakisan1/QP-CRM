@@ -1,0 +1,34 @@
+# QP-CRM coverage configuration — the money-path services gate.
+#
+# pytest-cov reads this file by default (no --cov-config needed). Coverage is
+# deliberately scoped to ONLY the three service modules that own the money
+# math (Phase 2 stage 4 moved it out of the route modules into the service
+# layer); full-suite vanity numbers are NOT gated anywhere.
+#
+#   qp_crm.services.offer_service   (recalc_totals)
+#   qp_crm.services.pricing_service (apply_rounding)
+#   qp_crm.services.rent_service    (pmt, _add_months, calculate_rent,
+#                                    generate_schedule, ...)
+#
+# The module list lives HERE ([run] source) as the single source of truth:
+# CI and the documented command run bare `pytest --cov --cov-fail-under=95`
+# and coverage measures exactly these modules. Adding a new money-math module
+# means adding it here (and nowhere else).
+#
+# Fail-under is NOT set here on purpose: it is passed as --cov-fail-under=95
+# by CI (and documented in tests/README.md), so the gate value stays visible
+# in the invocation. 95 was derived from a full-suite measurement (100% / 96%
+# / 100%, 99% total — pricing_service's one missed line is an unreachable
+# legacy `val <= 0` clamp) rounded down to the nearest 5 so the gate trips on
+# real regression, not on today.
+#
+[run]
+# The image runs the suite as the non-root appuser with /app root-owned and
+# read-only (same constraint that put pytest's cache in /tmp via pytest.ini
+# cache_dir): coverage's default data file (.coverage in cwd) would be
+# unwritable there. Keep the .coverage* files in /tmp instead.
+data_file = /tmp/.coverage
+source =
+    qp_crm.services.offer_service
+    qp_crm.services.pricing_service
+    qp_crm.services.rent_service

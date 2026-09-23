@@ -1,0 +1,943 @@
+{% extends "offer/base.html" %}
+{% block content %}
+<h1>{% if offer %}Izmeni ponudu{% else %}New offer{% endif %}</h1>
+
+{# ── Musterija-first (P5-unification): step 1 sits ABOVE the form grid, so
+   picking/creating the musterija is literally the first thing on the page.
+   The directory (Imenik) is the ONLY place a new musterija is created;
+   the whole form stays dimmed until a party is picked, so nobody fills
+   everything and loses it by navigating away to create the musterija. #}
+<div class="card" id="musterija-card">
+    <h2 style="margin-top:0;">1. Musterija <small style="color: var(--text-muted);">(prvo izaberite ili dodajte musteriju)</small></h2>
+    <div id="musterija-step" style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
+        <p style="margin: 0; flex: 1; min-width: 260px;">
+            <label>Izaberi iz imenika <small>(firme i fizička lica — zajednička baza)</small>:<br>
+                <select name="picked_party_ref" id="contact-select" class="searchable-select long-input">
+                    <option value="">-- izaberi musteriju --</option>
+                    {% for contact_id, label in party_choices %}
+                    <option value="{{ contact_id }}" {% if selected_contact_id == contact_id %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+        </p>
+        <a href="{{ url_for('contacts.new_contact', return_to=request.path) }}" class="btn btn-success" id="btn-new-musterija" style="margin-bottom: 1px;">+ Dodaj novu musteriju</a>
+    </div>
+    <small id="musterija-hint" style="display: block; margin-top: 8px; color: var(--text-muted);">Prvo izaberite postojeću musteriju ili je dodajte u Imenik — preostala polja se automatski popune.</small>
+</div>
+
+<div class="card" id="offer-main-card">
+    <form method="post">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="update_header">
+        {# Directory party link (P5-unification). The step-1 picker (outside
+           this form) keeps its display value in picked_party_ref; THIS
+           hidden input carries the actual saved contact_id. The picker JS
+           keeps both in sync. #}
+        <input type="hidden" name="contact_id" id="picked-contact-id" value="{{ selected_contact_id or '' }}">
+
+        {% if error %}
+        <div class="alert alert-error"
+            style="background: #e74c3c; color: white; padding: 10px; border-radius: 4px; margin-bottom: 20px;">
+            {{ error }}
+        </div>
+        {% endif %}
+
+        {% if session.get('error_message') %}
+        <div class="alert alert-error"
+            style="background: #e74c3c; color: white; padding: 10px; border-radius: 4px; margin-bottom: 20px;">
+            {{ session.pop('error_message') }}
+        </div>
+        {% endif %}
+
+        <div class="grid-3-col" id="offer-grid">
+            <!-- Col 1: Offer Info & Client Info -->
+            <div class="offer-section">
+                <h2>2. Informacije o ponudi</h2>
+                <p>
+                    <label>Broj / ime ponude:<br>
+                        <input type="text" name="offer_number" required
+                            value="{{ offer.offer_number if offer else '' }}">
+                    </label>
+                </p>
+                <p>
+                    <label>Datum:<br>
+                        <input type="date" name="date" value="{{ offer.date if offer else today }}">
+                    </label>
+                </p>
+                <p>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-top: 10px;">
+                        <input type="checkbox" name="is_template" value="1" {% if offer and offer.is_template
+                            %}checked{% endif %} style="width: auto; margin: 0;">
+                        <span style="font-weight: bold; color: var(--accent-primary);">Sačuvaj kao šablon</span>
+                    </label>
+                </p>
+
+                <h2 style="margin-top:20px;">Musterija</h2>
+                {# ── Musterija-first gate (P5-unification) ──────────────────
+                   Picker lives in step-1 card above; these snapshot fields
+                   (editable, pre-filled from the directory) stay hidden
+                   until a party is picked. #}
+                <div id="musterija-rest" style="display: none;">
+                <p>
+                    <label>Naziv musterije:<br>
+                        <input type="text" name="client_name" required class="long-input"
+                            value="{{ offer.client_name if offer else (prefill.client_name if prefill and prefill.client_name else '') }}">
+                    </label>
+                </p>
+                <p>
+                    <label>Država:<br>
+                        <select name="country" required class="long-input">
+                            <option value="">-- {% if current_language == 'en' %}Choose a country{% else %}Izaberite
+                                državu{% endif %} --</option>
+                            {% for c in countries %}
+                            <option value="{{ c.name }}" {% if (offer and offer.country==c.name) or (not offer and
+                                default_country==c.name) %}selected{% endif %}>
+                                {% if current_language == 'en' %}{{ c.name_en }}{% else %}{{ c.name }}{% endif %} ({{
+                                c.code }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                </p>
+                <p>
+                    <label>Adresa musterije:{% if mandatory_fields.req_client_address %} <span
+                            style="color:red">*</span>{% endif %}<br>
+                        <input type="text" name="client_address" class="long-input"
+                            value="{{ offer.client_address if offer else (prefill.client_address if prefill and prefill.client_address else '') }}" {% if
+                            mandatory_fields.req_client_address %}required{% endif %}>
+                    </label>
+                </p>
+                <p>
+                    <label>eMail musterije:{% if mandatory_fields.req_client_email %} <span style="color:red">*</span>{%
+                        endif %}<br>
+                        <input type="text" name="client_email" class="long-input"
+                            value="{{ offer.client_email if offer else (prefill.client_email if prefill and prefill.client_email else '') }}" {% if mandatory_fields.req_client_email
+                            %}required{% endif %} placeholder="email1@test.com; email2@test.com">
+                    </label>
+                </p>
+                <p>
+                    <label>Broj telefona musterije:{% if mandatory_fields.req_client_phone %} <span
+                            style="color:red">*</span>{% endif %}<br>
+                        <input type="text" name="client_phone" class="long-input"
+                            value="{{ offer.client_phone if offer else (prefill.client_phone if prefill and prefill.client_phone else '') }}" {% if
+                            mandatory_fields.req_client_phone %}required{% endif %}>
+                    </label>
+                </p>
+                <p>
+                    <label>PIB:{% if mandatory_fields.req_client_pib %} <span style="color:red">*</span>{% endif %}<br>
+                        <input type="text" name="client_pib" class="long-input"
+                            value="{{ offer.client_pib if offer else (prefill.client_pib if prefill and prefill.client_pib else '') }}" {% if mandatory_fields.req_client_pib
+                            %}required{% endif %}>
+                    </label>
+                </p>
+                <p>
+                    <label>MB:{% if mandatory_fields.req_client_mb %} <span style="color:red">*</span>{% endif %}<br>
+                        <input type="text" name="client_mb" class="long-input"
+                            value="{{ offer.client_mb if offer else (prefill.client_mb if prefill and prefill.client_mb else '') }}" {% if mandatory_fields.req_client_mb
+                            %}required{% endif %}>
+                    </label>
+                </p>
+                </div>{# /musterija-rest — visible once a musterija is chosen #}
+            </div>
+
+            <!-- Col 2: Payment Info -->
+            <div class="offer-section">
+                <h2>3. Informacije o placanju</h2>
+                <p>
+                    <label>Valuta:<br>
+                        <select name="currency">
+                            <option value="EUR" {% if (offer and offer.currency=='EUR' ) or not offer %} selected {%
+                                endif %}>EUR</option>
+                            <option value="RSD" {% if offer and offer.currency=='RSD' %} selected {% endif %}>RSD
+                            </option>
+                        </select>
+                    </label>
+                </p>
+                <p>
+                    <label>Srednji kurs (RSD):<br>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <input type="number" step="any" name="exchange_rate" id="exchange_rate"
+                                value="{{ offer.exchange_rate if offer else '' }}" style="margin-bottom: 0;">
+                            <button type="button" id="btn_fetch_rate" class="btn btn-sm btn-primary"
+                                style="flex-shrink: 0;">Preuzmi kurs NBS</button>
+                        </div>
+                    </label>
+                    <small id="rate_status"></small>
+                </p>
+                <p>
+                    <label>Popust % (globalni):<br>
+                        <input type="number" step="any" name="discount_percent"
+                            value="{% if offer and offer.discount_percent is not none %}{{ (offer.discount_percent * 100) | round(2) }}{% endif %}">
+                    </label>
+                </p>
+                <p>
+                    <label>Specijalni popust % (globalni):<br>
+                        <input type="number" step="any" name="special_discount_percent"
+                            value="{% if offer and offer.special_discount_percent is not none %}{{ (offer.special_discount_percent * 100) | round(2) }}{% endif %}">
+                    </label>
+                </p>
+                <p>
+                    <label>Treći popust % (globalni):<br>
+                        <input type="number" step="any" name="third_discount_percent"
+                            value="{% if offer and offer.third_discount_percent is not none %}{{ (offer.third_discount_percent * 100) | round(2) }}{% endif %}">
+                    </label>
+                </p>
+                <p>
+                    <label>PDV % :<br>
+                        <input type="number" step="any" name="vat_percent"
+                            value="{% if offer and offer.vat_percent is not none %}{{ (offer.vat_percent * 100) | round(2) }}{% else %}{{ default_vat_percent }}{% endif %}">
+                    </label>
+                </p>
+                <p>
+                    <label>Rok vazenja ponude (dani):<br>
+                        <input type="number" name="validity_days"
+                            value="{{ offer.validity_days if offer else default_validity_days }}">
+                    </label>
+                </p>
+                <p>
+                    <label>Uslovi plaćanja:<br>
+                        <select class="preset-select" data-target="payment_terms"
+                            style="margin-bottom: 5px; font-size: 0.8rem; padding: 4px;">
+                            <option value="">-- primeni preset --</option>
+                            {% for p in presets_by_cat['payment'] %}
+                            <option value="{{ p.content }}">{{ p.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <textarea name="payment_terms" id="payment_terms"
+                            rows="2">{% if offer %}{{ offer.payment_terms }}{% else %}{{ default_payment }}{% endif %}</textarea>
+                    </label>
+                </p>
+            </div>
+
+            <!-- Col 3: Delivery Info & Notes -->
+            <div class="offer-section">
+                <h2>4. Informacije o isporuci</h2>
+                <p>
+                    <label>Uslovi isporuke:<br>
+                        <select class="preset-select" data-target="delivery_terms"
+                            style="margin-bottom: 5px; font-size: 0.8rem; padding: 4px;">
+                            <option value="">-- primeni preset --</option>
+                            {% for p in presets_by_cat['delivery'] %}
+                            <option value="{{ p.content }}">{{ p.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <textarea name="delivery_terms" id="delivery_terms"
+                            rows="4">{% if offer %}{{ offer.delivery_terms }}{% else %}{{ default_delivery }}{% endif %}</textarea>
+                    </label>
+                </p>
+                <p>
+                    <label>Napomena:<br>
+                        <select class="preset-select" data-target="napomena"
+                            style="margin-bottom: 5px; font-size: 0.8rem; padding: 4px;">
+                            <option value="">-- primeni preset --</option>
+                            {% for p in presets_by_cat['note'] %}
+                            <option value="{{ p.content }}">{{ p.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <textarea name="napomena" id="napomena"
+                            rows="4">{% if offer %}{{ offer.napomena or '' }}{% else %}{{ default_napomena }}{% endif %}</textarea>
+                    </label>
+                </p>
+                <p>
+                    <label>Dodatni tekst:<br>
+                        <select class="preset-select" data-target="notes"
+                            style="margin-bottom: 5px; font-size: 0.8rem; padding: 4px;">
+                            <option value="">-- primeni preset --</option>
+                            {% for p in presets_by_cat['extra'] %}
+                            <option value="{{ p.content }}">{{ p.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <textarea name="notes" id="notes"
+                            rows="10">{% if offer %}{{ offer.notes or '' }}{% else %}{{ default_extra }}{% endif %}</textarea>
+                    </label>
+                </p>
+            </div>
+        </div>
+
+        <div class="form-actions"
+            style="margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 20px; display: flex; gap: 15px;">
+            <button type="submit" class="btn btn-success">Sacuvaj podatke</button>
+            {% if offer %}
+            <a href="{{ url_for('offer.offer_pdf', offer_id=offer.id) }}" id="btn-print-pdf" class="btn btn-primary"
+                target="_blank">Print
+                PDF</a>
+            <button type="button" id="btn-print-send" class="btn btn-secondary" style="margin-left: 10px;"
+                data-email-subject="{{ email_offer_subject or '' }}"
+                data-email-body="{{ email_offer_body or '' }}">Print and
+                send</button>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+{% if offer %}
+<div class="grid-2-col-asymmetric" style="margin-top: 30px;">
+    <!-- LEFT: Add item form -->
+    <div class="offer-items-form">
+        <div class="card">
+            <h2>Artikli</h2>
+
+            <!-- Filter for products (brand, category, name) -->
+            <form method="get" action="{{ url_for('offer.edit_offer', offer_id=offer.id) }}">
+                <p>
+                    <label>Brand:
+                        <select name="brand" class="searchable-select" onchange="this.form.submit()">
+                            <option value="">-- all brands --</option>
+                            {% for b in brand_options %}
+                            <option value="{{ b }}" {% if brand_filter==b %}selected{% endif %}>{{ b }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                </p>
+                <p>
+                    <label>Category:
+                        <select name="category" class="searchable-select" onchange="this.form.submit()">
+                            <option value="">-- all categories --</option>
+                            {% for c in category_options %}
+                            <option value="{{ c }}" {% if category_filter==c %}selected{% endif %}>{{ c }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                </p>
+
+                <p>
+                    <a href="{{ url_for('offer.edit_offer', offer_id=offer.id, clear=1) }}" class="btn btn-secondary btn-sm"
+                        id="btn-reset-filter">Reset pretrage</a>
+                </p>
+            </form>
+
+            <hr>
+
+            <!-- Add item form -->
+            <form method="post">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="add_item">
+                <p>
+                    <label>Product:<br>
+                        <select name="product_id" id="product_select" class="searchable-select" required>
+                            <option value="">-- free text item --</option>
+                            {% for p in products %}
+                            <option value="{{ p.id }}" data-name="{{ p.name }}"
+                                data-description="{{ p.description or '' }}"
+                                data-price="{% if p.latest_price is not none %}{{ '%.2f' % p.latest_price }}{% endif %}"
+                                {% if selected_product_id and selected_product_id|int==p.id %}selected{% endif %}>
+                                {{ p.name }}{% if p.brand %} ({{ p.brand }}){% endif %}
+                                {% if p.category %} [{{ p.category }}]{% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                </p>
+
+                <p>
+                    <label>Ime proizvoda:<br>
+                        <input type="text" name="item_name">
+                    </label>
+                </p>
+                <p>
+                    <label>Opis:<br>
+                        <textarea name="item_description" id="item_description" rows="5"></textarea>
+                    </label>
+                </p>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+                    <p>
+                        <label>Kolicina:<br>
+                            <input type="number" step="any" name="quantity" value="1">
+                        </label>
+                    </p>
+                    <p>
+                        <label>Cena kom:<br>
+                            <input type="number" step="any" name="unit_price">
+                        </label>
+                    </p>
+                    {% if enable_product_discount %}
+                    <p>
+                        <label>Popust %:<br>
+                            <input type="number" step="any" name="discount_percent" value="0">
+                        </label>
+                    </p>
+                    {% endif %}
+                </div>
+                <p>
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">Dodaj u ponudu</button>
+                </p>
+            </form>
+
+            <!-- Quick new product (TEMP) -->
+            <hr>
+            <details>
+                <summary style="cursor: pointer; font-weight: bold; color: var(--text-muted);">Dodavanje novog proizvoda
+                    (TEMP)</summary>
+                <div
+                    style="margin-top: 15px; padding: 15px; border: 1px solid var(--border-color); border-radius: 6px;">
+                    <form method="post" id="new-product-form">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="action" value="create_temp_product">
+                        <p>
+                            <input type="text" name="new_product_name" id="new_product_name" required
+                                placeholder="Naziv novog proizvoda">
+                        </p>
+                        <p>
+                            <textarea name="new_product_desc" placeholder="Opis proizvoda (opciono)"
+                                rows="2"></textarea>
+                        </p>
+                        <button type="submit" class="btn btn-warning btn-sm">Kreiraj i dodaj</button>
+                    </form>
+                </div>
+            </details>
+        </div>
+    </div>
+
+    <!-- RIGHT: items table + totals (Wrapped in Card) -->
+    <div class="offer-items-table-section card">
+        <table class="offer-items-table">
+            <thead>
+                <tr>
+                    <th style="width: 60px;">Move</th> <!-- Drag handle widened and labeled -->
+                    <th style="width: 40px;">Actions</th> <!-- Actions narrowed -->
+                    <th style="width: 30px;">br.</th>
+                    <th>Fotografija</th>
+                    <th>Ime proizvoda / Opis</th>
+                    <th>Kom</th>
+                    <th>Cena kom</th>
+                    {% if enable_product_discount %}
+                    <th>Popust %</th>
+                    {% endif %}
+                    <th>Red zbir</th>
+                </tr>
+            </thead>
+            <tbody id="items-body">
+                {% for it in items %}
+                <tr data-id="{{ it.id }}">
+                    <td class="drag-handle" style="text-align: center;">☰</td>
+                    <td style="text-align: center;">
+                        <form method="post" onsubmit="return confirm('Delete this item?');">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="action" value="delete_item">
+                            <input type="hidden" name="item_id" value="{{ it.id }}">
+                            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                        </form>
+                    </td>
+                    <td style="text-align: center;" class="row-index">{{ it.line_order }}</td>
+                    <td style="text-align: center;">
+                        {% if it.item_photo_path %}
+                        <img src="{{ url_for('offer.product_image', filename=it.item_photo_path) }}"
+                            style="max-width: 100px;">
+                        {% endif %}
+                    </td>
+                    <td>
+                        <strong>{{ it.item_name }}</strong><br>
+                        <div style="font-size: small; color: var(--text-muted);">{{ it.item_description | md | safe }}
+                        </div>
+                    </td>
+                    <td style="text-align: center;">{{ it.quantity }}</td>
+                    <td style="text-align: right; color: #2ecc71;">{{ format_amount(it.unit_price)}}</td>
+                    {% if enable_product_discount %}
+                    <td style="text-align: center; color: #3498db;">
+                        {% if it.discount_percent %}{{ (it.discount_percent * 100) | round(2) }}%{% else %}0%{% endif %}
+                    </td>
+                    {% endif %}
+                    <td style="text-align: right; color: #2ecc71; font-weight: bold;">{{ format_amount(it.line_net)}}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="card" style="margin-left: auto; max-width: 400px; padding: 15px; box-shadow: none;">
+            <!-- Flat nested card -->
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                <span>SUMA:</span>
+                <span style="color: #2ecc71; font-weight: bold;">{{ format_amount(offer.total_net or 0) }}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                <span style="color: #3498db;">POPUST {{ ((offer.discount_percent or 0) * 100) | round(2) }}%:</span>
+                <span style="color: #3498db; font-weight: bold;">{{ format_amount(offer.total_discount or 0) }}</span>
+            </div>
+            <div
+                style="display: flex; justify-content: space-between; margin-bottom: 5px; font-weight: bold; border-top: 1px solid var(--border-color); padding-top: 5px;">
+                <span>UKUPNO:</span>
+                <span>{{ format_amount(offer.total_net_after_discount or 0) }}</span>
+            </div>
+            {% if offer.special_discount_percent and offer.special_discount_percent > 0 %}
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                <span style="color: #9b59b6;">SPECIJALNI POPUST {{ ((offer.special_discount_percent or 0) * 100) | round(2) }}%:</span>
+                <span style="color: #9b59b6; font-weight: bold;">{{ format_amount(offer.total_special_discount or 0) }}</span>
+            </div>
+            <div
+                style="display: flex; justify-content: space-between; margin-bottom: 5px; font-weight: bold; border-top: 1px dotted var(--border-color); padding-top: 5px;">
+                <span>UKUPNO sa specijalnim popustom:</span>
+                <span>{{ format_amount(offer.total_net_after_special_discount or 0) }}</span>
+            </div>
+            {% endif %}
+            {% if offer.third_discount_percent and offer.third_discount_percent > 0 %}
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                <span style="color: #e67e22;">TREĆI POPUST {{ ((offer.third_discount_percent or 0) * 100) | round(2) }}%:</span>
+                <span style="color: #e67e22; font-weight: bold;">{{ format_amount(offer.total_third_discount or 0) }}</span>
+            </div>
+            <div
+                style="display: flex; justify-content: space-between; margin-bottom: 5px; font-weight: bold; border-top: 1px dotted var(--border-color); padding-top: 5px;">
+                <span>UKUPNO sa trećim popustom:</span>
+                <span>{{ format_amount(offer.total_net_after_third_discount or 0) }}</span>
+            </div>
+            {% endif %}
+            {% if offer.vat_percent and offer.vat_percent > 0 %}
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                <span>PDV {{ ((offer.vat_percent or 0) * 100) | round(2) }}%:</span>
+                <span>{{ format_amount(offer.total_vat or 0) }}</span>
+            </div>
+            {% endif %}
+            <div
+                style="display: flex; justify-content: space-between; font-size: 1.2em; font-weight: bold; color: var(--accent-success); border-top: 2px solid var(--accent-success); padding-top: 5px; margin-top: 5px;">
+                <span>UKUPNO ZA UPLATU:</span>
+                <span>{{ format_amount(offer.total_gross or 0) }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // --- Unsaved Changes Tracking ---
+        let hasUnsavedChanges = false;
+        const form = document.querySelector('form[action="update_header"]') || document.querySelector('form'); // Fallback to first form if action not explicit
+        // Changed selector to use ID
+        const pdfButton = document.getElementById('btn-print-pdf');
+
+        // Function to mark changes
+        function markAsChanged(e) {
+            hasUnsavedChanges = true;
+        }
+
+        // 1. Monitor all inputs in the main form
+        if (form) {
+            form.querySelectorAll('input, select, textarea').forEach(el => {
+                // Exclude hidden inputs if necessary, but usually we want them too if they affect data
+                // We use 'input' for text/number fields and 'change' for selects/checkboxes/radios
+                el.addEventListener('input', markAsChanged);
+                el.addEventListener('change', markAsChanged);
+            });
+
+            // If the form is submitted (saved), reset the flag
+            form.addEventListener('submit', function () {
+                hasUnsavedChanges = false;
+            });
+        }
+
+        // 2. Intercept PDF Button Click
+        if (pdfButton) {
+            pdfButton.addEventListener('click', function (e) {
+                e.preventDefault(); // Stop default navigation
+
+                if (hasUnsavedChanges) {
+                    const confirmed = confirm("Imate nesačuvane izmene. Da li želite da nastavite sa štampanjem (izmene neće biti vidljive)?");
+                    if (!confirmed) return;
+                }
+
+                // Construct filename
+                const offerNumberInput = document.querySelector('input[name="offer_number"]');
+                const offerNumber = offerNumberInput ? offerNumberInput.value : "Preview";
+                const filename = `${offerNumber}.pdf`;
+
+                downloadPdfWithPrompt(this.href, filename);
+            });
+        }
+
+        // --- Scroll Position Persistence ---
+        const scrollKey = "offer_form_scroll_" + "{{ offer.id }}";
+        if (sessionStorage.getItem(scrollKey)) {
+            window.scrollTo(0, parseInt(sessionStorage.getItem(scrollKey)));
+            sessionStorage.removeItem(scrollKey);
+        }
+
+        // Save scroll position on form submissions AND input changes (for auto-submitting filters)
+        function saveScroll() {
+            sessionStorage.setItem(scrollKey, window.scrollY);
+        }
+
+        document.querySelectorAll('form').forEach(f => {
+            // Auto-save logic for product / item forms
+            if (f.getAttribute('action') !== 'update_header' && !f.querySelector('input[name="action"][value="update_header"]')) {
+                f.addEventListener('submit', function (e) {
+                    if (hasUnsavedChanges && form) {
+                        e.preventDefault();
+                        const isMainSubmission = this.hasAttribute('data-submit-pending');
+                        if (!isMainSubmission) {
+                            this.setAttribute('data-submit-pending', 'true');
+                            
+                            // Save scroll position
+                            saveScroll();
+
+                            // Create an invisible iframe or use fetch to submit header quietly, then submit this form
+                            // But easiest is to append this form's data to the main form and submit main form
+                            // Or submit main form async, then this form
+                            
+                            const formData = new FormData(form);
+                            // We need to submit the main form via fetch, then submit this form normally
+                            fetch(window.location.href, {
+                                method: 'POST',
+                                body: formData
+                            }).then(response => {
+                                if (response.ok) {
+                                    hasUnsavedChanges = false;
+                                    this.submit();
+                                } else {
+                                    alert("Greška pri snimanju zaglavlja ponude.");
+                                    this.removeAttribute('data-submit-pending');
+                                }
+                            }).catch(err => {
+                                console.error(err);
+                                alert("Greška u mrežnoj komunikaciji pri snimanju zaglavlja.");
+                                this.removeAttribute('data-submit-pending');
+                            });
+                        }
+                    } else {
+                        saveScroll();
+                    }
+                });
+            } else {
+                f.addEventListener('submit', saveScroll);
+            }
+
+            // Also catch change events for elements that trigger submit
+            f.querySelectorAll('select, input').forEach(el => {
+                if(el.tagName === 'SELECT' && el.hasAttribute('onchange') && el.getAttribute('onchange').includes('this.form.submit()')) {
+                    // Remove inline onchange and use event listener
+                    el.removeAttribute('onchange');
+                    el.addEventListener('change', function() {
+                        if (hasUnsavedChanges && form) {
+                            // Save scroll position
+                            saveScroll();
+
+                            const formData = new FormData(form);
+                            fetch(window.location.href, {
+                                method: 'POST',
+                                body: formData
+                            }).then(response => {
+                                if (response.ok) {
+                                    hasUnsavedChanges = false;
+                                    f.submit();
+                                } else {
+                                    alert("Greška pri snimanju zaglavlja ponude.");
+                                }
+                            }).catch(err => {
+                                console.error(err);
+                                alert("Greška u mrežnoj komunikaciji pri snimanju zaglavlja.");
+                            });
+                        } else {
+                            saveScroll();
+                            f.submit();
+                        }
+                    });
+                } else {
+                    el.addEventListener('change', saveScroll);
+                }
+            });
+        });
+
+        // Also handle the clear link for scroll position
+        const resetLink = document.getElementById('btn-reset-filter');
+        if (resetLink) {
+            resetLink.addEventListener('click', saveScroll);
+        }
+
+        // --- Auto-fill item fields when selecting product ---
+        const productSelect = document.querySelector('select[name="product_id"]');
+        const nameInput = document.querySelector('input[name="item_name"]');
+        const descTextarea = document.querySelector('textarea[name="item_description"]');
+        const priceInput = document.querySelector('input[name="unit_price"]');
+
+        let easyMDE;
+        if (descTextarea) {
+            easyMDE = new EasyMDE({
+                element: descTextarea,
+                status: false,
+                spellChecker: false,
+                toolbar: ["bold", "italic", "heading", "|", "quote", "unordered-list", "ordered-list", "|", "link", "preview"]
+            });
+        }
+
+        function fillFromSelection() {
+            if (!productSelect || !nameInput || !descTextarea) return;
+            const opt = productSelect.options[productSelect.selectedIndex];
+            if (!opt) return;
+
+            nameInput.value = opt.dataset.name || '';
+            if (easyMDE) {
+                easyMDE.value(opt.dataset.description || '');
+            } else {
+                descTextarea.value = opt.dataset.description || '';
+            }
+
+            if (priceInput) {
+                if (opt.dataset.price) {
+                    priceInput.value = opt.dataset.price;
+                } else {
+                    priceInput.value = '';
+                }
+            }
+        }
+
+        if (productSelect) {
+            productSelect.addEventListener('change', fillFromSelection);
+            if (productSelect.value) {
+                fillFromSelection();
+            }
+        }
+
+        // --- New TEMP product: check duplicates + confirm ---
+        const newProdForm = document.getElementById('new-product-form');
+        const newProdNameInput = document.getElementById('new_product_name');
+
+        if (newProdForm && newProdNameInput && productSelect) {
+            newProdForm.addEventListener('submit', function (e) {
+                const name = newProdNameInput.value.trim();
+                if (!name) return;
+
+                const nameLower = name.toLowerCase();
+                let exists = false;
+
+                for (let i = 0; i < productSelect.options.length; i++) {
+                    const opt = productSelect.options[i];
+                    const optName = (opt.dataset.name || opt.text || '')
+                        .trim()
+                        .toLowerCase();
+                    if (optName === nameLower) {
+                        exists = true;
+                        break;
+                    }
+                }
+
+                if (exists) {
+                    alert('Proizvod sa ovim nazivom već postoji u listi.\n' +
+                        'Proverite filtere (brend/kategorija) umesto kreiranja novog proizvoda.');
+                    e.preventDefault();
+                    return;
+                }
+
+                const ok = confirm('Da li ste sigurni da ovaj proizvod NE postoji i ' +
+                    'želite da ga kreirate kao TEMP proizvod?');
+                if (!ok) {
+                    e.preventDefault();
+                }
+            });
+        }
+
+        // --- Fetch NBS middle rate (EUR) ---
+        const btnFetchRate = document.getElementById('btn_fetch_rate');
+        const exchangeInput = document.getElementById('exchange_rate');
+        const rateStatus = document.getElementById('rate_status');
+        const nbsUrl = "{{ url_for('offer.api_nbs_eur_rate') }}";
+
+        if (btnFetchRate && exchangeInput && rateStatus) {
+            btnFetchRate.addEventListener('click', function () {
+                rateStatus.textContent = "Preuzimam kurs...";
+                fetch(nbsUrl)
+                    .then(resp => resp.json())
+                    .then(data => {
+                        if (data.success && typeof data.rate === "number") {
+                            exchangeInput.value = data.rate.toFixed(4);
+                            markAsChanged(); // Mark as changed when rate is updated
+                            const now = new Date();
+                            const ts = now.toLocaleString('sr-RS');
+                            rateStatus.textContent = `Kurs preuzet sa NBS (${ts}).`;
+                        } else {
+                            rateStatus.textContent = data.message || "Greška pri preuzimanju kursa.";
+                        }
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        rateStatus.textContent = "Greška pri povezivanju sa NBS.";
+                    });
+            });
+        }
+
+        // --- Drag and drop reordering ---
+        const itemsBody = document.getElementById('items-body');
+        if (itemsBody) {
+            new Sortable(itemsBody, {
+                handle: '.drag-handle',
+                animation: 150,
+                onEnd: function () {
+                    const itemIds = [];
+                    itemsBody.querySelectorAll('tr').forEach((tr, index) => {
+                        itemIds.push(tr.dataset.id);
+                        // Update visual row index
+                        const idxCell = tr.querySelector('.row-index');
+                        if (idxCell) idxCell.textContent = index + 1;
+                    });
+
+                    fetch("{{ url_for('offer.update_item_order', offer_id=offer.id) if offer else '#' }}", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", "X-CSRF-Token": "{{ csrf_token() }}" },
+                        body: JSON.stringify({ item_ids: itemIds })
+                    })
+                        .then(resp => resp.json())
+                        .then(data => {
+                            if (!data.success) alert("Greška: " + data.message);
+                        })
+                        .catch(err => {
+                            console.error(err);
+                            alert("Greška pri slanju na server.");
+                        });
+                }
+            });
+        }
+
+        // --- Text Presets dropdown logic ---
+        document.querySelectorAll('.preset-select').forEach(sel => {
+            sel.addEventListener('change', function () {
+                const targetId = this.dataset.target;
+                const content = this.value;
+                if (!content) return;
+
+                const textarea = document.getElementById(targetId);
+                if (textarea) {
+                    if (textarea.value.trim() !== "" && !confirm("Ovo će pregaziti trenutni sadržaj. Da li ste sigurni?")) {
+                        this.value = "";
+                        return;
+                    }
+                    textarea.value = content;
+                    this.value = ""; // Reset dropdown
+                    markAsChanged(); // Mark as changed when preset is applied
+                }
+            });
+        });
+
+        // --- Directory party picker (P5-unification, musterija-first) ---
+        // Step 1 card sits ABOVE the form. Picking a party fills the
+        // musterija fields IN-PLACE via /offer/api/contact/<id> — no page
+        // reload (a reload resets the picker and drops context; user
+        // report 2026-09-22). Fields stay editable: the saved row keeps
+        // the snapshot the user confirmed. Clearing the picker empties
+        // the fields and unlinks the party.
+        const contactSelect = document.getElementById('contact-select');
+        if (contactSelect) {
+            const musterijaRest = document.getElementById('musterija-rest');
+            const mainCard = document.getElementById('offer-main-card');
+            const hint = document.getElementById('musterija-hint');
+            const applyGate = () => {
+                const picked = Boolean(contactSelect.value);
+                if (musterijaRest) musterijaRest.style.display = picked ? '' : 'none';
+                if (mainCard) { mainCard.style.opacity = picked ? '1' : '0.35';
+                                mainCard.style.pointerEvents = picked ? 'auto' : 'none';
+                                mainCard.style.filter = picked ? 'none' : 'grayscale(0.6)'; }
+                if (hint) {
+                    hint.textContent = picked
+                        ? 'Musterija izabrana — polja ispod su popunjena iz Imenika (možete ih izmeniti, snimak se čuva uz dokument).'
+                        : 'Prvo izaberite postojeću musteriju ili je dodajte u Imenik — preostala polja se automatski popune.';
+                }
+            };
+            applyGate();
+            contactSelect.addEventListener('change', function () {
+                const id = this.value;
+                applyGate();
+                // hidden contact_id drives the saved link (NULL = free-typed);
+                // the display select carries picked_party_ref, the real link
+                // lives in the form's hidden #picked-contact-id.
+                const hidden = document.getElementById('picked-contact-id');
+                if (hidden) hidden.value = id && id.startsWith('c') ? id.slice(1) : '';
+                if (!id) {  // cleared: empty the musterija fields
+                    ['client_name', 'client_address', 'client_email', 'client_phone', 'client_pib', 'client_mb']
+                        .forEach(n => { const el = document.getElementsByName(n)[0]; if (el) el.value = ''; });
+                    return;
+                }
+                const cid = id.startsWith('c') ? id.slice(1) : id;
+                fetch(`/offer/api/contact/${cid}`).then(r => r.json()).then(d => {
+                    const set = (n, v) => { const el = document.getElementsByName(n)[0]; if (el) el.value = v || ''; };
+                    set('client_name', d.name);
+                    set('client_address', d.address);
+                    set('client_email', d.email);
+                    set('client_phone', d.phone);
+                    set('client_pib', d.pib);
+                    set('client_mb', d.mb);
+                });
+            });
+        }
+
+        // --- Print and Send logic ---
+        const btnPrintSend = document.getElementById('btn-print-send');
+        if (btnPrintSend) {
+            btnPrintSend.addEventListener('click', async function () {
+                if (hasUnsavedChanges) {
+                    const confirmed = confirm("Imate nesačuvane izmene. Da li želite da nastavite sa štampanjem (izmene neće biti vidljive)?");
+                    if (!confirmed) return;
+                }
+
+                // 1. Get client email
+                const emailInput = document.querySelector('input[name="client_email"]');
+                let clientEmail = emailInput ? emailInput.value.trim() : "";
+
+                // Format multiple emails for mailto (replace spaces, semicolons, and existing commas with a single comma)
+                clientEmail = clientEmail.replace(/[\s;,]+/g, ',');
+
+                // 2. Get templates from server-side variables (passed to JS)
+                // Use default if variable is empty or undefined
+                let subjectTpl = this.dataset.emailSubject;
+                let bodyTpl = this.dataset.emailBody;
+
+                if (!subjectTpl) subjectTpl = "Ponuda br. {offer_number}";
+                if (!bodyTpl) bodyTpl = "Postovani,\n\nU prilogu vam saljemo ponudu br. {offer_number}.\n\nSrdacan pozdrav,\nVas Tim";
+
+                // 3. Get offer data for replacement
+                const offerNumberInput = document.querySelector('input[name="offer_number"]');
+                const offerNumber = offerNumberInput ? offerNumberInput.value : "";
+                const filename = `${offerNumber}.pdf`;
+
+                const clientNameInput = document.querySelector('input[name="client_name"]');
+                const clientName = clientNameInput ? clientNameInput.value : "";
+
+                const offerDateInput = document.querySelector('input[name="date"]');
+                const offerDate = offerDateInput ? offerDateInput.value : "";
+
+                // 4. Perform replacements
+                const subject = subjectTpl
+                    .replace(/{offer_number}/g, offerNumber)
+                    .replace(/{client_name}/g, clientName)
+                    .replace(/{offer_date}/g, offerDate);
+
+                const body = bodyTpl
+                    .replace(/{offer_number}/g, offerNumber)
+                    .replace(/{client_name}/g, clientName)
+                    .replace(/{offer_date}/g, offerDate);
+
+                // 5. Construct mailto link
+                const mailtoLink = `mailto:${clientEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+                // 6. Download PDF with Prompt FIRST
+                // We use the same URL from the pdf button if it exists, or likely current offer URL
+                // The pdfButton has the href to the pdf generation route
+                const pdfBtn = document.getElementById('btn-print-pdf');
+                if (pdfBtn) {
+                    await downloadPdfWithPrompt(pdfBtn.href, filename);
+                }
+
+                // 7. Navigate to mailto (opens default email client)
+                // We do this AFTER the download dialog handling
+                // Using a small timeout to let the UI fetch breath if needed, but awaiting above should be enough
+                setTimeout(() => {
+                    window.location.href = mailtoLink;
+                }, 500);
+            });
+        }
+
+        // --- Template confirmation ---
+        const isTemplateCb = document.querySelector('input[name="is_template"]');
+        if (isTemplateCb) {
+            isTemplateCb.addEventListener('click', function(e) {
+                if (this.checked) {
+                    const confirmed = confirm("Da li ste sigurni da želite da sačuvate ovu ponudu kao šablon?");
+                    if (!confirmed) {
+                        e.preventDefault();
+                    }
+                }
+            });
+        }
+
+    });
+</script>
+<link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css">
+<script src="https://unpkg.com/easymde/dist/easymde.min.js"></script>
+{% endblock %}

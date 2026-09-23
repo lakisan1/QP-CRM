@@ -147,10 +147,14 @@ h3 {
     background-color: #fcfcfc;
 }
 
-/* Allow splitting rows for long descriptions */
+/* Keep each items-table row whole: a row that doesn't fit on the current
+   page moves ENTIRELY to the next page instead of being cut mid-cell
+   (regression fix — 1acd9ba had flipped this to `auto`, which let WeasyPrint
+   slice a row across the page boundary). WeasyPrint still force-splits a
+   row taller than a whole page, so monster descriptions can't blank out. */
 .items-table tr {
-    page-break-inside: auto;
-    break-inside: auto;
+    page-break-inside: avoid;
+    break-inside: avoid;
 }
 
 /* Totals styling */

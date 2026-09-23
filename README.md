@@ -12,6 +12,15 @@ Please open issues for any bugs or suggestions!
 
 ![Landing Page](README_Images/Menu/menu1.png)
 
+## 📚 Guides (uputstva)
+
+| Guide | Šta pokriva |
+|---|---|
+| **[📦 Instalacija](INSTALL.md)** | Prva instalacija sa Docker-om — skine gotov image sa GitHub-a i startuje (bez build-a, 3 koraka) |
+| **[🔄 Update](UPDATE.md)** | Update na novu verziju — jedna komanda (`./deploy.sh`), automatski backup, rollback; ili potpuno automatski (Watchtower) |
+| **[🐳 Docker operacije](DOCKER.md)** | Volumes, logs, backup, nginx/HTTPS, test suite |
+| **[🔌 API](README_API.md)** | REST API — auth (per-user API keys), endpoints |
+
 ## 🌟 Key Features
 
 For a comprehensive list of all application features, check out the [Full Feature List](FEATURES.md).
@@ -38,80 +47,31 @@ Easy price calculation and editing.
 ![Edit Price](README_Images/PriceApp/EditPrice.png)
 
 Presets from category and brand.
-![Add category](README_Images/PriceApp/Category.png)
-
-View price history.
-![Price History](README_Images/PriceApp/PriceHistory.png)
-
-Quickly update prices by just typing the new input price and additional costs. Save and its added to price history.
-![Quick Price Update](README_Images/PriceApp/QuickPriceUpdate.png)
 
 ### 📄 Offer App
-Transform prices into professional PDF offers for your clients in seconds.
-- **Photo Integration**: Include product images directly in your offers from URL or file.
-- **NBS Exchange Rates**: Automatic real-time fetching of official rates.
-- **Professional PDFs**: Clean, template ready for you and easy to edit in app.
-- **Email Integration**: Send offers directly to clients from the app.
-- **Per-line Discount**: Apply discounts to individual items in the offer.
-- **Offer Presets**: Save and load offer templates for faster creation.
-- **Customizable Fields**: Configure mandatory fields and default values.
-- **Item Reordering**: Easily rearrange items in your offer.
-
-![Quotation List](README_Images/QuotationApp/Quotation1.png)
-
-#### ✏️ Edit Offers
-Powerful editor for adjusting offer details, adding items, and managing client info.\
-Option to edit price and product name, description from offer app.
-![Edit Quotation](README_Images/QuotationApp/Quotation2.png)
-
-#### 📝 PDF Output
-Generate clean, brand-compliant PDFs.
-![PDF Example](README_Images/QuotationApp/PDF11.png)
-
-#### 📝 Compare Prices
-Compare prices of products or different offers with different options and products.
-![Compare Prices](README_Images/QuotationApp/Quotation3.png)
-
 
 ### ⚙️ Admin Panel
-Full control over your system's global settings and security.
-- **Security Management**: Fast and easy password updates for all modules.
-- **Branding**: Customize your company logo and PDF templates.
-- **Default settings**: Set default settings for all modules like currency, date format, theme, etc.
-- **Text Presets**: Manage default text for delivery terms, notes, and more.
-- **Unified UI**: Consistent and modern user interface across all apps.
-- **Database Management**: Import and export your database for backup or migration.
-
-![Admin Panel](README_Images/Admin/Admin1.png)
-
-#### ✏️ Edit and create PDF Templates
-Create PDF templates for your offers.\
-![Create PDF Templates](README_Images/Admin/PDF_Edit.png)
-
-Knowledge of HTML and CSS required. But it is easy to learn.\
-Test custom PDF templates in app, no need to restart.
-![Edit PDF Templates](README_Images/Admin/PDF_Edit1.png)
-
 
 ### 📦 Rent Module
-Manage equipment rental contracts with full document generation and financial calculations.
-- **Contract Management**: Create and track rental contracts with client details, equipment lists, and payment schedules.
-- **Financial Calculator**: Built-in lease calculator with interest rates, insurance, guarantees, VAT, and salvage value.
-- **Document Templates**: 8+ editable legal document templates (contracts, appendices, protocols) with live HTML editor.
-- **PDF Generation**: Professional PDF output with company branding, page break protection, and automatic placeholder substitution.
-- **Payment Schedules**: Auto-generated amortization plans with monthly breakdowns.
-- **Email Preset**: Customizable email template with subject line, auto-filled client data, and one-click copy for each field.
-- **Offer Integration**: Prilog 3 (Offer) and Prilog 4 (Payment Plan) auto-linked from the contract documents page.
-- **Admin Configuration**: Centralized default rates, template editing, and email preset management from the Admin panel.
 
+## 🚀 Quick Start
 
----
+### 💻 Docker (recommended — Linux)
 
-## 🚀 Beginner's Quick Start
+Najbrži start: skineš gotov image sa GitHub-a i startuješ. Bez build-a, bez git-a.
 
-Setting up **QP-CRM** is easy, even for beginners!
+```bash
+# 1. preuzmi docker-compose.yml i .env.example iz ovog repo-a u prazan folder
+# 2. napravi .env od primera i popuni 6 tajni ključeva (uputstvo u fajlu)
+cp .env.example .env
+# 3. startuj
+docker compose up -d
+```
 
-### 💻 Fast Installation (Linux/Ubuntu) Linux only for now.
+Detaljno uputstvo sa objašnjenjima: **[📦 INSTALL.md](INSTALL.md)**.
+
+### 💻 Bare-metal (Linux/Ubuntu) — old way
+
 1. **Download and extract** the project folder.
 2. **Open your terminal** in the project folder.
 3. **Run the setup script**:
@@ -147,13 +107,20 @@ Because PWAs usually require HTTPS, using a local IP might show a "Not secure" t
 6. Re-open your PWA. (If the warning still shows, uninstall the PWA and reinstall it from the browser).
 
 ### 🔄 How to Update
-To get the latest version with new features and fixes:
-1. Open your terminal in the project folder on the server.
-2. Run:
+
+Docker deployment: **[🔄 UPDATE.md](UPDATE.md)** — ukratko:
+
+```bash
+./deploy.sh      # skine novi image + automatski backup baze + restart + healthcheck
+./rollback.sh    # (samo ako treba) vrati na prethodnu verziju
 ```
-   ./run_apps.sh
-```
-   *The script will pull the latest code and update your installation automatically.*
+
+Podaci (korisnici, šifre, ponude, ugovori, slike) su na disku van image-a —
+update ih nikad ne gubi. Postoji i **potpuno automatski** update preko
+Watchtower-a (podešavanje u UPDATE.md, fajl `watchtower-compose.example.yml`).
+
+Bare-metal (`run_apps.sh`) users: run the script again — it pulls the latest
+code and restarts.
 
 ---
 

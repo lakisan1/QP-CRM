@@ -1,0 +1,34 @@
+{# ─────────────────────────────────────────────────────────────────────────────
+   Shared admin header — the ONE nav for the whole admin app.
+
+   Every admin template includes it with one required variable:
+
+       {% set active = 'dashboard' %}{% include 'admin/_nav.html' %}
+
+   `active` selects the highlighted link; one of:
+       dashboard | pdf_templates | rounding_rules | users | api_keys |
+       rent_templates
+   Optional `nav_extra` renders a muted trail after the links (the PDF
+   template editor's "Edit: <name>" breadcrumb).
+
+   Behavior decisions (user requests, board cards):
+     * all six admin links appear on EVERY admin page (no more drifted
+       copy-pasted headers missing Users / API Keys / Rent Šabloni);
+     * the header carries NO logout button — logout lives in the settings
+       app (/settings);
+     * the link back to the app menu is labeled "Home" (sr: "Početna
+       strana" via the shared `_` helper).
+
+   The <nav> shell itself (nav-right Home pill + logo) is the SHARED
+   templates/_banner.html macro now — the same one every module banner
+   renders, so the logo and Home pill cannot drift between apps.
+   ───────────────────────────────────────────────────────────────────────── #}
+{% from '_banner.html' import banner with context %}
+{% call banner(nav_extra=nav_extra|default(None), hr=false) %}
+    <a href="{{ url_for('admin.index') }}" {% if active == 'dashboard' %}class="active"{% endif %}>Dashboard</a>
+    <a href="{{ url_for('admin.list_pdf_templates') }}" {% if active == 'pdf_templates' %}class="active"{% endif %}>PDF Templates</a>
+    <a href="{{ url_for('admin.list_rounding_rules') }}" {% if active == 'rounding_rules' %}class="active"{% endif %}>Rounding Rules</a>
+    <a href="{{ url_for('admin.list_users') }}" {% if active == 'users' %}class="active"{% endif %}>Users</a>
+    <a href="{{ url_for('admin.list_api_keys') }}" {% if active == 'api_keys' %}class="active"{% endif %}>API Keys</a>
+    <a href="{{ url_for('admin.admin_rent_templates') }}" {% if active == 'rent_templates' %}class="active"{% endif %}>{{ _('Rent Templates') }}</a>
+{% endcall %}

@@ -34,6 +34,13 @@ quotation.log
 *.tmp
 temp/
 
-# Local vendored deps (install via pip / requirements.txt instead)
+# Local vendored deps (install via pip / requirements.txt instead).
+# custom_libs/ (vendored markdown) was deleted in Phase 3 housekeeping:
+# Markdown==3.10.2 is a pinned pip dependency since Phase 2 and nothing
+# references the vendored copy.
 deps/
-custom_libs/
+
+# Repo hygiene (wave3) - root scratch & backup litter
+*.bak
+app_data/*.pre-*
+backups/

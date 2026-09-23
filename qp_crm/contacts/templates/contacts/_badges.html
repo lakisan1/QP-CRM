@@ -1,0 +1,9 @@
+{% macro role_badges(roles) -%}
+{% for r in roles %}
+<span class="role-badge {{ 'role-muted' if r in ('other', 'partner') }}">{{ r }}</span>
+{% endfor %}
+{%- endmacro %}
+
+{% macro kind_badge(kind) -%}
+<span class="kind-badge">{{ 'Fizičko lice' if kind == 'person' else 'Pravno lice' }}</span>
+{%- endmacro %}

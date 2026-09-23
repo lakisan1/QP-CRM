@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="{{ current_lang|default('sr') }}" data-theme="{{ theme|default('dark') }}">
+
+<head>
+    <meta charset="utf-8">
+    <title>{% block title %}Imenik{% endblock %}</title>
+    <link rel="icon" type="image/png" href="/app_assets/favicon.png">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+    <style>
+        .role-badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+            background: var(--accent-primary, #3498db);
+            color: white;
+            margin-right: 4px;
+        }
+
+        .role-muted {
+            background: #95a5a6;
+        }
+
+        .kind-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+
+<body>
+    {% from '_banner.html' import banner with context %}
+    {% call banner() %}
+        <a href="{{ url_for('contacts.list_contacts') }}" {% if request.endpoint in ('contacts.list_contacts',) %}class="active"{% endif %}>Imenik</a>
+        <a href="{{ url_for('contacts.new_contact') }}" {% if request.endpoint in ('contacts.new_contact', 'contacts.edit_contact') %}class="active"{% endif %}>Novi kontakt</a>
+    {% endcall %}
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div style="max-width: 1250px; margin: 10px auto; padding: 0 16px;">
+            {% for category, message in messages %}
+            <div class="alert alert-{{ 'error' if category == 'error' else 'success' }}"
+                style="padding: 10px; border-radius: 4px; margin-bottom: 8px; background: {{ '#e74c3c' if category == 'error' else '#2ecc71' }}; color: white;">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    {% endwith %}
+
+    <div style="max-width: 1250px; margin: 0 auto; padding: 0 16px;">
+        {% block content %}{% endblock %}
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            document.querySelectorAll('.searchable-select').forEach((el) => {
+                new TomSelect(el, {
+                    create: false,
+                    sortField: { field: "text", direction: "asc" }
+                });
+            });
+        });
+    </script>
+</body>
+
+</html>

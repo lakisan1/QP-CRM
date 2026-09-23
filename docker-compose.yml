@@ -1,0 +1,69 @@
+# QP-CRM — Phase 0 compose stack (P0-T5).
+#
+# One container runs the whole multi-app stack: qp_crm/main.py merges
+# pricing/offer/rent/admin/sale/settings via DispatcherMiddleware and is
+# served by gunicorn through qp_crm/wsgi.py (P0-T2), on port 5000.
+#
+# Runtime concerns wired here:
+#   * image: ghcr.io/lakisan1/qp-crm:latest, pushed by CI (.github/workflows/
+#     ci.yml, "image" job) after the pytest suite passes. Remote deployments
+#     are PULL-ONLY: deploy.sh runs `docker compose pull` + `up -d` — no
+#     build on the server. `build:` below stays for local dev (compose build)
+#     and as a documented fallback; the image tag section there shows how to
+#     override for it (see comments on the image key).
+#   * secrets come from .env (see .env.example, P0-T4)
+#   * all mutable state is bind-mounted OUTSIDE the image, so the
+#     rebuild/update flow (./deploy.sh) never loses data
+#
+# NOTE: intentionally no `version:` key — obsolete in Compose v2.
+
+services:
+  app:
+    # Pull-deploy tag. deploy.sh records the currently-running tag into
+    # backups/last-deployed-tag BEFORE every pull, so rollback.sh can pin
+    # it back (rollback uses the immutable sha-<commit> tags, never latest).
+    # LOCAL DEV (build on this machine): override the tag on the fly —
+    #   docker compose build
+    #   docker compose up -d --build
+    # compose ignores build: when the image already exists locally, and
+    # deploy.sh does the pull only.
+    image: ghcr.io/lakisan1/qp-crm:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: qp-crm
+    ports:
+      # The app stays on its OWN port (5000). QP_APP_BIND defaults to
+      # 0.0.0.0 (LAN can reach :5000 directly). Once nginx fronts the app,
+      # set QP_APP_BIND=127.0.0.1 in .env: :5000 is then reachable only
+      # from this host (through nginx :80/:443), never from the LAN.
+      - "${QP_APP_BIND:-0.0.0.0}:5000:5000"
+    env_file:
+      - .env
+    environment:
+      TZ: "Europe/Belgrade"
+      # TLS / nginx reverse proxy (see .env.example): set QP_HTTPS_ONLY=1
+      # ONLY when the app sits behind the nginx TLS proxy — the app then
+      # trusts X-Forwarded-* (ProxyFix), marks qp_session Secure and sends
+      # HSTS. QP_PUBLIC_DOMAIN must match nginx server_name.
+      QP_HTTPS_ONLY: "${QP_HTTPS_ONLY:-0}"
+      QP_PUBLIC_DOMAIN: "${QP_PUBLIC_DOMAIN:-}"
+    volumes:
+      # SQLite databases (app_data/pricing.db, WAL mode) + product images.
+      - ./app_data:/app/app_data
+      # Shared app assets (favicon, logo_company.jpg, pdf_footer_image.png,
+      # RIG.png, defaults/) served via the /app_assets/<name> route.
+      - ./app_assets:/app/app_assets
+      # Logo upload writes into static/img — without this mount the uploaded
+      # logo is lost on the next rebuild (image layers are ephemeral).
+      - ./static/img:/app/static/img
+    restart: unless-stopped
+    healthcheck:
+      # python:3.12-slim ships no curl/wget — poll with the stdlib instead.
+      # First boot imports WeasyPrint and creates the DB schema, hence the
+      # generous start_period.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/api/v1/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s

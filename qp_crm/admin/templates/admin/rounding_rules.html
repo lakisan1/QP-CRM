@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="{{ theme|default('dark') }}">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Rounding Rules - Admin</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <style>
+        .rules-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+
+        .rules-table th,
+        .rules-table td {
+            border-bottom: 1px solid var(--border-color);
+            padding: 12px;
+            text-align: left;
+        }
+
+        .rules-table th {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .target-header {
+            background: var(--bg-input);
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .method-badge {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: var(--accent-primary);
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+    {% set active = 'rounding_rules' %}{% include 'admin/_nav.html' %}
+
+    <div class="container" style="max-width: 1000px;">
+        <h1>Manage Rounding Rules</h1>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ 'success' if category == 'success' else 'error' }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <p style="color: var(--text-muted); margin-bottom: 30px;">
+            Define how prices and discount prices should be rounded. Rules are applied based on the value limit.
+            For a given value, the rule with the smallest <code>Limit</code> that is greater than or equal to the value
+            is used.
+        </p>
+
+        {% for target, label in [('price', 'Price Rounding (Cena)'), ('discount', 'Discount Price Rounding (Akcijska
+        Cena)')] %}
+        <div class="card">
+            <div class="target-header">
+                <h3 style="margin: 0;">{{ label }}</h3>
+            </div>
+
+            <table class="rules-table">
+                <thead>
+                    <tr>
+                        <th>Up to Limit</th>
+                        <th>Rounding Step</th>
+                        <th>Method</th>
+                        <th style="text-align: right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for rule in rules_by_target[target] %}
+                    <tr>
+                        <td>{{ rule.limit_val }}</td>
+                        <td>{{ rule.step_val }}</td>
+                        <td><span class="method-badge">{{ rule.method }}</span></td>
+                        <td style="text-align: right;">
+                            <form action="{{ url_for('admin.delete_rounding_rule') }}" method="POST" style="display:inline;"
+                                onsubmit="return confirm('Delete this rule?');">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="rule_id" value="{{ rule.id }}">
+                                <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <div
+                style="background: rgba(255,255,255,0.03); padding: 20px; border-radius: 8px; border: 1px dashed var(--border-color);">
+                <h4 style="margin-top: 0;">Add New Rule for {{ target }}</h4>
+                <form action="{{ url_for('admin.add_rounding_rule') }}" method="POST" class="grid-layout"
+                    style="grid-template-columns: 1fr 1fr 1fr auto; align-items: flex-end; gap: 15px;">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="target" value="{{ target }}">
+                    <div>
+                        <label>Limit Value</label>
+                        <input type="number" step="0.01" name="limit_val" placeholder="e.g. 5000" required>
+                    </div>
+                    <div>
+                        <label>Rounding Step</label>
+                        <input type="number" step="0.01" name="step_val" placeholder="e.g. 50" required>
+                    </div>
+                    <div>
+                        <label>Method</label>
+                        <select name="method">
+                            <option value="UP">Round UP</option>
+                            <option value="DOWN">Round DOWN</option>
+                            <option value="NEAREST">Nearest</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-success">Add Rule</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</body>
+
+</html>

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="{{ current_lang|default('sr') }}" data-theme="{{ theme|default('dark') }}">
+<head>
+    <meta charset="utf-8">
+    <title>{% block title %}{{ _('Rent') }}{% endblock %} – QP-CRM</title>
+    <link rel="icon" type="image/png" href="/app_assets/favicon.png">
+    {% if not pdf_mode %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+    {% endif %}
+</head>
+<body>
+{% if not pdf_mode %}
+{% from '_banner.html' import banner with context %}
+{% call banner() %}
+    <a href="{{ url_for('rent.list_contracts') }}" {% if request.endpoint=='rent.list_contracts' %}class="active"{% endif %}>{{ _('Contracts') }}</a>
+    <a href="{{ url_for('rent.list_equipment') }}" {% if request.endpoint=='rent.list_equipment' %}class="active"{% endif %}>{{ _('Equipment') }}</a>
+{% endcall %}
+{% endif %}
+{% block content %}{% endblock %}
+{% if not pdf_mode %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    document.querySelectorAll('.searchable-select').forEach(el => {
+        new TomSelect(el, { create: false, sortField: { field: "text", direction: "asc" } });
+    });
+});
+</script>
+{% endif %}
+{% block scripts %}{% endblock %}
+</body>
+</html>

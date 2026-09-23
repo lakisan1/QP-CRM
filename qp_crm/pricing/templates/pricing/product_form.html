@@ -1,0 +1,190 @@
+{% extends "pricing/base.html" %}
+
+{% block title %}
+{% if product and product.id %}{{ _('Edit Product') }}{% else %}{{ _('Add Product') }}{% endif %}
+{% endblock %}
+
+
+{% block content %}
+<h1>
+    {% if product and product.id %}{{ _('Edit Product') }}{% else %}{{ _('Add Product') }}{% endif %}
+</h1>
+{% if error %}
+<p style="color:red; font-weight:bold;">
+    {{ error }}
+</p>
+{% endif %}
+<div class="card">
+    <form method="post" enctype="multipart/form-data">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <p>
+            {% if brand_options %}
+            <label>{{ _('Brand') }}:<br>
+                <select name="brand">
+                    <option value="">-- {{ _('choose a brand') }} --</option>
+                    {% for b in brand_options %}
+                    <option value="{{ b }}" {% if product and product.brand==b %}selected{% endif %}>
+                        {{ b }}
+                    </option>
+                    {% endfor %}
+                </select>
+                </select>
+                <a href="{{ url_for('pricing.brands') }}" class="btn btn-sm btn-primary" style="margin-top:5px;">Dodaj novi
+                    brend</a>
+            </label>
+            {% else %}
+            <label>{{ _('Brand') }}:<br>
+                <input type="text" name="brand" value="{% if product %}{{ product.brand }}{% endif %}">
+                <br>
+                <small>{{ _('No brands defined yet. Go to Brands first.') }}</small>
+            </label>
+            {% endif %}
+        </p>
+        <p>
+            {% if categories %}
+            <label>{{ _('Category') }}:<br>
+                <select name="category" required>
+                    <option value="">-- {{ _('choose a category') }} --</option>
+                    {% for cat in categories %}
+                    <option value="{{ cat }}" {% if product and product.category==cat %}selected{% endif %}>
+                        {{ cat }}
+                    </option>
+                    {% endfor %}
+                </select>
+                </select>
+                <a href="{{ url_for('pricing.category_defaults') }}" class="btn btn-sm btn-primary"
+                    style="margin-top:5px;">Dodaj
+                    novu kategoriju</a>
+            </label>
+            {% else %}
+            <label>{{ _('Category') }}:<br>
+                <input type="text" name="category" value="{% if product %}{{ product.category }}{% endif %}">
+                <br>
+                <small>{{ _('No categories defined yet. Go to Category Defaults first.') }}</small>
+            </label>
+            {% endif %}
+        </p>
+        <p>
+            <label>{{ _('Item type') }} *:<br>
+                <select name="item_type" required class="long-input">
+                    <option value="proizvod" {% if (product and (product.item_type or 'proizvod') == 'proizvod') %}selected{% endif %}>{{ _('Physical product') }}</option>
+                    <option value="usluga" {% if product and product.item_type == 'usluga' %}selected{% endif %}>{{ _('Service') }}</option>
+                </select>
+                <br><small>{{ _('Required — existing products are all physical products.') }}</small>
+            </label>
+        </p>
+        <p>
+            <label>Naziv:<br>
+                <input type="text" name="name" required class="long-input"
+                    value="{% if product %}{{ product.name }}{% endif %}">
+            </label>
+        </p>
+        <p>
+            <label>{{ _('Description') }}:<br>
+                <textarea name="description" id="product_description" rows="8"
+                    cols="80">{% if product %}{{ product.description }}{% endif %}</textarea>
+            </label>
+        </p>
+        <p>
+            <label>{{ _('Product ID / code') }}:<br>
+                <input type="text" name="product_code" class="long-input"
+                    placeholder="npr. kataloški broj, šifra dobavljača"
+                    value="{% if product %}{{ product.product_code or '' }}{% endif %}">
+                <br><small>{{ _('Optional — shown only on product pages, never in offers.') }}</small>
+            </label>
+        </p>
+        <p>
+            <label>{{ _('Website link') }}:<br>
+                <input type="url" name="website_url" class="long-input"
+                    placeholder="https://example.com/product-page"
+                    value="{% if product %}{{ product.website_url or '' }}{% endif %}">
+                <br><small>{{ _('Optional — shown only on product pages, never in offers.') }}</small>
+            </label>
+        </p>
+        <p>
+            <label>{{ _('Manufacturer link') }}:<br>
+                <input type="url" name="manufacturer_url" class="long-input"
+                    placeholder="https://manufacturer.com/product"
+                    value="{% if product %}{{ product.manufacturer_url or '' }}{% endif %}">
+                <br><small>{{ _('Optional — shown only on product pages, never in offers.') }}</small>
+            </label>
+        </p>
+        <p>
+            <label>{{ _('Image (JPG, PNG, WEBP):') }}<br>
+                <div class="file-upload-wrapper">
+                    {% if product and product.photo_path %}
+                    <div style="margin-bottom: 10px;">
+                        <p>Trenutna fotografija: {{ product.photo_path }}</p>
+                        <img src="{{ url_for('pricing.product_image', filename=product.photo_path) }}"
+                            style="max-width:200px; max-height:200px; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+                    </div>
+                    {% endif %}
+
+                    <input type="file" name="photo_file" accept="image/jpeg, image/png, image/webp">
+                    <span class="file-upload-text">Klikni ili prevuci sliku ovde</span>
+                </div>
+
+                <div
+                    style="margin-top: 15px; padding: 15px; border: 1px solid var(--border-color); border-radius: 8px; background-color: var(--bg-card); box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);">
+                    <label style="margin-bottom: 10px; color: var(--text-main); font-size: 14px;">ILI unesite URL
+                        slike:</label>
+                    <input type="url" name="photo_url" placeholder="https://example.com/image.jpg"
+                        value="{% if product and product.photo_url %}{{ product.photo_url }}{% endif %}">
+                </div>
+            </label>
+        </p>
+        <p>
+            <button type="submit" class="btn btn-success" name="action" value="save">
+                {% if product and product.id %}{{ _('Save Changes') }}{% else %}{{ _('Save') }}{% endif %}
+            </button>
+            {% if not product or not product.id %}
+            <button type="submit" class="btn btn-primary" name="action" value="save_add_price"
+                style="margin-left: 10px;">
+                {{ _('Save and Add Price') }}
+            </button>
+            {% else %}
+            <a href="{{ url_for('pricing.price_history', product_id=product.id) }}" class="btn"
+                style="margin-left: 10px; border:1px solid #ccc; text-decoration:none; padding: 6px 12px; color: var(--text-main);">
+                {{ _('Price History') }}
+            </a>
+            <button type="submit" class="btn btn-primary" name="action" value="save_add_price"
+                style="margin-left: 10px;">
+                {{ _('Save and Add New Price') }}
+            </button>
+            {% endif %}
+        </p>
+    </form>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const fileInput = document.querySelector('input[type="file"][name="photo_file"]');
+        if (fileInput) {
+            fileInput.addEventListener('change', function (e) {
+                const fileName = e.target.files[0]?.name;
+                const wrapper = e.target.closest('.file-upload-wrapper');
+                const textSpan = wrapper.querySelector('.file-upload-text');
+
+                if (fileName && textSpan) {
+                    textSpan.textContent = "Izabrano: " + fileName;
+                    textSpan.style.color = "var(--accent-success)";
+                    textSpan.style.fontWeight = "600";
+                    wrapper.style.borderColor = "var(--accent-success)";
+                }
+            });
+        }
+
+        const descTextarea = document.getElementById("product_description");
+        if (descTextarea) {
+            new EasyMDE({
+                element: descTextarea,
+                status: false,
+                spellChecker: false,
+                toolbar: ["bold", "italic", "heading", "|", "quote", "unordered-list", "ordered-list", "|", "link", "preview"]
+            });
+        }
+    });
+</script>
+<link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css">
+<script src="https://unpkg.com/easymde/dist/easymde.min.js"></script>
+{% endblock %}

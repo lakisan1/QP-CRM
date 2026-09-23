@@ -1,0 +1,67 @@
+# QP-CRM — production image (Phase 0, P0-T3).
+#
+# One image serves the whole multi-app stack: gunicorn runs qp_crm/wsgi.py
+# (qp_crm.wsgi:application), whose DispatcherMiddleware merges pricing / offer /
+# rent / admin / sale / settings on port 5000.
+FROM python:3.12-slim
+
+# WeasyPrint renders the offer/rent PDFs — these are the same system libs
+# run_apps.sh installs on bare metal (the PKGS list), plus tzdata so
+# TZ=Europe/Belgrade actually resolves. This also fixes machines where
+# bare-metal boot failed on the missing libpango.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libpango-1.0-0 \
+        libpangoft2-1.0-0 \
+        libharfbuzz-subset0 \
+        libgdk-pixbuf-2.0-0 \
+        libcairo2 \
+        shared-mime-info \
+        fonts-dejavu-core \
+        tzdata \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV TZ=Europe/Belgrade \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+WORKDIR /app
+
+# Dependencies first: this layer only rebuilds when requirements.txt changes.
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Test-only dependencies (pytest), Phase 1 P1-T1. Separate file + layer so
+# production requirements.txt stays untouched and this layer never
+# invalidates the one above. The suite runs via:
+#   docker compose run --rm app pytest
+COPY dev-requirements.txt .
+RUN pip install --no-cache-dir -r dev-requirements.txt
+
+# Application code. Build-context junk (venv, .git, PDFs, scratch scripts,
+# app_data, .env, ...) is kept out by .dockerignore. Markdown comes from
+# requirements.txt (pinned 3.10.2) since the Phase-2 stage-6 devendor.
+COPY . .
+
+# COPY preserves the source file modes, and some files may carry mode 600
+# (created by tooling) — the non-root app user then cannot read them and
+# gunicorn fails with 'Permission denied: /app/qp_crm/wsgi.py'. Grant read +
+# directory traversal to everyone; writes go to the bind-mounted dirs only.
+RUN chmod -R a+rX /app
+
+# Non-root runtime user with uid/gid 1000: matches the host user that owns
+# the bind mounts in docker-compose.yml (./app_data, ./app_assets,
+# ./static/img), so the container can read/write them without root.
+# Only the mutable data dirs are chowned — code stays root-owned read-only.
+RUN groupadd -g 1000 appuser && useradd -m -u 1000 -g appuser appuser \
+    && mkdir -p /app/app_data/product_images /app/app_assets /app/static/img \
+    && chown -R appuser:appuser /app/app_data /app/app_assets /app/static/img
+
+USER appuser
+
+EXPOSE 5000
+
+# --preload: qp_crm/wsgi.py's DB init sequence then runs exactly once in the master
+# process instead of racing between workers on a fresh volume (the init is
+# idempotent, but ALTER TABLE migrations + SQLite would rather not race).
+# Debugger/reloader stay OFF — production server (audit C1).
+CMD ["gunicorn", "--workers", "2", "--threads", "4", "--preload", "--bind", "0.0.0.0:5000", "qp_crm.wsgi:application"]

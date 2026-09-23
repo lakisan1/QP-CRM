@@ -1,0 +1,36 @@
+{# ─────────────────────────────────────────────────────────────────────────────
+   Shared app banner — ONE nav shell for every QP-CRM header.
+
+   Every module banner previously copy-pasted this exact <nav> structure
+   (nav-links + nav-right with the shared Home pill + logo). The per-module
+   links differ, so this is a macro: the banner renders the shell and the
+   CALLER supplies the .nav-links content:
+
+       {% from '_banner.html' import banner %}
+       {% call banner() %}
+           <a href="{{ url_for('...') }}" ...>Label</a>
+       {% endcall %}
+
+   Optional nav_extra (admin PDF-template editor breadcrumb) renders a muted
+   trail after the links. The nav-logo alt text is unified on the app name
+   (rent used to say bare "Logo"). Includes templates/nav_home.html so every
+   banner still resolves the ONE shared green Home pill.
+
+   hr: the module bases and the settings page draw the <hr> divider under
+   the banner; admin pages do NOT (their body containers start right after
+   the nav), so admin/_nav.html passes hr=false.
+   ───────────────────────────────────────────────────────────────────────── #}
+{% macro banner(nav_extra=None, hr=true) -%}
+<nav>
+    <div class="nav-links">
+        {{ caller() }}{% if nav_extra %}<span style="color: var(--text-muted);">{{ nav_extra }}</span>{% endif %}
+    </div>
+    <div class="nav-right">
+        {% include 'nav_home.html' %}
+        <div class="nav-logo-container">
+            <img src="{{ url_for('static', filename='img/logo_company.jpg') }}" alt="QP-CRM Logo" class="nav-logo">
+        </div>
+    </div>
+</nav>
+{% if hr %}<hr>{% endif %}
+{%- endmacro %}

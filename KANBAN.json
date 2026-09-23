@@ -1,0 +1,1372 @@
+{
+  "version": 1,
+  "cards": [
+    {
+      "id": "card-e20fb211-a088-4583-95c3-ba3cd08df668",
+      "title": "Familiarize with QP-CRM codebase and architecture",
+      "description": "Read all 4 docs (README_API/FEATURES/PROGRAM_DOCUMENTATION/API_INSTRUCTIONS), main.py, every module's routes/schema, and AUDIT_FINDINGS.md. Verified vs code this pass: 6 sub-apps merged via DispatcherMiddleware on :5000 + /api/v1 blueprint; single SQLite app_data/pricing.db (WAL) with ~16 tables incl. site_products (WP sync snapshot); module-level WeasyPrint imports (offer/app.py:8, rent/app.py:10) are the known boot blocker (missing libpango, needs root). NEW vs prior pass: undocumented site-sync feature (pricing/templates/product_sync.html + /api/v1/sync/{fetch,table,link,unlink,product_info,add_product} pulling from autoservisnaoprema.com WP REST API, 1:1 products.site_product_id link); rent lease calculator replicates Excel PMT; 'System Default' PDF template re-synced from filesystem at every admin boot; AUDIT_FINDINGS.md tracks C1-C5/H1-H10/M1-M11 issues (SSTI via stored PDF templates, no CSRF except settings app, plaintext passwords).",
+      "summary": "Re-surveyed docs + all 7 packages' entry points, route maps, DB schema (all CREATE TABLE blocks), rent PMT calculator, offer recalc_totals cascade, sync API, deploy scripts; wrote architecture summary for the user.",
+      "rationale": "Goal 1 of the session request — understand the app before running it; needed to predict the WeasyPrint boot blocker (module-level imports in offer/app.py:8 and rent/app.py:10).",
+      "rejected": "Skimming every route in the 1.2-1.8k-line app.py files — PROGRAM_DOCUMENTATION.md already enumerates all routes per module with implementation notes, so per-route reading was redundant for setup purposes.",
+      "sourceSessionId": "session-5cc94371-fc3f-4d12-a3cd-ea499a7f897c",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "familiarization"
+      ],
+      "createdAt": 1788442332644,
+      "updatedAt": 1788443324865
+    },
+    {
+      "id": "card-e61c6848-8617-4de6-bb61-07222cbb6666",
+      "title": "Set up QP-CRM Python environment (venv + deps)",
+      "description": "run_apps.sh aborted at its sudo apt step (sandbox: \"no new privileges\" flag blocks sudo; set -e killed the script), so app_data/, venv/ and pip install never ran from the script. Manual fallback: mkdir -p app_data/product_images; python3 -m venv failed because ensurepip/python3.12-venv is missing and there is no system pip3; recreated with `python3 -m venv --without-pip venv` + curl get-pip.py bootstrap; installed requirements.txt (Flask 3.1.3, Pillow 12.3.0, requests, WeasyPrint 69.0, pypdf 6.16.2, python-docx 1.2.0, mammoth 1.12.1, lxml 6.1.3) + Werkzeug 3.1.8. Note: `markdown` is intentionally NOT a pip dep — it is vendored in custom_libs/ and added to sys.path at runtime by the sub-apps.",
+      "summary": "Created app_data/product_images, venv (get-pip.py bootstrap since ensurepip missing), all requirements + Werkzeug installed and verified importable.",
+      "rationale": "Goal 2 prerequisite — the app cannot run without its Python dependencies; the sanctioned fallback path when run_apps.sh's apt step aborts.",
+      "rejected": "Editing run_apps.sh to skip the apt block — task said run it as-is and only do remaining steps manually; also rejected --system-site-packages venv (nothing useful installed system-side anyway).",
+      "sourceSessionId": "session-5cc94371-fc3f-4d12-a3cd-ea499a7f897c",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "setup"
+      ],
+      "createdAt": 1788442332656,
+      "updatedAt": 1788442332656
+    },
+    {
+      "id": "card-7fa8808b-2629-485c-beb1-256f3e36914b",
+      "title": "Phase 0 — Dockerize QP-CRM (image + compose + volumes + env secrets)",
+      "description": "PHASE 0 of the roadmap (first execution phase; runs in a dedicated chat). Dockerize for easy running/updating of the main instance. Steps: (1) pin requirements (pip freeze from working venv) + add gunicorn; (2) wsgi entrypoint `from main import application` + explicit init sequence (pricing_init_db, pricing_migrate_schema, offer_init_db, admin_init_db, rent_init_db) since those run only under `__main__` today; (3) Dockerfile python:3.12-slim + apt libs from run_apps.sh PKGS list (libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 libgdk-pixbuf-2.0-0 libcairo2 shared-mime-info fonts-dejavu-core) — also fixes the current libpango boot blocker on this machine; non-root user; gunicorn --workers 2 --threads 4 (debugger/reloader OFF, audit C1); switch pricing/offer/rent hardcoded secret keys to os.environ.get; (4) docker-compose.yml: volumes app_data/ + app_assets/ + static/img (logo upload writes into static/img — lost on rebuild without a volume), env-based secrets, TZ=Europe/Belgrade, healthcheck /api/v1/health, restart unless-stopped; (5) .dockerignore (venv, .git, README_Images, *.pdf, *.xlsx, main.log, scratch scripts); (6) smoke checklist: login each app, product+price, offer PDF, rent doc PDF, backup download; (7) replace run_apps.sh git-pull/pkill -f main.py update flow with image rebuild (audit M11); keep run_apps.sh for bare-metal users. HANDOVER PROTOCOL on completion: commit per step on a phase branch, tag the image, mark this card done with summary+rejected fields, write an Agent Note for the dockerization decisions — the next phase chat starts from the board.",
+      "rationale": "User confirmed the per-phase dedicated-chat workflow; the docker card is the entry point of the whole roadmap and must carry an explicit phase number and the handover protocol so a fresh chat with zero conversation memory can execute it from the board alone.",
+      "rejected": "Alpine base (musl breaks WeasyPrint), named volumes (bind mounts reuse host data, uid 1000 matches), schema creation at build time (data belongs in volumes), random token_hex secret fallbacks (invalidate sessions per restart — stable old literals kept as dev fallback), subagent-written Dockerfile (3 stall attempts — orchestrator wrote it directly).",
+      "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "docker",
+        "plan",
+        "phase-0"
+      ],
+      "createdAt": 1788443872528,
+      "updatedAt": 1788454022176,
+      "summary": "PHASE 0 COMPLETE on branch phase-0-docker (git tag phase-0), image qp-crm:phase0 (382MB), stack healthy. Executed via 8 task cards (P0-T1..T8) + 9 per-step commits: pinned requirements+gunicorn 26.2.0 (61080f1); wsgi.py entrypoint replaying main.py's init sequence fork-safely (cda297d); Dockerfile python:3.12-slim + WeasyPrint libs + non-root uid 1000 + gunicorn --preload (273826d + perms fix 867ca19); compose stack with bind-mount volumes (app_data/app_assets/static/img), env_file .env, TZ=Europe/Belgrade, restart unless-stopped, /api/v1/health healthcheck (f5196da); deploy.sh rebuild-and-wait flow + DOCKER.md, run_apps.sh kept for bare metal (1bd588d); custom_libs tracked for fresh-clone builds (3592f80). Smoke checklist ALL PASS: health, 4 app logins, product+price via UI, offer PDF (SMOKE-2026-001, 386KB), rent doc PDF (44.5KB), backup download (SQLite 221KB). .env with real generated secrets on host (git-ignored, chmod 600); .env.example checked in. Dev branch untouched."
+    },
+    {
+      "id": "card-475fcd46-206e-407f-ba11-76698862e40f",
+      "title": "Phase 3 — Users & user management (unified auth, roles, CSRF, hashing)",
+      "description": "Phase 3 of the roadmap — ran AFTER Phase 2 (single app + blueprints) so login/session/CSRF were written once against the final shape. Env-based secrets for Docker landed in Phase 0 (pricing/offer/rent hardcoded keys switched to os.environ.get there). Delivered: users table (id, username, password_hash, role, is_active, modules_set, created_at, last_login); single unified login on the top-level app (one qp_session cookie, path=/, 8h sliding expiry); per-app password gates replaced by shared require_role('admin'/'staff') + per-user app access via require_module and the user_modules table (pricing/offer/rent/sale checkboxes per staff user in Admin -> Users; admins bypass); werkzeug hashed passwords with transparent rehash-on-login from legacy plaintext (no plaintext at rest — scrub_legacy_password_keys on every boot); CSRF shield on every state-changing route incl. AJAX (settings-app pattern generalized into shared/web.py; audit C5 closed); API keys table + per-user keys with attribution (global key deprecated but working); login_audit log + in-process lockout (5 fails / 15 min per IP+username); sandboxed Jinja for DB PDF templates already closed C4 in Phase 2, template editor admin-only; Admin Users UI (create/deactivate/reset/role change, one Save per user, own-password confirmed), landing page requires login + access-filtered app menu, logout moved into Settings, header unified with Home button. Extra user-request UX work folded in (Serbian feedback cards): admin header options missing on subpages fixed via shared _nav include, /admin/rent/templates login loop fixed, logout button moved to settings, Landing Page renamed Home. Suite grew to 243+ tests; 3 golden-PDF skips outside the pinned image by design. Verified live on :5000 (admin walks all module pages, anonymous redirects to /login?next=, CSRF 400s on tokenless POSTs, /api/v1 401 without key).",
+      "rationale": "User's milestone 2, positioned after the Phase-2 blueprint consolidation so login/session/CSRF were written once against the final shape and before features (roles gate who may create invoices, edit stock, manage templates).",
+      "rejected": "Heavy auth frameworks (Flask-User/OAuth) — overkill for LAN scale; per-app user tables — would perpetuate the six-realm session split; landing auth before consolidation — double work. Forced first-login password change — retired mid-phase by user request (password changes exclusively admin-managed in Admin -> Users); default staff users kept as seeds — retired later by the 'no default users beyond admin' change (separate card/commit 4f3a2a1).",
+      "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "users",
+        "auth",
+        "plan"
+      ],
+      "createdAt": 1788443872544,
+      "updatedAt": 1788704029408,
+      "summary": "Phase 3 delivered and verified: unified login + roles + per-user module grants, werkzeug hashing with legacy rehash + scrub, CSRF everywhere, per-user API keys + audit, lockout, 8h sessions, Admin Users UI, landing auth gate + access-filtered menu, and the user-requested header/logout/Home fixes. Exit criteria met (single login, roles enforced per module, every POST CSRF-protected, no plaintext at rest)."
+    },
+    {
+      "id": "card-0c1a2e53-6b19-4f87-b76d-56c2dfcfecd4",
+      "title": "Phase 1 — Test safety net: characterization + golden-PDF tests (before any refactor)",
+      "description": "Prerequisite for ALL structural work: the app has zero tests, so 'clear technical debt' without this is gambling with the price engine. Build a small, high-value pytest suite: (1) characterization tests for pure business logic — recalc_totals 3-level discount cascade, apply_rounding + rounding rules, calculate_rent/pmt/generate_schedule, format_amount/format_date, rent placeholder substitution; (2) golden-file PDF tests — render one fixed offer and one fixed rent document, compare against checked-in baselines (pin fonts in the image for byte-stability), re-baselined consciously only when a change is intended; (3) Flask test-client smoke tests per module (login → main pages → 200). Runs via `docker compose run app pytest`; wire into CI if a repo host exists. Exit criteria: suite green on main; every Phase-2 refactor step must keep it green.",
+      "rationale": "User's plan is to break the monolith and clear tech debt before features. Refactoring an untested price/lease/discount engine silently changes money — the safety net must exist before the first structural commit, and it is what makes 'time is no object' refactoring safe instead of brave.",
+      "rejected": "Host-venv test runs (WeasyPrint unimportable without libpango); compose-override test service (breaks the one plain command); fixing discovered bugs (forbidden — they are Phase-2 cards now); pushing to origin (user decides).",
+      "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "testing",
+        "roadmap",
+        "phase-1"
+      ],
+      "createdAt": 1788446046563,
+      "updatedAt": 1788467855564,
+      "summary": "DONE. Suite: 120 tests green on the UNMODIFIED app — 4 infra guards, 33 rounding, 6 recalc cascade, 22 rent math, 29 formatting+placeholders, 2 golden PDFs, 24 smoke. ONE command (documented on this card, in tests/README.md and DOCKER.md): docker compose build app && docker compose run --rm app pytest. Suite runs INSIDE the pinned image (fonts pinned, no host deps), fully isolated from the real app_data (throwaway /tmp/qp-crm-tests, guarded by tests/test_infra_isolation.py). Golden-PDF baselines for one fixed offer + one fixed rent document are checked in and byte-stable across containers (normalizer blanks PDF dates/trailer /ID only). Branch phase-1-tests (7+1 commits, per-step), image qp-crm:phase1 (phase0 = rollback), stack healthy. Characterization captured quirks AS-IS; 5 bug cards tagged bug/phase-2-candidate; zero production-code changes (test plumbing only: dev-requirements layer, .dockerignore, compose image tag, docs)."
+    },
+    {
+      "id": "card-7933d2c7-e088-49f7-ad95-14a993dc7f71",
+      "title": "Phase 2 — Structural refactor: single app + blueprints, single schema, service layer",
+      "description": "The monolith-breaking program, done incrementally with Phase-1 tests green at every step and a Docker image rebuild + smoke test per merged step. Order within the phase: (1) consolidate 6 Flask instances → 1 Flask app + blueprints, URL prefixes preserved (/pricing, /offer, /rent, /admin, /sale, /settings), one session/secret/cookie, remove DispatcherMiddleware — validate the pattern on the smallest module (sale or settings) first, then pricing/offer/rent/admin; (2) deduplicate copy-pasted helpers (md filter, format_date, get_theme, check_auth → blueprint-level hooks) into shared/; (3) single-source the DB schema — one schema module consumed by all init_db calls, delete the stale offers/offer_items duplicate in pricing/app.py, keep idempotent ALTER migrations, add UNIQUE constraints where data permits; (4) extract service layer — pricing_service (cascade+rounding), offer_service (totals+numbering), rent_service (PMT+schedule+placeholders), pdf_service (shared WeasyPrint render helper with sandboxed Jinja → fixes SSTI during the move); (5) split 1.2–1.8k-line route files into per-domain modules; (6) proper package layout (qp_crm/), delete sys.path hacks, replace vendored custom_libs/markdown with pinned pip dependency Markdown==3.10.2; (7) CI running pytest. DISCIPLINE: zero behavior changes inside this phase — same URLs, same totals, byte-comparable PDFs; improvements go to the Phase-4 backlog. Exit criteria: single app, no DispatcherMiddleware, no sys.path hacks, no vendored libs, single schema source, tests green.",
+      "rationale": "Phase 2's contract was structural-only: make the codebase testable and safe without changing user-visible behavior (golden PDFs byte-identical), then fix the pinned bugs deliberately with referenced re-baselines. Delivered so the user can manually test before Phase 3 (users/auth/CSRF).",
+      "rejected": "Big-bang rewrite: rejected from the start (see architecture-direction card). Bundle-fixing the 5 bugs during the structural stages was also rejected — zero-behavior-change discipline during 1-6 kept every green suite a real regression gate; bugs were fixed only after the structure was byte-verified. Remaining known debt deliberately deferred to Phase 3+: H10 bare-numeric input validation, L9 fresh connection per call, L11 float money -> Decimal, bracket-selection product decision.",
+      "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "refactor",
+        "roadmap",
+        "phase-2"
+      ],
+      "createdAt": 1788446046578,
+      "updatedAt": 1788446046578,
+      "summary": "All 7 structural stages shipped on branch phase-2-refactor (single app+blueprints, shared/ dedupe, single schema, service layer + sandboxed Jinja closing audit C4, per-domain route modules, qp_crm/ package with sys.path hacks deleted and Markdown==3.10.2 devendored, GH Actions CI), then all 5 phase-2-candidate BUG cards fixed with one commit + regression test each (rent pmt zero-period, rent schedule bad-date 400, offer discount normalization, pricing rounding semantics decision, sale bare-schema empty state). Exit criteria met: single app, no DispatcherMiddleware, no sys.path hacks, no vendored libs, single schema source. Suite 133 passed; image tagged qp-crm:phase2 (docker-compose.yml + DOCKER.md updated); golden PDFs byte-identical throughout stages 1-6."
+    },
+    {
+      "id": "card-70b8c383-02ec-4681-9070-83cf7e08e164",
+      "title": "P0-T1 · Pin requirements.txt from working venv + add gunicorn",
+      "description": "Step 1 of the Phase-0 card. Install gunicorn into the existing venv, then `venv/bin/pip freeze` and rewrite requirements.txt with exact pins. Keep a comment noting: `markdown` is intentionally NOT a pip dep — vendored in custom_libs/ and added to sys.path at runtime (Phase 2 replaces this).",
+      "rationale": "Reproducible image builds require exact versions; unpinned ranges would make rebuilds drift and later break Phase-1 golden-PDF baselines for non-code reasons.",
+      "rejected": "constraints file + loose top-level requirements — overkill for a single-image app; one pinned file is what the Dockerfile consumes.",
+      "sourceSessionId": "session-ffcc3e3a-6384-411f-8100-d723ee8c50c7",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "docker",
+        "phase-0",
+        "task"
+      ],
+      "createdAt": 1788448599921,
+      "updatedAt": 1788451744916,
+      "summary": "requirements.txt rewritten from venv pip freeze: 30 exact pins incl. gunicorn==26.2.0, Flask==3.1.3, weasyprint==69.0, Werkzeug==3.1.8; header documents the freeze procedure and that 'markdown' stays vendored in custom_libs (3.10.2) until Phase 2. pip check: no broken requirements. Committed as 'P0 step 1'."
+    },
+    {
+      "id": "card-832c412a-2331-417f-bfe6-c47e6eebb411",
+      "title": "P0-T2 · wsgi.py entrypoint + explicit DB init sequence",
+      "description": "Step 2. Create /home/dsh/QP-CRM/wsgi.py exposing `application` and running the init sequence (pricing_init_db → pricing_migrate_schema → offer_init_db → admin_init_db → rent_init_db — exact names verified from main.py) at import, ensuring app_data dirs exist and no SQLite connection stays open across gunicorn fork.",
+      "rationale": "Schema init ran only under main.py's __main__ block; gunicorn never triggers it, so a fresh volume would boot with no schema. Init at wsgi import makes any WSGI server boot self-initializing and idempotent (CREATE TABLE IF NOT EXISTS + guarded ALTERs).",
+      "rejected": "Schema creation at docker build time — data must live in volumes, created at runtime; try/except around init — silent empty-schema boots are worse than loud crashes; per-worker init without --preload — works (20s busy timeout) but --preload makes init run exactly once in the master, adopted in the Dockerfile CMD.",
+      "sourceSessionId": "session-ffcc3e3a-6384-411f-8100-d723ee8c50c7",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "docker",
+        "phase-0",
+        "task"
+      ],
+      "createdAt": 1788448599928,
+      "updatedAt": 1788451995682,
+      "summary": "Created wsgi.py: sys.path root insert, os.makedirs for APP_DATA_DIR/IMAGE_DIR/APP_ASSETS_DIR before imports, explicit init sequence pricing_init_db → pricing_migrate_schema → offer_init_db → admin_init_db → rent_init_db (verified same order + same source modules as main.py:66-70), then 'from main import application' (DispatcherMiddleware, main.py:52-59). No try/except around init — boot fails loud. Connection audit: no module-level sqlite connections anywhere (all function-local, init paths close before return) → fork-safe. Committed as 'P0 step 2'."
+    },
+    {
+      "id": "card-9ae34e31-ab83-45a5-9237-b4952c3c4829",
+      "title": "P0-T3 · Dockerfile: python:3.12-slim + WeasyPrint libs + non-root + gunicorn",
+      "description": "Step 3. python:3.12-slim base; apt packages from run_apps.sh PKGS (libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 libgdk-pixbuf-2.0-0 libcairo2 shared-mime-info fonts-dejavu-core) + tzdata — also fixes the host libpango boot blocker; WORKDIR /app; pip install -r requirements.txt; non-root uid/gid 1000 (matches host dsh uid for bind mounts); ENV TZ=Europe/Belgrade PYTHONUNBUFFERED=1; EXPOSE 5000; CMD gunicorn --workers 2 --threads 4 --bind 0.0.0.0:5000 wsgi:application (debugger/reloader OFF — audit C1). custom_libs/ MUST be copied (vendored markdown needed at runtime).",
+      "rationale": "The proven WeasyPrint lib set + slim base keeps PDF rendering working in a small image; uid 1000 matches the host owner of the compose bind mounts; --preload makes wsgi.py's init run exactly once in the master (T2 connection audit: no global conns, fork-safe).",
+      "rejected": "Alpine — musl breaks WeasyPrint/pango wheels; python:3.12 full — 1GB+ for nothing; root container — bind-mount permission mismatch; per-worker init without --preload — idempotent but races ALTER TABLE migrations on cold volumes.",
+      "sourceSessionId": "session-ffcc3e3a-6384-411f-8100-d723ee8c50c7",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "docker",
+        "phase-0",
+        "task"
+      ],
+      "createdAt": 1788448599935,
+      "updatedAt": 1788452381206,
+      "summary": "Dockerfile written by orchestrator (3 subagent attempts stalled): python:3.12-slim + apt PKGS from run_apps.sh (libpango, libpangoft2, libharfbuzz-subset0, libgdk-pixbuf, libcairo2, shared-mime-info, fonts-dejavu-core) + tzdata; ENV TZ=Europe/Belgrade; requirements layer cached; COPY . . incl. custom_libs; non-root appuser uid/gid 1000 with chown on data dirs only; gunicorn --workers 2 --threads 4 --preload --bind 0.0.0.0:5000 wsgi:application, reloader OFF (audit C1). Committed as 'P0 step 3'."
+    },
+    {
+      "id": "card-7705fc3a-2824-410d-bb62-bc097604f6ac",
+      "title": "P0-T4 · Env-based secret keys in pricing/offer/rent",
+      "description": "Step 3 security slice. Replace hardcoded `app.secret_key = \"crm_*_secret_key_change_me\"` in pricing/app.py, offer/app.py, rent/app.py with `os.environ.get(\"PRICING_SECRET_KEY\"/\"OFFER_SECRET_KEY\"/\"RENT_SECRET_KEY\", <old literal as dev fallback>)`, mirroring the existing admin/app.py pattern. settings/sale/admin are already env-aware — no change.",
+      "rationale": "Image-baked identical secret keys across installs violate the Phase-0 env-secrets requirement (audit); compose injects real values via .env while the old literal keeps bare-metal dev behavior unchanged.",
+      "rejected": "Random token_hex fallback (settings/app.py style) — would invalidate sessions on every restart; env-var-with-stable-fallback chosen instead.",
+      "sourceSessionId": "session-ffcc3e3a-6384-411f-8100-d723ee8c50c7",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "docker",
+        "phase-0",
+        "task",
+        "security"
+      ],
+      "createdAt": 1788448599941,
+      "updatedAt": 1788450512061,
+      "summary": "Replaced hardcoded crm_*_secret_key_change_me in pricing/app.py, offer/app.py, rent/app.py with os.environ.get('PRICING|OFFER|RENT_SECRET_KEY', <old literal>), mirroring admin/app.py; committed as 'P0 step 3 (secrets)'."
+    },
+    {
+      "id": "card-73c5c1ac-ff9f-4e8b-947e-14272a21349f",
+      "title": "P0-T5 · docker-compose.yml + .dockerignore",
+      "description": "Steps 4+5. Compose: build ., image qp-crm:phase0, port 5000:5000, bind mounts ./app_data ./app_assets ./static/img (logo upload writes into static/img — lost on rebuild without the volume), env_file .env, TZ=Europe/Belgrade, restart unless-stopped, healthcheck on /api/v1/health via python urllib (no curl in slim). .dockerignore: venv, .git, .agents, KANBAN.json, README_Images, *.pdf, *.xlsx, *.xlsb, logs, scratch scripts (download_pdf*, measure_pdf*, test_*), app_data/, .env — but NOT custom_libs/.",
+      "rationale": "Volumes keep all mutable state outside the image so rebuilds never lose data (card step 4); .dockerignore keeps secrets, DBs and scratch files out of image layers (step 5).",
+      "rejected": "Named volumes — bind mounts reuse existing host data and stay inspectable; curl in image for healthcheck — python stdlib is already present; obsolete compose version: key — removed per Compose v2.",
+      "sourceSessionId": "session-ffcc3e3a-6384-411f-8100-d723ee8c50c7",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "docker",
+        "phase-0",
+        "task"
+      ],
+      "createdAt": 1788448599947,
+      "updatedAt": 1788451508594,
+      "summary": "docker-compose.yml (qp-crm:phase0, port 5000, env_file .env, TZ=Europe/Belgrade, bind mounts app_data/app_assets/static/img, restart unless-stopped, python-stdlib healthcheck on /api/v1/health with 60s start_period), .dockerignore (venv/.git/app_data/.env/scratch junk with **/ depth variants; custom_libs deliberately NOT ignored), .env.example (six secret keys + generation hint). Verified with docker compose config."
+    },
+    {
+      "id": "card-a9cc70f9-a9c5-499f-b5e0-ef9bb37f1a2f",
+      "title": "P0-T6 · deploy.sh: image-rebuild update flow (replaces run_apps.sh update path, audit M11)",
+      "description": "Step 7. New deploy.sh: docker compose build → up -d → wait for /api/v1/health → show ps/logs. run_apps.sh stays untouched for bare-metal users. Short DOCKER.md documenting first run, update flow, volumes, backups.",
+      "rationale": "Replaces the run_apps.sh git-pull/pkill -f main.py update flow (audit M11) with image rebuild + recreate; data safety comes from the bind mounts.",
+      "rejected": "Editing run_apps.sh to auto-detect Docker — one script doing two jobs is unclear and the card says keep it for bare-metal; requiring --ff-only pull success — offline/diverged deploys should still proceed with a warning.",
+      "sourceSessionId": "session-ffcc3e3a-6384-411f-8100-d723ee8c50c7",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "docker",
+        "phase-0",
+        "task"
+      ],
+      "createdAt": 1788448599952,
+      "updatedAt": 1788451508608,
+      "summary": "deploy.sh (git pull --ff-only non-fatal → docker compose build → up -d → ~90s health poll via docker inspect, fail-fast on unhealthy with log dump) + DOCKER.md ops doc (first run, update, volumes, backups incl. WAL stop-and-copy warning, logs). run_apps.sh left untouched for bare-metal users. Committed per step."
+    },
+    {
+      "id": "card-33716e35-c3b0-4459-b8c7-4d305dbe1163",
+      "title": "P0-T7 · Build image + compose up + automated smoke checklist",
+      "description": "Step 6 smoke list, automated as far as curl allows: docker compose build, up -d, healthcheck green; login each app (creds discovered from code/docs), pricing product+price flow, offer PDF render (non-empty %PDF bytes), rent doc PDF, admin backup download; report per-item PASS/FAIL. Requires T1–T6 merged and Docker installed. RUN TWICE — both runs fully green (agent re-executed all form flows on request).",
+      "rationale": "Automating the phase-card smoke list proves the image is genuinely runnable before manual user testing; the offer/rent PDF checks additionally prove WeasyPrint works in-container (the host libpango blocker is bypassed entirely).",
+      "rejected": "Selenium UI checks — curl/form-level POSTs cover the checklist; deeper UI testing stays with the user's manual pass.",
+      "sourceSessionId": "session-ffcc3e3a-6384-411f-8100-d723ee8c50c7",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "docker",
+        "phase-0",
+        "task",
+        "verification"
+      ],
+      "createdAt": 1788448599958,
+      "updatedAt": 1788454328298,
+      "summary": "All 6 smoke items PASS — verified in TWO independent runs. (1) /api/v1/health → {success:true} + Docker healthcheck healthy in ~7s. (2) Logins admin/pricing/offer/rent (Admin1/Price1/Offer1/Rent1) → dashboards render. (3) Product via API + prices via UI (run1 final 14500.00/disc 13790.00; run2 final 14900.00/disc 14155.00). (4) Offer PDFs SMOKE-2026-001 + SMOKE-2026-002: %PDF-1.7, ~386KB each. (5) Rent doc PDFs Prilog_4_Plan_Placanja_010926/020926.pdf: %PDF-1.7, ~44.5KB — WeasyPrint renders in-container. (6) /admin/backup_db: 221,184 bytes, SQLite magic. deploy.sh exercised end-to-end twice incl. one failure+fix cycle (mode-600 COPY → chmod a+rX fix, 867ca19). TEST DATA NOW IN DB (runs 1+2): 2 price rows on product 1, offers SMOKE-2026-001/002 (+1 item each), 2 rent clients, 2 equipment, 2 contracts (010926, 020926) — user should delete/ignore before real use."
+    },
+    {
+      "id": "card-c3df30d1-349f-44f9-85d1-3610c95d1efa",
+      "title": "P0-T8 · Handover: commits per step, image tag, board + Agent Note",
+      "description": "Commit each task's files separately on phase-0-docker with step-numbered messages; tag image qp-crm:phase0; mark the parent Phase-0 card done with summary+rejected; write the Agent Note for dockerization decisions; leave Dev untouched.",
+      "rationale": "The parent card's handover protocol requires a tagged, rollback-able phase end state and a durable decision record so a fresh chat with zero conversation memory can continue from the board alone.",
+      "rejected": "One squash commit — defeats per-step rollback; pushing to origin — left to the user (remote push not part of the protocol, branch stays local until they decide).",
+      "sourceSessionId": "session-ffcc3e3a-6384-411f-8100-d723ee8c50c7",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "docker",
+        "phase-0",
+        "task",
+        "handover"
+      ],
+      "createdAt": 1788448599965,
+      "updatedAt": 1788454022184,
+      "summary": "Handover protocol executed: 9 per-step commits on phase-0-docker (step-numbered messages), git tag phase-0, image tagged qp-crm:phase0, parent card closed with summary+rejected, Agent Note 'qp-crm-dockerization' written under .agents/notes/implemented/feature/. Next phase chat starts from the board."
+    },
+    {
+      "id": "card-0abb8095-fdc3-4b27-b9df-b5e083639190",
+      "title": "P1-T1 · pytest infra: branch, dev-requirements, Dockerfile test layer, .dockerignore, pytest.ini, conftest isolation, one-command run",
+      "description": "Step 1 of the Phase-1 card. Branch phase-1-tests from phase-0-docker tip (origin REACHABLE, so Dev is left untouched per instructions). dev-requirements.txt with pinned pytest; Dockerfile installs it as a separate layer so production requirements.txt stays untouched; .dockerignore must NOT exclude tests/ (blanket test_*.py rule replaced by the named root scratch scripts, tests/** re-included so golden PDF baselines ship in the image); compose image bumped to qp-crm:phase1 (qp-crm:phase0 kept as rollback tag); pytest.ini with testpaths=tests (root scratch test_*.py files must never be collected) and cache_dir=/tmp (/app is read-only for appuser); tests/conftest.py patches shared.config APP_DATA_DIR/DATABASE/IMAGE_DIR/APP_ASSETS_DIR into a throwaway temp dir BEFORE any app module is imported (every module binds those names at import time), so the suite can never touch the bind-mounted real app_data/pricing.db; session fixture replays the production init sequence (pricing_init_db → pricing_migrate_schema → offer_init_db → admin_init_db → rent_init_db) into the temp DB. ONE command documented: docker compose build app && docker compose run --rm app pytest.",
+      "rationale": "Phase-1 card requires the suite to run with one command inside Docker (host venv has no pytest and host WeasyPrint is unimportable — no libpango); import-time path isolation is the only mechanism that keeps the real production DB out of test reach.",
+      "rejected": "Compose override test service (command stops being plain `docker compose run app pytest`); bind-mounting the repo into test runs (would not exercise the shipped image); host venv runs (host WeasyPrint unimportable, no pytest installed).",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "testing",
+        "phase-1",
+        "task"
+      ],
+      "createdAt": 1788462764435,
+      "updatedAt": 1788463565035,
+      "summary": "Branch phase-1-tests cut from phase-0 tip 867ca19 (origin REACHABLE, so Dev untouched). pytest==8.4.2 in dev-requirements.txt installed as a dedicated Dockerfile layer; .dockerignore no longer blanket-ignores test_*.py (root scratch scripts named individually, !tests/** re-includes the suite + golden baselines in the image); compose image bumped qp-crm:phase1 (qp-crm:phase0 = rollback tag); pytest.ini testpaths=tests + cache_dir=/tmp (appuser cannot write /app); tests/conftest.py patches shared.config APP_DATA_DIR/DATABASE/IMAGE_DIR/APP_ASSETS_DIR into a tempfile.mkdtemp tree BEFORE any app import (modules bind the names at import), session fixture replays pricing_init_db -> pricing_migrate_schema -> offer_init_db -> admin_init_db -> rent_init_db; tests/README.md documents the ONE command: docker compose build app && docker compose run --rm app pytest. Sanity run GREEN: 4/4 isolation-guard tests in 1.10s. Committed dd8abef."
+    },
+    {
+      "id": "card-77d520e0-fe50-4997-9522-a28fe8598713",
+      "title": "P1-T2 · Characterization: pricing apply_rounding + price_rounding_rules (UP/DOWN/NEAREST)",
+      "description": "Step 2. Pin CURRENT behavior of pricing/app.py apply_rounding(val, target) against the seeded price_rounding_rules table (admin init_rounding_rules_table defaults: limits 1000/10000/30000/999999999, steps 50/100/500/1000, method UP for both targets). Pin: val<=0 → 0; rule selection = smallest limit_val >= val; fallback to largest-limit rule when no limit >= val; no rules → value unchanged; NEAREST = Python round() (banker's rounding — round-half-even); unknown method → treated as UP (ceil); float artifacts pinned as exact literals captured from a container run.",
+      "rationale": "apply_rounding runs on every saved price/discount — a silent change here changes real invoices. Quirks (banker's rounding, 0-clamp, bracket-boundary selection) must be pinned AS-IS, not fixed, per phase discipline.",
+      "rejected": "Property-based fuzzing — characterization needs concrete literals reviewable against the price list; pytest.approx — would hide the float-exact behavior the suite exists to pin.",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "testing",
+        "phase-1",
+        "task"
+      ],
+      "createdAt": 1788462764443,
+      "updatedAt": 1788463835593,
+      "summary": "tests/characterization/test_pricing_rounding.py: 33 pinned cases. Seeded brackets for price+discount captured exactly (0.01->50.0, 1000.01->1100.0 bracket jump, 30000.01->31000.0, 1e9->1e9 largest-rule fallback); val<=0 clamped to 0 (sign lost); NEAREST pinned as Python banker's rounding (0.5->0.0, 2.5->2.0, 3.5->4.0) — NOT Excel half-away-from-zero; unknown method -> UP fallback; target without rules -> unchanged. All green in container. Committed as 'P1 step 2'."
+    },
+    {
+      "id": "card-b16a238f-c673-424a-b3cf-12f7e48c4d5b",
+      "title": "P1-T3 · Characterization: offer recalc_totals 3-level discount cascade → VAT → gross",
+      "description": "Step 3. Pin CURRENT behavior of offer/app.py recalc_totals(offer_id) on a fixture offer: sum(line_net) → level-1 discount → special discount → third discount → VAT → gross, percentages stored as FRACTIONS in DB (form input/100 at offer/app.py:524-526,642); recalc coerces NULL/0 discount to 0.0 via `or 0.0` and writes all totals back. Pin exact float readbacks from a container run. Route URL for PDFs: /offers/<id>/pdf.",
+      "rationale": "This is the money cascade the whole offer module depends on; any Phase-2 refactor must reproduce these exact totals including the NULL-coercion quirks.",
+      "rejected": "Driving the HTTP form endpoints instead of recalc_totals — form parsing noise (audit H10 bare float()) is Phase-2 material; money mutation itself is what needed pinning.",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "testing",
+        "phase-1",
+        "task"
+      ],
+      "createdAt": 1788462764451,
+      "updatedAt": 1788463835604,
+      "summary": "tests/characterization/test_offer_recalc.py: 6 tests pin recalc_totals exactly — cascade 29500.0 -> gross 29510.325 with the IEEE artifact total_vat == 4918.387500000001 pinned verbatim; NULL discounts behave as zero and are PERSISTED asymmetrically (special/third written back as 0.0, discount_percent/vat_percent stay NULL); item-level discount_percent ignored (only SUM(line_net) counts); unknown offer id = silent no-op; empty offer -> all-zero totals. Committed as 'P1 step 3'."
+    },
+    {
+      "id": "card-58158acc-6d60-4271-8701-e6bb2bccf750",
+      "title": "P1-T4 · Characterization: rent pmt / calculate_rent / _add_months / generate_schedule",
+      "description": "Step 4. Pin CURRENT behavior of the pure rent math: pmt (Excel PMT replication incl. rate=0 branch and pmt_type=1), calculate_rent full dict (ucesce/ucesce_pdv/ucesce_bruto, ostatak, rata_fin via pmt with pv=-(price-ucesce) fv=ostatak, osiguranje=monthly, garancija spread over months, rata_neto/pdv/bruto, zatvaranje=ucesce_bruto/months CONSTANT for every month, rata_nakon), _add_months end-of-month clamping, generate_schedule rows (0.1 admin fee + 0.2 downpayment on contract date, monthly Zakupnina rows dated LAST day of each month, bad date string → date.today() fallback). Exact float literals captured in container.",
+      "rationale": "The lease calculator replicates Excel PMT against live contracts — any drift silently changes every customer's monthly payment; the schedule shape (row numbering, date rule) feeds the printed payment plan.",
+      "rejected": "Keeping a logged fallback to contract_date or today(): the bug is non-determinism, any silent substitute keeps documents unreproducible. Route-level input validation at contract save stays Phase 3 (H10 family). Also fixed en route: stage-5 rent/routes/__init__.py omitted pdf.py so the 3 schedule/offer PDF routes were dead since the split (commit 1be2f58).",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "testing",
+        "phase-1",
+        "task"
+      ],
+      "createdAt": 1788462764458,
+      "updatedAt": 1788464193650,
+      "summary": "generate_schedule raises ValueError on unparsable/empty contract date; both schedule PDF routes return 400 with the message. Two renders of the same contract can no longer differ. Characterization re-baselined (test_bad_date_raises_value_error) + end-to-end route tests. Commit 99b99f3; suite 127 passed."
+    },
+    {
+      "id": "card-4202b35e-7d72-445d-bbda-16ca8aefda9d",
+      "title": "P1-T5 · Characterization: shared format_amount/format_date + rent doc placeholder context/substitution",
+      "description": "Step 5. Pin shared/utils.py format_amount (European 12.312,00 style, None → '0.00', non-numeric → '', negative formatting) and format_date (4 fmt branches, unparsable/None passthrough quirks). Pin rent/_build_doc_context placeholder mapping (contract fields, fmt_date DD.MM.YYYY, format_amount on all calc values, None → '' coercion) and format_document_html (Član N → h3.clan-header, section headers → h4.section-header). The {{ key }}/{{key}} double-replace + html.escape loop in document_pdf is covered end-to-end by the golden PDF test (it lives inline in the route).",
+      "rationale": "These format every money figure and date in both PDF pipelines; placeholder mapping drift produces wrong contracts, not crashes.",
+      "rejected": "Unit-pinning the duplicated substitution loop at rent/app.py:367-389 — it is route-inline code; the golden PDF test exercises it through the production route instead (dedup is Phase-2 work, audit L4).",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "testing",
+        "phase-1",
+        "task"
+      ],
+      "createdAt": 1788462764466,
+      "updatedAt": 1788464193663,
+      "summary": "test_formatting.py: 19 cases — format_amount (None -> '0,00', 'abc' -> '', numeric string '12.5' parsed, negatives, European grouping) and format_date (4 fmts, unknown fmt passthrough, '15-01-2026' parts silently RELABELED to '2026/01/15', garbage passthrough, None/'' -> ''). test_rent_placeholders.py: 10 cases — _build_doc_context full mapping (None -> '', fmt_date DD.MM.YYYY with passthrough, money values European-formatted) + format_document_html (lowercase Član -> h3 with dot appended, UPPERCASE ČLAN NOT matched, section-header whitelist, unknown/empty/None untouched). The {{key}} substitution loop itself is pinned end-to-end by T6 golden. Committed as 'P1 step 5'."
+    },
+    {
+      "id": "card-26dd7d52-4107-44a1-b591-583d75538b46",
+      "title": "P1-T6 · Golden-PDF tests: fixed offer + fixed rent document vs checked-in baselines",
+      "description": "Step 6. Render one fixed offer (filesystem pdf_offer.html template path — fresh fixture DB has no active_pdf_template_id) and one fixed rent document (slug ugovor-zakup, seeded from rent/rent_templates_defaults.json) through the PRODUCTION routes (/offers/<id>/pdf, /contracts/<id>/documents/<slug>/pdf) via the Flask test client, against fixed fixture rows and fixed fixture assets in APP_ASSETS_DIR (small deterministic logo/footer images checked into tests/golden/assets). Compare bytes against checked-in baselines after normalizing volatile regions (PDF /CreationDate + /ModDate, XMP timestamps, trailer /ID) — fonts are pinned in the image so everything else must be byte-identical. QP_UPDATE_GOLDEN=1 regenerates baselines (documented with the bind-mount command); any deliberate re-baseline must state the reason in the commit.",
+      "rationale": "WeasyPrint output is the hardest-to-verify surface (fonts, pagination, CSS) — byte-level golden files catch template/CSS/engine regressions that no assertion on totals can see.",
+      "rejected": "Raw byte hash without normalization (would break the moment WeasyPrint starts writing timestamps); pypdf text-only comparison (misses font/layout/pagination changes); monkeypatching WeasyPrint internals for name stability (fixed-path isolation achieves it without touching library behavior); re-baselining under full-suite DB state (fragile to any test-order change — explicit ids instead).",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "testing",
+        "phase-1",
+        "task"
+      ],
+      "createdAt": 1788462764475,
+      "updatedAt": 1788466934135,
+      "summary": "tests/golden/test_golden_pdf.py renders one fixed offer (filesystem pdf_offer.html path) and one fixed rent document (ugovor-zakup seeded from rent_templates_defaults.json) through the production routes with the Flask test client, and byte-compares (after normalizing PDF dates/XMP/trailer /ID on both sides) against checked-in tests/golden/baselines/*.pdf, with small deterministic fixture logo/footer images in tests/golden/assets. Two determinism root-causes fixed in test plumbing: (1) random mkdtemp path -> WeasyPrint image XObject names are i+md5(URL) -> fixed /tmp/qp-crm-tests root; (2) autoincrement ids leak into PDF anchors/destinations -> explicit ids 900001/900002 in fixtures. QP_UPDATE_GOLDEN=1 rebaseline flow documented (bind-mount command in tests/README.md). Verified: 3 consecutive fresh-container full runs 96 passed, baseline md5s unchanged. Committed as 'P1 step 6'."
+    },
+    {
+      "id": "card-6066b65c-b898-4bef-96ff-e67a2288c471",
+      "title": "P1-T7 · Smoke tests: login → main pages → 200 per module (pricing/offer/rent/admin/sale/settings)",
+      "description": "Step 7. Werkzeug test client over main.application (the DispatcherMiddleware stack as actually shipped): per-module login with the DEFAULT_PASSWORDS from shared/auth.py (fresh fixture DB stores no password rows → defaults active), then GET the module root → 200 (follow redirect): /pricing/ (Price1), /offer/ (Offer1), /rent/ (Rent1), /admin/ (Admin1); sale and settings have NO auth (pin that as current behavior) → GET /sale/, /settings/ → 200; landing GET / → 200; unauthenticated GET on the four gated modules → 302 to their login pages. Plus one key subpage per module where cheap.",
+      "rationale": "Routing/auth wiring across the 6-realm Dispatcher setup is exactly what Phase 2 restructures — the smoke set is the fastest full-stack regression net for it.",
+      "rejected": "Deep form-flow tests per module (Phase-0 smoke covered those against the live stack; money logic is pinned by T2-T6); asserting page content strings (brittle against template wording, the card asks for login->200 wiring).",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "testing",
+        "phase-1",
+        "task"
+      ],
+      "createdAt": 1788462764483,
+      "updatedAt": 1788467458561,
+      "summary": "tests/smoke/test_smoke_modules.py: 24 tests over main.application (real DispatcherMiddleware stack + werkzeug client). Pinned: landing 200; pricing/offer/rent/admin unauthenticated -> 302 to own login; login pages 200; wrong password re-renders (200) and stays locked; DEFAULT_PASSWORDS logins (Price1/Offer1/Rent1/Admin1) reach each module root 200 incl. /pricing/products, /offer/offers, /rent/contracts, /admin/; sale redirects to /sale/pricelist and serves it with NO auth; settings serves with NO auth; unknown prefix 404s. Bug found + logged as card: sale.list_sale 500s on uninitialized schema (no own init_db, unguarded global_settings read) — Phase-2 candidate, not fixed per phase discipline. Suite: 120 passed. Committed as 'P1 step 7'."
+    },
+    {
+      "id": "card-096fac1a-d1e8-4da2-a38e-f74fb0b78260",
+      "title": "P1-T8 · Phase-1 handover: full green run, bug cards, commits, image tag qp-crm:phase1, board + Agent Note",
+      "description": "Step 8. Run the complete suite green on the UNMODIFIED app via the one command; commit per step on phase-1-tests (step-numbered messages); build + tag image qp-crm:phase1 (qp-crm:phase0 kept for rollback), leave the running stack healthy; log every quirk/bug discovered during characterization as its own todo card tagged 'bug' with AUDIT_FINDINGS.md references (fixes stay OUT of this phase); close the parent Phase-1 card with summary+rejected; write the Agent Note for the test-infra decisions.",
+      "rationale": "Handover protocol from the parent card: the next phase chat must start from the board with a tagged, rollback-able end state and a durable decision record.",
+      "rejected": "Pushing to origin (stays local until the user decides — matches Phase-0 protocol); rolling the stack without verification (recreate + curl checks done instead); fixing any discovered bug in this phase.",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "testing",
+        "phase-1",
+        "task",
+        "handover"
+      ],
+      "createdAt": 1788462764490,
+      "updatedAt": 1788467855549,
+      "summary": "Handover complete. Final verification: full suite via the documented command = 120 passed (3 consecutive fresh-container runs during T6, plus this final run); baselines byte-stable. Stack rolled to image qp-crm:phase1 (container recreated, healthy, GET / and /pricing/login -> 200); qp-crm:phase0 kept as rollback tag. Commits on phase-1-tests: dd8abef infra, 1e1a60e rounding, b71bcd1 recalc, 95aa042 rent math, adcb1d2 formatting+placeholders, f8e8e33 golden PDFs, 9a7db28 smoke, + docs commit. 5 bug cards logged (sale schema ownership; pricing rounding semantics trio; rent pmt nper=0 crash; rent schedule today() fallback; offer NULL-vs-0.0 discount persistence) — all tagged phase-2-candidate, nothing fixed per phase discipline. Agent Note written for the test-infra decisions. Production code untouched (only Dockerfile dev-requirements layer, .dockerignore, compose image tag, DOCKER.md)."
+    },
+    {
+      "id": "card-dda3d805-a124-4071-912e-f05518fcb374",
+      "title": "BUG · sale module: list_sale 500s on uninitialized schema (no own init_db, unguarded global_settings read)",
+      "description": "Discovered by the Phase-1 smoke suite (tests/smoke/test_smoke_modules.py) during a smoke-only run on the throwaway fixture DB: GET /sale/pricelist raises sqlite3.OperationalError 'no such table: global_settings' -> 500. Root pattern: sale/app.py is the only sub-app with no init_db() and list_sale (sale/app.py:87) SELECTs global_settings without try/except, so it depends on pricing's init_db having created the shared table first. wsgi.py/main.py run ALL inits at boot, so the standard deployment never sees it — but any flow that (re)creates the schema without the full init sequence (restore_db/factory_reset edge cases, future split deployments, tests) hits a 500 instead of a clean empty-state page. Phase 2 should give sale its own init or a guarded read with a sane default (24 items per page).",
+      "rationale": "Phase-1 discipline: discovered quirks get logged as bug cards, NOT fixed. This one is a cross-module schema-ownership assumption that Phase 2's 'single schema, service layer' refactor must address explicitly.",
+      "rejected": "Giving sale its own init_db: sale owns no tables -- duplicating pricing schema creation would reintroduce the two-init-paths drift the phase-2 single-schema stage just removed (L4). Ordering-based guards (run pricing init first) would leave the same hole for split deployments.",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "bug",
+        "phase-2-candidate",
+        "sale",
+        "new-finding"
+      ],
+      "createdAt": 1788467458512,
+      "updatedAt": 1788467458512,
+      "summary": "list_sale guarded with clean empty state on bare schema (sqlite3.OperationalError -> 200, 25/page default); view_product -> existing 404. No sale init_db (sale owns no tables). Isolated bare-DB regression tests. Suite 133 passed."
+    },
+    {
+      "id": "card-aca70e04-fbae-41de-a4df-2df418bba7fb",
+      "title": "BUG · pricing rounding semantics: banker's NEAREST + val<=0 clamp to 0 + bracket-boundary jump",
+      "description": "Pinned as-is by tests/characterization/test_pricing_rounding.py. Three semantics questions for Phase 2/3 (money-touching, needs a product decision, not a blind fix): (1) NEAREST uses Python round() = banker's rounding — 0.5->0, 2.5->2, 3.5->4 — while Excel's ROUND goes half-away-from-zero (0.5->1); the rent calculator replicates Excel, so the two money paths disagree on rounding philosophy. (2) apply_rounding clamps val<=0 to 0 — a negative price/discount silently becomes 0 instead of keeping its sign. (3) Bracket selection takes the smallest limit_val >= val, so 1000.01 jumps from the 50-step bracket to the 100-step bracket — one cent above a limit changes the step. Related audit codes: L9 (fresh connection per call), L11 (floats for money).",
+      "rationale": "Phase-1 discipline: quirks get logged, not fixed. These change real invoice numbers; Phase 2 must decide the intended semantics BEFORE refactoring so the safety net can be re-pinned deliberately.",
+      "rejected": "Changing bracket selection to interval-based buckets (limit_val > val exclusive): would alter every seeded price and contradicts the admin-facing table semantics -- deferred to a product decision. Migrating pricing to Decimal end-to-end (audit L11, fresh-connection L9) stays Phase 3.",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "bug",
+        "phase-2-candidate",
+        "pricing",
+        "new-finding"
+      ],
+      "createdAt": 1788467646702,
+      "updatedAt": 1788467646702,
+      "summary": "apply_rounding: NEAREST = half-away-from-zero (Decimal ROUND_HALF_UP, matches Excel/rent); val<=0 returns val with sign preserved; bracket selection deliberately unchanged (admin-config table semantics). Characterization re-baselined with bug-card references. Suite 131 passed."
+    },
+    {
+      "id": "card-088dd7a9-70e8-4bdd-9ca6-6199483e6dc4",
+      "title": "BUG · rent pmt/calculate_rent: ZeroDivisionError on period_months == 0 -> 500 on all contract PDFs",
+      "description": "Pinned by tests/characterization/test_rent_calc.py::test_nper_zero_raises_zero_division_error. pmt raises ZeroDivisionError in BOTH branches when nper == 0 (rate==0 branch: -(pv+fv)/nper; rate>0 branch: (factor-1)/rate -> 0), and calculate_rent passes period_months straight through, so a rent contract saved with period_months = 0 crashes /contracts/pdf/offer, /contracts/pdf/schedule and the documents pipeline with a 500. Input validation is H10-adjacent (bare numeric parsing) but the crash itself is unrecorded in AUDIT_FINDINGS.md — new finding.",
+      "rationale": "Live-contract poison input: a single bad row takes down every PDF render for that contract. Phase 2 service layer should validate period_months >= 1 at the boundary and return a clean error.",
+      "rejected": "Raising ValueError / 400-response instead: the card framed the crash as the bug; making the money functions total keeps every render deterministic without new error UX. Route-level input validation (H10 family) stays Phase 3.",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "bug",
+        "phase-2-candidate",
+        "rent",
+        "new-finding"
+      ],
+      "createdAt": 1788467646713,
+      "updatedAt": 1788467646713,
+      "summary": "pmt returns 0.0 for nper<=0; calculate_rent garancija/zatvaranje guarded (>0 check). Zero/negative-period contracts now render zero components instead of 500 on all contract PDFs. Characterization re-baselined deliberately (test_nper_zero_returns_zero_payment + 2 regressions). Commit on phase-2-refactor; suite 123 passed."
+    },
+    {
+      "id": "card-f8759e61-7d85-4fda-89a0-acc8af12fa43",
+      "title": "BUG · rent generate_schedule: bad contract date silently falls back to date.today() (non-deterministic documents)",
+      "description": "Pinned by tests/characterization/test_rent_calc.py::test_bad_date_falls_back_to_today. generate_schedule (rent/app.py:126-132) silently substitutes date.today() when contract_date is unparsable/empty, so the printed payment plan (0.1/0.2 rows and, via the schedule PDF, the whole plan) gets DATES FROM THE DAY OF RENDERING — two renders of the same contract produce different documents. Related: H7/H6 contract-number/data hygiene family; new finding for the date path.",
+      "rationale": "Non-deterministic business documents are a correctness issue, not a style issue; Phase 2 should decide between failing loudly and persisting a parse date, and the golden/characterization net must follow whatever is chosen.",
+      "rejected": "Keeping a logged fallback to contract_date or today(): the bug is non-determinism, any silent substitute keeps documents unreproducible. Route-level input validation at contract save stays Phase 3 (H10 family). Also fixed en route: stage-5 rent/routes/__init__.py omitted pdf.py so the 3 schedule/offer PDF routes were dead since the split (commit 1be2f58).",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "bug",
+        "phase-2-candidate",
+        "rent",
+        "new-finding"
+      ],
+      "createdAt": 1788467646724,
+      "updatedAt": 1788467646724,
+      "summary": "generate_schedule raises ValueError on unparsable/empty contract date; both schedule PDF routes return 400 with the message. Two renders of the same contract can no longer differ. Characterization re-baselined (test_bad_date_raises_value_error) + end-to-end route tests. Commit 99b99f3; suite 127 passed."
+    },
+    {
+      "id": "card-9c7f744d-f6cb-4c7b-9157-f98bd5d03941",
+      "title": "BUG · offer discount storage: NULL (new_offer) vs 0.0 (edit_offer) for zero percentages + asymmetric recalc write-back",
+      "description": "Pinned by tests/characterization/test_offer_recalc.py::test_null_discounts_behave_as_zero_and_are_partially_persisted. new_offer (offer/app.py:590-592) stores NULL for zero discount/vat inputs, edit_offer (offer/app.py:847-849) stores 0.0 for the same input; recalc_totals then coerces NULL/0 via 'or 0.0' and writes special/third back as floats while leaving discount_percent/vat_percent NULL (offer/app.py:788-800). Net effect is benign today (both read as no-discount) but the schema carries two encodings of the same fact and the asymmetric write-back makes DB state depend on which form last touched the row. Related: L11 (floats for money), L4 (schema created by two init paths with slightly different definitions).",
+      "rationale": "Phase 2's single-schema/service-layer work needs the canonical encoding decided (NOT NULL DEFAULT 0.0 everywhere or explicit NULL semantics) before data migration; the pinned test will be re-baselined with that decision.",
+      "rejected": "One-time data migration (UPDATE offers SET ... WHERE IS NULL in migrate_offer_tables): legacy rows are already read as zero everywhere (\"or 0.0\"), recalc now normalizes them lazily on every recalculation -- a blanket migration would be a schema change beyond the bug scope. Decimal-based money storage stays Phase 3 (L11).",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "bug",
+        "phase-2-candidate",
+        "offer",
+        "new-finding"
+      ],
+      "createdAt": 1788467646733,
+      "updatedAt": 1788467646733,
+      "summary": "recalc_totals now writes back all four percentage columns coerced to 0.0 (single encoding of no-discount). Probe showed new_offer/edit_offer already store 0.0; the live asymmetry was the recalc write-back. New route-level regression file + deliberate re-baseline of the partial-persistence pin. Suite 131 passed."
+    },
+    {
+      "id": "card-e15eaa44-b3ca-4c38-aa60-7f34ebc53613",
+      "title": "P2 stage 1 — single app + blueprints, no DispatcherMiddleware",
+      "summary": "Six Flask instances collapsed into one app (qp_crm/main.py) registering api_v1(/api/v1), settings, sale, pricing, offer, rent, admin blueprints with unchanged prefixes; DispatcherMiddleware deleted; one qp_session cookie + QP_SECRET_KEY; per-module auth flags kept (pricing/offer/rent/admin_authenticated).",
+      "rationale": "First P2 stage: multiple app instances meant six secret configs, no shared session, and template-filter registration races. One app is the precondition for every later stage.",
+      "sourceSessionId": "session-b5194f0d-71bf-4dc4-93d4-5af6afd8700b",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "refactor",
+        "phase-2"
+      ],
+      "createdAt": 1788490540134,
+      "updatedAt": 1788490540134,
+      "rejected": "Keeping DispatcherMiddleware with shared secret config: still six template namespaces and six wsgi entry points; consolidation without the middleware deletion would have preserved the drift it exists to fix."
+    },
+    {
+      "id": "card-67bd3118-5302-4f11-90ae-0b6293d41ffa",
+      "title": "P2 stage 2 — dedupe helpers into shared/web.py",
+      "summary": "Duplicated helpers consolidated into qp_crm/shared/web.py: get_theme/get_date_format/format_date_filter/fix_markdown_lists/render_markdown/make_auth_hook(session_flag, login_endpoint, exempt_endpoints)/register_product_image/save_product_image(+download_image_from_url with caller-supplied EN/SR errors)/fetch_mandatory_fields/fetch_rent_defaults/sort_rent_templates/DEFAULT_RENT_EMAIL*. format_date/md registered once app-wide in main.py.",
+      "rationale": "Six copies of the same helpers had drifted (error strings, sort orders); one shared module is the base for the routes split and the service layer.",
+      "sourceSessionId": "session-b5194f0d-71bf-4dc4-93d4-5af6afd8700b",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "refactor",
+        "phase-2"
+      ],
+      "createdAt": 1788490540154,
+      "updatedAt": 1788490540154,
+      "rejected": "A utils Mixin / flask Blueprint-level helpers: mixins hide dependencies and make per-module auth flags awkward; plain functions with explicit imports keep call sites greppable."
+    },
+    {
+      "id": "card-5534e480-7fb2-4f56-9411-53db26bafdbb",
+      "title": "P2 stage 3 — single schema source in shared/schema.py",
+      "summary": "Single DDL source qp_crm/shared/schema.py: create_pricing/offer/admin/rent_tables (canonical supersets incl. client_pib/client_mb/discount_percent in CREATE; REAL price_rounding_rules columns) + add_column_if_missing + migrate_pricing (guarded UNIQUE idx_products_name_unique COLLATE NOCASE + legacy-UNIQUE prices rebuild) + migrate_offer/rent_tables. All five init/migrate entry points route through it.",
+      "rationale": "Two init paths had slightly different table definitions (audit L4) — the canonical-superset DDL removes drift between fresh and migrated DBs.",
+      "sourceSessionId": "session-b5194f0d-71bf-4dc4-93d4-5af6afd8700b",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "refactor",
+        "phase-2"
+      ],
+      "createdAt": 1788490540174,
+      "updatedAt": 1788490540174,
+      "rejected": "Raw .sql schema files: string templates lose the guarded idempotent-migration helpers (add_column_if_missing) and dialect nuances (COLLATE NOCASE, partial indexes) that python can express precisely."
+    },
+    {
+      "id": "card-268765af-736b-4b8a-ae81-48fd291cbf0a",
+      "title": "P2 stage 4 — service layer + sandboxed Jinja (audit C4 closed)",
+      "summary": "Pure calculation/business logic extracted to qp_crm/services/: pricing_service.apply_rounding, offer_service.recalc_totals, rent_service (pmt/_add_months/calculate_rent/generate_schedule/_build_doc_context/format_document_html), pdf_service.render_db_template_parts with jinja2.sandbox.SandboxedEnvironment (autoescape=True, filters copied from app jinja_env, pinned globals) — closing audit C4 (DB-template SSTI). Rent document rendering stays literal string substitution (no Jinja surface).",
+      "rationale": "Money logic was embedded in 1.2–1.8k-line route files, untestable without HTTP; DB-stored templates rendered with the full app Jinja env = arbitrary code execution via admin UI (C4).",
+      "sourceSessionId": "session-b5194f0d-71bf-4dc4-93d4-5af6afd8700b",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "refactor",
+        "phase-2",
+        "security"
+      ],
+      "createdAt": 1788490540191,
+      "updatedAt": 1788490540191,
+      "rejected": "Jinja with disabled autoescape + strip filters for speed: reopens C4; sandbox autoescape measured no significant PDF-render slowdown in the golden tests."
+    },
+    {
+      "id": "card-a25422b1-a4c4-4bd8-97f6-dc766b232b48",
+      "title": "P2 stage 5 — split route files into per-domain modules",
+      "description": "Four parallel subagents split pricing (19 routes → core/products/catalog/prices), offer (14 → core/offers/pdf), rent (20 → core/contracts/documents/catalogs), admin (29 → core/settings/presets/pdf_templates/backup/rounding/rent_templates). Route bodies move verbatim; routes import bp + helpers from ../app; app.py registers via `from . import routes` at the bottom. Zero behavior change; suite green per module commit.",
+      "rationale": "1.2–1.8k-line route files were unmaintainable and blocked review; per-domain modules map to the feature areas and set up the qp_crm/ package move.",
+      "sourceSessionId": "session-b5194f0d-71bf-4dc4-93d4-5af6afd8700b",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "refactor",
+        "phase-2"
+      ],
+      "createdAt": 1788490540209,
+      "updatedAt": 1788490540209,
+      "summary": "pricing/routes/{core,products,catalog,prices}, offer/routes/{core,offers,pdf}, rent/routes/{core,contracts,documents,catalogs,pdf}, admin/routes/{core,settings,presets,backup,pdf_templates,rounding,rent_templates} (api_key routes in settings.py). Pattern: route files import from ..app (bp + helpers); app.py bottoms out with 'from . import routes'. Standalone dev: python -m qp_crm.<module>.app.",
+      "rejected": "Splitting by HTTP verb or by auth level: neither matches how changes actually cluster (a feature touches form+list+pdf together); a follow-up bug in this stage showed the import-check risk — rent/routes/__init__.py must list every route module or its routes silently vanish (fixed by the bad-date regression tests)."
+    },
+    {
+      "id": "card-d2ac53b9-7ad8-410d-b306-d04b04d86443",
+      "title": "P2 stage 5 (admin) — split admin/app.py into admin/routes/* domain modules",
+      "summary": "Created admin/routes/ package (__init__.py + core, settings, presets, pdf_templates, backup, rounding, rent_templates; 1109 lines total) holding all 29 @bp.route functions byte-verbatim; admin/app.py cut from 1296 to 186 lines (keeps bp, before_request hook, 4 init fns, generate_full_backup_zip, ends with `from . import routes`). Verified: AST-parse, 29-decorator tally (0 left in app.py), route multiset identical to HEAD, per-module name coverage (no undefined/unused), verbatim-tail diff vs git HEAD, import smoke test registering the blueprint (29 endpoints, identical URL rules, auth hook present). api_key_generate/api_key_revoke placed in settings.py (missing from the task's per-module list but required by the 29-route invariant). Full pytest/docker run not done here (venv lacks `markdown`; runtime verification belongs to the docker env).",
+      "rationale": "Stage 5 requires per-domain route modules with zero behavior change; admin was the module assigned to this task in an already-green codebase, so the split had to be byte-verbatim to keep the Phase-1 test safety net valid.",
+      "rejected": "Moving generate_full_backup_zip() into routes/backup.py — rejected to keep non-route helpers in app.py per plan and to avoid breaking `from admin.app import` consumers (main.py, wsgi.py, tests). Pruning now-unused imports from app.py — rejected, the plan requires everything else left exactly as is.",
+      "sourceSessionId": "7dc540f4-8ace-4a40-b82f-80f0ea50060a",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "refactor",
+        "phase-2",
+        "admin"
+      ],
+      "createdAt": 1788500849905,
+      "updatedAt": 1788500849905
+    },
+    {
+      "id": "card-4b199c3a-5749-43e5-aa09-1ca87554d2ce",
+      "title": "P2 stage 6b — move app code into qp_crm/ package, delete sys.path hacks, rewrite imports",
+      "description": "git mv (history preserved) of main.py, wsgi.py, shared/, services/, pricing/, offer/, rent/, admin/, sale/, settings/ into qp_crm/ + new qp_crm/__init__.py. Imports rewritten to qp_crm.* everywhere (app code + tests, module-level AND lazy function-level). Repo root keeps templates/, static/, app_data/, app_assets/, tests/, Docker files — docker-compose bind mounts and URLs unchanged.",
+      "summary": "Moved all app code under qp_crm/ via git mv (93 paths: 69 byte-identical, 24 with import edits); rewrote 124 old-form imports (71 from shared.*, 4 from services.*, 35 cross-module, 6 import shared.*, 7 main, 1 bare from services import); deleted 8 sys.path hack blocks; re-anchored BASE_DIR (3 dirnames), main.py template_folder (BASE_DIR/templates), admin System-Default PDF seeding (PACKAGE_DIR + STATIC_DIR), rent legacy DOCX_DIR (BASE_DIR); Dockerfile CMD -> qp_crm.wsgi:application; run_apps.sh/restart_app.sh -> python -m qp_crm.main. Docker suite: 121 passed.",
+      "rationale": "Phase 2 stage 6b: proper package layout kills the last sys.path hacks and makes imports unambiguous before Phase 3. BASE_DIR must keep resolving to the repo root because docker-compose bind-mounts ./app_data, ./app_assets, ./static/img at fixed container paths.",
+      "rejected": "Adding __init__.py to pricing/offer/admin/settings (they were namespace dirs pre-move and keep working as nested namespace subpackages inside the regular qp_crm package — no need). Moving templates/, static/, app_data/ into the package (rejected: breaks compose bind mounts and shared/config BASE_DIR anchoring). sys.modules aliasing old top-level names for backward compat (rejected: dead weight, zero external consumers).",
+      "sourceSessionId": "a852caa0-f331-4fb7-9b87-a8e4bf636157",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "refactor",
+        "phase-2",
+        "stage-6b"
+      ],
+      "createdAt": 1788505252168,
+      "updatedAt": 1788505252168
+    },
+    {
+      "id": "card-b77b2116-eb97-47de-9874-6f00422c3a56",
+      "title": "Per-user app access (Admin -> Users): which apps each user may open",
+      "description": "User request after the phase-3 handover: drop the blanket staff-sees-everything model; the admin controls per user which business apps (pricing/offer/rent) they can open, from the admin panel.",
+      "rationale": "Owner asked for admin-panel control of which apps each user may open, replacing the blanket staff-sees-everything phase-3 model, without reintroducing per-app passwords.",
+      "rejected": "Separate per-app passwords (the pre-phase-3 problem, explicitly not wanted back); a JSON/CSV modules column (junction table is FK-enforced and extends to Phase-4 modules by appending to MODULE_CHOICES); caching grants in the session (per-request re-read keeps revocation instant); role-per-module combos like 'offer-only role' (roles stay admin/staff binary, grants carry the per-user nuance).",
+      "sourceSessionId": "session-4ca59a53-7afb-4d0d-85e0-276e1d187fdb",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "auth",
+        "users"
+      ],
+      "createdAt": 1788546342560,
+      "updatedAt": 1788546685919,
+      "summary": "Shipped and deployed (commit 94ee464, image rebuilt, container recreated, grants live): user_modules table (UNIQUE(user_id,module)), users.modules_set marker, shared/web.py require_module(module) gate on pricing/offer/rent blueprints (re-reads grants per request; admin role bypasses), Admin -> Users UI with pricing/offer/rent checkboxes per staff row (own-password confirmed POST /admin/users/<id>/modules) and pre-checked boxes on the create form; one-time boot migration seed_default_user_modules grants existing staff all three apps (marker prevents re-granting deliberately emptied sets); factory reset re-seeds users+grants via the init_users_table contract; role gate is now binary admin/not-admin. 7 new tests in tests/auth/test_module_access.py, suite 225 passed."
+    },
+    {
+      "id": "card-a414556c-6b98-4817-8841-6176f21b8897",
+      "title": "Landing page: login required + access-filtered app menu",
+      "description": "User follow-up: anonymous visitors must see only the login page (never the app menu), and the menu should reflect per-user app access.",
+      "summary": "Commit caba035, deployed and verified: / redirects anonymous to /login; logged-in menu built from get_user_modules (staff: granted apps + public sale/settings cards, admin: all + Admin Panel). Smoke tests: anonymous-redirect + menu-filtering tests, suite 226 passed.",
+      "rationale": "The static landing page exposed the full module menu (including Admin Panel) to anyone; inconsistent with unified auth and the new per-user app access.",
+      "rejected": "Caching the menu in the session (grants must reflect per-request DB state like the gates).",
+      "sourceSessionId": "session-4ca59a53-7afb-4d0d-85e0-276e1d187fdb",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "auth",
+        "users"
+      ],
+      "createdAt": 1788606592414,
+      "updatedAt": 1788606592414
+    },
+    {
+      "id": "card-2971e762-d3b3-4266-9017-2f19ebcaf8eb",
+      "title": "Users page: one Save per user + sale joins per-user app access",
+      "description": "User follow-up with screenshot: the Users page had four password fields + four buttons per row (deactivate/role/reset/access) — replace with ONE password + ONE Save per user; also make the sale app per-user controllable.",
+      "summary": "Commit 0821e0... deployed and verified live: /admin/users/<id>/save combines apps+active+role+optional new password behind one own-password confirm; row UI uses one <form> with HTML5 form= attributes so all cells submit together. Sale gated with require_module('sale'), legacy /sale/login + /sale/logout redirects added, landing card filtered; versioned seed (MODULE_INTRODUCED, users.modules_set = seed version) granted sale to existing staff exactly once. Fixed get_user_by_id to accept include_inactive so deactivated users can be reactivated through the save route. Suite 230 passed.",
+      "rationale": "Cluttered UI made row actions error-prone (four confirm-password fields per user), and sale was still public despite the per-user access model.",
+      "rejected": "Separate save buttons per option (that was the complaint); one giant form spanning <td>s via invalid HTML (used the form= attribute instead); re-granting all modules on version bump (would resurrect deliberately revoked grants — MODULE_INTRODUCED grants only modules introduced after the row's last seed version).",
+      "sourceSessionId": "session-4ca59a53-7afb-4d0d-85e0-276e1d187fdb",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "auth",
+        "users",
+        "sale"
+      ],
+      "createdAt": 1788614452661,
+      "updatedAt": 1788614452661
+    },
+    {
+      "id": "card-9ca66811-c52e-4cf0-9278-a5b315ed58c4",
+      "title": "kad se ode na http://192.168.1.34:5000/admin/ u headeru imam sve opcije ali ako odem u /admin/pdf_templates ili bilo koju drugu pod stranicu header je drugaciji fale opcije poput api key, users nisu u headeru treba da bude sve isto u celoj admin aplikaciji",
+      "status": "done",
+      "tags": [],
+      "createdAt": 1788621242713,
+      "updatedAt": 1788647556449,
+      "rationale": "Why: each admin template carries its own copy-pasted nav that drifted over time (Users/API Keys/Rent Šabloni missing on some subpages), so the admin app looks broken depending on which page you are on. Root fix is one shared nav include used by every admin template so the header cannot drift again.",
+      "summary": "做了什么：created qp_crm/admin/templates/admin/_nav.html (one shared header: Dashboard, PDF Templates, Rounding Rules, Users, API Keys, Rent Šabloni + Home link, no logout) and replaced the drifted copy-pasted navs in all 7 admin templates with `{% set active = ... %}{% include 'admin/_nav.html' %}` (pdf_template_edit keeps its 'Edit: <name>' breadcrumb via nav_extra). Smoke tests assert the full identical header on every admin subpage incl. the editor.",
+      "rejected": "放弃了什么：patching the missing Users/API Keys/Rent Šabloni links into each template's existing nav — that is the exact copy-paste drift that caused the bug and would drift again; a Jinja macro with args was also skipped in favor of the include+set idiom the codebase already uses."
+    },
+    {
+      "id": "card-c85eefa5-e7a9-4120-8b77-8bc953459a3c",
+      "title": "http://192.168.1.34:5000/admin/rent/templates ne radi samo vodi u krug na http://192.168.1.34:5000/login?next=/admin/",
+      "status": "done",
+      "tags": [],
+      "createdAt": 1788621277778,
+      "updatedAt": 1788647556428,
+      "rationale": "Why: /admin/rent/templates bounces even a logged-in admin into an endless /login?next=/admin/ circle because the route still checks the pre-Phase-3 admin_authenticated session flag that unified login never sets. The real gate is the blueprint-level require_role(\"admin\") hook, so the stale per-route checks must be removed to restore access.",
+      "summary": "做了什么：removed the stale per-route session['admin_authenticated'] checks (pre-Phase-3 flag unified login never sets) from admin/routes/rent_templates.py and admin/routes/backup.py — the blueprint-level require_role(\"admin\") hook is the only gate now, so /admin/rent/templates, /admin/backup_db and /admin/backup_full render for a logged-in admin instead of looping to /login?next=/admin/. Covered by 3 new smoke assertions (tests/smoke/test_smoke_modules.py, 45 passed).",
+      "rejected": "放弃了什么：re-seeding the admin_authenticated flag in the routes instead of deleting the checks — it would have kept two auth gates in sync for a flag that Phase 3's unified login made permanently false; require_role is the single source of truth now."
+    },
+    {
+      "id": "card-0b636a36-eb93-45e7-b2b5-402d7c140dcf",
+      "title": "Remove the logout button from the header and move it to the setings app",
+      "status": "done",
+      "tags": [],
+      "createdAt": 1788621337937,
+      "updatedAt": 1788647603853,
+      "rationale": "Why: the red Logout button sits in the header of every page (accidental clicks, wasted header space) and logout is now a single unified /logout anyway. Moving it into the /settings app keeps one quiet logout spot for the whole stack, matching the pricing/offer settings pages that already carry a logout button.",
+      "summary": "做了什么：removed the Logout/Odjava buttons from every page header (admin shared nav, pricing/base.html, offer/base.html, rent/base.html) and added one Logout card to the /settings app routing through the unified /logout (auth.logout), styled like the logout cards the pricing/offer in-app settings pages already had. Smoke tests assert no danger button in any app header and /logout present on /settings.",
+      "rejected": "放弃了什么：hiding the settings Logout for anonymous visitors — /settings is public and a logout click when logged out just redirects to /login, so state-dependent styling buys nothing; also kept the logout cards on pricing/offer's own settings pages since they are in-page controls, not header buttons."
+    },
+    {
+      "id": "card-2bd37e98-ee45-419f-9f86-af456a18cc7f",
+      "title": "The Landing page button in the header shuld be named home",
+      "status": "done",
+      "tags": [],
+      "createdAt": 1788621358347,
+      "updatedAt": 1788649234929,
+      "rationale": "Why: the link back to the app menu is labeled \"Landing Page\" (developer jargon that confused users). Renaming it to \"Home\" names the thing by what it does; the Serbian translation ('Početna strana') is added for the new key so language switching keeps working.",
+      "summary": "做了什么：every header now links the app menu as Home — admin shared nav, pricing/offer/sale base templates (`_('Home')`), settings page; sr translation 'Home' → 'Početna strana' added in shared/utils.py and the dead 'Landing Page' key dropped. Rent keeps its Serbian 'Početna' (same meaning/link). Smoke tests assert '>Home</a>' and the absence of 'Landing Page'.",
+      "rejected": "放弃了什么：renaming rent's 'Početna' to English 'Home' — rent is the Serbian-language UI and Početna already means Home; forcing English there would have been inconsistent with the rest of that header."
+    },
+    {
+      "id": "card-e8249127-d925-41e8-97c4-1552887ddd01",
+      "title": "PRE-EXISTING suite failures (not from header/logout work): 2 auth tests vs uncommitted change-password-removal WIP + 3 golden-PDF host-font diffs",
+      "description": "Detail: (1) tests/auth/test_first_login_flow.py::test_seeded_staff_logs_straight_in_no_forced_change — POSTs /change-password expecting 404, but after unified login the session CSRF token is wiped and nothing re-mints it before the POST, so check_csrf answers 400 (the test's own comment even documents the 400 path). (2) tests/auth/test_user_management.py::test_create_staff_user_forces_first_login_change — asserts must_change_password == 1, the exact behavior the uncommitted WIP (auth/app.py, shared/web.py, admin/routes/users.py, deleted auth/templates/auth/account_password.html — all still uncommitted in the working tree) removed (\"password changes live exclusively in Admin -> Users\"); test is stale WIP. (3-5) tests/golden/* — baselines are byte-exact against the docker image's pinned fonts-dejavu-core; host WeasyPrint renders differ from byte 54. Fix path: finish/commit the auth WIP and update or delete the two tests; run golden tests only inside docker (docker compose run --rm app pytest), never re-baseline on host.",
+      "rationale": "Why: while verifying the header/logout tasks the full suite showed 5 failures that reproduce WITHOUT this session's changes — they must be recorded so the next session doesn't attribute them to new work or blindly re-baseline. Discovered 2026-09-05, suite: 240 passed / 5 failed on host.",
+      "rejected": "放弃了什么：re-baselining the golden PDFs on the host to make them pass — the baselines are byte-pinned to the docker image's fonts-dejavu-core, so host re-baselines would corrupt the docker-green state; instead the golden tests now SKIP outside the pinned image (QP_UPDATE_GOLDEN is inert there). Also chose not to keep the dead change_own_password service \"just in case\" — Admin -> Users is the single password-change path now.",
+      "sourceSessionId": "session-5431a694-1920-4df2-bc4b-9c0b06ac481d",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "testing",
+        "pre-existing",
+        "new-finding"
+      ],
+      "createdAt": 1788647603896,
+      "updatedAt": 1788652012760,
+      "summary": "做了什么：finished the uncommitted change-password-removal WIP and made the whole suite green on host (242 passed, 3 skipped): removed the dead change_own_password() service from shared/auth.py, fixed the stale create_users_table docstring in shared/schema.py; rewrote the two stale auth tests — test_seeded_staff_logs_straight_in_no_forced_change now mints a CSRF token explicitly and pins GET /change-password 404 + tokenless POST 400 (CSRF shield) + tokened POST 404 (route gone), test_create_staff_user_forces_first_login_change became test_created_staff_logs_straight_in_no_forced_change pinning must_change_password == 0; tests/golden/test_golden_pdf.py skips outside the pinned docker image (/.dockerenv or cwd /app) with tests/README.md documenting it. Committed as 1e7cfce."
+    },
+    {
+      "id": "card-1e5d0e9c-6cc0-4ec1-96a6-8ada9de154c9",
+      "title": "Rebuild + restart Docker kontejnera da UI popravke (admin header, rent/templates loop, logout u Settings, Home) postanu vidljive na :5000",
+      "description": "Popravke (unified admin header, rent/templates loop fix, logout u Settings, Home rename) su u kodu (commitovi ea635a3, 1e7cfce, c790b07) ali server na 192.168.1.34:5000 još drži staru sliku — gunicorn startovan 13:16 pre popravki. Slika nije bind-mount (samo app_data/app_assets/static/img su montirani), pa je potreban rebuild: pokrenuti ./deploy.sh (radi docker compose build + up -d + healthcheck wait). DSH sesija nema docker pristup (nije u docker grupi, sudo blokiran no-new-privileges), pa korisnik pokreće ručno ili se radi na resume kada pristup bude omogućen.",
+      "rationale": "The container runs baked image layers (only app_data/app_assets/static/img are bind-mounted), so code commits alone could never reach :5000 — a rebuild+recreate is the only way the user sees the fixes in the browser.",
+      "sourceSessionId": "session-5431a694-1920-4df2-bc4b-9c0b06ac481d",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "docker",
+        "deploy",
+        "pending-user"
+      ],
+      "createdAt": 1788651703859,
+      "updatedAt": 1788652012780,
+      "summary": "做了什么：SKIP_PULL=1 ./deploy.sh via sudo (docker access opened by the user's policy change): image rebuilt as qp-crm:phase3 with the four UI fixes, container qp-crm recreated and healthy (t+7s). Verified live: _nav.html include present in-container and used by 8 admin templates, admin_authenticated checks gone from rent_templates.py/backup.py (1 doc mention each), settings page serves href=\"/logout\", pricing base renders 'Home'. Anonymous HTTP check: /admin/rent/templates and /admin/backup_db now 302 to /login?next=<the requested page> (previously the endless /login?next=/admin/ loop), /login and /settings/ 200.",
+      "rejected": "放弃了什么：editing code inside the running container (docker exec) — ephemeral, lost on the next recreate and drifts from git; and git pull in deploy.sh was skipped (SKIP_PULL=1) since the fixes are already local commits on this checkout."
+    },
+    {
+      "id": "card-c66cde16-fc78-4e02-b52a-0c6412447c38",
+      "title": "Default users removed — admin-only seeding (commit 4f3a2a1)",
+      "description": "SUPERSEDED by the executed change (commit 4f3a2a1 on phase-3-auth): instead of rotating the four seeded passwords, the default staff accounts were removed entirely — live DB deleted pricing/offer/rent users + their user_modules rows (backup: app_data/pricing.db.pre-default-user-removal.20260906-140914.bak), and production seeding (LEGACY_ACCOUNT_SEEDS in qp_crm/shared/auth.py) now creates ONLY the 'admin' bootstrap account, so boot/factory-restore never resurrects them. Live-verified over HTTP: pricing/offer/rent logins rejected, admin still logs in. Suite updated (conftest provisions staff accounts for tests; seed/factory-reset/restore tests pinned to admin-only contract) — 245 passed, 3 skipped. What REMAINS: rotate the admin seed password (Admin1) — tracked on its own open card with the how-to.",
+      "rationale": "Graded finding after Phase 3: committed default credentials still authenticated. User chose deletion over rotation ('no default users except admin; I will create all needed users').",
+      "rejected": "Rotating the four passwords in the UI — rejected by the user in favor of deleting the default staff accounts entirely; re-introducing forced first-login change — already retired during Phase 3 (admin-managed passwords chosen).",
+      "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "security",
+        "user-action"
+      ],
+      "createdAt": 1788699828314,
+      "updatedAt": 1788705558138,
+      "summary": "Default staff users (pricing/offer/rent) deleted from the live DB and from production seeding (admin-only bootstrap, commit 4f3a2a1); tests + docs updated; suite 245 passed."
+    },
+    {
+      "id": "card-8da58a54-adc3-4441-b12f-f32058080ca0",
+      "title": "Rotate admin seed password (Admin1) — ~1 min user action, how-to in description",
+      "description": "HOW-TO (user action, ~1 min): the only account is 'admin' and its password is STILL the committed default 'Admin1' — public knowledge (repo/README) and valid forever until changed, so anyone on the LAN can log in as full admin. Do it at the next deploy moment (works any time; the password lives in the DB users row, not in code). Steps: 1) login http://<host>:5000 as admin/Admin1; 2) Admin -> Users; 3) your own row: fill New password, confirm-own-password = Admin1; 4) Save, log out, log back in with the new password. Warning: single-admin system — no email reset exists; a forgotten password means an operator resets the DB hash or restores a backup, so store it in a password manager. There is no expiry/forced change; the guards only prevent deactivating/demoting the LAST active admin and yourself.",
+      "rationale": "The last committed default credential (Admin1, public in README) on a single-admin system — rotating it was the final open security task after default staff accounts were removed.",
+      "rejected": "Code-side forced rotation was already rejected earlier (operator-managed secret); this card only needed the UI path to work, which the own-row Save fix unblocked.",
+      "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "security",
+        "user-action"
+      ],
+      "createdAt": 1788704049678,
+      "updatedAt": 1788730211509,
+      "summary": "Admin password rotated by the owner via Admin -> Users (own-row Save). This flow was BLOCKED by the dangling-form bug (users.html rendered the per-row <form> only for other users' rows, so the own-row Save had nothing to submit) — fixed in commit 1967c32 with a regression test, rebuilt and verified live, then the owner changed the password successfully."
+    },
+    {
+      "id": "card-8d931026-a81f-4753-9506-f96a80945e46",
+      "title": "nginx HTTPS + domain: app side done (7e71110) — configure nginx + .env, deploy",
+      "description": "APP SIDE DONE (commit 7e71110, suite 251 passed): app stays on its own port 5000; qp_crm/shared/tls.py reads QP_HTTPS_ONLY=1 -> ProxyFix (x_for/x_proto) + Secure qp_session cookie + PREFERRED_URL_SCHEME=https + HSTS on https responses; QP_PUBLIC_DOMAIN stored as config; docker-compose.yml published-port bind configurable via QP_APP_BIND (0.0.0.0 default -> 127.0.0.1 when nginx fronts it) plus both env vars; .env.example + DOCKER.md nginx recipe (server block, X-Forwarded-Proto required, client_max_body_size 25m, proxy_read_timeout 120s for WeasyPrint). USER SIDE REMAINING (nginx is on their machine): 1) point domain DNS at the server, forward 80/443; 2) create the nginx server block from DOCKER.md + certbot certs; 3) set in .env: QP_HTTPS_ONLY=1, QP_PUBLIC_DOMAIN=<domain>, QP_APP_BIND=127.0.0.1; 4) ./deploy.sh and test https. Verify Secure cookie in devtools + HSTS header (curl -I).",
+      "rationale": "User decided: app on its own port behind NGINX (their wording) that owns HTTPS + domain. App-side enabling work implemented and tested; the remaining steps are operator actions on the nginx host, so the card now tracks those with the DOCKER.md recipe as the reference.",
+      "rejected": "Caddy as the proxy — rejected by the user (nginx chosen). Tailscale/WireGuard VPN — user chose reverse proxy instead. Exposing :5000 to the LAN indefinitely — fine today, but QP_APP_BIND=127.0.0.1 removes even LAN exposure once nginx is live.",
+      "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "security",
+        "ops",
+        "nginx",
+        "user-action"
+      ],
+      "createdAt": 1788704049701,
+      "updatedAt": 1788709360035
+    },
+    {
+      "id": "card-403beb21-a674-4c2b-b161-2198b9d57686",
+      "title": "Single source of truth for date_format (audit M4, cookie vs DB)",
+      "description": "Audit M4: date_format has two sources of truth — the global_settings 'date_format' row (admin setting) vs the per-browser 'date_format' cookie (settings app). Phase-2/3 consolidation removed most cookie/DB duplication but date formatting still consults the cookie first in some helpers (get_date_format reads DB then falls back to cookie; several route/context paths read the cookie directly). Pick ONE authority (recommend: global_settings for admins, cookie only as a per-device override if genuinely wanted) and make every format_date call path read the same source; add a characterization test for the chosen precedence.",
+      "rationale": "Known inconsistency from the audit that Phase 2 deliberately deferred; it produces user-visible surprises (a user's cookie setting silently ignored or overriding the company default depending on which page they are on).",
+      "rejected": "Keeping both with cookie-wins semantics — rejected: PDFs must be company-consistent, not per-browser, and golden-PDF tests need deterministic formatting.",
+      "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "audit",
+        "debt",
+        "date-format"
+      ],
+      "createdAt": 1788704049737,
+      "updatedAt": 1788723387721,
+      "summary": "global_settings is the ONE source of truth for date_format (commit bb0b699, merged on Dev e54f88f). get_date_format() reads only the DB row (default YYYY-MM-DD on missing/error); the per-browser date_format cookie fallback deleted; /settings no longer reads/writes the cookie and its date-format select removed (Admin -> Default Settings is the single editor). New characterization test pins DB-wins precedence with a stale cookie present. Docs (PROGRAM_DOCUMENTATION 9.1, tests/README) updated. Suite 262 passed, 3 skipped. Theme stays cookie-based (out of scope)."
+    },
+    {
+      "id": "card-143c264c-ba28-4ec2-9ecd-8eaf5ff020b1",
+      "title": "UI/i18n debt: shared templates, translate hardcoded strings, a11y pass",
+      "description": "Post-Phase-2/3 the heavy duplication is gone (shared/web.py, single base layout per module via shared _nav includes) but real debt remains: (a) per-module base templates still carry duplicated header/nav/footer markup and scattered inline JS + <style> blocks; (b) hardcoded Serbian strings in routes/flash messages/validation (e.g. \"Pogrešna lozinka\", image-upload errors) sit next to the i18n dictionary — unify them through shared.utils TRANSLATIONS or a proper message catalog; (c) no accessibility pass (forms/buttons without labels, contrast, keyboard flow). Goal: consistent templates + zero untranslated UI strings + basic a11y, pinned by a few smoke assertions.",
+      "rationale": "Residual frontend debt from the B- UI grade: user-facing polish that shows up daily, and Phase-4 modules (customers/invoices/stock) will copy whatever template pattern exists today — so consolidate the pattern BEFORE new modules multiply it.",
+      "rejected": "Introducing a JS framework/SFC build (Vue/React) — rejected: server-rendered Jinja suits this workload; the cost/benefit at 30 users does not justify a frontend toolchain.",
+      "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "ui",
+        "i18n",
+        "debt"
+      ],
+      "createdAt": 1788704065730,
+      "updatedAt": 1788723387756,
+      "summary": "UI/i18n debt pass (5 commits 53980f7..2a11688, merged): ONE shared banner macro templates/_banner.html now renders the nav shell for all module bases + settings + admin _nav (nav_home.html single consumer); ~120 hardcoded Serbian route/template strings routed through TRANSLATIONS/_() (123 new sr entries; typo normalization); a11y basics on login/lists/forms (label for, aria-label on placeholder-only searches, th scope=col, html lang, role=alert); 4 smoke pins incl. sr-mode rendering. PDF/WeasyPrint templates, landing.html, JS-prompt bodies deliberately untouched (do-not-churn). One merge conflict with datefmt's settings.html resolution kept M4 removal. Suite 262 passed, 3 skipped."
+    },
+    {
+      "id": "card-01cba21c-0d76-4abc-97a3-5c2000f793e4",
+      "title": "Fix pytest cache_dir warning + add coverage gate on money-path services",
+      "description": "Suite currently reports `PytestConfigWarning: Unknown config option: cache_dir` (pytest.ini sets cache_dir for a plugin not installed on the host — pytest-cov or similar). Either add the plugin to dev-requirements so config matches, or drop the option. Separately: add pytest-cov with a threshold gate on the money paths (offer_service totals, pricing_service rounding, rent_service pmt/schedule, shared formatting) so the CI suite fails on coverage regression there; full-suite % is vanity — target the modules where regressions are expensive.",
+      "rationale": "Warning hygiene + the one real testing gap from the A- tests grade: no coverage tracking on the money modules, so new Phase-4 code paths could silently ship untested.",
+      "rejected": "A blanket 80% coverage gate over templates/routes — rejected: low-value busywork; the gate targets the business-logic services instead.",
+      "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "testing",
+        "ci",
+        "debt"
+      ],
+      "createdAt": 1788704065753,
+      "updatedAt": 1788723387740,
+      "summary": "cache_dir warning root-caused + documented (commits 08004f3, c93191a): cache_dir is a core pytest option registered by the built-in cacheprovider plugin — the historical 'Unknown config option' warning only appears when an invocation disables that plugin (-p no:cacheprovider); nothing does, runs are warning-free, config kept + comment forbidding the two bad 'cures'. Coverage gate added: pytest-cov==7.1.0 in dev-requirements, .coveragerc scopes [run] source to qp_crm/services/{offer,pricing,rent}_service (money math only; data_file /tmp), CI step 'pytest --cov --cov-fail-under=95'; measured 99.2% (offer 100/pricing 96/rent 100 — pricing's 1 miss is an unreachable dead clamp). Suite 262 passed, 3 skipped."
+    },
+    {
+      "id": "card-ec3ab09a-a2f7-4dbe-86c0-3e34d89dc549",
+      "title": "PWA: add manifest + static-only service worker, or correct FEATURES.md claim",
+      "description": "FEATURES.md claims 'Unified Progressive Web App (PWA)' but templates/landing.html has no manifest link and no service worker — Chrome installs a plain shortcut, no offline/app-shell behavior. Decide and do one of: (a) add a real manifest (icons from app_assets) + minimal service worker with cache-first for static assets and network-only for app routes — honest PWA, aligns with README's install guidance; or (b) correct the docs claim. (a) is recommended — it directly serves the 'desktop app feel' goal for the ~30 users with zero backend work.",
+      "rationale": "Doc-reality gap found during the codebase survey: the PWA claim is the one advertised feature that does not exist, and it is the cheapest remaining 'native feel' win for a browser-based multi-user rollout.",
+      "rejected": "Full offline-first data caching (service worker caching API responses) — rejected: risky with SQLite-backed server state; cache only static assets and never cache money/CRUD responses.",
+      "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "pwa",
+        "docs",
+        "feature"
+      ],
+      "createdAt": 1788704065773,
+      "updatedAt": 1788723387791,
+      "summary": "PWA claim made real (commit a7ed859, merged): static/manifest.webmanifest (name QP-CRM, standalone, dark colors #121212/#2d2d2d, 192+512 icons derived deterministically from the tracked favicon via Pillow), static/sw.js static-only service worker (cache-first ONLY for /static/* GET, network-only for HTML/api/app_assets, never caches money/CRUD/API, versioned qp-crm-static-v1, 503 fallback on offline static miss), landing.html manifest link + theme-color meta + secure-context-gated registration (scope '/'); 4 smoke tests. FEATURES.md PWA bullet updated (orchestrator commit 49996f8) to the honest posture: install/offline need HTTPS or localhost. Suite 262 passed, 3 skipped."
+    },
+    {
+      "id": "card-6e1f3c64-6fdd-4721-9041-3c2afb1dfc4d",
+      "title": "Repo hygiene: merge phase branches into Dev, tag, remove root scratch files",
+      "description": "Repo hygiene pass: (a) merge the phase branches (phase-0-docker, phase-1-tests, phase-2-refactor, phase-3-auth) into Dev and tag git (v0.x/phase-N) — Dev is currently many commits behind every phase tip and 'main-line' is ambiguous; (b) delete root scratch files: test_*.py, measure_pdf_*.py, download_pdf_*.py, test.pdf/test_fillable.pdf/success.pdf, the 0-byte stray pricing.db, main.log; (c) gitignore *.bak and the app_data backup file created during default-user removal; (d) keep README_Images only if README links them. Zero behavior change; CI/suite must stay green.",
+      "rationale": "The repo root still carries pre-Phase-0 experimentation clutter and the branch topology makes 'current code' ambiguous for any future session or deploy; Phase 4 must start from an unambiguous main line.",
+      "rejected": "Rewriting git history (rebase/squash phases into one) — rejected: loses the per-phase handover record that the workflow depends on; fast-forward merges + tags preserve it.",
+      "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "repo",
+        "hygiene"
+      ],
+      "createdAt": 1788704065790,
+      "updatedAt": 1788723387805,
+      "summary": "Repo hygiene done: phase branches (phase-0-docker/1-tests/2-refactor/3-auth incl. all small-task merges) fast-forward-merged into Dev (now e54f88f, once ancestor); tags phase-1/phase-2/phase-3 added (phase-0 + v1.0.0 existed) at each phase tip; 19 root scratch files deleted after reference checks (download_pdf*.py, measure_pdf*.py, test_dests*.py, test_pdf_flask.py, test_weasy.py, test.pdf, test_fillable.pdf, success.pdf, 0-byte pricing.db) — commit fb6a3d0; .gitignore += *.bak and app_data/*.pre-*; README_Images kept (referenced by README_API.md); main.log covered by *.log; agent worktrees/branches removed. Suite 262 passed, 3 skipped. Nothing pushed (user decides origin)."
+    },
+    {
+      "id": "card-19869125-fc2a-40ed-930a-e65bbe91fd66",
+      "title": "Docs refresh: README_API/FEATURES/API_INSTRUCTIONS auth + account sections",
+      "description": "Docs refresh after Phase 3 + the admin-only seeding change: (a) README_API.md still lists four per-app default passwords (Admin1/Price1/Offer1/Rent1) and per-app logins — stale: ONE unified login, ONLY admin auto-seeded, staff created by admin; (b) API_INSTRUCTIONS.md should state the global-key deprecation timeline and per-user key issuance (Admin -> API Keys); (c) FEATURES.md 'Role-based authentication' wording vs actual admin/staff + per-module grants; (d) PROGRAM_DOCUMENTATION.md routes sections updated by Phase-3 chat — spot-check consistency. Goal: a stranger (or the user in 6 months) can operate and extend from the docs alone.",
+      "rationale": "Multiple top-level docs now contradict the shipped auth model (four passwords vs one login, default staff accounts that no longer exist) — documentation drift is the recurring cost noticed in every survey; close it before Phase 4 grows the surface.",
+      "rejected": "Rewriting README_API/FEATURES wholesale — rejected: targeted account/login/API sections suffice; the files' feature descriptions remain accurate.",
+      "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "docs",
+        "debt"
+      ],
+      "createdAt": 1788704065807,
+      "updatedAt": 1788723387775,
+      "summary": "Docs refresh (commits 34d672d + 8b60ad2, merged): README_API.md now documents ONE unified login + admin-only bootstrap (four per-app default passwords and per-app logins removed); API_INSTRUCTIONS.md gained per-user API key how-to (Admin -> API Keys, Bearer auth, no CSRF needed, global key deprecated-but-working); FEATURES.md auth bullet rewritten to admin/staff + per-module grants and false 'zero-login viewer' Sale claim corrected; PROGRAM_DOCUMENTATION.md auth/account sections spot-fixed (sale 5.1, settings 6.1, admin 8.1, section 11). Verified against code before writing. Flagged: PROGRAM_DOCUMENTATION sections 1-10 still describe the pre-Phase-2 six-app shape — structural rewrite out of scope (follow-up noted)."
+    },
+    {
+      "id": "card-1e440fa4-1472-4dca-b1c9-2e42676a4e46",
+      "title": "P4.x — Invoices + payments on the deal spine (won→paid): invoices + payments + payments counters, global numbering, deal UI",
+      "description": "New `customers` table (legal entity: PIB/MB, billing) + `customer_locations` (physical workshop sites) + `deals` (one thread per request; N concurrent per customer) + `deal_events` timeline + link to existing offers via deal_id. Deal may reference a location (defaults to customer HQ when null). Status derived from linked documents (won = accepted offer/invoice; paid = payments cover invoice) — hand-set only \"new\". Concurrency guardrails: global per-type document numbering with per-deal deal code (D-YYYY-NNN) for reference in emails; stock availability computed across ALL active reservations (available = on-hand − Σ reserved); payments attach to invoices, not the customer account. Replaces the old CRM + ticketing thread tracking.",
+      "rationale": "User confirmed Customer+Offer+Invoice first, then raised two real-world complications: customers with multiple workshops and multiple concurrent projects. Three-level party model (customer → location → deal) answers both structurally instead of patching later; one extra table now is cheap vs backfilling location semantics onto existing deals later.",
+      "rejected": "Stored paid status / partial-payment states — derived from SUM(payments) instead (blueprint rule). Invoices inside P4 proper — deferred until the user confirmed numbering (done 2026-09-16: global).",
+      "sourceSessionId": "session-7383d563-60ad-4303-be85-68798dd7746b",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "deals",
+        "phase-4",
+        "invoices",
+        "plan",
+        "in-flight"
+      ],
+      "createdAt": 1788771414300,
+      "updatedAt": 1789576197622,
+      "summary": "P4.x SHIPPED on Dev (a0cbd1a, 02b86ee; container rebuilt + restarted, healthy on :5000; suite 304 passed/3 skipped): invoices + invoice_items + payments + global invoice_counters (F-YYYY-NNN, user-confirmed); invoice_service (issue-from-offer with frozen snapshot+items, payments, void, deal_is_paid); derived 'paid' status (closed > paid > won > offered > new); Fakture section on the deal thread + 5-column pipeline + .status-paid badge; 16 new tests. Two real bugs found & fixed over HTTP: invoice→add_event dead-lock (database is locked) and invoice gross taken from the stale offer-row total instead of the offer items. Agent Note: feature/2026-09-16-invoices-payments-spine.md. Follow-ups (not blocking): invoice PDF template, global /invoices list page."
+    },
+    {
+      "id": "card-38a97f87-fb38-41d0-aab7-73b58911a6b9",
+      "title": "P5 — Stock & equipment: custody-only, opt-in tracking, shortfall debts, temp products, rename/merge-safe",
+      "description": "Phase 5 scope after six user follow-ups. (1) Single DB, single `products` catalog; per-product TRACKING REGIME, `untracked` DEFAULT (small parts = catalog entries only, no ledger/counts/movements); `qty` opt-in loose ledger; `serialized` identity tracking (rows live forever, scrap transition only). QP-CRM = custody of machines + debts between machines, NOT inventory value (audit software stays the counting truth). (2) Custody-first movements, nullable doc ref + fixed reason list. (3) Coverage loop: reservations with \"for whom\", first-class POs (derived status), ATP view over tracked products. (4) Fleet vans as internal custodians (NOT customer rows). (5) Donor parts as SHORTFALLS (equipment_shortfalls: device, part, taken-for, PO ref, closed_at) — two-tap mechanic flow, incomplete-device flag, orders-needed hook, auto-close on replacement receipt; timeline-note fallback allowed but loses reminders. (6) TEMP PRODUCTS app-wide: every reference is id (nullable FK) + text snapshot (name/desc/photo) — quotation already does this (offer_items.product_id NULL + item_name); warehouse movements & equipment registrations accept temp products (ad-hoc part/device without catalog row), one-click \"make real product\" promotes snapshot → catalog row and back-fills references. RENAME without breakage: all modules resolve names by id at read time — renaming edits one master row. MERGE 2-or-5-into-1: `product_aliases` (alias_id → canonical_id, UNIQUE alias, no chains); old ids keep resolving through the alias map; duplicate-suspect view + re-point merge tool; same machinery reusable for customers/locations later. Issued documents keep issuance-time snapshots — rename/merge never rewrites history.",
+      "rationale": "User's final two requirements: (a) the quotation temp-product must exist in the warehouse too (one-off parts/devices shouldn't force catalog rows), and (b) the DB being \"just links\" must make renames and N-into-1 merges non-breaking. Both follow from one convention (id + snapshot + alias map) that is cheap to adopt on day one and painful to retrofit — recording it before P4/P5 schemas are written.",
+      "rejected": "Foreign-key-name lookups everywhere (name as key) — rejected: makes renames break references, the exact opposite of the requirement. Auto-updating historical document lines on rename/merge — rejected: issued offers/invoices are legal records; they keep issuance-time snapshots. Cascade-rewriting all references at merge time with no alias map — rejected: irreversible and lossy; alias map keeps old ids resolvable forever. Fancy dedup engines — rejected: alias map + duplicate-suspect view + manual confirm is enough and stays understandable.",
+      "sourceSessionId": "session-7383d563-60ad-4303-be85-68798dd7746b",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "stock",
+        "equipment",
+        "phase-5",
+        "plan"
+      ],
+      "createdAt": 1788800562300,
+      "updatedAt": 1788821723919
+    },
+    {
+      "id": "card-2cf8375c-9aa9-4fd6-8d84-1b7c077ec29b",
+      "title": "Planning pack: technical blueprint + vision + open questions written from design chat",
+      "description": "Full chat distilled into three files in planning/: INTEGRATION_TECHNICAL.md (integration points into existing modules, P4/P5 SQL sketches, cross-cutting conventions incl. id+snapshot/alias map/no-delete, derived status table, ATP formula, phase acceptance criteria, non-goals, risks), VISION.md (plain-language idea file for non-technical readers), OPEN_QUESTIONS.md (18 open questions in 4 groups + 7 ideas + answered-decisions reference table). Also repaired the Agent Note: orphaned donor-parts fragment re-homed as Amendment 5b; Amendment 6 ends cleanly.",
+      "summary": "Wrote planning/INTEGRATION_TECHNICAL.md, planning/VISION.md, planning/OPEN_QUESTIONS.md from the full design chat; fixed the Agent Note's Amendment 6 orphaned fragment (donor-parts text re-homed as Amendment 5b); board P4/P5 cards unchanged (already current).",
+      "rationale": "The design conversation covered the full original brief and produced 6 amendments; a thorough written handover was requested so the knowledge survives outside the chat and the Agent Note. Distilling now, while every decision is fresh, prevents drift between chat, note, and board before the first build task (P4-T1 schema).",
+      "rejected": "Writing a fourth separate \"summary\" file — rejected: three artifacts with distinct audiences (implementer / human / decision-maker) cover it; a fourth would duplicate and drift. Putting open questions only on board cards — rejected: 18 questions would flood the board; one file + one pointer card keeps the board readable.",
+      "sourceSessionId": "session-7383d563-60ad-4303-be85-68798dd7746b",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "planning",
+        "docs",
+        "handover"
+      ],
+      "createdAt": 1788823530107,
+      "updatedAt": 1788823530107
+    },
+    {
+      "id": "card-4f9cbaa9-1575-450c-b687-ff849ca88280",
+      "title": "Move Rent Default Financial Parameters card to /admin/rent/templates + remove redundant Dashboard button",
+      "description": "Card moved verbatim from admin_dashboard.html to admin_rent_templates.html (first .content block, above the Master Šabloni h1). Form posts to admin.update_settings with redirect_to=/admin/rent/templates so save returns to the same page; templates page gained get_flashed_messages block so 'Settings updated.' is visible. Both admin rent_templates routes pass rent_defaults via fetch_rent_defaults(). Redundant '← Dashboard' button removed (shared admin nav already links Dashboard). Committed 1b13ac9; deployed via SKIP_PULL=1 ./deploy.sh (sudo docker), container healthy, image contains new files (verified by docker exec grep). Note: could not do an authenticated live-HTTP click-through because the admin password was rotated from the seed (Admin1 no longer valid) — verified via image inspection + template-render test on isolated DB instead.",
+      "summary": "Moved 'Rent – Default Financial Parameters' from admin dashboard to /admin/rent/templates above the Master Šabloni heading; save redirects back to same page; flash block added; ← Dashboard button removed. Committed (1b13ac9) + deployed, container healthy.",
+      "rationale": "User request: rent financial defaults (kamata/osiguranje/garancija) belong on the templates page where rent settings are managed, not on the dashboard; dashboard button on the page was redundant. Deploy requires image rebuild since code is baked into the image (not bind-mounted).",
+      "rejected": "Keeping the card on both pages — two forms writing the same keys invites divergent values; user asked to move, not copy. url_for() for redirect_to instead of the literal string — the Email Preset form on the same page already hardcodes '/admin/rent/templates'; kept consistency with the existing pattern.",
+      "sourceSessionId": "session-618994ec-9d6f-44d8-a1bd-5adcfcc7c21d",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "rent",
+        "admin",
+        "ui",
+        "deploy"
+      ],
+      "createdAt": 1789555123094,
+      "updatedAt": 1789555123094
+    },
+    {
+      "id": "card-8c119e86-1120-4d09-9867-650d93277b20",
+      "title": "Consolidate API key management into /admin/api_keys (remove dashboard panel)",
+      "description": "Dashboard API Key Management panel (legacy global key: blurred display + Show, Generate, Revoke, curl quick-test) moved to the bottom of /admin/api_keys, below the per-user key table. Legacy POST routes /admin/api_key/generate and /admin/api_key/revoke keep endpoint paths but redirect to /admin/api_keys. Dashboard route no longer fetches key values. API_INSTRUCTIONS.md legacy-key mention updated. Deployed via SKIP_PULL=1 ./deploy.sh (sudo docker).",
+      "summary": "Consolidated all API key management into /admin/api_keys: legacy global-key card moved from dashboard, legacy actions redirect back to api_keys page, dashboard panel removed. Deployed (ec47f84), container healthy, verified live: legacy key 200, per-user key 200, bad key 403, no key 401, /health 200 no-auth.",
+      "rationale": "User request: API settings must live in exactly one place (/admin/api_keys), not split between dashboard panel and API Keys tab. API auth had to keep working for existing integrations after the rebuild.",
+      "rejected": "Retiring the legacy global key outright — live integrations still authenticate with key 73f482ad…; removal would break them. Keeping the panel on both pages — duplicates mutation UI, user asked for a single place.",
+      "sourceSessionId": "session-618994ec-9d6f-44d8-a1bd-5adcfcc7c21d",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "admin",
+        "api",
+        "ui",
+        "deploy"
+      ],
+      "createdAt": 1789555820067,
+      "updatedAt": 1789555820067
+    },
+    {
+      "id": "card-3d2bcac1-d9e4-434b-8630-5dd2643ab606",
+      "title": "Retire legacy global API key — per-user keys are the only API auth",
+      "description": "resolve_api_identity now accepts ONLY per-user keys ((global) fallback removed). require_api_key falls back to the logged-in session WITH pricing grant for same-origin JS (product_sync migrated from embedded Bearer key to credentials=same-origin). Removed: legacy key card on /admin/api_keys, api_key_generate/revoke routes, pricing dev-run auto-generation. Helpers kept as stubs (generate raises NotImplementedError, get_api_key reads leftover rows for old-restore detection, revoke deletes the dead row). Live DB api_key row 73f482ad… deleted after deploy. Deployed ae8c4cf, container healthy.",
+      "summary": "Retired the legacy global API key: per-user keys are the only Bearer auth, product_sync uses session auth, legacy card/routes/key row removed. Suite 268 passed; deployed; live-verified: old key 403, unknown key 403, no key 401, per-user key 200 on products/categories/brands, audit rows attributed to username.",
+      "rationale": "User approved complete removal: the global key was an unattributed shared secret and was embedded into product_sync page source. Session-auth for product_sync keeps that page working with BETTER audit attribution (username instead of NULL).",
+      "rejected": "Silent deprecation (key works, hidden UI) — standing undocumented secret, worse than either extreme. Keeping the row but ignoring it in resolution — dead credentials must be deleted, not just unwired. Scoped key for product_sync — session identity already exists there and gives better audit attribution. Hard-deleting the helper functions — restored old backups would crash on import; stubs keep imports safe and leftover rows removable.",
+      "sourceSessionId": "session-618994ec-9d6f-44d8-a1bd-5adcfcc7c21d",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "security",
+        "api",
+        "deploy"
+      ],
+      "createdAt": 1789557122226,
+      "updatedAt": 1789557122226
+    },
+    {
+      "id": "card-d3f3f380-1e6d-4116-89e2-6e3b43cf8242",
+      "title": "API keys: add Delete for revoked keys + fix Actions cell wrapping",
+      "description": "Follow-up on the API keys consolidation: (1) hard-DELETE action for REVOKED keys — service delete_user_api_key() refuses ACTIVE keys (revoke first), route /admin/api_keys/<id>/delete guarded by acting admin's own password, 🗑 confirm button shown only on revoked rows; (2) Actions cell layout fixed — flex row with nowrap buttons, flexible password field, fixed column widths, container 1100->1250px — Revoke/Re-enable no longer wraps to two rows. Deployed c9a1df1, container healthy; both leftover revoked probe keys (post-retire-verify, live-verify-deploy) deleted from live DB via the new action path, table now empty.",
+      "summary": "Added Delete (🗑) action for revoked API keys with active-key refusal guard; fixed Actions cell so Revoke/Re-enable stays on one row (wider container + flex layout). Suite 269 passed; deployed; live DB probe keys cleaned up.",
+      "rationale": "User feedback after the legacy-key retirement deploy: revoked keys had only Re-enable with no way to delete the dead row, and the narrow Actions cell wrapped the button to two lines.",
+      "rejected": "Allowing deletion of active keys — would bypass the revoke safety step and surprise integrations; delete is strictly cleanup after revoke. Separate delete column — wastes table width; the 🗑 sits beside Revoke/Re-enable in the same cell only when the key is revoked.",
+      "sourceSessionId": "session-618994ec-9d6f-44d8-a1bd-5adcfcc7c21d",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "admin",
+        "api",
+        "ui",
+        "deploy"
+      ],
+      "createdAt": 1789557577516,
+      "updatedAt": 1789557577516
+    },
+    {
+      "id": "card-eceb7420-a250-4a38-b289-de7a5d056cbd",
+      "title": "P4-T1 · Deals schema + module skeleton (customers, locations, deals, deal_events; offers.deal_id/location_id; deals blueprint + grants v3)",
+      "description": "Create the qp_crm/deals/ blueprint package. Schema (shared/schema.py, single source): customers (name, pib, mb, billing_address, city, country, email, phone, notes, created_at, archived), customer_locations (customer_id FK, name, address, city, contact_name, contact_phone, notes), deals (code UNIQUE D-YYYY-NNN, customer_id FK NOT NULL, location_id FK NULL=HQ, title, owner_user_id, created_at, closed_at), deal_events (deal_id FK, event_type call|email|meeting|note|document|decision, author_user_id, body, linked_doc_type, linked_doc_id, created_at). offers gains deal_id + location_id via add_column_if_missing. deals app blueprint: require_module(\"deals\"), MODULE_CHOICES + MODULE_INTRODUCED v3, deals_init_db in wsgi/main/conftest init sequences, /deals registered in main.py.",
+      "rationale": "P4.x step 1: storage + numbering foundation for the financial tail; global F-YYYY-NNN bucket confirmed by user (supersedes OPEN_QUESTIONS #4).",
+      "rejected": "Separate migration framework/alembic — rejected: repo convention is idempotent DDL in one schema module; adding a framework for 4 tables adds ops risk, not safety.",
+      "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "phase-4",
+        "deals",
+        "task",
+        "schema"
+      ],
+      "createdAt": 1789560320471,
+      "updatedAt": 1789575845513,
+      "summary": "committed a0cbd1a: create_invoices_tables in shared/schema.py — invoices (code UNIQUE, deal/customer/location/source_offer FKs, frozen client snapshot, voided_at) + invoice_items + payments + invoice_counters(year PK); wired via create_deals_tables → deals_init_db, idempotent re-run verified."
+    },
+    {
+      "id": "card-f45dd7a2-d510-475e-88b3-e1206ee28e6f",
+      "title": "P4.x-T2 · Invoice/payment service: issue-from-offer, record_payment, paid derivation (closed > paid > won)",
+      "description": "services/deal_service.py: create/list/get/update customers (no delete — archived flag), locations (validate customer ownership), deals (auto code D-YYYY-NNN via per-year counter table deal_counters + retry on race), add_deal_event, list events chronologically. Derived deal status: new (no linked docs) → offered (≥1 offer linked) → won (accepted-offer 'decision' event or offer linked from deal accepted tap) → closed (hand close). Compute from linked offers + events; never stored. No invoice/payments in P4 scope 1 (follow-up card if user wants them early).",
+      "rationale": "P4.x step 2: business logic in the service layer with pure derivation, per the P2 architecture.",
+      "rejected": "Storing status on the deals row — rejected: the whole design point is that statuses derive from links and can never lie; a stored column would drift.",
+      "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "phase-4x",
+        "invoices",
+        "service",
+        "task"
+      ],
+      "createdAt": 1789560414889,
+      "updatedAt": 1789575845536,
+      "summary": "committed a0cbd1a: services/invoice_service.py — issue_invoice_from_offer (one live invoice per offer, snapshot+item copy, gross from offer ITEMS), record_payment (positive-only, voided closed, deal event), void_invoice (idempotent, audit kept), read models; _append_event on the caller's transaction (deal_service.add_event opens its own connection and dead-locks mid-transaction — found over HTTP, fixed). deal_service: derived 'paid' status (precedence closed > paid > won > offered > new), deal_with_offers/pipeline_board extended with the tuple element/column."
+    },
+    {
+      "id": "card-6547bfb8-3a08-4859-99e6-87a68d160a34",
+      "title": "P4-T3 · Deals UI: customers CRUD, locations CRUD, deals list/thread page, timeline events",
+      "description": "qp_crm/deals/routes/: customers list/new/edit (archived filter), customer detail = locations + deals + totals view; locations CRUD on customer page; deals list (filters: status, customer, search), new deal (customer picker + title + optional location — must stay <30s form), deal page = timeline thread (events newest-first, add event form, linked offers cards). All POSTs CSRF via shared check_csrf. Templates under deals/templates/deals/ with shared _banner macro.",
+      "rationale": "P4-T1 gives tables, P4-T2 gives logic; this is the screens users live in. Deal page as a thread is the replacement for the old CRM/ticketing.",
+      "rejected": "Single-page JS app style — rejected: repo is classic server-rendered Jinja + main.css; consistency wins and keeps tests simple.",
+      "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "phase-4",
+        "deals",
+        "task",
+        "ui"
+      ],
+      "createdAt": 1789560414908,
+      "updatedAt": 1789565233452,
+      "summary": "committed 1dc7c48: deals routes split per domain (customers.py, deals.py, pipeline.py) + templates (base with shared _banner + status badges + flash block, customers list, customer form, customer detail with inline locations CRUD + archive toggle, shared _deal_table, deals list with status/customer/search filters, <30s deal form, deal thread page with derived-status strip + document cards with accept tap + add/delete timeline events, 4-column read-only pipeline board). Verified through HTTP test client: customer→location→deal→event→close all green."
+    },
+    {
+      "id": "card-3f323e9e-cd9b-48df-8ad5-7c9f390487c1",
+      "title": "P4-T4 · Offer ↔ deal link: deal/location pickers in offer form, deal code on lists, timeline events",
+      "description": "offer_form.html: deal picker (searchable select of deals \"code — customer — title\") + location picker (locations of the deal's customer, blank = customer billing). new_offer/edit_offer persist offer.deal_id/location_id; when set, changing customer auto-suggests client fields from master data (pre-fill only — snapshots stay authoritative on save). offer_view + offers list show deal code link back to the deal. Linking writes a 'document' event on the deal timeline (both link and unlink). duplicate_offer copies deal_id (same thread).",
+      "rationale": "This is the link that makes the funnel live: offers attach to deals at birth so pipeline/status need no manual upkeep. Blueprint §1: offers gain deal_id + location_id columns.",
+      "rejected": "Auto-populating client fields on every save — rejected: issuance-time snapshot is the frozen-history rule; master data only pre-fills the form.",
+      "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "phase-4",
+        "deals",
+        "offer",
+        "task"
+      ],
+      "createdAt": 1789560414925,
+      "updatedAt": 1789565173438,
+      "summary": "committed 42208a7: offer_form gains Posao (deal) + Lokacija selects; ?deal_id= pre-fills client master data (pre-fill only — saved row keeps the user-confirmed snapshot); edit_offer persists link changes + writes 'document' events on the deal timeline (link and unlink, only on change); duplicate_offer continues the same thread; offers list gains the Posao column linking back to the deal; offer_view shows the deal row. Verified end-to-end over HTTP (prefill, link event, offered badge, list column, duplicate)."
+    },
+    {
+      "id": "card-6197156a-269f-411f-9011-8d3b07dd8c34",
+      "title": "P4-T5 · Pipeline view + landing card + grants wiring end-to-end",
+      "description": "Pipeline view (/deals/pipeline): deals grouped by derived status with total value (sum of linked offers' gross per currency); customer page shows all deals + document totals; admin Users page gains the deals checkbox automatically via MODULE_CHOICES; landing card \"Poslovi / Deals\" gated by grant; smoke tests cover /deals pages for granted staff + 403 without grant; MODULE_INTRODUCED v3 seeds the grant to existing staff exactly once.",
+      "rationale": "The pipeline is the payoff screen (\"what's in the air at every customer\"), and the acceptance criterion is that it matches reality without anyone maintaining statuses.",
+      "rejected": "Wanted editable pipeline columns (drag between statuses) — dropped: statuses are derived from documents, so dragging has nothing to write; the board is read-only by design.",
+      "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "phase-4",
+        "deals",
+        "task",
+        "ui"
+      ],
+      "createdAt": 1789560414945,
+      "updatedAt": 1789567892527,
+      "summary": "committed e6d4334: pipeline route now passes STATUS_LABELS (board shows Novi/Ponuđeno/Dobijeno/Zatvoreno); grants verified end-to-end over HTTP — anon redirect to /login, ungranted staff 403 with message naming the missing app, granted staff + admins 200 on every deals page, landing card appears/disappears with the grant, grants-v3 exactly-once seeding pinned by tests (v2-materialized staff gain deals on next boot; explicitly emptied sets stay empty)."
+    },
+    {
+      "id": "card-60abd16a-cc56-4703-a939-719e9559ccbe",
+      "title": "P4-T6 · Tests + handover: characterization/smoke for deals, full suite green, Agent Note + board",
+      "description": "New tests (mirror conftest fixtures: deals_client): schema migration on legacy DB (old offers DB gains deal_id/location_id, tables created, NULLs fine); deal code uniqueness + per-year increment; derived status transitions (new→offered→won via decision event); customer/location CRUD + archived behavior; offer link writes document events; smoke: /deals/ 200 for granted staff, redirect anon, 403 ungranted; landing shows Deals card only when granted. Full suite green. Commit per task, merge phase-4-deals → Dev, tag qp-crm:phase4, Agent Note (feature) recording the deals-spine implementation, update board.",
+      "rationale": "Repo discipline: every phase lands with tests green on the throwaway DB, a tag, and a decision note; the board is the hand-off record.",
+      "rejected": "SQLite direct connection in the funnel test (sqlite3.connect(temp_db)) — replaced with the shared get_db() to respect the conftest DB root patching.",
+      "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "phase-4",
+        "deals",
+        "testing",
+        "handover"
+      ],
+      "createdAt": 1789560414963,
+      "updatedAt": 1789567892549,
+      "summary": "committed e6d4334 + merge c6ebb13 on Dev, tag qp-crm-phase4: 11 service characterization tests (per-year codes, counter survives boot replay, ownership, archive-not-delete, full derived lifecycle, unlink revert, birth event, pipeline grouping) + 8 HTTP tests (gating matrix, landing card, v3 seeding, full funnel customer→deal→offer→accept→won). Full suite 288 passed / 3 skipped. The tests caught a REAL bug: derived_status_for used getattr() on sqlite3.Row (no attribute access) so 'closed' was unreachable — fixed via _row_get(). test_user_management's hardcoded 4-module lists replaced with list(MODULE_CHOICES) so the deals grant survives deactivate/reactivate tests."
+    },
+    {
+      "id": "card-5eb67b7c-087f-4ee9-9c16-c965e124368d",
+      "title": "BUG · factory_reset + reprovision leaves stale session user_id (pre-existing, test-order dependent)",
+      "description": "Symptom: after Admin→Factory reset (users table wiped + provision_staff_accounts re-seeds), a test client logged in BEFORE the reset keeps the old session user_id, which after re-seed belongs to a different/no row → require_module sends it to /login instead of 403/200 → cross-test failures (e.g. test_role_gates assert 302==200). Reproduced on Dev, phase-3-auth, 4f3a2a1, 94ee464. Not a P4 regression; P4 suite passes when ordering differs (288 passed full suite after P4 test fixes — residual risk only in specific orderings).\nFix direction (when picked up): invalidate sessions whose user_id no longer matches the same username (store username in session alongside id and re-check in require_role/require_module), or make factory_reset reprovision deterministic ids in tests.",
+      "rationale": "A pre-existing landmine for future test ordering — logging it now so it isn't rediscovered as a regression during P5; the P4 test fixes (MODULE_CHOICES in test_user_management) removed the visible symptom but not the root cause.",
+      "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "bug",
+        "testing",
+        "pre-existing",
+        "auth"
+      ],
+      "createdAt": 1789567953393,
+      "updatedAt": 1789567953393
+    },
+    {
+      "id": "card-3d7290cf-d3cd-4b92-9708-8cfafd8f68a0",
+      "title": "P4.x-T1 · Invoices schema: invoices + invoice_items + payments tables, F-YYYY-NNN global invoice_counters",
+      "description": "Step 1 of P4.x. In shared/schema.py create_deals_tables (or a new create_invoices_tables called from deals_init_db): invoices (id, code UNIQUE, deal_id FK NOT NULL, customer_id FK, location_id FK NULL, source_offer_id FK NULL, issue_date, due_date, currency, exchange_rate, total_gross, total_paid, client_* snapshot fields copied from the accepted offer at issue time, notes, created_at, voided_at) — void not delete; invoice_items (invoice_id FK, position, description, qty, unit, unit_price, discount_percent, vat_percent, line_total); payments (invoice_id FK, paid_at, amount, currency, method, reference, note, created_by_user_id, created_at). Counters: extend deal_counters pattern — invoice_counters(year PK, last_number) issuing F-YYYY-NNN GLOBALLY (user decision: one bucket for all invoices, no per-customer/per-deal series). Status DERIVED, never stored: invoice paid status computed from SUM(payments.amount) >= total_gross at read time.",
+      "rationale": "P4.x step 1: storage + numbering foundation for the financial tail; the user confirmed global numbering (supersedes OPEN_QUESTIONS #4).",
+      "rejected": "Storing a paid/status column on invoices — rejected: violates the derived-status rule and would drift with every payment insert.",
+      "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "phase-4x",
+        "invoices",
+        "schema",
+        "task"
+      ],
+      "createdAt": 1789572807711,
+      "updatedAt": 1789575892038,
+      "summary": "committed a0cbd1a: create_invoices_tables in shared/schema.py — invoices (code UNIQUE, deal/customer/location/source_offer FKs, frozen client snapshot, voided_at), invoice_items, payments, invoice_counters(year PK) for global F-YYYY-NNN; wired via create_deals_tables → deals_init_db; idempotent re-run verified."
+    },
+    {
+      "id": "card-431056ae-cc30-49fe-9793-bf02e16c5428",
+      "title": "P4.x-T2 · Invoice/payment service: issue-from-offer, record_payment, paid derivation (closed > paid > won)",
+      "description": "Step 2 of P4.x. Extend services/deal_service.py (or new services/invoice_service.py): issue_invoice_from_offer(deal_id, offer_id, ...) — validates offer belongs to deal and deal not closed; copies the offer's frozen client snapshot + items into the invoice (issuance-time snapshot, blueprint §4); allocates F-YYYY-NNN via invoice_counters (same INSERT..ON CONFLICT + UPDATE..RETURNING + UNIQUE(code) retry as deals); writes a 'document' event (linked_doc_type='invoice') on the deal timeline. record_payment(invoice_id, amount, ...) validates amount > 0, writes event on the deal. Derived status extension: derive_status gains 'paid' below 'closed' — paid when the deal has ≥1 invoice and every invoice's SUM(payments) >= total_gross. Precedence becomes closed > paid > won > offered > new. Pure functions kept unit-testable.",
+      "rationale": "P4.x step 2: business logic in the service layer, pure derivation unit-testable before UI.",
+      "rejected": "Calling deal_service.add_event from inside invoice transactions — rejected after it dead-locked (separate connection); invoice_service appends events inline on its own transaction instead. Partial-payment 'partially paid' status — dropped: binary paid/not-paid derivation only, remaining amount is shown in the UI.",
+      "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "phase-4x",
+        "invoices",
+        "service",
+        "task"
+      ],
+      "createdAt": 1789572807735,
+      "updatedAt": 1789575892061,
+      "summary": "committed a0cbd1a: services/invoice_service.py — issue_invoice_from_offer (one LIVE invoice per offer, re-issue after void; frozen snapshot + item copy; gross from offer ITEMS because the offer row's total_gross stays 0 until an edit recalculates), record_payment (positive-only, voided invoices closed, deal event), void_invoice (idempotent, voided drop out of derivation + section, payments kept for audit), deal_invoice_summary/invoice_with_details/deal_is_paid read models. deal_service: derived 'paid' (precedence closed > paid > won > offered > new); _append_event appends events on the CALLER's transaction — deal_service.add_event opens its own connection and dead-locks mid-transaction (found over HTTP: 'database is locked')."
+    },
+    {
+      "id": "card-42e52a89-c09e-4378-9e35-d8bdc325bb02",
+      "title": "P4.x-T3 · Deal UI: invoice section on thread page (issue from offer, payments, void) + pipeline paid column",
+      "description": "Step 3 of P4.x. Deal thread page (deals/deal_detail.html): Fakture section under documents — per invoice: code (F-YYYY-NNN), issue date, total, paid-so-far, remaining, status chip (Neplaćena/Plaćena), payments sub-list, add-payment inline form, and an 'Izdaj fakturu' button per accepted offer that hasn't been invoiced yet. Void invoice button (voided_at, never delete). Pipeline: add 'paid' column (5 columns) with per-currency totals. Status badge CSS for .status-paid. Invoice numbers clickable in offers/deal views where relevant.",
+      "rationale": "P4.x step 3: without UI the invoice data is unreachable; the thread page is where staff already work, so the financial tail lives there.",
+      "rejected": "Separate global /invoices list page — deferred (deal-thread-first; can be added when volume demands). Editing issued invoices — rejected by design: issuance-time snapshot is frozen; mistakes go through storno + re-issue.",
+      "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "phase-4x",
+        "invoices",
+        "ui",
+        "task"
+      ],
+      "createdAt": 1789572868436,
+      "updatedAt": 1789575923761,
+      "summary": "committed a0cbd1a: deal thread gains the Fakture section — 'Izdaj fakturu' buttons per accepted-uninvoiced offer (with due date), per-invoice rows (code, issue/due date, ukupno/uplaćeno/ostalo with red/green remaining), inline payment form (amount/date/method/reference), Plaćena chip, Storniraj button with confirm; timeline renders invoice/void/payment events; flash names the CODE (F-2026-001), not the raw id. Pipeline expanded to 5 columns (Novi/Ponuđeno/Dobijeno/Plaćeno/Zatvoreno); .status-paid badge; deals list filter includes Plaćeno; _deal_table tolerates unknown statuses. Verified over HTTP end-to-end (issue → partial → full → paid badge → void drops out + audit event stays)."
+    },
+    {
+      "id": "card-db2b560c-ba00-4cfd-8e68-69d4de85d8ff",
+      "title": "P4.x-T4 · Tests + full green + reboot app + Agent Note + write-down of all changes",
+      "description": "Step 4 of P4.x. Tests: characterization for invoice numbering (global per-year F-YYYY-NNN, counter survives boot replay), issue-from-offer snapshot copy (client fields + items), payment validation, paid derivation matrix (partial payment, overpay, multi-invoice, voided invoice excluded), event writes. Smoke: deal thread shows invoice section, issue via HTTP, record payment, paid badge on pipeline. Full suite green. Then: reboot the production app (docker rebuild + restart so the new module + schema land on :5000), update board (all P4.x cards), Agent Note for the invoices/payments feature, and write the requested write-down of all changes.",
+      "rationale": "P4.x step 4: tests-first caught two real bugs (dead-lock, stale gross); the reboot makes the feature live for the user as requested.",
+      "rejected": "Skipping the reboot until P5 — rejected: user explicitly asked to reboot when done.",
+      "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "phase-4x",
+        "invoices",
+        "testing",
+        "handover",
+        "task"
+      ],
+      "createdAt": 1789572868461,
+      "updatedAt": 1789576197594,
+      "summary": "committed a0cbd1a + 02b86ee on Dev: 12 characterization tests (global per-year codes, counter survives boot replay, snapshot+item copy, one-live-invoice-per-offer, paid derivation matrix incl. void/overpay/close precedence, payment validation, timeline events) + 4 smoke tests (HTTP issue/pay/void/regression on offers pages). Full suite 304 passed / 3 skipped. App REBOOTED: sudo ./deploy.sh rebuilt the image, recreated the container, healthcheck healthy at t+7s; live DB invoice schema verified in-container; anon gating on /deals/ confirmed on :5000. Agent Note: feature/2026-09-16-invoices-payments-spine.md. Write-down delivered in chat."
+    },
+    {
+      "id": "card-31c3b9fe-6393-44cf-b803-e57420ea2b7b",
+      "title": "P5-pre — Zajednički imenik (contacts): nezavisna app za kupce/saradnice koju dele rent, ponude, poslovi, radni nalozi",
+      "description": "Problem: party data is fragmented per module — offers keep client fields frozen on the document (fine), but there is no SHARED master registry: rent has its own rent_clients table, deals has customers/customer_locations, pricing has nothing, sale will need one too, radni nalozi (P5+) will need one. Every new module growing its own client table duplicates data and drifts.\n\nTarget state: ONE directory app (/contacts or /imennik) owning the party model:\n- contacts: legal entities AND persons (type: company/person), name, PIB/MB/JMBG, address, city, country, email, phone, notes, archived flag (NO deletes — same convention as customers today)\n- contact_locations stays as the child table (sites)\n- optional tagging/categorization (kupac / saradnik / oba) so 'kupci' vs 'saradnici' is a VIEW/filter, not separate tables\n- per-user grants: new module slug 'contacts' in MODULE_CHOICES (v4 rollout seeds existing staff), landing card, require_module gate — same pattern as deals\n- service layer (contact_service) + UI (list with search+archive, form, detail with locations + all linked documents across modules)\n\nMigration: rent_clients rows → contacts (one-time, idempotent, keeps ids mapped); rent_contracts keeps its FROZEN client snapshot (issuance-time convention — documents never re-resolve), but the rent UI switches its client picker to the shared directory; deals customers → contacts; offers' prefill switches to the directory.\n\nRule to keep: documents (offers, invoices, contracts) stay frozen snapshots — the directory is MASTER DATA only, it never retro-actively changes issued documents.\n\nSplit into tasks when picked up: T1 schema+migration, T2 service, T3 UI+grants, T4 rent switch-over, T5 offers/deals switch-over, T6 tests+reboot+handover.",
+      "rationale": "The user asked for the client/partner directory to be ONE independent shared app consumed by rent, offers, deals, future work-orders — not each module keeping its own client store. The deals-spine (customers table) and rent_clients already drifted into two stores; P5 (radni nalozi) will need the same data, so the unification must land before or with P5. Sequenced after P4.x which just shipped.",
+      "rejected": "Fork of customers table rejected (pollutes deal/billing spine); two parallel company/person tables rejected (union views everywhere); boolean role columns rejected (open-ended list needs rows); one-time migration script rejected (boot-time idempotent is the repo pattern, covers restored volumes); rewriting contract client_* into FK references rejected (violates amendment 6d — history frozen; link+snapshot instead); immediate drop of rent_clients rejected (kept as read-only seed source + backfill markers); offer picker filtered to role=client rejected (ONE base for everything, role filter belongs to directory UI).",
+      "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "contacts",
+        "directory",
+        "phase-5-candidate",
+        "unification"
+      ],
+      "createdAt": 1789629226338,
+      "updatedAt": 1789635775109,
+      "summary": "DONE — two commits: P5-pre (10e31f9) + P5-unification (6bfa4d0), image rebuilt, live on :5000. /contacts app: contacts/contact_roles/contact_links in shared/schema.py; kind=company|person (fizičko lice: ime/prezime/JMBG); fixed-row roles incl. supplier/employee/external_collaborator/client/partner/other, several per contact; optional user_id→nalog and customer_id→P4-kupac links; archive-only. UNIFICATION: boot-time backfill copies legacy rent_clients→contacts (merge-aware by PIB/MB, marker migrated_contact_id, idempotent); offers + rent_contracts gain contact_id (link column, snapshots stay frozen); offer form gains imenik party picker (companies+persons, ?contact_id= prefill); rent contract picker feeds ONLY from directory; /rent/clients redirects to /contacts?role=client + translates legacy POSTs; legacy rent_clients.html deleted; factory-reset clears directory. Suite 327 passed (7 new unification tests). Note: admin dev password overwritten during testing (TestPass123 on host dev DB — rotate if applicable)."
+    },
+    {
+      "id": "card-db51604a-7d9a-4dcb-a691-f3210cfaaaa5",
+      "title": "DELETE /deals app entirely (deals spine + P4.x invoices/payments) — /contacts is the only party registry",
+      "summary": "commit 8e8f863 + note 267c868 on Dev, app rebuilt/rebooted (healthy on :5000): deleted qp_crm/deals/ package, deal_service + invoice_service, all deals/invoices/payments DDL, offers.deal_id/location_id (+ Posao column/picker), 'deals' grant + Poslovi landing card, conftest deals_client, deal/invoice tests; factory_reset fixed (contact_links → contact_locations). /contacts is the only party registry: contact_locations sites + linked_documents (offers + rent_contracts by contact_id). Suite: 293 passed / 3 skipped. Dead tables DROPped from production DB on user confirmation. P4.x parent card superseded by this removal.",
+      "rationale": "User decision 2026-09-17: the whole /deals app (incl. P4 deals spine and P4.x invoices/payments) was unusable for them and was removed at their explicit request after a confirmation question; /contacts (built in P5-pre) becomes the only party registry. Recorded so the next session does not resurrect deals code or reference deal tables.",
+      "rejected": "Keeping customers tables as directory seed — user chose clean drop; rent_clients backfill already carried the renter base. Soft-deprecation behind a flag — rejected: half-alive code rots.",
+      "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "deals",
+        "removal",
+        "phase-4",
+        "done"
+      ],
+      "createdAt": 1789663777626,
+      "updatedAt": 1789663777626
+    },
+    {
+      "id": "card-8b332541-9210-4b37-be89-bf4a8f9683af",
+      "title": "Product: polja website_url + manufacturer_url (opciona), van ponuda + restart app",
+      "description": "Dodati dva opciona URL polja na Product (products.website_url, products.manufacturer_url): unos na /pricing/products/add i edit, prikaz na products listi, sale view_product. NE sme se pojaviti u ponudama (offer form, offer items, PDF ponude) — samo opciona podataka na samom proizvodu. Nakon implementacije rebuild+restart Docker kontejnera (deploy.sh) da promene budu vidljive na :5000.",
+      "rationale": "Direktan korisnički zahtev: opciona polja na proizvodu bez ikakvog prikaza u ponudama; restart aplikacije obavezan da se ALTER migracija primeni na produkcionu bazu.",
+      "sourceSessionId": "session-5e6becdc-fe0e-48b5-bcea-45a06b10f179",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "products",
+        "feature",
+        "deploy"
+      ],
+      "createdAt": 1790092334546,
+      "updatedAt": 1790092957779,
+      "summary": "Commit aa70032: products.website_url + products.manufacturer_url (schema CREATE + idempotentne ALTER migracije), unos na pricing product formi (add/edit), prikaz na products listi i sale view_product, api_v1 list/detail/create/update nose polja, API_INSTRUCTIONS.md dopunjen. OFFER-INVISIBLE po konstrukciji (add_item snapshot prenosi samo name/description/photo) — pinovano tests/smoke/test_product_links.py (6 testova). Suite 299 passed. Docker image rebuild + container recreate urađeni, healthcheck healthy, produkciona baza verifikovana (obe kolone postoje u /app/app_data/pricing.db).",
+      "rejected": "Offer-item snapshot kolone i checkboxovi u offer formi su odbačeni — zahtev je bio da linkovi nikad ne uđu u ponude; linkovi se šire samo preko product-stranica, a offer add_item snapshot (name/description/photo) nema kanala da ih povuče."
+    },
+    {
+      "id": "card-a12e4e34-3344-47de-8d2c-3082c388633f",
+      "title": "Konverzija starog backupa (pre-Phase-3) u aktuelnu šemu + učitavanje kao test",
+      "description": "Zamenjeno produkcionim podacima: FULL_SYSTEM_BACKUP_2026-09-22.zip (pre-Phase-3: legacy plaintext lozinke, nema users/contacts/API tabela, 253 proizvoda, 77 ponuda, 213 stavki, 4 ugovora) konvertovan REALNIM boot sekvencem (pricing init+migrate, offer, admin users, rent, contacts backfill) u staging sandbox, verifikovan HTTP smoke-om kroz sve module (stranice + PDF-ovi + slike + pretraga), pa ubačen kao živa baza. Pre zamene: WAL-safe backup trenutne baze + images u /home/dsh/QP-CRM/backups/. Admin šifra postavljena na QP-ZcpJw9yGctQS (ista kao današnji reset), zorica staff nalog sačuvan (contacts/offer/sale grantovi, stale 'deals' grant uklonjen). Legacy plaintext ključevi (admin/pricing/offer/rent/quotation_password) i retired api_key red izbačeni.",
+      "rationale": "Korisnički zahtev: stari backup konvertovati i učitati kao test svega. Realni boot migrations put garantuje da konverzija koristi ISTU šema-logiku kao produkcija, bez ručnog SQL-a koji bi mogao driftovati.",
+      "rejected": "restore_full preko admin UI: briše žive podatke pre nego što bi backup bio sačuvan sa strane, i zahteva admin pass u formi — umesto toga ručni swap sa stop/start kontejnera + WAL-safe backup pre. Ručna SQL skripta: duplira boot migracije i rizikuje šema-drift.",
+      "sourceSessionId": "session-5e6becdc-fe0e-48b5-bcea-45a06b10f179",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "backup",
+        "restore",
+        "migration",
+        "deploy"
+      ],
+      "createdAt": 1790093923093,
+      "updatedAt": 1790094187790,
+      "summary": "Konverzija + restore završeni (commit f8b282e + .gitignore backups/). Staging konverzija realnim boot sekvencem: 253 proizvoda, 77 ponuda, 213 stavki, 152 cene, 4 rentClients→contacts kopirana sa 'client' rolama, 4 rent ugovora, custom 'MarinkovicHofmann' PDF template sačuvan + aktivan. HTTP smoke kroz sve module 200 (products/offers/rent/admin/sale/contacts/settings + offer PDF custom-template branch 417KB + rent doc PDF + product images). Kontejner stop→swap→start, healthcheck healthy. Admin šifra = QP-ZcpJw9yGctQS; zorica sačuvana. Suite 299 passed."
+    },
+    {
+      "id": "card-73382bb3-e560-4e2b-ae80-2cb801d94c3a",
+      "title": "Import kupaca iz ponuda u zajednički imenik (16 kontakata)",
+      "description": "Izvučeno 17 različitih kupaca iz ponuda (offers.client_name + PIB/MB/email/telefon/adresa/država), spojen AUTO-BELI i DOO AutoBeli (isti PIB 100929458) po korisničkoj odluci, sve uneto kao kind='company' (korisnička odluka — i fizička lica), role='client'. Idempotentno (skip po PIB-u ili imenu). Notes nose broj ponuda + period + alternativna imena. 16 novih kontakata, imenik sada ima 20 unosa.",
+      "summary": "16 novih kontakata u imeniku iz ponuda (17 klijenata, 2 spojena po PIB-u). Verifikovano na živom serveru: imenik prikazuje sve, offer form party-picker ih vidi. Suite 299 passed. Idempotentno — ponovni run ne bi duplirao.",
+      "rationale": "Korisnički zahtev: kupci iz ponuda treba da budu u zajedničkom imeniku (contacts) tako da budu dostupni pickeru pri novim ponudama/ugovorima — ponude drže samo snapshot tekst, imenik je master registrator.",
+      "rejected": "Spajanje DELTA MOTORS / Delta Automoto: različiti PIB (104646704 vs 104764599) — ostavljena kao dva kontakta. Dopuna PIB-a iz starih rent_clients: korisnik je odbio ('samo iz ponuda'). kind='person' za fizička lica: korisnik je odbio ('sve kao firme').",
+      "sourceSessionId": "session-5e6becdc-fe0e-48b5-bcea-45a06b10f179",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "contacts",
+        "offers",
+        "data-import"
+      ],
+      "createdAt": 1790094709662,
+      "updatedAt": 1790094709662
+    },
+    {
+      "id": "card-736030d0-d959-4b06-9af2-3243a0056c89",
+      "title": "Musterija-first UX: picker-only u Ponudama i Rentu + \"Dodaj novu musteriju\" → imenik sa return-to",
+      "description": "Korisnik: u Ponudama i Rentu postoji cela procedura/UI za dodavanje musterije; sve treba da se kreira ISKLJUČIVO iz /contacts/contacts. U Rent i Ponudama ostaje samo pretraga + link \"Dodaj novu musteriju\" koji vodi na /contacts/contacts. UI zahtev: pri kreiranju nove ponude ili novog renta dokumenta musterija se prva dodaje/sačuva pre ostalih podataka, da ne bi došlo do situacije da korisnik sve popuni, krene da pravi musteriju, vrati se nazad i izgubi rad. Odluke (potvrđeno chatom): (1) enforcement SAMO frontend — ni server promena ni za postojeće dokumente; (2) poništavanje izbora musterije u postojećem dokumentu zadržava print-snapshot i poništava samo link; (3) \"Dodaj novu musteriju\" ide na imenik sa ?return_to= parametrom i posle čuvanja se automatski vraća u dokument sa novom musterijom već izabranom (prefill preko postojećeg ?contact_id mehanizma); (4) picker prikazuje SVE aktivne kontakte (firme + fizička lica) u oba modula.",
+      "rationale": "Korisnikov direktan zahtev; zatvara poslednji korak P5-unifikacije — imenik postaje JEDINI registar musterija, a UI sprečava gubitak rada na dokumentu. Sada jer je imenik live (16 uvezenih kontakata) i pre nego što se krene u P5 stock/equipment.",
+      "rejected": "Server-validacija contact_id — korisnik izabrao frontend-only; inline/modal forma za musteriju unutar dokumenta — treći UI za unos kontakta bi oživelo dupliranje koje unifikacija uklanja; return_to bez ograničenja — otvoren redirect, ograničeno na /offer/* i /rent/*; session za return target — hidden field je stateless i ne trpi paralelno otvorene forme; brisanje podataka musterije pri poništavanju izbora — snapshot-dokumenta su zamrznuta po pravilu 6d, gubitak korisničkih ispravki.",
+      "sourceSessionId": "session-3daff000-cffa-4645-90a7-23cb7645de32",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "contacts",
+        "offer",
+        "rent",
+        "ui",
+        "unification"
+      ],
+      "createdAt": 1790096062163,
+      "updatedAt": 1790096701587,
+      "summary": "Urađeno i commitovano (d30e358 na Dev). Imenik: contacts.new_contact prima ?return_to= (validirano — samo same-site /offer/* i /rent/* putanje, open-redirect bezbedno), forma ga nosi kroz POST kao hidden field i posle čuvanja redirectuje nazad u DOKUMENT sa ?contact_id=<novi> — offer prefill odmah popunjava musterija-polja, rent picker autofill-uje novu musteriju. Ponude (offer_form.html): sekcija Informacije o musteriji = picker + '+ Dodaj novu musteriju' link; Naziv/Država/Adresa/eMail/Telefon/PIB/MB u skrivenom #musterija-rest wrapperu koji picker JS (applyGate) otkriva tek kad je musterija izabrana — i na load-u, pa edit postojećih ponuda radi normalno. Rent (rent_contract_form.html): isti gate oko klijent-kartice sa applyMusterijaGate() u postojećem clientSelect handleru. Oba picker-a su TomSelect (pretraga po nazivu/PIB/JMBG). Server kod dokument-forma netaknut (contact_id opcion, snapshot polja po pravilu 6d, poništavanje izbora čisti samo link). Novi tests/characterization/test_musterija_first_ux.py: 12 testova (linkovi sa return_to, skriveni wrapperi, round-trip za oba modula, unsafe-target fallbackovi). Puna svita 311 passed, 3 skipped. Agent Note: feature/2026-09-22-musterija-first-document-forms.md. Za vidljivost na :5000 potreban image rebuild (deploy.sh) — korisnička akcija. REBOOT: deploy.sh rebuild + recreate izveden (SKIP_PULL=1), qp-crm:phase3 image recreated 2026-09-22, healthcheck healthy t+7s; verified in-container: 'Dodaj novu musteriju' u obe forme + _safe_return_to u directory.py, login 200, landing 302 (auth gate), gunicorn workers clean. UI v2 (korisnička povratna): picker je sada U POSEBNOJ KARTI '1. Musterija' na samom VRHU stranice (iznad forme); ostatak forme je zasebna karta koja je zatamnjena (opacity .35 + grayscale + pointer-events off) dok se musterija ne izabere; sekcije numerisane 1-5 (wizard redosled). Commit 0af3566, deploy healthy t+7s, potvrđeno in-container. FIX v3 (korisnička povratna 'ponude resetuju izbor'): offer picker je reload-ovao stranicu (?contact_id=) — na edit stranici GET ignoriše parametar pa se select vraća na sačuvani link => delovalo kao reset. Sada kao u rentu: novi GET /offer/api/contact/<id> autofill JSON; display select je picked_party_ref (c<id>), pravi link u hidden contact_id (#picked-contact-id); JS popunjava polja IN-PLACE bez navigacije, briše ih pri poništavanju. Commit bd7b66a, deploy healthy t+7s. BACKFILL v4: link_documents_to_contacts() u contact_service (boot hook kroz migrate_contacts, idempotentno) vezuje postojeće dokumente za imenik — PIB/MB poklapanje uz slaganje naziva, tačan naziv kad nema poreškog broja; konflikti (HIDRAULIK 2 PIB-a, DOO AutoBeli vs AUTO-BELI ista PIB različit naziv) svesno nevezani za ručni pregled. Live posle deploy-a: 76/78 ponuda + 4/4 rent ugovora vezano; 2 nevezana za ručno sređivanje (P-1034, P-1197). Uklonjeno 5 test-artefakata ponuda + 3 test-kontakta iz live DB (moji headless probni zapisi). Commit 24f66e4; svita 319 passed. NAV cleanup (korisnička povratna): iz rent headera uklonjena 'Clients' i 'Directory' dugmad (obsolete posle unifikacije); /rent/clients redirect ruta ostaje za stare bookmark-e; Imenik se i dalje dostiže sa landing kartice (iza 'contacts' granta). Suite 319 passed, deploy healthy. TEST NOVOG SISTEMA: dodat proizvod EE6604BWF 4.0T (id 276) u live bazu — EAE 6604 BWF makazasta dizalica za reglažu trapa sa pločama i rolling jack podrškom; korišćena sva nova polja (item_type=proizvod, product_code=6604BWF, website_url na proizvođača) + fotografia sa proizvođača + cena-skelet (final_price NULL dok korisnik ne unese). Kategorija 'Kina Makazasta Trap', brend EAE — po konvenciji ostalih EAE proizvoda."
+    },
+    {
+      "id": "card-a6a83c96-1fa5-4b3c-a4ac-b52251593076",
+      "title": "BUG · offer duplicate: INSERT 29 vrednosti za 30 kolona → 500 (contact_id) — fix + deploy (d0f0754)",
+      "summary": "Uzrok: duplicate_offer INSERT u qp_crm/offer/routes/offers.py nije uveo contact_id kolonu kad je imenik (P5) dodao kolonu — 29 placeholdera za 30 kolona → sqlite3.OperationalError → 500 na POST /offer/offers/<id>/duplicate. Reprodukovano lokalno tracebackom, fix: contact_id u INSERT kolone + prenos offer['contact_id'] (kopija ostaje vezana za isti imenik). Verifikovano: lok. app reprodukcija → 302; offers 30 passed; rebuild kontejnera (sudo docker compose build/up, healthcheck healthy); replay unutar kontejnera → 302 na /offer/offers/109/edit; test kopije (108, 109) obrisane iz DB. Commit d0f0754 na Dev.",
+      "rationale": "Korisnik je prijavio 500 na klik Duplicate na ponudi 96 — blokira svakodnevni rad sa ponudama; contact_id kolona je uvedena u okviru P5 unifikacije imenika, a dupliranje je preskočeno u migraciji upita.",
+      "rejected": "Alternativa: preskočiti contact_id u kopiji (NULL) i popuniti ručno — odbačeno jer copy mora ostati vezan za istu musteriju iz imenika; i alterntiva hotfix unutar kontejnera bez rebuilda — odbačena jer je slika buildovana iz checkouta pa bi promena nestala na sledećem deployu.",
+      "sourceSessionId": "session-b5713bd6-92e8-4ae7-a205-a1d9ab3267bf",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "bug",
+        "offer",
+        "contacts",
+        "deploy"
+      ],
+      "createdAt": 1790162105399,
+      "updatedAt": 1790162105399
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="{{ current_lang|default('sr') }}" data-theme="{{ current_theme }}">
+
+<head>
+    <meta charset="UTF-8">
+    <title>{{ _('Settings') }}</title>
+    <link rel="icon" type="image/png" href="/app_assets/favicon.png">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+
+<body>
+    {% from '_banner.html' import banner with context %}
+    {% call banner() %}
+        <span class="active">{{ _('Settings') }}</span>
+    {% endcall %}
+
+    <div style="padding: 20px;">
+        <h1>{{ _('Settings') }}</h1>
+        <div class="card" style="max-width: 600px;">
+            <p style="margin-bottom: 20px; color: var(--text-muted);">
+                {{ _('Settings are stored only on this device (cookies) and do not affect other devices.') }}
+            </p>
+            <form method="post">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+                <!-- Date format is NOT settable here any more (audit M4): the
+                     global_settings row is the single source of truth, set in
+                     Admin -> Default Settings. -->
+                <p style="margin-top: 15px;">
+                    <label style="font-weight: 500;">{{ _('App theme') }}:<br>
+                        <select name="theme"
+                            style="width: 100%; padding: 8px; margin-top: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-main); border-radius: 4px;">
+                            <option value="dark" {% if current_theme=='dark' %}selected{% endif %}>{{ _('Dark') }}</option>
+                            <option value="light" {% if current_theme=='light' %}selected{% endif %}>{{ _('Light') }}
+                            </option>
+                        </select>
+                    </label>
+                </p>
+
+                <div style="margin-top: 25px;">
+                    <button type="submit" class="btn btn-primary">{{ _('Save') }}</button>
+                    <a href="/" class="btn btn-secondary" style="text-decoration: none;">{{ _('Cancel') }}</a>
+                </div>
+            </form>
+        </div>
+
+        <!-- Logout (moved out of the page headers per user request: one quiet
+             logout spot for the whole stack, routing through the unified
+             /logout) -->
+        <div class="card" style="max-width: 600px;">
+            <div style="display: flex; justify-content: flex-start;">
+                <a href="{{ url_for('auth.logout') }}" class="btn btn-danger" style="text-decoration: none;">
+                    {{ _('Logout') }}
+                </a>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

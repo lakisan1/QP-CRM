@@ -1,0 +1,243 @@
+{% extends "pricing/base.html" %}
+{% block title %}Category Defaults{% endblock %}
+{% block content %}
+<h1>{{ _('Categories') }}</h1>
+
+{% if error %}
+<div style="color: red; border: 1px solid red; background-color: #fdd; padding: 10px; margin-bottom: 20px;">
+    <strong>{{ _('Error:') }}</strong> {{ error }}
+</div>
+{% endif %}
+
+<h2>{{ _('Add / Edit Category') }}</h2>
+<div class="split-layout" style="grid-template-columns: 280px 1fr;">
+    <div class="form-section card">
+        <form method="post" class="compact-form">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <p>
+                <label>{{ _('Category Name') }}:<br>
+                    <input type="text" name="category" id="category_input" required>
+                </label>
+            </p>
+            <p>
+                <label>{{ _('Margin %') }}:<br>
+                    <input type="number" step="any" name="margin_percent" value="0">
+                </label>
+            </p>
+
+            <h3 style="margin: 15px 0 10px 0; color: #e74c3c;">Troskovi</h3>
+
+            <p>
+                <label>{{ _('Additional Costs') }}:<br>
+                    <input type="number" step="any" name="default_extras" value="0">
+                </label>
+            </p>
+            <p>
+                <label>Uvoz %:<br>
+                    <input type="number" step="any" name="import_percent" value="0">
+                </label>
+            </p>
+            <p>
+                <label>Domaci transport:<br>
+                    <input type="number" step="any" name="domestic_transport" value="0">
+                </label>
+            </p>
+            <p>
+                <label>Garancija %:<br>
+                    <input type="number" step="any" name="warranty_percent" value="0">
+                </label>
+            </p>
+            <p>
+                <label>Servis %:<br>
+                    <input type="number" step="any" name="service_percent" value="0">
+                </label>
+            </p>
+            <p>
+                <label>Instalacija:<br>
+                    <input type="number" step="any" name="instalation" value="0">
+                </label>
+            </p>
+            <p>
+                <label>Obuka:<br>
+                    <input type="number" step="any" name="traning" value="0">
+                </label>
+            </p>
+            <p>
+                <label>Ostalo:<br>
+                    <input type="number" step="any" name="other" value="0">
+                </label>
+            </p>
+
+            <input type="hidden" name="old_category" id="old_category">
+
+            <p>
+            <div style="display: flex; gap: 10px;">
+                <button type="submit" class="btn btn-success" style="flex: 1;" id="saveCatBtn">Save defaults</button>
+                <button type="button" class="btn btn-secondary" onclick="clearCategoryForm()">Clear</button>
+            </div>
+            </p>
+        </form>
+    </div>
+
+    <div class="table-section card">
+        <div style="margin-bottom: 20px;">
+            <input type="text" id="catSearch" aria-label="{{ _('Search categories') }}" placeholder="{{ _('Search categories...') }}" onkeyup="filterTable()"
+                style="max-width: 300px; margin-bottom: 0;">
+        </div>
+        <table id="catTable">
+            <thead>
+                <tr>
+                    <th scope="col" style="width: 200px; text-align: center;">Category</th>
+                    <th scope="col" style="width: 70px;">{{ _('Margin %') }}</th>
+                    <th scope="col" style="width: 70px;">{{ _('Add. Costs') }}</th>
+                    <th scope="col" style="width: 70px;">Uvoz %</th>
+                    <th scope="col">Dom. tr.</th>
+                    <th scope="col">Gar. %</th>
+                    <th scope="col">Ser. %</th>
+                    <th scope="col">Inst.</th>
+                    <th scope="col">Obuka</th>
+                    <th scope="col">Ost.</th>
+                    <th scope="col">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in defaults %}
+                <tr>
+                    <td>
+                        <a href="#" class="cat-link" data-category="{{ d.category }}"
+                            data-margin-percent="{{ ((d.margin_percent or 0) * 100) | round(2) }}"
+                            data-default-extras="{{ d.default_extras }}"
+                            data-import-percent="{{ ((d.import_percent or 0) * 100) | round(2) }}"
+                            data-domestic-transport="{{ d.domestic_transport }}"
+                            data-warranty-percent="{{ ((d.warranty_percent or 0) * 100) | round(2) }}"
+                            data-service-percent="{{ ((d.service_percent or 0) * 100) | round(2) }}"
+                            data-instalation="{{ d.instalation }}" data-traning="{{ d.traning }}"
+                            data-other="{{ d.other }}">
+                            {{ d.category }}
+                        </a>
+                    </td>
+                    <td>{{ ((d.margin_percent or 0) * 100) | round(2)}}</td>
+                    <td>{{ d.default_extras }}</td>
+                    <td>{{ ((d.import_percent or 0) * 100) | round(2)}}</td>
+                    <td>{{ d.domestic_transport }}</td>
+                    <td>{{ ((d.warranty_percent or 0) * 100) | round(2)}}</td>
+                    <td>{{ ((d.service_percent or 0) * 100) | round(2)}}</td>
+                    <td>{{ d.instalation }}</td>
+                    <td>{{ d.traning }}</td>
+                    <td>{{ d.other }}</td>
+                    <td style="text-align: center;">
+                        <form action="{{ url_for('pricing.delete_category_default') }}" method="post"
+                            onsubmit="return confirm('Are you sure you want to delete category \'{{ d.category }}\'?');"
+                            style="display:inline;">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="category_to_delete" value="{{ d.category }}">
+                            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    function clearCategoryForm() {
+        const catInput = document.getElementById("category_input");
+        const oldCatInput = document.getElementById("old_category");
+        const saveBtn = document.getElementById("saveCatBtn");
+
+        if (catInput) catInput.value = "";
+        if (oldCatInput) oldCatInput.value = "";
+        if (saveBtn) saveBtn.innerText = "Save defaults";
+
+        // Effectively clear numeric fields
+        const fields = [
+            'margin_percent', 'default_extras', 'import_percent',
+            'domestic_transport', 'warranty_percent', 'service_percent',
+            'instalation', 'traning', 'other'
+        ];
+
+        fields.forEach(name => {
+            const el = document.querySelector(`input[name="${name}"]`);
+            if (el) el.value = "";
+            // Note: If you want to reset to default values (like 40 for margin), 
+            // you'd need to hardcode them or read from data attributes. 
+            // The prompt asked for "Clear", which usually means empty or default state.
+            // Given the original code had values hardcoded in HTML (value="40"), 
+            // resetting to empty string might be unexpected if "Clear" implies "New Record Defaults".
+            // However, the request says "shuld be clear", implying empty or reset.
+            // I will stick to empty string as per previous logic, but let's check if 
+            // we should reset to the *initial* values from the HTML. 
+            // The previous logic was: el.value = ""; so I will keep it that way.
+        });
+
+        // Re-apply defaults if they were present in HTML?? 
+        // Actually, the previous code cleared them to "".
+        // Let's stick to that.
+
+        if (catInput) catInput.focus();
+    }
+
+    function filterTable() {
+        var input, filter, table, tr, td, i, txtValue;
+        input = document.getElementById("catSearch");
+        filter = input.value.toUpperCase();
+        table = document.getElementById("catTable");
+        tr = table.getElementsByTagName("tr");
+        for (i = 0; i < tr.length; i++) {
+            td = tr[i].getElementsByTagName("td")[0]; // Category name column
+            if (td) {
+                txtValue = td.textContent || td.innerText;
+                if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                    tr[i].style.display = "";
+                } else {
+                    tr[i].style.display = "none";
+                }
+            }
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        const catInput = document.getElementById("category_input");
+        const oldCatInput = document.getElementById("old_category");
+        if (!catInput || !oldCatInput) return;
+
+        // Use standard for loop or event delegation if elements are dynamic, 
+        // but here querySelectorAll is fine.
+        const links = document.querySelectorAll(".cat-link");
+        links.forEach(function (link) {
+            link.addEventListener('click', function (e) {
+                e.preventDefault();
+
+                function setVal(name, dataKey) {
+                    const el = document.querySelector(`input[name="${name}"]`);
+                    if (el) el.value = link.dataset[dataKey] || '';
+                }
+
+                if (catInput) catInput.value = link.dataset.category || '';
+                if (oldCatInput) oldCatInput.value = link.dataset.category || '';
+
+                setVal('margin_percent', 'marginPercent');
+                setVal('default_extras', 'defaultExtras');
+                setVal('import_percent', 'importPercent');
+                setVal('domestic_transport', 'domesticTransport');
+                setVal('warranty_percent', 'warrantyPercent');
+                setVal('service_percent', 'servicePercent');
+                setVal('instalation', 'instalation');
+                setVal('traning', 'traning');
+                setVal('other', 'other');
+
+                const saveBtn = document.getElementById("saveCatBtn");
+                if (saveBtn) saveBtn.innerText = "Save Changes";
+
+                catInput.focus();
+
+                // Optional: scroll form into view on mobile
+                catInput.scrollIntoView({ behavior: "smooth", block: "center" });
+            });
+        });
+    });
+</script>
+
+{% endblock %}

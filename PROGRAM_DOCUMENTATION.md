@@ -1,0 +1,465 @@
+# PROGRAM_DOCUMENTATION.md — Kako program radi
+
+Ovaj fajl beleži, korak po korak, kako QP-CRM program radi. Pregled se radi jedan task po jedan, polako i tačno. Za svaki fajl upisuje se objašnjenje njegove uloge i načina rada.
+
+---
+
+## 1. `main.py` — Glavna (kombinovana) aplikacija
+
+**Uloga:** Spaja svih 6 podaplikacija u jednu celinu koja se pokreće na jednom portu (5000).
+
+### Kako radi
+
+1. **Dodaje putanju u sys.path** (`CURRENT_DIR`) — omogućava uvezivanje modula iz projekta (npr. `shared`, `pricing`, ...).
+2. **Uvoz svih podaplikacija** iz projekta:
+   - `pricing.app` → `pricing_app` (sa `init_db` i `migrate_schema`)
+   - `offer.app` → `offer_app` (sa `init_db`)
+   - `admin.app` → `admin_app` (sa `init_db`)
+   - `sale.app` → `sale_app`
+   - `settings.app` → `settings_app`
+   - `rent.app` → `rent_app` (sa `init_db`)
+   - `pricing.api_v1` → `api_v1` blueprint
+3. **Kreira glavnu (landing) Flask aplikaciju** `app`:
+   - `template_folder='templates'`
+   - `static_folder=STATIC_DIR`, `static_url_path='/static'`
+   - služi CSS/JS za landing stranu i za podaplikacije
+4. **Registruje API blueprint** `api_v1` na `url_prefix="/api/v1"` (na vrhu, NE pod `/pricing` prefiksom).
+5. **Rute na glavnom app-u:**
+   - `GET /` → prikazuje `landing.html`
+   - `GET /app_assets/<path:filename>` → servira fajlove iz `app_assets/` (npr. logo, favicon, PDF footer slika)
+6. **i18n ubacivanje:** funkcija `inject_i18n()` čita trenutni jezik (`get_current_language()`) i ubacuje `_` (prevodi) i `current_lang` u sve template-ove.
+   - Ubacuje se u **svaku** podaplikaciju: `pricing_app`, `offer_app`, `admin_app`, `sale_app`, `settings_app`, `rent_app` + glavni `app` (preko `context_processor`).
+7. **Spajanje aplikacija** pomoću `DispatcherMiddleware`:
+   - Glavni `app` služi `/`
+   - `/pricing` → pricing_app
+   - `/sale` → sale_app
+   - `/offer` → offer_app
+   - `/admin` → admin_app
+   - `/settings` → settings_app
+   - `/rent` → rent_app
+8. **Pokretanje (`if __name__ == "__main__"`)**:
+   - Poziva inicijalizacije i migracije baze: `pricing_init_db()`, `pricing_migrate_schema()`, `offer_init_db()`, `admin_init_db()`, `rent_init_db()`
+   - Pokreće WSGI server `run_simple('0.0.0.0', 5000, application, use_reloader=True, use_debugger=True, threaded=True)` — na portu 5000, sa auto-restart (reloader) i interaktivnim debugger-om.
+
+### Povezanost
+- Glavni `app` je **roditelj** svih podaplikacija.
+- Sve podaplikacije dele istu bazu `pricing.db` (preko `shared.db`).
+- API blueprint `api_v1` dostupan na `/api/v1/...` bez obzira na podaplikacije.
+
+---
+
+## 2. `shared/` — Osnovni (zajednički) moduli
+
+Ovi moduli su **zajednički** za sve podaplikacije — dele se preko `shared.*` importa.
+
+### 2.1 `shared/config.py` — Centralne putanje
+
+**Uloga:** Definiše sve putanje do foldera i baze, koje koriste svi moduli.
+
+- `BASE_DIR` = roditeljski folder projekta (izračunato iz `__file__`).
+- `APP_DATA_DIR` = `BASE_DIR/app_data` — folder za podatke.
+- `DATABASE` = `app_data/pricing.db` — **zajednička baza** za sve podaplikacije.
+- `IMAGE_DIR` = `app_data/product_images` — folder za slike proizvoda.
+- `STATIC_DIR` = `BASE_DIR/static` — CSS/JS fajlovi.
+- `APP_ASSETS_DIR` = `BASE_DIR/app_assets` — logo, favicon, PDF footer slika.
+
+### 2.2 `shared/db.py` — Pristup bazi
+
+**Uloga:** Daje funkciju `get_db()` koja otvara konekciju na zajedničku bazu.
+
+- `get_db()`:
+  - `sqlite3.connect(DATABASE, timeout=20.0)` — timeout 20s da se izbegne "database is locked".
+  - `row_factory = sqlite3.Row` — pristup kolonama po imenu.
+  - `PRAGMA foreign_keys = ON` — integritet podataka.
+  - `PRAGMA journal_mode = WAL` — bolja konkurentnost (više čitača + 1 pisac).
+  - `PRAGMA synchronous = NORMAL` — bolje performanse sa WAL.
+  - **Vraća otvorenu konekciju** — pozivaoc je dužan da je zatvori.
+
+### 2.3 `shared/auth.py` — Autentifikacija, korisnici, API ključevi (Phase 3)
+
+**Uloga:** Jedinstveni korisnički nalog za ceo stack (tabela `users`), heširanje
+lozinki, per-user API ključevi, login audit i lockout. Legacy per-app lozinke
+iz `global_settings` su pri Phase 3 migrirane u `users` redove i obrisane.
+
+- **Korisnici (tabela `users`):** `username` (unique), `password_hash`
+  (werkzeug scrypt — nikad čist tekst), `role` (`admin` | `staff`),
+  `is_active`, `must_change_password` (ZASTARELO — uvek 0: prisilna promena
+  pri prvom loginu je ukinuta, kolona ostaje samo zbog šeme), `created_at`,
+  `last_login`.
+  - `seed_users_from_legacy()` — idempotentno pravi SAMO `admin` bootstrap
+    nalog (admin→admin) od legacy lozinke iz `global_settings`
+    (`admin_password` ima prednost nad `DEFAULT_PASSWORDS`), odmah heširane.
+    Nekadašnji default staff nalozi (pricing/offer/rent) se NE kreiraju —
+    "no default users beyond admin": svaki staff nalog kreira admin u
+    Admin → Users. Legacy `{app}_password` ključevi se brišu
+    (`scrub_legacy_password_keys`) pri svakom bootu.
+  - `attempt_login(username, password)` → user red ili None (bez
+    enumeracije korisnika: nepoznat i deaktiviran nalog su isti odgovor).
+  - `check_password(app_name, input)` → verifikacija preko `users`; red koji
+    još nosi legacy čist tekst se pri prvom uspešnom loginu **transparentno
+    rehash-ira** (`set_password`).
+  - `change_own_password()` je UKLONJEN zajedno sa `/change-password` stranom
+    (user request): promena lozinke se vrši ISKLJUČIVO u Admin → Users.
+- **User management (Admin → Users):** `create_user`, `set_user_active`,
+  `change_user_role`, `admin_reset_user_password`, `set_user_modules` — sve uz
+  potvrdu sopstvene lozinke admina (`confirm_current_password`) i čuvare: ne
+  možeš deaktivirati samog sebe, menjati svoju rolu, ni deaktivirati/demovati
+  POSLEDNJEG aktivnog admina. Admin postavlja novu lozinku DIREKTNO (opciono
+  "New password" polje u save formi) — bez prinudne promene na sledećem
+  loginu; sopstvena lozinka se menja u svom redu (mini-forma).
+- **Per-user app access (`user_modules` tabela + `require_module` u
+  `shared/web.py`):** kojim MODULIMA staff korisnik sme da pristupi
+  (pricing/offer/rent/sale checkbox-ovi po korisniku u Admin → Users; sale je
+  v2 rollout napustio javni pristup). Gate se ponovo čita iz baze na svaki
+  zahtev — opoziv pogađa odmah; `admin` rola preskače proveru (otvara sve).
+  Jednokratna, verzionisana migracija (`MODULE_INTRODUCED` +
+  `users.modules_set` kao verzija poslednjeg seeding-a) daje postojećim
+  staff-ovima sve module pri prvoj migraciji, a svaki NOVI module tačno
+  jednom pri narednom boot-u; namerno ispražnjen set ostaje prazan. Save
+  korisnika je JEDAN form po redu (aplikacije + active + rola + opcioni novi
+  password + jedan Save, sopstvena lozinka potvrđuje).
+- **Per-user API ključevi (`api_keys`):** `issue_user_api_key(user_id, label)`
+  vraća sirovi ključ **tačno jednom** (čuva se samo SHA-256 heš + prefix za
+  prikaz), `resolve_api_identity(raw)` → `('user', username, user_id)` /
+  `('user-denied', ...)` (revoke ili neaktivan vlasnik — audited, pa 403) /
+  None. Legacy globalni ključ (`('global', None, None)` fallback) je UKLONJEN
+  2026-09-16 — samo per-user ključevi autentifikuju `/api/v1`; dodatno, isti
+  origin pozivi iz prijavljene sesije SA pricing grantom prolaze bez Bearer
+  hedera (product_sync JS). `log_api_call()` piše `api_audit` (metoda, putanja,
+  kind, username, status) za svaki autentifikovani API poziv.
+- **Login audit + lockout (Phase 3 step 8, bez Redis-a):** `log_login_attempt()`
+  piše `login_audit` (ts, username, ip, success, detail); brojač neuspeha je
+  in-process dict po `(ip, username)` paru pod `threading.Lock` —
+  `LOGIN_MAX_FAILURES=5` u `LOGIN_WINDOW_SECONDS=15min` → lockout
+  `LOGIN_LOCKOUT_SECONDS=15min` (`is_login_locked`), uspešan login briše brojač.
+- **Legacy API ključ (RETIRIRAN):** `get_api_key()` čita eventualni zaostali
+  `global_settings.api_key` red (radi detekcije prilikom restore-a starog
+  backup-a), ali taj ključ **ne autentifikuje ništa**; `generate_api_key()`
+  raise-uje `NotImplementedError`, `revoke_api_key()` briše mrtvi red.
+
+### 2.4 `shared/utils.py` — Pomoćne funkcije i prevodi
+
+**Uloga:** Formatiranje, i18n prevodi, kurs.
+
+- `format_amount(value)` → formatira broj u evropski stil "12.312,00".
+- `format_date(date_str, fmt)` → formatira `YYYY-MM-DD` u željeni format (`DD/MM/YYYY`, `MM/DD/YYYY`, `DD.MM.YYYY`).
+- `TRANSLATIONS` — rečnik prevoda (samo `sr`; `en` je prazan jer su engleski izvorni).
+- `get_current_language()` → čita jezik iz `global_settings` (ključ `language`).
+- `translate(text, lang)` → prevodi tekst; `_` je skraćenica za `translate`.
+- `get_nbs_rate(currency)` → preuzima srednji kurs iz API-ja `kurs.resenje.org` (vremenski limit 5s), vraća float ili None.
+
+### 2.5 `shared/countries.py` — Lista zemalja
+
+**Uloga:** Centralna lista zemalja za ponude/prodaju.
+
+- `COUNTRIES` — lista rečnika: `{code, name, name_en}` (regionalne prvo, pa ostatak sveta abecedno).
+- `get_country_list()` → vraća celu listu.
+- `get_country_name(code)` → vraća srpski naziv zemlje po kodu (ako ne nađe, vraća kod).
+
+---
+
+## 3. `pricing/` — Modul za cene proizvoda
+
+Najveći modul. Upravlja proizvodima, cenama, brendovima i kategorijama.
+
+### 3.1 `pricing/app.py` — Glavna aplikacija za cene
+
+**Uloga:** CRUD za proizvode, cene, brendove, kategorije. Dostupna pod prefiksom `/pricing`.
+
+**Kako radi:**
+- Dodaje `CUSTOM_LIBS_DIR` u `sys.path` (folder koji **ne postoji** — mrtav kod).
+- Koristi zajedničku bazu preko `shared.db`.
+- Funkcije:
+  - `init_db()` — pravi tabele: `products`, `prices`, `brands`, `category_pricing_defaults`.
+  - `migrate_schema()` — migracija šeme baze.
+  - `add_product()` — dodaje proizvod (ime, opis, kategorija, brend, slika).
+  - `edit_product(product_id)` — menja proizvod.
+  - `delete_product(product_id)` — briše proizvod + sliku.
+  - `price_history(product_id)` — istorija cena proizvoda.
+  - `new_price(product_id)` — nova cena (sa podrazumevanim parametrima iz kategorije).
+  - `edit_price(product_id, price_id)` — menja cenu.
+  - `delete_price(product_id, price_id)` — briše cenu.
+- **Rute (pod `/pricing`):**
+  - `/products` — lista proizvoda (sa filtrima brand/category/search, sortiranje, paginacija)
+  - `/products/quick_update` — brzo ažuriranje
+  - `/products/add` — dodavanje
+  - `/products/<id>/edit` — izmena
+  - `/products/<id>/delete` — brisanje
+  - `/products/<id>/prices` — istorija cena
+  - `/products/<id>/prices/new` — nova cena
+  - `/products/<id>/prices/<price_id>/edit` — izmena cene
+  - `/products/<id>/prices/<price_id>/delete` — brisanje cene
+  - `/category-defaults` — kategorije
+  - `/brands` — brendovi
+- Slike proizvoda se čuvaju u `IMAGE_DIR` (iz `shared.config`).
+
+### 3.2 `pricing/api_v1.py` — REST API
+
+**Uloga:** AI-friendly REST API za proizvode/cene/brendove/kategorije. Dostupan na `/api/v1/...`.
+
+**Kako radi:**
+- Blueprint `api_v1` (registrovan u `main.py` na `/api/v1`).
+- Autentifikacija preko API ključa (`Bearer <api_key>`).
+- Endpoint-i:
+  - `GET /api/v1/health` — provera (javno, bez ključa).
+  - `GET /api/v1/products` — lista sa filtrima i paginacijom.
+  - `GET /api/v1/products/<id>` — jedan proizvod.
+  - `GET /api/v1/products/<id>/photo` — slika proizvoda.
+  - `POST /api/v1/products` — kreira proizvod (JSON ili multipart).
+  - `PUT /api/v1/products/<id>` — menja proizvod.
+  - `DELETE /api/v1/products/<id>` — briše proizvod.
+  - `GET /api/v1/categories` — kategorije.
+  - `POST /api/v1/categories` — kreira/menja kategoriju.
+  - `DELETE /api/v1/categories/<name>` — briše kategoriju.
+  - `GET /api/v1/brands` — brendovi.
+  - `POST /api/v1/brands` — kreira brend.
+  - `DELETE /api/v1/brands/<name>` — briše brend.
+- Koristi `shared.db` i `shared.auth` (provera ključa).
+
+---
+
+## 4. `offer/` — Modul za ponude (quotation)
+
+Upravlja ponudama, stavkama, PDF generisanjem, poređenjem proizvoda i email-om.
+
+### 4.1 `offer/app.py` — Glavna aplikacija za ponude
+
+**Uloga:** Kreiranje/izmena/brisanje ponuda, stavke, PDF, duplikati, poređenje.
+
+**Kako radi:**
+- Dostupna pod prefiksom `/offer` (preko DispatcherMiddleware).
+- Koristi zajedničku bazu i `shared` module.
+- Funkcije/ključne stvari:
+  - `init_db()` — pravi tabele: `offers`, `offer_items`, `text_presets`, `offer_email_templates` (delimice).
+  - `list_offers()` — lista ponuda.
+  - `edit_offer(offer_id)` — izmena ponude + stavke (dodavanje/izmena/brisanje stavki).
+  - `view_offer(offer_id)` — prikaz ponude.
+  - `offer_pdf(offer_id)` — generisanje PDF (preko `weasyprint`).
+  - `duplicate_offer(offer_id)` — duplira ponudu + stavke.
+  - `delete_offer(offer_id)` — briše ponudu + stavke.
+  - `update_item_order(offer_id)` — reorder stavki (JSON).
+  - `compare_offers()` — alat za poređenje proizvoda (JS, bez čuvanja u bazi).
+- **PDF generisanje:**
+  - Koristi `weasyprint` (`HTML(...).write_pdf()`).
+  - Ako postoji aktivni PDF template (iz `pdf_templates`), renderuje header/body/footer iz baze.
+  - Ako nema, koristi `pdf_offer.html` + `static/css/pdf.css`.
+  - Slike proizvoda se pretvaraju u `file://` URI za PDF.
+- **i18n:** koristi `get_date_format()`, `format_amount`, `format_date`, prevodi.
+- **Rute (pod `/offer`):**
+  - `/offers` — lista
+  - `/offers/add` — nova ponuda
+  - `/offers/<id>` — izmena
+  - `/offers/<id>/view` — prikaz
+  - `/offers/<id>/pdf` — PDF
+  - `/offers/<id>/duplicate` — duplikat
+  - `/offers/<id>/delete` — brisanje
+  - `/offers/<id>/reorder` — reorder
+  - `/compare` — poređenje
+- **Email:** čita `email_offer_subject` i `email_offer_body` iz `global_settings`.
+
+---
+
+## 5. `sale/` — Modul za prodaju (read-only pricelist)
+
+### 5.1 `sale/app.py`
+
+**Uloga:** Read-only cenovnik (prikaz tekućih cena) — nema izmenu, samo prikaz. Od v2 rollout-a NIJE više anoniman/javan: pristup zahteva prijavljen korisnički nalog sa grantom `sale` (Admin → Users); `admin` rola preskače proveru.
+
+**Kako radi:**
+- Dostupna pod prefiksom `/sale` (preko DispatcherMiddleware).
+- Gate: `bp.before_request(require_module("sale"))` — nema sesije → jedinstveni login sa `?next=`; staff bez granta → 403. Stari `/sale/login` i `/sale/logout` su redirecti na jedinstvene `/login` i `/logout`.
+- Koristi `shared` module i zajedničku bazu.
+- Funkcije:
+  - `get_theme()` — čita temu iz cookie-ja (`theme`, default `dark`).
+  - `product_image(filename)` — servira slike iz `IMAGE_DIR` na `/sale/product-image/...`.
+  - `list_sale()` — cenovnik sa filtrima (brand/category/search), sortiranjem i paginacijom.
+  - `view_product(product_id)` — prikaz jednog proizvoda (opis se prevodi iz Markdown u HTML).
+- **Rute (pod `/sale`):**
+  - `/` → preusmerava na `/sale/pricelist`
+  - `/pricelist` — lista
+  - `/product/<id>` — detalji proizvoda
+  - `/product-image/<path>` — slika proizvoda
+- **Sortiranje:** name_asc, name_desc, price_asc, price_desc.
+- **Paginacija:** čita `default_items_per_page` iz `global_settings`.
+- `app.secret_key` je tvrdo kodiran (read-only session).
+
+---
+
+## 6. `settings/` — Modul za podešavanja
+
+### 6.1 `settings/app.py`
+
+**Uloga:** Podešavanja aplikacije na korisničkom nivou (tema, format datuma) — ista datoteka kao u sekciji 9.1; ovde je kratak pregled (tačan rad vidi u 9.1).
+
+**Kako radi:**
+- Dostupna pod prefiksom `/settings` (preko DispatcherMiddleware) — **javan** blueprint (nema role gate): podešavanja su per-browser cookie-ji, ne `global_settings` tabela.
+- Jedina ruta: `/settings/` (GET prikaz, POST čuva cookie-je i preusmerava na `/`); POST je zaštićen CSRF tokenom (i blueprint-lokalni `_csrf_token` i app-level `check_csrf` koriste isti session ključ).
+- Stara per-app "login (zaštita)" ne postoji — login je jedinstveni `/login` na vrhu (Phase 3); logout dugme UI je na ovoj stranici (jedino u celoj aplikaciji, vodi na `/logout`).
+
+---
+
+## 7. `rent/` — Modul za zakup (rental) opreme
+
+Upravlja ugovorima o zakupu, dokumentima, PDF šablonima i obračunom rata.
+
+### 7.1 `rent/app.py` — Glavna aplikacija za zakup
+
+**Uloga:** Upravljanje klijentima, opremom, ugovorima, dokumentima, obračunom i PDF.
+
+**Kako radi:**
+- Dostupna pod prefiksom `/rent` (preko DispatcherMiddleware).
+- Koristi zajedničku bazu i `shared` module.
+- Funkcije/ključne stvari:
+  - `init_db()` — pravi tabele: `rent_clients`, `rent_equipment`, `rent_contracts`, `rent_templates`, `rent_contract_documents`.
+  - `calculate_rent(...)` — obračun rata (neto/bruto, učešće, PDV, zatvaranje, ostatak, osiguranje, garancija).
+  - `_build_doc_context(contract, calc)` — gradi kontekst za PDF dokumente (formatira vrednosti).
+  - `_sort_templates(templates)` — sortira šablone po željenom redosledu (`TEMPLATE_SORT_ORDER`).
+  - `contract_documents(contract_id)` — lista dokumenata za ugovor (+ email preset/subject).
+  - `document_editor(contract_id, slug)` — editor dokumenta (GET učitava/kreira draft, POST čuva izmene).
+  - `document_pdf(contract_id, slug)` — generiše PDF dokument (preko `weasyprint`).
+- **Rute (pod `/rent`):**
+  - `/clients` — klijenti
+  - `/equipment` — oprema
+  - `/contracts` — ugovori
+  - `/contracts/<id>` — forma ugovora
+  - `/contracts/<id>/documents` — lista dokumenata
+  - `/contracts/<id>/documents/<slug>` — editor dokumenta (GET/POST)
+  - `/contracts/<id>/documents/<slug>/pdf` — PDF dokumenta
+- **PDF generisanje:**
+  - Koristi `weasyprint` (`HTML(...).write_pdf()`).
+  - Logo se koristi kao `file://` URI (lokalna putanja).
+  - Ako postoji custom_content_html (draft), koristi njega; inače preuzima iz šablona i zamenjuje placeholdere (`{{ key }}`).
+- **Obračun:** `calculate_rent` računa sve finansijske vrednosti (rata, učešće, PDV, osiguranje, garancija).
+- **Email:** čita `rent_email_preset` i `rent_email_subject` iz `global_settings`, zamenjuje placeholdere klijenta/broja ugovora.
+- **Templates:** `TEMPLATE_SORT_ORDER` — redosled prikaza dokumenata (ugovor-zakup, prilozi, menično ovlašćenje, itd.).
+
+---
+
+## 8. `admin/` — Modul za administraciju
+
+### 8.1 `admin/app.py` — Glavna aplikacija za administraciju
+
+**Uloga:** Admin panel — podešavanja, PDF template-ovi, presets, backup/restore, factory reset, API ključ, rent template-ovi.
+
+**Kako radi:**
+- Dostupna pod prefiksom `/admin` (preko DispatcherMiddleware).
+- Zaštita: `bp.before_request(require_role("admin"))` (Phase 3) — users red se ponovo čita iz baze na svaki zahtev; anonimus → jedinstveni login (`auth.login`, sa `?next=`), ulogovan ne-admin → 403. Stari `/admin/login` i `/admin/logout` su redirecti na jedinstvene `/login` / `/logout` (bookmarkovi ostaju živi).
+- Funkcije:
+  - `init_db()` — poziva: `init_presets_table`, `init_pdf_templates_table`, `init_rounding_rules_table` + `init_users_table` (users šema/migracija, admin bootstrap seed, `seed_default_user_modules`, `scrub_legacy_password_keys`).
+  - `index()` — admin dashboard (čita sva podešavanja iz `global_settings`).
+  - `add_preset` / `delete_preset` / `set_default_preset` — presets (delivery/payment/note/extra).
+  - `update_passwords` — LEGACY dashboard forma "Change Passwords" (polja za admin/pricing/offer/rent) koja piše u `users` preko `set_password`, uz potvrdu admin lozinke; kanonski put za sve promene lozinki je danas Admin → Users (nalozi pricing/offer/rent ne postoje po defaultu — postoji samo `admin`).
+  - `upload_logo` / `upload_footer` / `upload_favicon` — otpremanje branding slika (logo se kopira i u `static/img` i `app_assets`).
+  - `update_settings` — menja podešavanja (date_format, theme, jezik, vat, validnost, zemlja, email, items_per_page, mandatory fields, rent defaults).
+  - `backup_db` / `restore_db` — backup/restore samo baze.
+  - `backup_full` / `restore_full` — backup/restore celog sistema (baza + slike + assets) u ZIP.
+  - `factory_reset` — potpuni reset (backup, čišćenje tabela, reset global_settings, re-seed rent templates, brisanje slika, restore branding, vraća backup ZIP).
+  - `list_pdf_templates` / `add_pdf_template` / `edit_pdf_template` / `delete_pdf_template` / `set_active_pdf_template` — PDF template-ovi (System Default je read-only).
+  - `cleanup_images` — standardizuje imena slika proizvoda i briše orphaned fajlove.
+  - `list_rounding_rules` / `add_rounding_rule` / `delete_rounding_rule` — pravila zaokruživanja cena.
+  - `api_key_generate` / `api_key_revoke` — UKLONJENI 2026-09-16 zajedno sa legacy globalnim ključem (`global_settings.api_key`); per-user ključevi na `/admin/api_keys` su jedini API auth.
+  - (Phase 3) Korisnici: `list_users` / `create_user_action` / `save_user_action` (Admin → Users) — kreira/edituje naloge: active, rola (admin/staff), per-modul grantovi (pricing/offer/rent/sale), opcioni novi password; osetljive akcije traže admin-ovu sopstvenu lozinku (`confirm_current_password`), sa čuvarima (ne deaktiviraš sebe, ne smanjuješ sebi rolu, poslednji aktivni admin se ne dira).
+  - (Phase 3) Per-user API ključevi: `list_api_keys` / `issue_api_key_action` / `toggle_api_key_action` (Admin → API Keys) — ključ vezan za korisnika; raw se prikazuje tačno jednom; revoke/re-enable; sve pod require_role("admin") + CSRF + potvrda admin lozinke.
+  - `admin_rent_templates` / `admin_rent_template_edit` — editor rent master template-a (u bazi `rent_templates`).
+- **Rute (pod `/admin`):**
+  - `/login`, `/logout` — redirecti na jedinstveni `/login` / `/logout` (Phase 3)
+  - `/` — dashboard
+  - `/add_preset`, `/delete_preset`, `/set_default_preset`
+  - `/update_passwords`
+  - `/upload_logo`, `/upload_footer`, `/upload_favicon`
+  - `/update_settings`
+  - `/backup_db`, `/restore_db`
+  - `/backup_full`, `/restore_full`
+  - `/factory_reset`
+  - `/pdf_templates`, `/add_pdf_template`, `/edit_pdf_template/<id>`, `/delete_pdf_template`, `/set_active_pdf_template`
+  - `/cleanup_images`
+  - `/rounding_rules`, `/add_rounding_rule`, `/delete_rounding_rule`
+  - `/users`, `/users/create`, `/users/<id>/save` — Admin → Users (Phase 3)
+  - `/api_keys`, `/api_keys/issue`, `/api_keys/<id>/toggle` — Admin → API Keys (Phase 3, per-user)
+  - `/api_key/generate`, `/api_key/revoke` — legacy globalni ključ (DEPRECATED)
+  - `/rent/templates`, `/rent/templates/<slug>`
+- **Factory reset:** čisti tabela: products, prices, offers, offer_items, brands, category_pricing_defaults, text_presets, price_rounding_rules, rent_clients, rent_equipment, rent_contracts, rent_contract_documents, rent_templates; resetuje PDF templates (čuva System Default); resetuje global_settings na podrazumevane; re-seed rent templates; briše slike; restaura branding iz `app_assets/defaults`.
+
+---
+
+## 9. `settings/` — Modul za podešavanja (korisnički nivo)
+
+### 9.1 `settings/app.py` — Glavna aplikacija za podešavanja
+
+**Uloga:** Jednostavna stranica za korisničko podešavanje teme koja čuva vrednost u cookie-ju.
+
+**Kako radi:**
+- Dostupna pod prefiksom `/settings` (preko DispatcherMiddleware).
+- Funkcije:
+  - `inject_helpers()` — ubacuje `theme`, `_` (prevod) i `current_lang` u sve template-ove.
+  - `settings_index()` — GET prikazuje podešavanja (čita temu iz cookie-ja), POST čuva `theme` u cookie (1 godina) i preusmerava na `/`.
+- **Rute (pod `/settings`):**
+  - `/` — GET/POST podešavanja.
+- **Čuvanje:** samo `theme` se čuva kao cookie (path=/, max_age=1 godina); `date_format` se ovde VIŠE ne čuva (audit M4 — cookie je delio izvor istine sa `global_settings` redom, pa se format datuma razlikovao po uređaju).
+- **Format datuma:** jedini izvor istine je `global_settings.date_format` red; menja se u Admin panelu (Default Settings), a čita se kroz `get_date_format()` (`shared/web.py`) svuda, uključujući PDF generisanje.
+
+---
+
+## 10. `rent/import_templates.py` — Seed-ovanje rent šablona
+
+### 10.1 Uloga i način rada
+
+**Uloga:** Popunjava `rent_templates` tabelu sa podrazumevanim šablonima dokumenata (ugovor, prilozi, menično ovlašćenje, itd.).
+
+**Kako radi:**
+- `seed_templates(conn)` — glavni javni ulaz (poziva se u `init_db`).
+- **Idempotentno:** Ako `rent_templates` već ima redove → preskače (ne duplira).
+- **Prioritet:**
+  1. Ako `rent_templates_defaults.json` postoji (preferirano, uvek dostupno na udaljenom serveru) → seed-uje iz JSON-a.
+  2. Ako ne, koristi legacy `.docx` putanju (Word fajlovi u `excell Rent calc/word documents`) — konvertuje `.docx` u HTML.
+- **Legacy .docx konverzija:**
+  - `FIELD_MAP` — mapa MERGEFIELD → Jinja2 promenljive (npr. `broj_ugovora` → `{{ contract_number }}`).
+  - `_clean_xml_fields(xml_bytes)` — obrađuje XML i zamenjuje MERGEFIELD polja sa `{{ ... }}`.
+  - `_docx_to_html(docx_path)` — koristi `mammoth` biblioteku za konverziju.
+  - Zahteva `mammoth` (ako nije instaliran → preskače sa upozorenjem).
+- **Templates:** `TEMPLATES` — lista (fajl, slug, prikazni naziv) za 8 dokumenata.
+
+---
+
+## 11. Autentifikacija i bezbednost — Phase 3 (pregled celog sistema)
+
+**Jedan login za ceo stack.** `qp_crm/auth/app.py` drži `/login` i `/logout`
+na glavnoj aplikaciji (`main.py` registruje auth blueprint na vrhu); stara
+self-service `/change-password` strana je UKLONJENA — promena lozinke je
+isključivo u Admin → Users. Stari per-app login URL-ovi (`/pricing/login`
+itd.) su sada redirecti na jedinstveni login (sa bezbednim `?next=` —
+`safe_next_url` prihvata samo same-site apsolutne putanje, nema open redirect).
+U UI ne postoji logout dugme u headerima — jedino logout dugme cele aplikacije
+je na Podešavanja stranici (`/settings`), koje vodi na `/logout`. Jedan cookie `qp_session` (path=/, HttpOnly,
+SameSite=Lax); login radi **session.clear()** pre upisa identiteta (zaštita od
+session fixation) i postavlja `session.permanent = True` — sesija ističe posle
+8h neaktivnosti (`PERMANENT_SESSION_LIFETIME` u `main.py`; cookie se osvežava
+na svaki zahtev, pa 8h sat kreće iznova dok korisnik radi).
+
+**Role i čuvanje ruta (`shared/web.py`):** before_request hook-ovi po
+blueprintu — `require_role("admin")` na admin blueprintu i
+`require_module(module)` na pricing/offer/rent/sale (staff mora imati grant
+za taj modul; `admin` rola je superset i preskače grant proveru); settings je
+javan (POST je CSRF-zaštićen), `/api/v1/health` javan. Hook-ovi **ponovo
+čitaju users red iz baze na svaki zahtev**: deaktivacija, promena role ili
+opoziv modula pogađaju korisnika odmah (sale nije javan od v2 rollout-a —
+gated po korisniku, `require_module("sale")`).
+
+**CSRF (Phase 3 step 5):** `shared/web.py` drži opšti mehanizam
+(`csrf_token()`, `check_csrf()` — form polje `_csrf_token` ili header
+`X-CSRF-Token`, metode POST/PUT/PATCH/DELETE). `main.py` kači `check_csrf`
+na nivou cele aplikacije; svih ~54 POST formi nosi hidden token; AJAX
+pozivi šalju header. `api_v1.*` je izuzet (Bearer auth, ne cookie).
+
+**Šta je „state of the world“ posle Phase 3:** nema čistih lozinki u bazi
+(test `test_no_plaintext_passwords_at_rest_after_full_init` to pinuje);
+legacy per-app lozinke su migrirane i obrisane; svaki login/API poziv je
+audited (`login_audit` / `api_audit`); brute-force je usporen in-process
+lockoutom (5 neuspeha / 15 min po IP+username paru → 15 min lockout).
+
+
+
+
+
+
+

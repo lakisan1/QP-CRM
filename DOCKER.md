@@ -1,0 +1,196 @@
+# QP-CRM — Docker operations
+
+Single-container deployment: the Flask multi-app stack (pricing / offer / rent /
+admin / sale / settings, merged by `qp_crm/main.py`) runs in one container on
+**port 5000**.
+
+- Image: `ghcr.io/lakisan1/qp-crm:latest` — built and pushed by CI
+  (`.github/workflows/ci.yml`) after the pytest suite passes; remote servers
+  PULL it, they don't build (`docker-compose.yml` keeps a `build:` section for
+  local dev only). Every build is also tagged `sha-<commit>` (immutable,
+  what `rollback.sh` pins).
+- Container name: `qp-crm` — stack file: `docker-compose.yml`
+- Secrets: `.env` (see `.env.example`)
+- Guides: first install in [INSTALL.md](INSTALL.md), updates in [UPDATE.md](UPDATE.md)
+
+## Prerequisites
+
+- Docker Engine (Debian/Ubuntu package `docker.io`) and the Compose v2 plugin
+  (`docker-compose-v2` on Ubuntu 24.04, or `docker-compose-plugin` from the
+  Docker official repo). Check with:
+  ```bash
+  docker --version && docker compose version
+  ```
+- To run docker without sudo: `sudo usermod -aG docker $USER` (re-login once).
+
+## First run
+
+```bash
+cp .env.example .env
+# fill in all six keys, e.g. per entry:
+#   python3 -c "import secrets; print(secrets.token_hex(32))"
+docker compose up -d
+```
+
+(Offline / local dev without GHCR: `docker compose up -d --build` builds
+from the local Dockerfile instead of pulling.)
+
+Then open `http://<host>:5000/`. First boot imports WeasyPrint and creates the
+SQLite schema, so the healthcheck has `start_period: 60s`; wait for
+`docker compose ps` to show `healthy`.
+
+Note: docker containers get their secret keys from `.env` (compose injects
+them). Bare-metal runs (`./run_apps.sh`, `python -m qp_crm.main`) do not read
+`.env` — they fall back to the in-code default keys.
+
+## Updating
+
+```bash
+./deploy.sh               # backup DB → record rollback tag → compose pull → up -d → wait for health
+SKIP_PULL=1 ./deploy.sh   # skip the git pull step
+./rollback.sh             # back to the previous image tag (own pre-rollback backup first)
+```
+
+`deploy.sh` (update system v2, pull-deploy): the image comes from GHCR —
+CI pushes it only after the whole pytest suite passes. The script takes a
+WAL-safe DB snapshot (`backups/pre-deploy-<ts>.db`, keeps 10) and ABORTS if
+the backup fails, records the running tag into `backups/last-deployed-tag`,
+then `docker compose pull` + `up -d` + health-wait (~90 s, logs on failure).
+Bind mounts keep all user data — updates swap code only.
+
+Automatic (unattended) updates: Watchtower checks GHCR daily and applies new
+images by itself — see [UPDATE.md](UPDATE.md) and
+`watchtower-compose.example.yml`.
+
+`run_apps.sh` still exists for bare-metal users (no Docker): it
+creates the venv, installs requirements and runs `python -m qp_crm.main` directly.
+
+## Volumes — what lives where
+
+All three are host bind mounts, so data survives image rebuilds and
+`docker compose down`:
+
+| Host path      | Container path     | Contents |
+|----------------|--------------------|----------|
+| `./app_data`   | `/app/app_data`    | SQLite DBs (`app_data/pricing.db`, WAL mode) + product images |
+| `./app_assets` | `/app/app_assets`  | Shared assets served at `/app_assets/<name>` (favicon, `logo_company.jpg`, `pdf_footer_image.png`, `RIG.png`, `defaults/`) |
+| `./static/img` | `/app/static/img`  | Uploaded logo — the upload writes here at runtime; **without this mount the logo is lost on the next rebuild** |
+
+Anything not under these mounts is part of the image and resets on rebuild.
+
+## Backups
+
+- Preferred: the admin UI's backup download (DB dump without stopping the app).
+- Cold copy (safest):
+  ```bash
+  docker compose stop
+  cp app_data/pricing.db /path/to/backup/          # include -wal/-shm files if present
+  docker compose start
+  ```
+  Never copy `pricing.db` while the container is running — it is in WAL mode.
+
+## Logs
+
+```bash
+docker logs qp-crm            # one-shot dump
+docker compose logs -f app    # follow live
+```
+
+gunicorn/Flask output goes to the container's stdout (visible via docker logs).
+
+## Running the test suite (Phase 1)
+
+The pytest suite ships in the image and runs with one command:
+
+```bash
+docker compose build app            # only when code/tests/deps changed
+docker compose run --rm app pytest
+```
+
+The suite is fully isolated from the live stack: it patches the data paths
+into a throwaway `/tmp/qp-crm-tests` tree inside the container and never
+touches the bind-mounted `app_data/pricing.db`. Details, golden-PDF
+re-baselining and the characterization discipline live in `tests/README.md`.
+
+## Accounts & login (Phase 3)
+
+ONE login for the whole stack: `http://<host>:5000/login` (the old per-app
+login URLs `/pricing/login`, `/offer/login`, `/rent/login`, `/admin/login`
+redirect there). One `qp_session` cookie (path=/), HttpOnly, SameSite=Lax;
+the session expires after 8h of inactivity (sliding — activity refreshes it).
+
+Seeded account: `admin` ONLY (role admin — everything, incl. the
+Users/API-Keys admin). Initial password: the legacy `admin_password` from
+`global_settings` if it was set at migration time — otherwise the phase-0
+default `Admin1`. Rotate it in **Admin → Users** on first deploy.
+
+NO default staff accounts exist (the former `pricing`/`offer`/`rent`
+seeds were removed): create every staff user yourself in **Admin → Users**
+— username, apps (pricing / offer / rent / sale), role and password are
+all set there.
+
+Manage accounts in **Admin → Users**. Each user row is ONE form: **app
+access** checkboxes (pricing / offer / rent / sale), an **Active** toggle, a
+**Role** select, an optional new password, and a single **Save user** button
+— your own password confirms every save. **All password changes happen
+here** (the old self-service "My password" page is removed): the admin sets
+a working password directly via the row's *New password* field, including
+their own. Grants are re-checked on every request, so revoking an app hits
+the user on their next click. Admins open every app.
+
+Security posture since Phase 3: passwords stored only as werkzeug scrypt
+hashes (legacy plaintext is rehashed transparently at first login); CSRF
+token on every state-changing form (including AJAX); per-user API keys with
+an API audit log (the shared global API key is deprecated but still works);
+login audit log + in-process lockout (5 failed attempts / 15 min per
+IP+username pair → 15 min lockout).
+
+## nginx reverse proxy (HTTPS + domain) — decided
+
+The app keeps its OWN port **5000**; nginx owns 80/443 with the domain and
+TLS. Set in `.env` (see `.env.example`):
+
+```
+QP_HTTPS_ONLY=1          # behind the TLS proxy: ProxyFix + Secure cookie + HSTS
+QP_PUBLIC_DOMAIN=crm.example.com   # must match nginx server_name
+QP_APP_BIND=127.0.0.1    # :5000 now reachable ONLY through nginx
+```
+
+Minimal nginx server block (certbot/Let's Encrypt issues the certs):
+
+```nginx
+server {
+    listen 80;
+    server_name crm.example.com;
+    return 301 https://$host$request_uri;      # http -> https
+}
+server {
+    listen 443 ssl;
+    server_name crm.example.com;
+    ssl_certificate     /etc/letsencrypt/live/crm.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/crm.example.com/privkey.pem;
+
+    client_max_body_size 25m;                 # product-photo uploads
+    location / {
+        proxy_pass http://127.0.0.1:5000;     # QP_APP_BIND=127.0.0.1
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;   # REQUIRED (ProxyFix)
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_read_timeout 120s;              # WeasyPrint PDFs render slowly
+    }
+}
+```
+
+Without `X-Forwarded-Proto: https`, the app cannot tell it is behind TLS
+(no ProxyFix effect, HSTS never fires). `QP_HTTPS_ONLY=1` with the app
+still reached over plain http makes the Secure cookie invisible to the
+browser — the toggle means https-only by definition.
+
+## Quick reference
+
+```bash
+docker compose ps              # health status
+docker compose config          # validate docker-compose.yml
+docker compose down            # stop + remove container (data safe: bind mounts)
+docker compose up -d --build   # manual rebuild + restart
+```

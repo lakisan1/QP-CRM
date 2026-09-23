@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="{{ theme|default('dark') }}">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Users Management</title>
+    <link rel="icon" type="image/png" href="/app_assets/favicon.png">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+</head>
+
+<body>
+    {% set active = 'users' %}{% include 'admin/_nav.html' %}
+
+    <div class="container" style="max-width: 1200px;">
+        <h1>Users Management</h1>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: -8px;">
+            One account list for the whole stack (pricing / offer / rent / admin share one login).
+            Users are deactivated, never deleted. Sensitive actions require your own password.
+        </p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ 'success' if category == 'success' else ('warning' if category == 'warning' else 'error') }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <div class="card">
+            <h3>Create user</h3>
+            <form action="{{ url_for('admin.create_user_action') }}" method="POST"
+                  style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <div style="flex: 1; min-width: 150px;">
+                    <label>Username</label>
+                    <input type="text" name="username" required pattern="[a-zA-Z0-9._-]{3,32}"
+                           title="3-32 characters: letters, digits, dot, underscore, hyphen">
+                </div>
+                <div style="flex: 1; min-width: 150px;">
+                    <label>Password (min. 8)</label>
+                    <input type="password" name="password" required minlength="8" autocomplete="new-password">
+                </div>
+                <div style="flex: 1; min-width: 150px;">
+                    <label>Confirm password</label>
+                    <input type="password" name="confirm_password" required minlength="8" autocomplete="new-password">
+                </div>
+                <div style="min-width: 110px;">
+                    <label>Role</label>
+                    <select name="role">
+                        <option value="staff">staff</option>
+                        <option value="admin">admin</option>
+                    </select>
+                </div>
+                <div style="min-width: 260px;">
+                    <label>App access (staff)</label>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        {% for m in module_choices %}
+                        <label style="font-weight: normal; text-transform: capitalize;">
+                            <input type="checkbox" name="modules" value="{{ m }}" checked> {{ m }}
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div style="min-width: 180px;">
+                    <label>Your current password</label>
+                    <input type="password" name="current_password" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn btn-primary">Create</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h3>All users</h3>
+            <table class="preset-table" style="width: 100%;">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Apps &amp; status</th>
+                        <th>Last login</th>
+                        <th>Save (one password per user)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td>
+                            <strong>{{ user.username }}</strong>{% if user.id == current_user_id %} <small style="color: var(--text-muted);">(you)</small>{% endif %}<br>
+                            <small style="color: var(--text-muted);">{{ user.role }}</small>
+                            {# One form per user row (OWN ROW INCLUDED — the own-row
+                               Save button + password fields in the last cell join
+                               this form via the HTML5 form= attribute; without the
+                               element the own-row Save would have no form to
+                               submit and the click would do nothing). The inputs
+                               in the other cells join it the same way, so ONE
+                               Save button applies apps + active + role + optional
+                               new password. #}
+                            <form id="user-form-{{ user.id }}" action="{{ url_for('admin.save_user_action', user_id=user.id) }}" method="POST">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                {% if user.role == 'staff' %}<input type="hidden" name="has_modules" value="1">{% endif %}
+                            </form>
+                        </td>
+                        <td>
+                            {% if user.role == 'admin' %}
+                            <span style="color: var(--text-muted);">all apps{% if user.id == current_user_id %} &middot; active{% endif %}</span>
+                            {% else %}
+                            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                                {% for m in module_choices %}
+                                <label style="font-weight: normal; text-transform: capitalize;">
+                                    <input type="checkbox" name="modules" value="{{ m }}" form="user-form-{{ user.id }}"
+                                           {{ 'checked' if m in user.modules }}> {{ m }}
+                                </label>
+                                {% endfor %}
+                            </div>
+                            <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-top: 6px;">
+                                <label style="font-weight: normal;">
+                                    <input type="checkbox" name="active" value="1" form="user-form-{{ user.id }}"
+                                           {{ 'checked' if user.is_active }}> Active
+                                </label>
+                                <label style="font-weight: normal;">Role
+                                    <select name="role" form="user-form-{{ user.id }}">
+                                        <option value="staff" {{ 'selected' if user.role == 'staff' }}>staff</option>
+                                        <option value="admin" {{ 'selected' if user.role == 'admin' }}>admin</option>
+                                    </select>
+                                </label>
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td>{{ user.last_login[:19].replace('T', ' ') if user.last_login else 'never' }}</td>
+                        <td>
+                            {% if user.id != current_user_id %}
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                                <input type="password" name="new_password" placeholder="New password (optional)" form="user-form-{{ user.id }}"
+                                       minlength="8" style="width: 170px;" autocomplete="new-password">
+                                <input type="password" name="current_password" placeholder="Your password" required form="user-form-{{ user.id }}"
+                                       style="width: 140px;" autocomplete="current-password">
+                                <button type="submit" class="btn btn-primary" form="user-form-{{ user.id }}">Save user</button>
+                            </div>
+                            {% else %}
+                            {# own row: change YOUR OWN password (apps/active/role do not apply to yourself) #}
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                                <input type="password" name="new_password" placeholder="New password" form="user-form-{{ user.id }}"
+                                       minlength="8" required style="width: 150px;" autocomplete="new-password">
+                                <input type="password" name="current_password" placeholder="Your password" required form="user-form-{{ user.id }}"
+                                       style="width: 140px;" autocomplete="current-password">
+                                <button type="submit" class="btn btn-primary" form="user-form-{{ user.id }}">Save</button>
+                            </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <p style="color: var(--text-muted); font-size: 0.85rem;">
+                Deactivated users lose access on their next request. The last active admin cannot be deactivated or demoted.
+                Passwords are set here directly (no forced change on next login).
+                App access: admins open every app; staff only the checked apps (re-read on every request — changes hit instantly).
+                An explicitly emptied set stays empty across reboots.
+            </p>
+        </div>
+    </div>
+</body>
+
+</html>
