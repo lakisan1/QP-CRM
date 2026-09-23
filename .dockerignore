@@ -10,8 +10,11 @@ venv/
 KANBAN.json
 README_Images/
 
-# Runtime data / secrets (bind-mounted or injected at runtime instead)
+# Runtime data / secrets (bind-mounted or injected at runtime instead).
+# backups/ holds pre-deploy DB snapshots (users + password hashes) — it must
+# NEVER enter the build context, especially now the image is public on GHCR.
 app_data/
+backups/
 .env
 
 # Python + log junk
