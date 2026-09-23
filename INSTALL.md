@@ -1,112 +1,115 @@
-# 📦 Instalacija — QP-CRM (Docker)
+# 📦 Install — QP-CRM (Docker)
 
-Najlakši način da pokreneš QP-CRM: skineš gotov image sa GitHub-a i startuješ.
-**Ne treba ti git niti bilo kakav build** — samo Docker.
+The easiest way to run QP-CRM: pull the ready-made image from GitHub and start it.
+**No git and no build needed** — just Docker.
 
 ---
 
-## Šta ti treba
+## What you need
 
-- Linux server ili računar (Ubuntu/Debian — testirano na Ubuntu 24.04)
+- A Linux server or computer (Ubuntu/Debian — tested on Ubuntu 24.04)
 - **Docker Engine** + **Compose v2 plugin**:
+
   ```bash
   sudo apt install docker.io docker-compose-v2
-  sudo usermod -aG docker $USER    # da ne koristiš sudo za docker; odjavi se pa se ponovo prijavi
-  docker --version && docker compose version   # provera
+  sudo usermod -aG docker $USER    # run docker without sudo; log out and back in once
+  docker --version && docker compose version   # check
   ```
 
 ---
 
-## Instalacija (3 koraka)
+## Installation (3 steps)
 
-### 1. Pripremi folder
+### 1. Prepare a folder
 
 ```bash
 mkdir qp-crm && cd qp-crm
 ```
 
-Preuzmi [docker-compose.yml](https://github.com/lakisan1/QP-CRM/blob/main/docker-compose.yml)
-i [`.env.example`](https://github.com/lakisan1/QP-CRM/blob/main/.env.example)
-iz repozitorijuma (klikni fajl → *Raw* → sačuvaj u `qp-crm/` folder),
-ili ako imaš git:
+Download [docker-compose.yml](https://github.com/lakisan1/QP-CRM/blob/main/docker-compose.yml)
+and [`.env.example`](https://github.com/lakisan1/QP-CRM/blob/main/.env.example)
+from the repository (open the file → *Raw* → save into the `qp-crm/` folder),
+or — if you have git:
 
 ```bash
 git clone https://github.com/lakisan1/QP-CRM.git
 cd QP-CRM
 ```
 
-### 2. Podesi tajne ključeve (`.env`)
+### 2. Set up the secret keys (`.env`)
 
 ```bash
 cp .env.example .env
 ```
 
-Otvori `.env` i popuni **svih šest** ključeva (koriste se za potpisivanje
-sesija — svaki mora biti jedinstven nasumičan heks):
+Open `.env` and fill in **all six** keys (they sign sessions — each must be a
+unique random hex string):
 
 ```bash
-# za svaki ključ generiši vrednost ovako:
+# generate each value like this:
 python3 -c "import secrets; print(secrets.token_hex(32))"
 ```
 
 ```ini
-PRICING_SECRET_KEY=< nalepi generisano >
-OFFER_SECRET_KEY=< nalepi generisano >
-RENT_SECRET_KEY=< nalepi generisano >
-ADMIN_SECRET_KEY=< nalepi generisano >
-SALE_SECRET_KEY=< nalepi generisano >
-SETTINGS_SECRET_KEY=< nalepi generisano >
+PRICING_SECRET_KEY=< paste generated value >
+OFFER_SECRET_KEY=< paste generated value >
+RENT_SECRET_KEY=< paste generated value >
+ADMIN_SECRET_KEY=< paste generated value >
+SALE_SECRET_KEY=< paste generated value >
+SETTINGS_SECRET_KEY=< paste generated value >
 ```
 
-> 💡 Za pristup samo preko nginx-a (HTTPS + domen) pogledaj sekciju
-> `nginx reverse proxy` u [DOCKER.md](DOCKER.md).
+> 💡 For access through nginx only (HTTPS + domain), see the
+> `nginx reverse proxy` section in [DOCKER.md](DOCKER.md).
 
-### 3. Startuj
+### 3. Start
 
 ```bash
 docker compose up -d
 ```
 
-Prvo startovanje skine image sa GitHub Container Registry-ja
-(`ghcr.io/lakisan1/qp-crm:latest`) i kreira bazu. Sačekaj ~1 min pa proveri:
+The first start pulls the image from GitHub Container Registry
+(`ghcr.io/lakisan1/qp-crm:latest`) and creates the database. Wait ~1 min, then check:
 
 ```bash
-docker compose ps    # treba: STATUS = Up (healthy)
+docker compose ps    # STATUS should show: Up (healthy)
 ```
 
-Otvori **http://<ip-servera>:5000** u browseru. Gotovo! 🎉
+Open **http://<server-ip>:5000** in your browser. Done! 🎉
 
 ---
 
-## Prva prijava
+## First login
 
-| Nalog | Početna šifra |
+| Account | Initial password |
 |---|---|
 | `admin` | `Admin1` |
 
-**Obavezno promeni šifru odmah** — Admin → Users. Nema drugih default naloga;
-sve zaposlene dodaješ sam u Admin → Users.
+**Change the password immediately** — Admin → Users. There are no other
+default accounts; create every staff user yourself in Admin → Users.
 
 ---
 
-## Šta gde živi (podaci)
+## Where your data lives
 
-| Folder na serveru | Sadržaj |
+| Folder on the server | Contents |
 |---|---|
-| `app_data/` | baza (`pricing.db`) — korisnici, šifre, ponude, ugovori + slike proizvoda |
-| `app_assets/` | logo, favicon, footer slike |
-| `static/img/` | uploadovani logo |
+| `app_data/` | database (`pricing.db`) — users, passwords, offers, contracts + product images |
+| `app_assets/` | logo, favicon, footer images |
+| `static/img/` | uploaded logo |
 
-Sve je **van image-a** — update nikad ne gubi podatke.
+All of it is **outside the image** — updates never lose any data.
 
 ## Backup
 
-Admin panel → **System Backup & Maintenance** → *Download Full System Backup (.zip)*
-(baza + slike zajedno). Radi i dok app radi.
+Admin panel → **Backup** tab:
+* **Create quick backup** — one-click DB snapshot stored on the server (restore points, one-click restore)
+* **Download Full System Backup (.zip)** — database + images + assets, for manual copies on other servers or migration
 
 ---
 
-## Update
+## Updating
 
-Pogledaj [UPDATE.md](UPDATE.md) — update je jedna komanda (`./deploy.sh`),
-sa automatskim backup-om i rollback-om.
+See [UPDATE.md](UPDATE.md) — updating is one command (`./deploy.sh`),
+with an automatic pre-deploy backup and rollback. Fully unattended
+updates (Watchtower) are covered there too.
