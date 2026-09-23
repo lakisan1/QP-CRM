@@ -5,9 +5,12 @@
 # served by gunicorn through qp_crm/wsgi.py (P0-T2), on port 5000.
 #
 # Runtime concerns wired here:
-#   * image: qp-crm:phase3, built from ./Dockerfile (P0-T3; phase-1 adds the
-#     pytest test layer, P1-T1; phase-3 the unified auth layer —
-#     qp-crm:phase2 remains the rollback tag)
+#   * image: ghcr.io/lakisan1/qp-crm:latest, pushed by CI (.github/workflows/
+#     ci.yml, "image" job) after the pytest suite passes. Remote deployments
+#     are PULL-ONLY: deploy.sh runs `docker compose pull` + `up -d` — no
+#     build on the server. `build:` below stays for local dev (compose build)
+#     and as a documented fallback; the image tag section there shows how to
+#     override for it (see comments on the image key).
 #   * secrets come from .env (see .env.example, P0-T4)
 #   * all mutable state is bind-mounted OUTSIDE the image, so the
 #     rebuild/update flow (./deploy.sh) never loses data
@@ -16,10 +19,18 @@
 
 services:
   app:
+    # Pull-deploy tag. deploy.sh records the currently-running tag into
+    # backups/last-deployed-tag BEFORE every pull, so rollback.sh can pin
+    # it back (rollback uses the immutable sha-<commit> tags, never latest).
+    # LOCAL DEV (build on this machine): override the tag on the fly —
+    #   docker compose build
+    #   docker compose up -d --build
+    # compose ignores build: when the image already exists locally, and
+    # deploy.sh does the pull only.
+    image: ghcr.io/lakisan1/qp-crm:latest
     build:
       context: .
       dockerfile: Dockerfile
-    image: qp-crm:phase3
     container_name: qp-crm
     ports:
       # The app stays on its OWN port (5000). QP_APP_BIND defaults to
