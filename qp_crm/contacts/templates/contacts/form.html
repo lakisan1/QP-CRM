@@ -107,7 +107,13 @@
                 </p>
                 <p>
                     <label>Država:<br>
-                        <input type="text" name="country" class="long-input" value="{{ contact.country if contact else 'Srbija' }}">
+                        <select name="country" class="long-input">
+                            {% for c in countries %}
+                            <option value="{{ c.name }}" {% if contact and contact.country == c.name %}selected{% endif %}{% if not contact and loop.first %}selected{% endif %}>
+                                {% if current_lang == 'en' %}{{ c.name_en }}{% else %}{{ c.name }}{% endif %} ({{ c.code }})
+                            </option>
+                            {% endfor %}
+                        </select>
                     </label>
                 </p>
                 <p>

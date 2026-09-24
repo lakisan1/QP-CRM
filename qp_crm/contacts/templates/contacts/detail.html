@@ -80,13 +80,26 @@
             <td>{{ loc.contact_name or '—' }}</td>
             <td>{{ loc.contact_phone or '—' }}</td>
             <td>
-                <form method="post" action="{{ url_for('contacts.edit_contact_location', location_id=loc.id) }}" style="display: flex; gap: 6px; flex-wrap: wrap;">
-                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                    <input type="hidden" name="name" value="{{ loc.name }}">
-                    <input type="hidden" name="postal_code" value="{{ loc.postal_code or '' }}">
-                    <input type="hidden" name="country" value="{{ loc.country or '' }}">
-                    <button type="submit" class="btn btn-sm">Izmeni</button>
-                </form>
+                <details>
+                    <summary class="btn btn-sm" style="display: inline-block; cursor: pointer;">Izmeni</summary>
+                    <form method="post" action="{{ url_for('contacts.edit_contact_location', location_id=loc.id) }}" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; margin-top: 8px; padding: 8px; background: var(--bg-input); border-radius: 4px;">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <label>Naziv:<br><input type="text" name="name" value="{{ loc.name }}" required></label>
+                        <label>Adresa:<br><input type="text" name="address" value="{{ loc.address or '' }}"></label>
+                        <label>Grad:<br><input type="text" name="city" value="{{ loc.city or '' }}"></label>
+                        <label>Poštanski broj:<br><input type="text" name="postal_code" value="{{ loc.postal_code or '' }}" style="max-width: 110px;"></label>
+                        <label>Država:<br>
+                            <select name="country">
+                                {% for c in countries %}
+                                <option value="{{ c.name }}" {% if loc.country == c.name %}selected{% endif %}>{{ c.name }} ({{ c.code }})</option>
+                                {% endfor %}
+                            </select>
+                        </label>
+                        <label>Kontakt osoba:<br><input type="text" name="contact_name" value="{{ loc.contact_name or '' }}"></label>
+                        <label>Telefon:<br><input type="text" name="contact_phone" value="{{ loc.contact_phone or '' }}"></label>
+                        <button type="submit" class="btn btn-sm btn-success">Sačuvaj</button>
+                    </form>
+                </details>
             </td>
         </tr>
         {% else %}
@@ -102,7 +115,13 @@
         <label>Adresa:<br><input type="text" name="address"></label>
         <label>Grad:<br><input type="text" name="city"></label>
         <label>Poštanski broj:<br><input type="text" name="postal_code" style="max-width: 110px;"></label>
-        <label>Država:<br><input type="text" name="country" placeholder="Srbija"></label>
+        <label>Država:<br>
+            <select name="country">
+                {% for c in countries %}
+                <option value="{{ c.name }}" {% if c.name == 'Srbija' %}selected{% endif %}>{{ c.name }} ({{ c.code }})</option>
+                {% endfor %}
+            </select>
+        </label>
         <label>Kontakt osoba:<br><input type="text" name="contact_name"></label>
         <label>Telefon:<br><input type="text" name="contact_phone"></label>
         <button type="submit" class="btn btn-success">Dodaj</button>

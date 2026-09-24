@@ -1536,6 +1536,25 @@
       ],
       "createdAt": 1790253496195,
       "updatedAt": 1790253496195
+    },
+    {
+      "id": "card-1ebe04c7-32a2-483f-ab1c-c76fd85bdc85",
+      "title": "Lokacije: dodati Poštanski broj + Država polja",
+      "description": "contact_locations + postal_code/country kolone (CREATE + idempotent ALTER); contacts + postal_code (glavna adresa kao default lokacija nosi poštanski iz kontakta, državu iz contacts.country). Imenik: tabela + forma 'Dodaj lokaciju' + kontakt forma prošireni; header Adresa = 'adresa, grad, poštanski, država'. Offer: izbor lokacije upisuje 'adresa, grad, poštanski' u snapshot + državu u country polje; rent datalist predlozi sa poštanskim.",
+      "summary": "Implementirano + deployovano: schema ALTER migracije primenjene na dev bazu, suite 356 passed, image rebuilt, kontejner healthy, nova polja verifikovana živo u kontejneru (location_choices vraća postal_code + country).",
+      "rationale": "Direktan korisnički zahtev: postojeća polja lokacije (Naziv/Adresa/Grad/Kontakt osoba/Telefon) proširiti sa Država i Poštanski broj. Glavna adresa je default lokacija (model iz istog dana), pa je poštanski broj potreban i na contacts, ne samo na lokacijama.",
+      "rejected": "Samo na lokacijama bez contacts.postal_code (default lokacija ne bi imala poštanski); normalizovan brojčani tip / posebna tabela grad-zip (adrese su snapshot free-text po postojećoj konvenciji); strogi select umesto datalist u Rentu (Adresa zakupa se štampa i unosi se varijante).",
+      "sourceSessionId": "session-2a931069-ce16-40a9-ae01-b1c50dd03ecc",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "contacts",
+        "locations",
+        "schema",
+        "deployed"
+      ],
+      "createdAt": 1790254839654,
+      "updatedAt": 1790254839654
     }
   ]
 }

@@ -8,6 +8,7 @@ from flask import flash, redirect, render_template, request, url_for
 
 from ..app import bp
 from qp_crm.services import contact_service
+from qp_crm.shared.countries import get_country_list
 from qp_crm.shared.schema import CONTACT_KINDS, CONTACT_ROLES
 
 
@@ -108,6 +109,7 @@ def new_contact():
         if not ok:
             return render_template("contacts/form.html",
                                    contact=None, error=result,
+                                   countries=get_country_list(),
                                    return_to=return_to), 200
         flash("Kontakt sačuvan.", "success")
         # Musterija-first flow: when the user came from a document form
@@ -123,6 +125,7 @@ def new_contact():
         "contacts/form.html",
         contact=None,
         user_choices=_user_choices(),
+        countries=get_country_list(),
         return_to=return_to,
     )
 
@@ -139,6 +142,7 @@ def view_contact(contact_id):
         contact=contact,
         locations=locations,
         documents=documents,
+        countries=get_country_list(),
     )
 
 
@@ -159,7 +163,8 @@ def edit_contact(contact_id):
             contact = dict(contact)
             contact["roles"] = contact_service.roles_of(contact_id)
             return render_template("contacts/form.html",
-                                   contact=contact, error=result), 200
+                                   contact=contact, error=result,
+                                   countries=get_country_list()), 200
         # Archive is its own toggle on the detail page; the form does not
         # touch it (explicit archive route below).
         flash("Kontakt sačuvan.", "success")
@@ -168,6 +173,7 @@ def edit_contact(contact_id):
         "contacts/form.html",
         contact=contact,
         user_choices=_user_choices(),
+        countries=get_country_list(),
     )
 
 
