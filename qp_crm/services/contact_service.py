@@ -148,10 +148,11 @@ def create_contact(display_name, kind="company", roles=(), fields=None):
     cur.execute(
         """
         INSERT INTO contacts (kind, display_name, first_name, last_name, jmbg,
-                              pib, mb, account, billing_address, city, country,
+                              pib, mb, account, billing_address, city,
+                              postal_code, country,
                               email, phone, job_title, user_id,
                               notes, created_at, archived)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0);
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0);
         """,
         (
             kind,
@@ -164,6 +165,7 @@ def create_contact(display_name, kind="company", roles=(), fields=None):
             (fields.get("account") or "").strip(),
             (fields.get("billing_address") or "").strip(),
             (fields.get("city") or "").strip(),
+            (fields.get("postal_code") or "").strip(),
             (fields.get("country") or "").strip(),
             (fields.get("email") or "").strip(),
             (fields.get("phone") or "").strip(),

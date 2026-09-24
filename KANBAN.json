@@ -1630,6 +1630,26 @@
       ],
       "createdAt": 1790258679584,
       "updatedAt": 1790258679584
+    },
+    {
+      "id": "card-272a38a3-f081-4ae0-b12b-1b7e8bbade44",
+      "title": "Nalog-link seli se iz imenika u Admin → Users ('Kontakt u imeniku')",
+      "description": "'Veze → Nalog (zaposleni)' seli se iz kontakt forme u Admin → Users: nova 'Kontakt u imeniku' kolona-select (svi kontakti, arhivirani uključeni), save zaštićen actingskim passwordom kao ostala polja (hidden has_contact_link nosač). set_contact_user_link održava 1-nalog↔1-kontakt invariant OBA smera. Imenik forma: select UKLONJEN, _form_fields ne šalje user_id; detail prikazuje USERNAME + uputu gde se upravlja.",
+      "summary": "Implementirano + deployovano: Admin → Users 'Kontakt u imeniku' select (bind/switch/unbind E2E roundtrip, switch oslobađa stari kontakt OBA smera); imenik forma očišćena; detail pokazuje username. Suite 356 passed; kontejner healthy; živo verifikovano (admin select True, user_id select odsutan True).",
+      "rationale": "Korisnik: 'nije mi jasno šta je Veze → Nalog (zaposleni)' — i predložio da opcija bude u admin panelu kod User managementa, ne u kontaktima. U pravu je: veza je svojstvo NALOGA (koji imenik zapis je ovaj login), ne kontakta.",
+      "rejected": "Zadržati select na OBA mesta (dva writera za jedan invariant — lome jedan drugog); obrisati link sasvim (korisnik traži SELIDBU, ne brisanje; kuka za 'ko si ti u imeniku' funkcije); auto-kreiranje kontakta za svaki nalog (zagađuje registar od 2156 zapisa); read-only chip + modal na detail strani (admin panel već ima save-with-password guard uzor).",
+      "sourceSessionId": "session-2a931069-ce16-40a9-ae01-b1c50dd03ecc",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "contacts",
+        "admin",
+        "users",
+        "ui",
+        "deployed"
+      ],
+      "createdAt": 1790259590857,
+      "updatedAt": 1790259590857
     }
   ]
 }

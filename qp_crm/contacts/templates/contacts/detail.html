@@ -7,11 +7,6 @@
 
 <div style="display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;">
     <a href="{{ url_for('contacts.edit_contact', contact_id=contact.id) }}" class="btn btn-primary">Izmeni</a>
-    <form method="post" action="{{ url_for('contacts.archive_contact', contact_id=contact.id) }}" onsubmit="return confirm('{{ 'Vratiti kontakt u aktivne?' if contact.archived else 'Arhivirati kontakt? (ne može se obrisati, samo arhivirati)' }}');">
-        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-        <input type="hidden" name="archive" value="{{ '0' if contact.archived else '1' }}">
-        <button type="submit" class="btn btn-warning">{{ 'Vrati u aktivne' if contact.archived else 'Arhiviraj' }}</button>
-    </form>
 </div>
 
 <div class="card">
@@ -148,5 +143,16 @@
         <tr><td colspan="4" style="color: var(--text-muted);">Nema povezanih dokumenata — kontakt još nije korišćen u modulima.</td></tr>
         {% endfor %}
     </table>
+</div>
+
+{# Archive NA DNU stranice (user request 2026-09-24): opasan/dvostruki
+   klik dalje od gornjih akcija — manje greškom kliktanje. #}
+<div style="margin-top: 24px; border-top: 1px solid var(--border-color); padding-top: 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+    <form method="post" action="{{ url_for('contacts.archive_contact', contact_id=contact.id) }}" onsubmit="return confirm('{{ 'Vratiti kontakt u aktivne?' if contact.archived else 'Arhivirati kontakt? (ne može se obrisati, samo arhivirati)' }}');">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="archive" value="{{ '0' if contact.archived else '1' }}">
+        <button type="submit" class="btn btn-warning">{{ 'Vrati u aktivne' if contact.archived else 'Arhiviraj kontakt' }}</button>
+    </form>
+    <small style="color: var(--text-muted);">Arhiviranje ne briše kontakt — dokumenti koji ga referenciraju ga i dalje rešavaju po id-u.</small>
 </div>
 {% endblock %}
