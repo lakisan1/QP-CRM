@@ -46,18 +46,19 @@
             <th scope="col">Uloge</th>
             <th scope="col">PIB / JMBG</th>
             <th scope="col">Grad</th>
+            <th scope="col">Država</th>
             <th scope="col">Telefon / eMail</th>
-            <th scope="col">Status</th>
         </tr>
         {% for c in contacts %}
         <tr {% if c.archived %}style="opacity: 0.55;"{% endif %}>
-            <td><a href="{{ url_for('contacts.view_contact', contact_id=c.id) }}"><strong>{{ c.display_name }}</strong></a></td>
+            <td><a href="{{ url_for('contacts.view_contact', contact_id=c.id) }}"><strong>{{ c.display_name }}</strong></a>
+                {% if c.archived %}<small style="color: var(--text-muted);">· Arhiviran</small>{% endif %}</td>
             <td>{{ kind_badge(c.kind) }}</td>
             <td>{{ role_badges(c.roles) }}</td>
             <td>{{ c.pib or c.jmbg or '' }}</td>
             <td>{{ c.city or '' }}</td>
+            <td>{{ c.country if c.country is defined else '' }}</td>
             <td>{{ c.phone or '' }}{% if c.email %}<br><small>{{ c.email }}</small>{% endif %}</td>
-            <td>{{ 'Arhiviran' if c.archived else 'Aktivan' }}</td>
         </tr>
         {% else %}
         <tr><td colspan="7" style="text-align: center; color: var(--text-muted);">Nema kontakata — dodajte prvi.</td></tr>

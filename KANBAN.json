@@ -1555,6 +1555,25 @@
       ],
       "createdAt": 1790254839654,
       "updatedAt": 1790254839654
+    },
+    {
+      "id": "card-5877bf9c-cb7f-401f-b935-159d4244a2a6",
+      "title": "Država kao padajući meni u imeniku (kontakt + lokacije)",
+      "description": "Država je svuda padajući meni iz iste liste koju koriste ponude (qp_crm/shared/countries.py, 205 zemalja, regionalne prve): kontakt forma (selectira sačuvanu vrednost, nova forma default Srbija), 'Dodaj lokaciju' na detail strani (default Srbija) i 'Izmeni' — inline <details> forma sa SVIM poljima lokacije umesto prethodne samo-ime forme. Sve 4 render tačke directory.py prosleđuju countries=get_country_list().",
+      "summary": "Implementirano + deployovano: 205-zemalja select na 3 mesta u imeniku; inline edit forma za lokacije; roundtrip E2E (preselect Hrvatska/Srbija, POST persistira); suite 356 passed; image rebuilt, kontejner healthy, verifikovano živo (2 country selectova na detail, Srbija preselected na edit forme).",
+      "rationale": "Korisnički zahtev: slobodan tekst za državu pušta loše ukucale vrednosti ('Hrvatskaa', 'SRBIJA') koje prave probleme pri grupisanju/filterima kasnije — select iz zajedničke liste to zatvara na izvoru.",
+      "rejected": "Free-text fallback 'Druga država...' u selectu (vraća problem koji se zatvara; nova država = edit COUNTRIES liste); klijentski JS select iz JSON endpointa (lista je statična, server render radi i bez JS-a); kraća per-module lista (dve liste divergiraju).",
+      "sourceSessionId": "session-2a931069-ce16-40a9-ae01-b1c50dd03ecc",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "contacts",
+        "countries",
+        "ui",
+        "deployed"
+      ],
+      "createdAt": 1790256312860,
+      "updatedAt": 1790256312860
     }
   ]
 }
