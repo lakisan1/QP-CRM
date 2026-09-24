@@ -1517,6 +1517,25 @@
       "createdAt": 1790248792335,
       "updatedAt": 1790248825910,
       "rejected": "Odmah INSERT bez identitete-provere (napravilo bi duplikate od 2181 reda) — odbaceno; group-by MB bez imena-provere (Emil Frey/GUMATRAK dele MB greškom izvora — pogrešna identita bi progutala pravog kupca) — odbaceno, merge samo uz sličnost naziva; preko contact_service.create_contact API-ja u petlji (sporije, bez transakcije) — koristi direktan INSERT u jednoj konekciji; brisanje naknadno pronađenih duplikata — nemoguće, imenik je no-delete (arhiva samo)."
+    },
+    {
+      "id": "card-2779f7f9-9fd3-4cb5-bd3b-86df50db5fe3",
+      "title": "Lokacije: glavna adresa = podrazumevana lokacija + dodatni objekti po potrebi",
+      "description": "Kontaktova glavna adresa (billing_address + city) je uvek podrazumevana lokacija — čita se živo iz kontakta (virtualni id 0, MAIN_LOCATION_ID), ne duplira se u contact_locations. Dodatni objekti se dodaju samo za više-objektne stranke. Offer forma: Lokacija select iznad Adresa musterije (puni se iz autofill 'sites'); izbor objekta prepisuje client_address snapshot; prazno = glavna adresa. Rent: Adresa zakupa dobija datalist predloge (glavna + objekti), polje ostaje slobodan snapshot. Imenik detail prikazuje ⭐ Glavna adresa kao prvu lokaciju. Deployed: rebuild + reboot završeni, kontejner healthy.",
+      "summary": "Implementirano + deployovano (commit 1981794→ HEAD, image rebuilt, reboot, healthy): contact_service.MAIN_LOCATION_ID=0 + location_choices() + resolve_location() (cross-party guard); /offer/api/contact/<id> vraća 'sites'; offer Lokacija select prepisuje client_address snapshot; rent Adresa zakupa datalist predlozi; imenik detail ⭐ Glavna adresa prva. 4 nova testa, suite 355 passed.",
+      "rationale": "Korisnik je postavio model-pitanje: da li lokacije treba da zamene glavnu adresu sada kad imamo 7 lokacija na 2156 kontakata. Odlučeno (user choice): glavna adresa = podrazumevana lokacija; dodatni objekti samo po potrebi — 1685 jednoadresnih musterija nosi nula dodatnih redova.",
+      "rejected": "Promovisanje svake glavne adrese u contact_locations red (dupliranje istog fakta, drift pri izmeni); location_id FK na dokumentima (snapshot polja već nose adresu, vraća deal-spine kompleksnost); UNIQUE is_default flag (drift moguć); globalni site picker (curenje tuđih adresa).",
+      "sourceSessionId": "session-2a931069-ce16-40a9-ae01-b1c50dd03ecc",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "contacts",
+        "locations",
+        "directory",
+        "deployed"
+      ],
+      "createdAt": 1790253496195,
+      "updatedAt": 1790253496195
     }
   ]
 }
