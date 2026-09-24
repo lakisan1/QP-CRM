@@ -1592,6 +1592,25 @@
       ],
       "createdAt": 1790256868885,
       "updatedAt": 1790256868885
+    },
+    {
+      "id": "card-bc55352c-b076-4263-a45a-c2db890a10d5",
+      "title": "Imenik lista: paginacija 25/stranu (sistem iz Settings + ponuda)",
+      "description": "/contacts/contacts renderovao svih 2156 kontakata u jednu tabelu (sporo + beskonačan skrol). Sada: LIMIT/OFFSET u SQL-u (list_contacts page/per_page → (rows, total_count)), page size iz shared 'default_items_per_page' settinga (Settings app, fallback 25 — isti kao ponude), UI kontrole identične listi ponuda (« Prethodna / Strana X od Y (N kontakata) / Sledeća »), page param se nosi kroz search/kind/role/archived linkove, out-of-range ?page= redirektuje na poslednju stranu. Pickers NE paginiraju (all-rows put ostao).",
+      "summary": "Implementirano + deployovano: 25/stranu (iz settinga), Strana 1 od 87 (2156 kontakata), render 60ms. Bag tokom rada: dupla ';' u SQL-u sa LIMIT → sqlite3.ProgrammingError, popravljen. Suite 356 passed; image rebuilt, kontejner healthy; živo verifikovano (26 tr redova, page=2 link, 87 strana).",
+      "rationale": "Korisnički zahtev: stranica učitava 2000 kontakata na jednu stranu — koristiti postojeći sistem deljenja na stranice iz Settings i ponuda za brže učitavanje.",
+      "rejected": "Infinite scroll (korisnik traži postojeći sistem; kvari Ctrl+F/print/deep links); klijentska JS paginacija (i dalje šalje 2000 redova u browser); hardcoded page size (duplira postojeeći setting i divergira); keyset/cursor paginacija (OFFSET na 2000 redova je trivijalan u SQLite, a kvari 'Strana X od Y' prikaz).",
+      "sourceSessionId": "session-2a931069-ce16-40a9-ae01-b1c50dd03ecc",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "contacts",
+        "pagination",
+        "performance",
+        "deployed"
+      ],
+      "createdAt": 1790257793908,
+      "updatedAt": 1790257793908
     }
   ]
 }

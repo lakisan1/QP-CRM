@@ -61,6 +61,7 @@ def list_contacts():
     show_archived = request.args.get("archived") == "1"
     kind = request.args.get("kind") or None
     role = request.args.get("role") or None
+    country = request.args.get("country") or None
     roles = [role] if role in CONTACT_ROLES else None
     # Pagination (2026-09-24 user request): the 2000+ contact list renders
     # one page at a time -- same model as the offer list, page size from
@@ -71,12 +72,13 @@ def list_contacts():
     per_page = _items_per_page()
     contacts, total_count = contact_service.list_contacts(
         include_archived=show_archived, search=search, roles=roles, kind=kind,
-        page=page, per_page=per_page)
+        country=country, page=page, per_page=per_page)
     import math
     total_pages = math.ceil(total_count / per_page) if total_count > 0 else 1
     if page > total_pages:
         return redirect(url_for("contacts.list_contacts", page=total_pages,
                                 search=search, kind=kind, role=role,
+                                country=country,
                                 archived=(1 if show_archived else 0)))
     # Role badges resolve in bulk (one query, not one per row).
     contacts = [dict(c) for c in contacts]
@@ -89,6 +91,8 @@ def list_contacts():
         show_archived=show_archived,
         kind=kind or "",
         role=role or "",
+        country=country or "",
+        countries=get_country_list(),
         kinds=CONTACT_KINDS,
         all_roles=CONTACT_ROLES,
         current_page=page,

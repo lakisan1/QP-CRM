@@ -44,12 +44,14 @@ def _utcnow_iso():
 
 
 def list_contacts(include_archived=False, search="", roles=None, kind=None,
-                  page=None, per_page=None):
+                  country=None, page=None, per_page=None):
     """Directory rows for lists/pickers, alphabetically.
 
     roles:   None = all; a sequence filters to contacts holding ANY of the
              given roles (a supplier+client contact matches both).
     kind:    None = all; 'company' | 'person'.
+    country: None = all; exact match on contacts.country (dropdown values
+             come from the shared countries list, so exact == case-true).
     Search matches display_name, first/last, pib, mb, jmbg, email, phone,
     city -- the fields a receptionist actually types.
 
@@ -79,6 +81,9 @@ def list_contacts(include_archived=False, search="", roles=None, kind=None,
     if kind in _VALID_KINDS:
         clauses.append("c.kind = ?")
         params.append(kind)
+    if country:
+        clauses.append("c.country = ?")
+        params.append(country)
     if search:
         clauses.append(
             "(c.display_name LIKE ? OR c.first_name LIKE ? OR c.last_name LIKE ? "
