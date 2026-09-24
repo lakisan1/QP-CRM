@@ -7,14 +7,14 @@
 
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
     <p style="margin: 0;"><a href="{{ url_for('contacts.new_contact') }}" class="btn btn-success">Novi kontakt</a></p>
-    <form method="get" action="{{ url_for('contacts.list_contacts') }}" style="display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap;">
+    <form method="get" action="{{ url_for('contacts.list_contacts') }}" class="filter-row" style="gap: 8px;">
         {% if show_archived %}<input type="hidden" name="archived" value="1">{% endif %}
         <label style="display: flex; flex-direction: column;">
-            <span style="font-size: 14px;">Pretraga:</span>
+            <span style="margin-bottom: 8px; font-size: 14px;">Pretraga:</span>
             <input type="text" name="search" value="{{ search or '' }}">
         </label>
         <label style="display: flex; flex-direction: column;">
-            <span style="font-size: 14px;">Vrsta:</span>
+            <span style="margin-bottom: 8px; font-size: 14px;">Vrsta:</span>
             <select name="kind">
                 <option value="">Sve</option>
                 {% for k in kinds %}
@@ -23,7 +23,7 @@
             </select>
         </label>
         <label style="display: flex; flex-direction: column;">
-            <span style="font-size: 14px;">Uloga:</span>
+            <span style="margin-bottom: 8px; font-size: 14px;">Uloga:</span>
             <select name="role">
                 <option value="">Sve</option>
                 {% for r in all_roles %}
@@ -32,7 +32,7 @@
             </select>
         </label>
         <label style="display: flex; flex-direction: column;">
-            <span style="font-size: 14px;">Država:</span>
+            <span style="margin-bottom: 8px; font-size: 14px;">Država:</span>
             <select name="country">
                 <option value="">Sve</option>
                 {% for c in countries %}

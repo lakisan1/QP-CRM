@@ -11,7 +11,7 @@
 </div>
 
 <div class="card">
-    <form method="get" style="display:flex;flex-wrap:wrap;gap:15px;align-items:flex-end;">
+    <form method="get" class="filter-row" style="gap:15px;">
         <label style="display:flex;flex-direction:column;">
             <span style="margin-bottom:6px;font-size:13px;font-weight:500;">{{ _('From date:') }}</span>
             <input type="date" name="date_from" value="{{ date_from }}" onchange="this.form.submit()" style="margin-bottom:0;">

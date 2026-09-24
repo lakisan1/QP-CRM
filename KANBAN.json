@@ -1669,6 +1669,24 @@
       ],
       "createdAt": 1790259981371,
       "updatedAt": 1790259981371
+    },
+    {
+      "id": "card-6d321fe7-455c-45d8-a1a4-9bab7284519d",
+      "title": "Nova kontakt forma: Uloga 'client' pre-checkirana po defaultu",
+      "description": "Nova kontakt forma (/contacts/contacts/new): checkbox 'client' je pre-checkiran po defaultu — musterije su najčešći unos pa čekiranje na svakoj stranci bilo ponavljanje bez informacije. Ostale uloge ostaju prazne i slobodno dodaju se. Edit forma NEPREMJENJENA: checkira isključivo sačuvane uloge (supplier-only kontakt ne dobija lažni client check).",
+      "summary": "Implementirano + deployovano (144e424): nova forma client pre-checked (čist Jinja uslov: not contact and r == 'client'); edit forma selectira samo sačuvano. E2E: nova forma client checked + ostali prazni; supplier-only edit bez lažnog checka. Suite 356 passed; kontejner healthy; LIVE verifikovano.",
+      "rationale": "Korisnički zahtev: Uloge na novom kontaktu treba po defaultu client. Najčešći unos je musterija (klijent) — default uklanja redundantan klik bez rizika (default samo na NOVOJ formi, edit i dalje odražava sačuvano stanje).",
+      "rejected": "Default na service-u (create_contact bi tiho dodavao client kad roles prazno — magija u podacima, UI i dalje prazan checkbox, korisnik ne vidi šta će biti snimljeno); default kroz JS (nepotrebno, čist Jinja uslov); default i na edit formi (lažni client check na supplier-only kontaktu — mutira sačuvano stanje).",
+      "sourceSessionId": "session-2a931069-ce16-40a9-ae01-b1c50dd03ecc",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "contacts",
+        "ui",
+        "deployed"
+      ],
+      "createdAt": 1790260223721,
+      "updatedAt": 1790260223721
     }
   ]
 }
