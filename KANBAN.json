@@ -1650,6 +1650,25 @@
       ],
       "createdAt": 1790259590857,
       "updatedAt": 1790259590857
+    },
+    {
+      "id": "card-c334aae4-a2e2-4889-b1b9-689408d0a5ef",
+      "title": "BUG · postal_code ne snima pri kreiranju + Archive dugme na dno",
+      "description": "Dva problema iz korisničkog izveštaja: (1) Poštanski broj novog kontakta se nije snimao iz prve — create_contact INSERT je bio bez postal_code kolone (schema/_CONTACT_FIELDS/update_contact su imali, INSERT listing nije); (2) Archive dugme pored Izmeni na vrhu detail strane — greškom kliktanje.",
+      "summary": "Implementirano + deployovano: INSERT nosi postal_code (create iz prve snima — LIVE verifikovano 12345); Archive dugme na dnu detail stranice ispod Povezanih dokumenata sa objašnjenjem (LIVE redosled Izmeni<Dokumenti<Archive). Suite 356 passed; kontejner healthy; probe kontakt očišćen iz žive baze.",
+      "rationale": "Korisnički izveštaj: postal_code zahteva edit-roundtrip da bi se snimio (bug u INSERT listing-u); Archive dugme na vrhu je rizično za greškom klik. Oba zatvaraju se na izvoru: INSERT dobija kolonu, dugme se seli na dno stranice.",
+      "rejected": "Dinamički INSERT iz _CONTACT_FIELDS (indirekcija bez uštede — redosled kolona mora odgovarati VALUES tupli, eksplicitno je ista konvencija kao update_contact); Archive u dropdown meni (drugi klik + JS, korisnik traži dno); Archive i na listi redova (danas ne postoji tamo — ne izmišljati rizik).",
+      "sourceSessionId": "session-2a931069-ce16-40a9-ae01-b1c50dd03ecc",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "bug",
+        "contacts",
+        "ui",
+        "deployed"
+      ],
+      "createdAt": 1790259981371,
+      "updatedAt": 1790259981371
     }
   ]
 }

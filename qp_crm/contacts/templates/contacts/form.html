@@ -43,7 +43,7 @@
                         {% for r in contact_roles %}
                         <label style="font-weight: normal; text-transform: capitalize;">
                             <input type="checkbox" name="roles" value="{{ r }}"
-                                {{ 'checked' if contact and r in (contact.roles if contact.roles is defined else []) }}> {{ r }}
+                                {{ 'checked' if (contact and r in (contact.roles if contact.roles is defined else [])) or (not contact and r == 'client') }}> {{ r }}
                         </label>
                         {% endfor %}
                     </div>
