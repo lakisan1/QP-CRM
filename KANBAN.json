@@ -1148,18 +1148,20 @@
       "id": "card-5eb67b7c-087f-4ee9-9c16-c965e124368d",
       "title": "BUG · factory_reset + reprovision leaves stale session user_id (pre-existing, test-order dependent)",
       "description": "Symptom: after Admin→Factory reset (users table wiped + provision_staff_accounts re-seeds), a test client logged in BEFORE the reset keeps the old session user_id, which after re-seed belongs to a different/no row → require_module sends it to /login instead of 403/200 → cross-test failures (e.g. test_role_gates assert 302==200). Reproduced on Dev, phase-3-auth, 4f3a2a1, 94ee464. Not a P4 regression; P4 suite passes when ordering differs (288 passed full suite after P4 test fixes — residual risk only in specific orderings).\nFix direction (when picked up): invalidate sessions whose user_id no longer matches the same username (store username in session alongside id and re-check in require_role/require_module), or make factory_reset reprovision deterministic ids in tests.",
-      "rationale": "A pre-existing landmine for future test ordering — logging it now so it isn't rediscovered as a regression during P5; the P4 test fixes (MODULE_CHOICES in test_user_management) removed the visible symptom but not the root cause.",
+      "rationale": "User asked to re-check whether the bug still exists and how it would be fixed, approving only the username-bind fix; findings update the card's diagnosis (factory_reset itself benign, restore paths dangerous).",
       "sourceSessionId": "session-3aa679e7-ee45-4dae-a272-293eda20e58d",
-      "status": "todo",
+      "status": "done",
       "tags": [
         "qp-crm",
         "bug",
-        "testing",
-        "pre-existing",
-        "auth"
+        "auth",
+        "deployed",
+        "security"
       ],
       "createdAt": 1789567953393,
-      "updatedAt": 1789567953393
+      "updatedAt": 1790285622475,
+      "summary": "Re-verified on current Dev. Findings: (1) factory_reset ALONE is safe in production today — AUTOINCREMENT hands re-seeded users NEW ids, so a stale session user_id resolves to no row and require_role/require_module already do session.clear() → /login (empirically confirmed). (2) The test-order landmine is still live: session-scoped offer/rent/admin clients created before the factory_reset test get 302→/login for all later tests (reproduced: offer id=3 pre-reset → re-seeded as id=7 → 302). (3) WORSE, previously unrecorded: backup_quick_restore / restore_full swap the DB file, so an old id can reappear under a DIFFERENT username — full impersonation reproduced (session 'zorica' id=3 acted as restored row 'milan' with his grants → 200); session username was stored at login but never re-validated. FIX (user-approved, commit 97e5be4, deployed): require_role + require_module now compare session username with the resolved row's username; mismatch → session.clear() + re-login. Blocks the impersonation path and keeps factory_reset behavior clean. Full suite 356 passed / 3 skipped. REMAINING (not approved scope): the test-side landmine — factory_reset test still invalidates session-scoped clients for the rest of the session; harden the test by snapshotting/restoring the users table + sqlite_sequence around the factory_reset test if it bites again.",
+      "rejected": "Global auth_epoch counter in global_settings — more invasive (extra write per login, migration) for no additional coverage over the username bind. Explicit-id re-seeding in factory_reset — does not cover the restore paths and fights AUTOINCREMENT. Test-only fix (conftest hardening) — leaves the production impersonation hole open; deferred as follow-up on this card's summary."
     },
     {
       "id": "card-3d7290cf-d3cd-4b92-9708-8cfafd8f68a0",
@@ -1687,6 +1689,101 @@
       ],
       "createdAt": 1790260223721,
       "updatedAt": 1790260223721
+    },
+    {
+      "id": "card-da0a6436-851d-444f-a545-b7b2a4de0e27",
+      "title": "UI · dugmad u filter-bar redovima ispod linije search bara — fix via .filter-row + TS normalization",
+      "description": "User reported (4 sr-Latin screenshots): on many list menus the buttons after the search bar sit slightly below the input line instead of level with it (/rent/contracts, /sale/pricelist, /offer/offers, /contacts/contacts).",
+      "summary": "Root cause: filter rows use align-items:flex-end which aligns MARGIN boxes; inputs/selects carry global margin-bottom:16px while .btn has none (worst on contacts, 16px drop), plus hidden-span spacer hacks and TomSelect's .ts-wrapper (8px padding, ~42px) shorter than 46px native inputs. Fix: new .filter-row rule set in main.css (zeroes bottom margins in row, 13px vertical button padding to match 46px input height) + .ts-wrapper .ts-control normalized to app input metrics (10px/14px, 15px font). Applied to rent_contracts, sale, pricing/products, offers, contacts/list templates; removed spacer/margin hacks. Tests 356 passed; deployed (commit 7d25b55).",
+      "rationale": "Cosmetic bug reported by the user; a shared root cause was likely so one CSS fix beats per-page hacks.",
+      "rejected": "Rewriting all filter templates into a shared Jinja macro — rejected as over-engineering for a cosmetic fix; class + CSS convention achieves uniformity with one-line template edits.",
+      "sourceSessionId": "session-b5713bd6-92e8-4ae7-a205-a1d9ab3267bf",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "ui",
+        "css",
+        "bug",
+        "deployed"
+      ],
+      "createdAt": 1790275514226,
+      "updatedAt": 1790275514226
+    },
+    {
+      "id": "card-ad84ae16-973d-4b61-b43d-d638763b4839",
+      "title": "R-T1 · Schema: rent_contracts.status (5 vrednosti) + backfill iz is_signed",
+      "description": "Schema: `status TEXT NOT NULL DEFAULT 'u_izradi'` on rent_contracts (migrate_rent_tables add_column_if_missing; create table DOLJ). Data backfill: is_signed=1 → 'potpisan_ugovor', is_signed=0 → 'u_izradi'. is_signed kolona ostaje read-compatible u shemi (ne briše se) ali se više ne koristi ni u kodu ni UI-ju. Route: edit_contract POST čita 'status' iz forme (whitelist CONTRACT_STATUSES), validna vrednost default 'u_izradi'. Template edit forme: select sa 5 opcija (default prvi: u izradi / poslata ponuda / prihvaćena ponuda / potpisan ugovor / zatvoren ugovor). CONTRACT_STATUSES konstanta u qp_crm/rent/app.py sa sr labelama — single source za formu i listu.",
+      "rationale": "Korisnik traži status ugovora sa 5 vrednosti umesto boolean is_signed (potpisan/nije). Status mora postati podatkovna kolona pre UI promena jer i edit forma i lista čitaju istu kolonu — prvo schema, pa UI.",
+      "rejected": "Brisanje is_signed kolone — odbijeno: ne treba dirati istorijske podatke ni zavisne testove (golden PDF fixture INSERT koristi is_signed kolonu); stara kolona ostaje u shemi ali se ne piše. Enum tabela u bazi — odbijeno: prekomerno za 5 fiksnih vrednosti, ceo repo koristi Python konstante (CONTACT_KINDS, CONTACT_ROLES pattern).",
+      "sourceSessionId": "session-9b6bb521-1670-43c9-bc2c-3dd3d43f0330",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "rent",
+        "status",
+        "schema",
+        "task"
+      ],
+      "createdAt": 1790284580909,
+      "updatedAt": 1790284867709,
+      "summary": "rent_contracts.status TEXT NOT NULL DEFAULT 'u_izradi' u canonical CREATE (shared/schema.py) + migrate_rent_tables ALTER za legacy baze sa one-time backfillom (is_signed=1 → 'potpisan_ugovor'); idempotentno (samo status='u_izradi' redovi se diraju, korisnikov kasniji status preživi reboot); is_signed kolona ostaje u shemi ali se više ne čita. CONTRACT_STATUSES/STATUS_DEFAULT/STATUS_VALUES/STATUS_LABELS konstante u rent/app.py kao single source. Verifikovano na simuliranoj legacy bazi + 35 calc/placeholder testova zeleno."
+    },
+    {
+      "id": "card-49a1593f-6428-4506-80ef-437e2b726391",
+      "title": "R-T2 · Edit forma: status select (5 opcija, default u izradi) + route čuva status",
+      "description": "Edit forma ugovora (rent_contract_form.html + _contract_form u routes/contracts.py): dodati 'status' select sa 5 opcija iz CONTRACT_STATUSES (rent/app.py), default 'u_izradi' za novi ugovor; POST parsira status kroz STATUS_VALUES whitelist (fallback STATUS_DEFAULT). Status select se stavlja u '2. Podaci o Ugovoru' sekciju (ali u vidljivi deo, izvan musterija-gate wrapper-a). Existing test test_rent_contract_picker_and_link_roundtrip POST-uje bez status polja — mora ostati zelen (fallback default).",
+      "rationale": "Status menjanje ide u edit formu individualnog ugovora (user zahtev); ovo je srce tog zahteva — forma čita i piše novu kolonu iz R-T1.",
+      "rejected": "Status u zasebnoj sekciji '6. Status' — odbijeno: status je deo metapodataka ugovora, prirodno pripa u 'Podaci o Ugovoru' bloku; posebna kartica bi stvarala još jedan scroll. Default prethodni status pri edit-u bez polja (npr. stari klijent forme) — odbijeno: forma je jedini writer, fallback na STATUS_DEFAULT je samo za novi ugovor; edit bez status polja ne treba da resetuje postojeći status (POST uvek sadrži select).",
+      "sourceSessionId": "session-9b6bb521-1670-43c9-bc2c-3dd3d43f0330",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "rent",
+        "status",
+        "ui",
+        "task"
+      ],
+      "createdAt": 1790284936826,
+      "updatedAt": 1790285239151,
+      "summary": "Status select sa 5 opcija dodat u '2. Podaci o Ugovoru' sekciju edit forme (izvan musterija-gate-a); _contract_form POST parsira status kroz STATUS_VALUES whitelist sa fallbackom na STATUS_DEFAULT (bogus POST ne pada na 500); GET forma renderuje trenutni status kao selected, novi ugovor default 'u_izradi'. E2E provereno (render/sačuvano/legacy POST bez statusa/bogus fallback) + 25 postojećih testova zeleno."
+    },
+    {
+      "id": "card-c67d67bb-a72d-4e2d-956c-f445326cb162",
+      "title": "R-T3 · Contracts lista: status badge (read-only), ukloni toggle + potpis-filter",
+      "description": "rent_contracts.html: Status kolona prikazuje status badge (read-only, iz STATUS_LABELS preko list_contracts ctx), uklanja se toggleSigned click handler i confirm() JS. Filter bar: 'Signature status' select (signed/unsigned) se uklanja. Route list_contracts: signed_filter parametar i is_signed WHERE klauze se uklanjaju. Route toggle_signed se briše (endpoint + JS). list_contracts prosleđuje STATUS_LABELS dict templateu. Pagination linkovi gube signed= parametar. row class signed-row se zasniva na c.status == 'potpisan_ugovor' (zadržan zeleni ton za potpisane).",
+      "rationale": "User odluka: status se na listi samo vidi (read-only badge), ne menja se; stari potpis-filter se uklanja pošto je potpis samo jedna od 5 vrednosti. Toggle endpoint postaje dead code — mora da se obriše da ne bi ostao nezaštićen pisni API koji UI više ne poziva.",
+      "rejected": "Zadržati toggle_signed endpoint za kompatibilnost — odbijeno: UI ga više ne poziva, a ostavljao bi pisni endpoint mimo CSRF-svesnog UI-ja (fetch sa X-CSRF-Token radi, ali niko ga ne koristi); dead code disciplinom (prethodna kartica 'mrtvi importi') ide na brisanje. Filter po novim statusima na listi — odbijeno: korisnik eksplicitnoabrao 'Ukloni filter'.",
+      "sourceSessionId": "session-9b6bb521-1670-43c9-bc2c-3dd3d43f0330",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "rent",
+        "status",
+        "ui",
+        "task"
+      ],
+      "createdAt": 1790285294637,
+      "updatedAt": 1790286884140,
+      "summary": "Lista ugovora: read-only status badge (boje: potpisan zeleni, u izradi narandžasti, poslata plava, prihvaćena ljubičasta, zatvoren sivi; potpisan_ugovor red i dalje zeleno toniran). Uklonjeno: 'Signature status' filter iz filter-bara, toggleSigned JS + confirm, toggle_signed endpoint (404), delete modal i Delete dugme iz tabele. Akcija kolona sad je Edit link. Paginacija gubi signed= parametar; legacy ?signed= ignorisan (200). Nove karakterizacije tests/characterization/test_rent_status.py (9 testova), full suite 365 passed / 3 skipped. Commit 583878a."
+    },
+    {
+      "id": "card-61f435f8-5131-499b-937d-7f5164a7e2a9",
+      "title": "R-T4 · Oprema: inline kreiranje u edit formi + brisanje /rent/equipment stranice",
+      "description": "Edit forma ugovora (sekcija 4. Oprema): ispod postojećeg selektora iz kataloga dodati inline formu 'Dodaj novu opremu u bazu' (naziv, prodajna cena neto, meseci, garancija %, avans %) koja POST-uje na novi endpoint /contracts/equipment/save (whitelist polja kao catalogs.py akcija 'save'), pa se baza opreme širi bez napuštanja ugovora. Nakon inline snimanja redirect nazad na edit ugovora (ili new?contract_id po HTTP Referer — NO: redirect na edit ugovora kad postoji, na /rent/contracts/new inače; equipment select preselect novu opremu preko ?eq_id= query param). catalogs.py: ukloniti /equipment CRUD rute; rent_equipment.html template obrisan; base.html header: ukloniti Equipment link. /rent/api/equipment/<id> ostaje (selektor). _seed_equipment CSV seed ostaje (boot-time podaci).",
+      "rationale": "User odluka: inline forma u edit-u, stranica /rent/equipment i header link se brišu — jedan manji ekran, ista mogućnost.",
+      "rejected": "Zadržati /rent/equipment kao read-only pregled — odbijeno: user je eksplicitno rekao 'obriši tu dodatnu stranicu'; katalog se puni inline iz edit forme, pregled je tabelarni u admin backupu ako ikad treba. Modal umesto inline sekcije — odbijeno: postojeći UX forme je 'sekcija u kartici', modal bi unoseo drugačiji pattern u modul.",
+      "sourceSessionId": "session-9b6bb521-1670-43c9-bc2c-3dd3d43f0330",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "rent",
+        "equipment",
+        "ui",
+        "task"
+      ],
+      "createdAt": 1790287100244,
+      "updatedAt": 1790287605790,
+      "summary": "Oprema: nova ruta /rent/contracts/equipment/save kreira katalog unos iz inline forme u sekciji '4. Oprema' edit forme (naziv/cena/meseci/garancija/avans — ista whitelist polja kao stara stranica), redirect nazad na ugovor sa ?eq_id=<new> pa se nova oprema odmah preselectuje; return_to kroz same-site validaciju. /rent/equipment (GET+POST) redirect na /rent/contracts, rent_equipment.html obrisan, Equipment link izbačen iz headera, 'Equipment' i18n par uklonjen. Delete dugme + confirm modal premešteni sa liste u edit formu (R-T5 zajedno). 9 novih karakterizacija (tests/characterization/test_rent_inline_equipment_delete.py) + full suite 374 passed. Commit 8b08926-na-ime (vidi git log)."
     }
   ]
 }
