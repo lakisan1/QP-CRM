@@ -41,6 +41,10 @@
 
 <div class="card">
     <h2>Lokacije (objekti, sajtovi)</h2>
+    <p style="color: var(--text-muted); margin-top: 0;">
+        Glavna adresa kontakta je uvek podrazumevana lokacija — dokumenata je koriste kad ne izaberete drugi objekat.
+        Dodatne lokacije dodajte samo za one koji imaju više objekata.
+    </p>
     <table class="larg-table">
         <tr>
             <th scope="col">Naziv</th>
@@ -50,6 +54,18 @@
             <th scope="col">Telefon</th>
             <th scope="col">Akcija</th>
         </tr>
+        {# Glavna adresa = DEFAULT lokacija (virtualni red, čita se živo iz
+           kontakta — uredjuje se u formi kontakta iznad). #}
+        {% if contact.billing_address %}
+        <tr style="background: var(--bg-input);">
+            <td><strong>⭐ Glavna adresa</strong> <small style="color: var(--text-muted);">(podrazumevana)</small></td>
+            <td>{{ contact.billing_address }}</td>
+            <td>{{ contact.city or '—' }}</td>
+            <td>{{ contact.job_title or '—' }}</td>
+            <td>{{ contact.phone or '—' }}</td>
+            <td><a href="{{ url_for('contacts.edit_contact', contact_id=contact.id) }}" class="btn btn-sm">Izmeni u formi</a></td>
+        </tr>
+        {% endif %}
         {% for loc in locations %}
         <tr>
             <td>{{ loc.name }}</td>
@@ -66,7 +82,8 @@
             </td>
         </tr>
         {% else %}
-        <tr><td colspan="6" style="color: var(--text-muted);">Nema unetih lokacija.</td></tr>
+        {% if contact.billing_address %}<tr><td colspan="6" style="color: var(--text-muted);">Nema dodatnih objekata — svi radovi se vode na glavnoj adresi.</td></tr>
+        {% else %}<tr><td colspan="6" style="color: var(--text-muted);">Glavna adresa nije uneta — dodajte je u formi kontakta, ili dodajte lokaciju ispod.</td></tr>{% endif %}
         {% endfor %}
     </table>
 

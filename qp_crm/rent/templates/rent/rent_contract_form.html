@@ -104,7 +104,10 @@ details > summary::-webkit-details-marker { display:none; }
 </div>
 <div class="form-grid">
     <label>Adresa sedišta<input type="text" name="client_address" id="client_address" value="{{ contract.client_address if contract else '' }}"></label>
-    <label>Adresa zakupa<input type="text" name="rent_address" id="rent_address" value="{{ contract.rent_address if contract else '' }}"></label>
+    <label>Adresa zakupa <small>(lokacija: prazno = glavna adresa)</small><input type="text" name="rent_address" id="rent_address" value="{{ contract.rent_address if contract else '' }}" list="site-list">
+        <datalist id="site-list"></datalist>
+        <small id="site-hint" style="color: var(--text-muted);">Lokacije se pune kad izaberete musteriju; dodatni objekti se dodaju u Imeniku.</small>
+    </label>
 </div>
 <div class="form-grid">
     <label>Ime potpisnika<input type="text" name="client_representative" id="client_representative" value="{{ contract.client_representative if contract else '' }}"></label>
@@ -308,6 +311,25 @@ document.getElementById('clientSelect').addEventListener('change',function(){
         document.getElementById('client_representative').value=d.representative||'';
         document.getElementById('client_email').value=d.email||'';
         document.getElementById('guarantor').value=d.guarantor||'';
+        // Site suggestions (2026-09-24 model): main address IS the default
+        // site; extra objects follow as datalist options. Adresa zakupa
+        // stays free-typed (snapshot), the datalist only suggests.
+        const dl = document.getElementById('site-list');
+        if (dl) {
+            dl.innerHTML = '';
+            (d.sites || []).forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.city ? (s.address + ', ' + s.city) : s.address;
+                if (s.id) opt.label = s.label;
+                dl.appendChild(opt);
+            });
+        }
+        const siteHint = document.getElementById('site-hint');
+        if (siteHint) {
+            siteHint.textContent = (d.sites || []).length > 1
+                ? 'Musterija ima više objekata — klikni u polje Adresa zakupa za predloge.'
+                : 'Lokacije se pune kad izaberete musteriju; dodatni objekti se dodaju u Imeniku.';
+        }
     });
 });
 

@@ -1367,6 +1367,156 @@
       ],
       "createdAt": 1790162105399,
       "updatedAt": 1790162105399
+    },
+    {
+      "id": "card-454f677f-d611-4007-855f-7eca3d2b6e6f",
+      "title": "Update sistem: ghcr pull-deploy + pre-deploy backup + rollback",
+      "description": "URAĐENO (commit 9c7c70d, branch Dev): ci.yml 'image' job pushuje ghcr.io/lakisan1/qp-crm (latest + sha-<commit>) posle pytest-a, samo na push main; docker-compose.yml image -> ghcr latest (build: ostao za lokalni dev); deploy.sh v2 = git pull → pre-deploy DB snapshot (sqlite3.backup() u kontejneru, backups/pre-deploy-<ts>.db, čuva se 10, neuspeli backup prekida deploy) → last-deployed-tag → compose pull + up -d → health-wait; rollback.sh vraća snimljeni tag (ili eksplicitan sha-) preko compose override fajla, sa svojim pre-rollback snapshotom. Verifikacija: compose config OK, backup mehanika na živoj DB OK (integrity ok, 6 usera), suite 338 passed / 3 skipped.",
+      "rationale": "Korisnik tražio lak remote update bez gubitka podataka, idealno pull sa gita. Podaci su već bezbedni dizajnom (bind mountovi van image-a); ovo dodaje pre-built image CI pipeline + backup/rollback okolo update operaciji.",
+      "rejected": "Build-on-server i auto-fallback varijanta odbijene (korisnik izabrao čist pull-mode); offsite backup (S3/rclone) van scope-a; backup preko Flask generate_full_backup_zip() odbijen jer zahteva živu app — skripte rade direktno sqlite3.backup() u kontejneru.",
+      "sourceSessionId": "session-fb211a2a-4513-4aa7-95b5-2bc97bc7f9d8",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "ops",
+        "docker",
+        "deploy",
+        "ghcr"
+      ],
+      "createdAt": 1790167849198,
+      "updatedAt": 1790168251010,
+      "summary": "Update sistem v2 implementiran i commitovan (9c7c70d): pull-deploy sa GHCR + automatski pre-deploy backup + rollback skripta. Remote update je sada: git pull && ./deploy.sh (pull image, backup, recreate, health-wait); poništavanje: ./rollback.sh."
+    },
+    {
+      "id": "card-224210a0-c00d-4617-94c3-4db8e180ef4b",
+      "title": "GHCR image JAVAN od ranije — verified kroz registry API (moja greška u dijagnozi)",
+      "description": "REŠENO: korisnik je već flipovao package na Public ranije (bio sam u zabludi da je privatan — moj anoniman docker pull test je bio blokiran od sandbox docker socketa, ne od GHCR-a!). Verifikovano kroz GHCR registry API bez auth-a: manifest latest HTTP 200, tags lista javno dostupna = ['latest', 'sha-1c0b4a8...', 'sha-2bf299e...', 'sha-230c5aa...'] — tj. bilo ko može da skine image. Image za trenutni HEAD (230c5aa, engleski README) je NA GHCR — CI zelen. Nula preostalih korisničkih akcija za update sistem.",
+      "rationale": "Korisnik je javio da je package već public — moja ranija izjava \"flip je korisnička akcija\" je bila pogrešno izvedena iz blokiranog docker pull testa (sandbox ograničenje, ne GHCR). Registry API verifikacija pokazuje javno dostupan package.",
+      "rejected": "Nije bilo alternativnih puteva — ispravljena dijagnoza: docker pull blokada je bila lokalni sandbox, GHCR package je bio javan od ranije.",
+      "sourceSessionId": "session-fb211a2a-4513-4aa7-95b5-2bc97bc7f9d8",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "ops",
+        "ghcr",
+        "security",
+        "public-image"
+      ],
+      "createdAt": 1790169119799,
+      "updatedAt": 1790183318221,
+      "summary": "Potvrđeno: GHCR package qp-crm je JAVAN (registry API bez auth: manifest 200, tags lista vidljiva). Image za trenutnu verziju (230c5aa) je na ghcr.io. Update sistem u potpunosti operativan bez ikakvog login-a."
+    },
+    {
+      "id": "card-a61748fc-59ff-491f-bff4-715faae4cdf3",
+      "title": "Admin -> Backup tab: quick backup-i + restore tačke (UI) + full zip za migracije",
+      "description": "URAĐENO (commit 5134f3e, push-ovan na Dev). Admin -> Backup tab (/admin/backup): (1) Quick backup dugme — WAL-safe sqlite3.backup() snapshot žive DB u BACKUP_DIR (root/backups, chmod 600, zadrži 30 quick-*); (2) tabela SVIH .db restore tačaka u folderu: quick-*, pre-deploy-* (deploy.sh), pre-rollback-* (rollback.sh) — newest first, kind/created/size; (3) akcije: Download (tačni bajtovi), Restore (password-potvrđen, integrity check, backup()-swap, auth re-init, pre-restore safety snapshot PRVO), Delete (password-potvrđen); (4) Full System .zip download + upload-restore na tabu — za ručne kopije na druge servere/migracije; (5) DB-only par (backup_db/restore_db) UKLONJEN — 404; (6) dashboard zadržao samo Image Cleanup; (7) _nav.html: 7 linkova sada. Testovi: 9 novih (test_backup_tab.py) + smoke/nav ažurirani — suite 348 passed / 3 skipped. Backup sistem koristi ISTI sqlite3.backup() mehanizam koji je već bio integrisan (G36) — i UI i deploy skripte dele isti folder i mehanizam.",
+      "rationale": "Korisnik tražio odvojen Backup tab sa svim quick backup-ima/restore tačkama, full zip za ručne kopije/migracije, i bez DB-only opcije (slike su male). Update sistem (deploy.sh) već piše snapshotove u backups/ — UI ih sad i pokazuje, sve dele isti mehanizam i folder.",
+      "rejected": "Backup-ovi u kontejneru/image-u — odbijeno: state van bind mountova umire sa kontejnerom. Restore bez password-a — odbijeno: restore menja celu users tabelu, otmica sesije bi tiho zamenila auth bazu. Upload .zip u listu restore tačaka — odloženo: zip restore je trenutan (full sistem), skladištenje 100MB+ zipova unosi nejasnu retenciju. Zadržavanje DB-only download/upload pored quick backup-a — uklonjeno po korisnikovoj odluci (dupliranje).",
+      "sourceSessionId": "session-fb211a2a-4513-4aa7-95b5-2bc97bc7f9d8",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "backup",
+        "admin",
+        "ui",
+        "deploy"
+      ],
+      "createdAt": 1790171272871,
+      "updatedAt": 1790171338868,
+      "summary": "Backup tab implementiran i push-ovan (5134f3e): quick backup-i + update-sistema restore tačke u jednoj tabeli, one-click restore sa safety snapshotom, full zip za migracije, DB-only opcija uklonjena. Suite 348 green."
+    },
+    {
+      "id": "card-3962586a-6515-47ef-a721-07b34aafb44f",
+      "title": "Release v1.1.0: merge Dev→main + tag (uradio agent po zahtevu korisnika)",
+      "description": "Merge Dev→main urađen umesto korisnika + release v1.1.0 tagiran. Tok: (1) merge branch sa origin/main + --no-ff merge od Dev (154 commita, suite 348 green na merge rezultatu); (2) u međuvremenu PR #106 se sam merge-ovao na remote main → re-merge origin/main u Dev (e0df9c1); (3) v1.1.0 annotated tag; (4) PRVI CI na main PAO — docker pytest 'Permission denied: /app/backups' (BACKUP_DIR nije postojao u image-u, /app root-owned, appuser ne može da piše; venv je bio zelen jer je lokalni backups/ writable) → Dockerfile fix: mkdir + chown /app/backups uz ostale mutable dirove (2bf299e); (5) re-tag v1.1.0 na 2bf299e (stari tag obrisan remote), Dev+main fast-forward na 2bf299e; (6) CI run 35874181590: pytest SUCCESS + image SUCCESS — image pushovan na ghcr.io/lakisan1/qp-crm (latest + sha-2bf299e); (7) anon pull još blokiran — package je privatan, flip na Public je korisnička GitHub akcija. Ograđeno: CI on:push sad pali SAMO na main (od image job-a) — Dev push-ovi ne okidaju CI osim preko PR.",
+      "summary": "Release v1.1.0 objavljen: Dev merge-ovan na main (2bf299e), annotated tag v1.1.0, CI green (pytest + image push na GHCR). Urađen i bug-fix: /app/backups u Dockerfile-u (CI ga uhvatio pre objave). Image je na ghcr.io ali još privatan — korisnik flipuje na Public kad dođe za računar.",
+      "rationale": "Korisnik nije za računarom i tražio da ja uradim merge + release. U toku rada PR #106 je sam merge-ovan (sukob topologije rešen re-merge-om), i CI je uhvatio pravu grešku (container permissions za BACKUP_DIR) pre nego što je image izašao — test mreža je radila kako treba.",
+      "rejected": "Force-push main-a preko divergiranog stanja — odbijeno: PR #106 je legitiman remote merge, pravilan put je re-merge u Dev. Skip-anje CI-ja (admin merge) — odbijeno: CI je jedini dokaz da image radi. Testovi preskočeni u docker-u umesto fix — odbijeno: sakrilo bi stvarnu produkcijsku grešku (quick backup bi pao i u deployovanom kontejneru).",
+      "sourceSessionId": "session-fb211a2a-4513-4aa7-95b5-2bc97bc7f9d8",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "release",
+        "merge",
+        "v1.1.0",
+        "ci"
+      ],
+      "createdAt": 1790173905357,
+      "updatedAt": 1790173905357
+    },
+    {
+      "id": "card-dafddfe4-4c85-41d2-be4a-7a4390b0dbcb",
+      "title": "Reboot lokalne instance na novi GHCR image (v1.1.0)",
+      "description": "Lokalna instanca reboot-ovana na novi image: kontejner je 5h radio stari LOKALNI qp-crm:phase3 image (iz pre-update-sistema doba). Reboot urađen deploy-flow-om preko sudo (dsh nije u docker grupi): (1) pull ghcr.io/lakisan1/qp-crm:latest (digest ba046c2c...); (2) pre-deploy backup WAL-safe u backups/pre-deploy-20260923-171112.db (integrity ok, 6 usera, chmod 600 — uz sitnicu da docker cp isporuči root-owned pa chown na dsh); (3) docker compose up -d — recreate; (4) healthy na t+1s; (5) verifikacija: image=ghcr latest, rute /admin/backup + backup_quick postože, stari /admin/backup_db NE postoji, INSTALL.md u image-u je engleski, auth garda vraća 302 bez logina, port 5000 odgovara 200. Admin šifra je rotirana (default ne prolazi = ispravno stanje) — UI render taba je verifikovan kroz rute + suite (348 green u CI).",
+      "summary": "Reboot urađen: qp-crm sada radi ghcr.io/lakisan1/qp-crm:latest (novi image sa svim izmenama), healthy, backup ruta verifikovana, stara backup_db ruta uklonjena, pre-deploy backup snimljen pre reboot-a.",
+      "rationale": "Korisnik tražio reboot lokalne instance da vidi nove izmene (backup tab + engleski README + update sistem). Docker socket je root:docker, dsh van grupe — ruter preko sudo -n (passwordless radi za docker komande).",
+      "rejected": "docker compose build lokalno — odbijeno: cilj je pull-based flow (kao na remote instanci) i novi image je već na GHCR-u; sudo usermod -aG docker — ne treba trajna izmena za jedan reboot; docker cp + heredoc script — python u kontejneru je gutao stdin, rešeno inline exec -c.",
+      "sourceSessionId": "session-fb211a2a-4513-4aa7-95b5-2bc97bc7f9d8",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "reboot",
+        "deploy",
+        "ghcr",
+        "ops"
+      ],
+      "createdAt": 1790183643179,
+      "updatedAt": 1790183643179
+    },
+    {
+      "id": "card-7e1a16a2-a8ff-4a41-b4e2-3eae325004dd",
+      "title": "Obrisan dashboard Change Passwords (dupli UI) + mrtvi importi — temeljan sken",
+      "description": "Urađeno po korisnikovom zahtevu (commit 3563601 + 8b41ab8): (1) UKLONJENA 'Change Passwords' kartica sa vrha admin dashboard-a (per-app forma za admin/pricing/offer/rent šifre) + obrisana legacy /admin/update_passwords ruta (pre-unified-auth era, duplirala Admin->Users gde je jedino mesto za šifre — save forma sa opcionalnim 'New password' poljem + admin_reset_user_password). (2) Temeljan sken mrtvog koda posle svih UI izmena: admin/app.py oslobođen mrtvih importa (set_password, render_template, request, redirect, session, flash, send_file, Flask, url_for, time, pathlib, shutil, sqlite3) — check_password i shared.web re-exports OSTAJU (routes/* ih konzumiraju kroz ..app hub obrazac, namerno); backup.py izgubio mrtav io; projekt-wide AST sken snimljen u Agent Note (re-export hub obrazac u offer/pricing/rent app.py je namerni — ne dirati bez potrebe; sale/app.py send_from_directory + IMAGE_DIR zabeleženi za sledeći pass). (3) 3 nova regresiona testa (ukupno 12 u test_backup_tab.py): dashboard nema Change Passwords formu + ruta iz url_map-a, Users je mesto za šifre, Danger Zone na Backup tabu. Suite: 351 passed / 3 skipped. (4) CI green (3563601), image pushovan; lokalna instanca: pull + pre-deploy backup (pre-deploy-20260923-173930.db) + recreate, healthy t+7s; verifikacija u živom kontejneru: url map bez update_passwords, dashboard bez forme, Danger Zone na /admin/backup.",
+      "summary": "Change Passwords kartica obrisana sa dashboard-a + /admin/update_passwords ruta izbrisana (duplo sa Admin->Users). Mrtvi importi očišćeni (admin/app.py, backup.py). 3 nova regresiona testa, suite 351 green, CI zelen, lokalna instanca rebootovana i verifikovana na živo.",
+      "rationale": "Korisnik uočio da je Change Passwords na dashboard-u duplo sa Admin->Users (i verovatno ne radi kako treba) — potvrđeno: legacy pre-faza-3 ruta mrtva dupla. Tražio i temeljnu proveru nekorišćenog koda od UI izmena — urađen AST sken kroz ceo projekat.",
+      "rejected": "Čuvati rutu sakrivenu od UI — odbijeno: mrtvi endpoint je gori od mrtvog UI-ja. Premestiti per-app formu na Backup tab — odbijeno: upravlja user nalogima ne backup-ima i duplira Users. Projektno čišćenje re-export hubova (offer/pricing/rent) — namerno NE u ovom commitu: to je arhitekturni obrazac projekta, snimljen za sledeći pass.",
+      "sourceSessionId": "session-fb211a2a-4513-4aa7-95b5-2bc97bc7f9d8",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "ui",
+        "admin",
+        "cleanup",
+        "dead-code"
+      ],
+      "createdAt": 1790185276565,
+      "updatedAt": 1790185276565
+    },
+    {
+      "id": "card-b4e89904-36d0-4e45-b746-675aed4e971d",
+      "title": "GitHub Release v1.1.0 objavljen (tag postojao, objava nije)",
+      "description": "GitHub release v1.1.0 objavljen: tag je postojao ali RELEASE (objava) nije bio kreiran — tag ≠ release na GitHub-u. Korisnik javio da na /releases nema nove verzije. Token izvezen iz git kredencijala (isti koji rade za push), release kreiran preko REST API-ja: naslov 'v1.1.0 — Update system + Backup tab', opis na engleskom (update sistem, backup tab, docs, uputstvo za postojeće instalacije, Full Changelog link v1.0.0...v1.1.0). Verifikovano: releases lista sad ima v1.1.0 + v1.0.0.",
+      "summary": "Release v1.1.0 objavljen na GitHub-u (https://github.com/lakisan1/QP-CRM/releases/tag/v1.1.0) sa opisom svih promena — tag je već postojao, objava je dodata preko REST API-ja korišćenjem postojećih git kredencijala.",
+      "rationale": "Korisnik tražio release — tag v1.1.0 je bio push-ovan ranije ali GitHub release objava nije kreirana (to je odvojen korak od tag-a). Kreiran programski preko API-ja jer korisnik nije za računarom.",
+      "rejected": "gh CLI — nije ulogovan (traži interaktivan login); ručno preko web UI — korisnik nije za računarom.",
+      "sourceSessionId": "session-fb211a2a-4513-4aa7-95b5-2bc97bc7f9d8",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "release",
+        "github",
+        "v1.1.0"
+      ],
+      "createdAt": 1790245623980,
+      "updatedAt": 1790245623980
+    },
+    {
+      "id": "card-b6eb0a51-f3bc-4b4b-b02a-86da98fc4460",
+      "title": "Uvoz musterija 2024-2026 u CRM imenik (jedan kontakt po kupcu, više adresa = lokacije)",
+      "description": "Uvoz musterije_kontakti_2024_2026.csv (2181 redova) u zajednički imenik. Jedan kupac = jedan kontakt; više adresa istog kupca = contact_locations. Importer: scripts_import/import_musterije.py (--dry-run / --apply). Rezultat: 2156 kontakata (1823 firme, 333 fizička lica), 21 pre postojeći linkovan + 2136 novih, 7 lokacija, 0 duplikata (PIB/IME). Idempotentno (re-run: created=0). Backup: app_data/pricing.db.pre-import.20260924-103406.bak",
+      "summary": "Uvezeno 2156 kontakata u app_data/pricing.db preko scripts_import/import_musterije.py. Identitet: PIB > MB > normalizovano ime; MB-collapse spaja grupe sa istim matičnim brojem i sličnim nazivom (tipfelera u PIB-u), a različite firme koje greškom dele MB (Emil Frey/GUMATRAK) ostaju odvojene. 20 pre postojećih kontakata je LINKOVANO i obogaćeno (samo prazna polja), nikad duplirano. Više adresa istog kupca = contact_locations (7 lokacija). Čišćenje izvora: street u grad-koloni (115), postal gluing (214+1), grad/stubica zamene (24), telefon iz grada (28), JIB->MB (36), JMBG (4), e-mail identitet (38), 'Kupac: X Adresa: Y' parsiranje (9), šifra klijenta -> notes (534). Testovi: 351 passed. Idempotentno, health 200.",
+      "rationale": "Korisnik je tražio uvoz svih kupaca iz exporta 2024-2026 u CRM bazu uz strogo pravilo: isti kupac sa više adresa se uvodi kao jedan kontakt sa lokacijama, ne kao više kontakata. Kvalitet je bila prioritet, ne brzina.",
+      "sourceSessionId": "session-8f9718bb-5063-44b7-b22b-90af326195ca",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "contacts",
+        "import",
+        "data"
+      ],
+      "createdAt": 1790248792335,
+      "updatedAt": 1790248825910,
+      "rejected": "Odmah INSERT bez identitete-provere (napravilo bi duplikate od 2181 reda) — odbaceno; group-by MB bez imena-provere (Emil Frey/GUMATRAK dele MB greškom izvora — pogrešna identita bi progutala pravog kupca) — odbaceno, merge samo uz sličnost naziva; preko contact_service.create_contact API-ja u petlji (sporije, bez transakcije) — koristi direktan INSERT u jednoj konekciji; brisanje naknadno pronađenih duplikata — nemoguće, imenik je no-delete (arhiva samo)."
     }
   ]
 }

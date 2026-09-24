@@ -100,6 +100,14 @@
                     </label>
                 </p>
                 <p>
+                    <label>Lokacija (rad na objektu/sajtu):<br>
+                        <select name="picked_site_ref" id="site-select" class="long-input">
+                            <option value="">-- glavna adresa musterije --</option>
+                        </select>
+                        <small id="site-hint" style="color: var(--text-muted);">Lokacije se pune kad izaberete musteriju; prazno = glavna adresa iz imenika.</small>
+                    </label>
+                </p>
+                <p>
                     <label>Adresa musterije:{% if mandatory_fields.req_client_address %} <span
                             style="color:red">*</span>{% endif %}<br>
                         <input type="text" name="client_address" class="long-input"
@@ -853,8 +861,59 @@
                     set('client_phone', d.phone);
                     set('client_pib', d.pib);
                     set('client_mb', d.mb);
+                    // Location picker (2026-09-24 model): main address IS the
+                    // default site (value 0); extra objects follow. Picking a
+                    // site overwrites the client_address snapshot field.
+                    const siteSelect = document.getElementById('site-select');
+                    if (siteSelect) {
+                        siteSelect.innerHTML = '';
+                        const blank = document.createElement('option');
+                        blank.value = '';
+                        blank.textContent = d.address ? 'Glavna adresa — ' + d.address : '-- glavna adresa musterije --';
+                        siteSelect.appendChild(blank);
+                        (d.sites || []).forEach(s => {
+                            if (!s.id) return;  // id 0 = main, already the blank
+                            const opt = document.createElement('option');
+                            opt.value = s.id;
+                            opt.textContent = s.label + (s.address ? ' — ' + s.address : '');
+                            opt.dataset.address = s.address || '';
+                            opt.dataset.city = s.city || '';
+                            siteSelect.appendChild(opt);
+                        });
+                        siteSelect.value = '';
+                    }
+                    const siteHint = document.getElementById('site-hint');
+                    if (siteHint) {
+                        siteHint.textContent = (d.sites || []).length > 1
+                            ? 'Musterija ima više objekata — izaberite lokaciju; prazno = glavna adresa.'
+                            : 'Lokacije se pune kad izaberete musteriju; prazno = glavna adresa iz imenika.';
+                    }
                 });
             });
+
+            // Picking a site overwrites the address snapshot fields.
+            const siteSelect = document.getElementById('site-select');
+            if (siteSelect) {
+                siteSelect.addEventListener('change', function () {
+                    const opt = this.options[this.selectedIndex];
+                    if (!opt) return;
+                    if (!this.value) {
+                        // blank = main address: refill from the party autofill data
+                        const cid = (document.getElementById('picked-contact-id') || {}).value;
+                        if (cid) {
+                            fetch(`/offer/api/contact/${cid}`).then(r => r.json()).then(d => {
+                                const el = document.getElementsByName('client_address')[0];
+                                if (el) el.value = d.address || '';
+                            });
+                        }
+                        return;
+                    }
+                    const addr = document.getElementsByName('client_address')[0];
+                    if (addr && opt.dataset.address !== undefined) {
+                        addr.value = opt.dataset.city ? (opt.dataset.address + ', ' + opt.dataset.city) : opt.dataset.address;
+                    }
+                });
+            }
         }
 
         // --- Print and Send logic ---

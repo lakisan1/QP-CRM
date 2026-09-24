@@ -278,7 +278,16 @@ def find_by_user_id(user_id):
 # ---------------------------------------------------------------------------
 
 def list_contact_locations(contact_id):
-    """All site rows of one contact, oldest first."""
+    """All EXTRA site rows of one contact, oldest first.
+
+    The contact's MAIN address (contacts.billing_address + city) is the
+    DEFAULT site by user decision (2026-09-24): it is NOT a table row --
+    it exists virtually as location id 0 (MAIN_LOCATION_ID). Only EXTRA
+    objects (dvorište, drugi magacin, gradilište) live in
+    contact_locations, so the 1600+ single-address contacts from the
+    musterije import carry zero extra rows. Use location_choices() for
+    picker feeds -- it merges the default with the extras.
+    """
     conn = get_db()
     cur = conn.cursor()
     cur.execute(
@@ -288,6 +297,64 @@ def list_contact_locations(contact_id):
     rows = cur.fetchall()
     conn.close()
     return rows
+
+
+# Virtual location id: "Glavna adresa" of a contact. It is never a
+# contact_locations row -- pickers resolve it live from the contacts row,
+# so editing the main address updates the default site everywhere.
+MAIN_LOCATION_ID = 0
+
+
+def location_choices(contact_id, include_default=True):
+    """Site picker feed for ONE contact: default address + extra sites.
+
+    Returns [(id, label, address, city)]:
+      * id MAIN_LOCATION_ID (0) = the contact's main billing address,
+        present whenever the contact HAS one (and include_default);
+      * then every contact_locations row by its real id.
+    The label "Glavna adresa" sorts first so pickers default to it.
+    """
+    contact = get_contact(contact_id)
+    if contact is None:
+        return []
+    choices = []
+    main_address = (contact["billing_address"] or "").strip()
+    if include_default and main_address:
+        city = (contact["city"] or "").strip()
+        choices.append((MAIN_LOCATION_ID, "Glavna adresa", main_address, city))
+    for row in list_contact_locations(contact_id):
+        address = (row["address"] or "").strip()
+        city = (row["city"] or "").strip()
+        label = row["name"] or address or f"Lokacija #{row['id']}"
+        choices.append((row["id"], label, address, city))
+    return choices
+
+
+def resolve_location(contact_id, location_id):
+    """Resolve a picked site to (address, city) for snapshot fields.
+
+    location_id MAIN_LOCATION_ID (0/None) resolves the contact's MAIN
+    billing address; a real id resolves the contact_locations row (404-
+    safe: an unknown id or a site of ANOTHER contact returns None --
+    never leak another party's address).
+    """
+    contact = get_contact(contact_id)
+    if contact is None:
+        return None
+    if location_id in (None, "", MAIN_LOCATION_ID):
+        return ((contact["billing_address"] or "").strip(),
+                (contact["city"] or "").strip())
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT address, city FROM contact_locations WHERE id = ? AND contact_id = ?;",
+        (location_id, contact_id),
+    )
+    row = cur.fetchone()
+    conn.close()
+    if row is None:
+        return None
+    return ((row["address"] or "").strip(), (row["city"] or "").strip())
 
 
 def create_contact_location(contact_id, name, address="", city="",

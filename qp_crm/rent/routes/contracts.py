@@ -235,6 +235,15 @@ def api_client(client_ref):
     backfill), so old bookmarks/API callers keep autofilling.
     """
     def _contact_json(contact):
+        # Site suggestions (2026-09-24 model): main address IS the default
+        # site (virtual id 0); extras from contact_locations. The form's
+        # Adresa zakupa stays a free snapshot field -- sites are datalist
+        # suggestions only.
+        sites = [
+            {"id": loc_id, "label": label, "address": address, "city": city}
+            for loc_id, label, address, city
+            in contact_service.location_choices(contact["id"])
+        ]
         return jsonify({
             "name": contact["display_name"],
             "mb": contact["mb"] or "",
@@ -245,6 +254,7 @@ def api_client(client_ref):
             "email": contact["email"] or "",
             "rent_address": contact["city"] or "",
             "guarantor": "",
+            "sites": sites,
         })
 
     if client_ref.startswith("c"):
