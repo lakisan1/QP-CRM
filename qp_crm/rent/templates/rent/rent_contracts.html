@@ -62,7 +62,6 @@ tr.status-potpisan_ugovor:hover {
             <th scope="col">{{ _('Monthly Net Installment (€)') }}</th>
             <th scope="col">{{ _('Monthly Gross Installment (€)') }}</th>
             <th scope="col">Status</th>
-            <th scope="col" style="width:120px;">Akcije</th>
         </tr>
         </thead>
         <tbody>
@@ -83,12 +82,9 @@ tr.status-potpisan_ugovor:hover {
                 <td style="text-align:center;white-space:nowrap;">
                     <span class="status-badge status-{{ c_status }}">{{ status_labels[c_status] }}</span>
                 </td>
-                <td style="text-align:center;white-space:nowrap;">
-                    <a href="{{ url_for('rent.edit_contract', contract_id=c.id) }}" class="btn btn-secondary btn-sm">{{ _('Edit') }}</a>
-                </td>
             </tr>
         {% else %}
-            <tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:30px;">{{ _('No contracts.') }}</td></tr>
+            <tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:30px;">{{ _('No contracts.') }}</td></tr>
         {% endfor %}
         </tbody>
     </table>

@@ -129,22 +129,15 @@ details > summary::-webkit-details-marker { display:none; }
 <!-- ── Oprema ── -->
 <div class="card">
 <div class="sec">4. Oprema</div>
-<label style="margin-bottom:4px;font-size:13px;">Izaberi iz baze opreme</label>
-<select id="equipSelect" class="searchable-select" style="margin-bottom:14px;">
-    <option value="">-- Izaberi opremu --</option>
-    {% for eq in equipment %}
-    <option value="{{ eq.id }}" {% if eq_id and eq.id == eq_id %}selected{% endif %}>{{ eq.name }}</option>
-    {% endfor %}
-</select>
 <label>Model / Opis predmeta zakupa
     <textarea name="equipment_model" id="equipment_model" rows="3" style="font-size:13px;">{{ contract.equipment_model if contract else '' }}</textarea>
 </label>
 
-{# Inline add-to-catalog (R-T4, 2026-09-24): the standalone equipment page
-   is gone — a new catalog entry is created right here, without leaving the
-   contract form. Same field whitelist the old page used. #}
+{# Inline add-to-catalog (R-T4, 2026-09-24; picker removed same day — user:
+   equipment is now typed directly into the contract, the catalog form only
+   saves the defaults for reuse). Same field whitelist the old page used. #}
 <details style="margin-top:16px;">
-    <summary style="color:var(--accent-primary);font-weight:600;">+ Dodaj novu opremu u bazu</summary>
+    <summary style="color:var(--accent-primary);font-weight:600;">+ Sačuvaj ovu opremu u bazu za sledeći put</summary>
     <form method="post" action="{{ url_for('rent.save_equipment_inline') }}" style="margin-top:10px;">
         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="return_to" value="{{ request.full_path if request.endpoint == 'rent.edit_contract' else request.path }}">
@@ -167,7 +160,7 @@ details > summary::-webkit-details-marker { display:none; }
         </div>
         <button type="submit" class="btn btn-success" style="margin-top:8px;">💾 Sačuvaj u bazu opreme</button>
         <small style="display:block;margin-top:6px;color:var(--text-muted);font-size:12px;">
-            Snima se u bazu opreme; izborom iz selektora iznad automatski popunjava cenu, mesece, garanciju i avans.
+            Snima opremu u bazu sa podrazumevanim vrednostima za buduće ugovore.
         </small>
     </form>
 </details>
@@ -406,18 +399,6 @@ document.getElementById('clientSelect').addEventListener('change',function(){
                 ? 'Musterija ima više objekata — klikni u polje Adresa zakupa za predloge.'
                 : 'Lokacije se pune kad izaberete musteriju; dodatni objekti se dodaju u Imeniku.';
         }
-    });
-});
-
-document.getElementById('equipSelect').addEventListener('change',function(){
-    const id=this.value; if(!id) return;
-    fetch(`/rent/api/equipment/${id}`).then(r=>r.json()).then(d=>{
-        document.getElementById('equipment_model').value=d.name||'';
-        document.getElementById('price').value=d.price||0;
-        document.getElementById('period_months').value=d.default_rent_months||48;
-        document.getElementById('guarantee_rate').value=d.default_guarantee_rate||5;
-        document.getElementById('downpayment_percent').value=d.default_downpayment_percent||20;
-        recalc();
     });
 });
 

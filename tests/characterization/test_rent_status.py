@@ -162,8 +162,10 @@ def test_list_shows_read_only_status_badges():
     assert "toggle_signed" not in html
     assert 'name="signed"' not in html
     assert "Signature status" not in html
-    # actions cell is an Edit link now, no Delete button
-    assert ">Edit<" in html or ">Izmeni<" in html
+    # no interactive UI in the row: same-day follow-up removed the Edit
+    # button too (the contract number cell is the edit link), no Delete
+    assert "Akcije" not in html
+    assert ">Edit<" not in html and ">Izmeni<" not in html
     assert "Delete Contract" not in html
 
 

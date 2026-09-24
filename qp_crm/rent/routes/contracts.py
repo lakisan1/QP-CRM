@@ -109,8 +109,6 @@ def _contract_form(contract_id):
         {"id": f"c{row['id']}", "name": row["display_name"]}
         for row in contact_service.list_contacts(roles=["client"])
     ]
-    cur.execute("SELECT * FROM rent_equipment ORDER BY name;")
-    equipment = cur.fetchall()
 
     contract = None
     if contract_id:
@@ -178,8 +176,6 @@ def _contract_form(contract_id):
     return render_template("rent/rent_contract_form.html",
                            contract=contract,
                            clients=clients,
-                           equipment=equipment,
-                           eq_id=request.args.get("eq_id", type=int),
                            contract_statuses=CONTRACT_STATUSES,
                            status_default=STATUS_DEFAULT,
                            today=date.today().isoformat(),
@@ -277,8 +273,9 @@ def save_equipment_inline():
     The standalone /rent/equipment page is gone; section '4. Oprema' of the
     contract form carries a compact add-to-catalog form. Same field
     whitelist the old page's action=save used. Redirects back to where the
-    user came from (edit form of the contract, or the new-contract form)
-    with ?eq_id=<new> so the picker preselects the fresh entry.
+    user came from (edit form of the contract, or the new-contract form).
+    The equipment picker was removed the same day (user: equipment is typed
+    directly into the contract now), so there is no eq_id preselect.
     """
     name = request.form.get("name", "").strip()
     if not name:
@@ -298,7 +295,6 @@ def save_equipment_inline():
     placeholders = ", ".join(["?"] * len(data))
     cur.execute(f"INSERT INTO rent_equipment ({cols}) VALUES ({placeholders});",
                 list(data.values()))
-    eq_id = cur.lastrowid
     conn.commit()
     conn.close()
 
@@ -306,20 +302,7 @@ def save_equipment_inline():
     # same-site absolute paths only (open-redirect guard, safe_next_url discipline)
     if not return_to.startswith("/") or return_to.startswith("//"):
         return_to = url_for("rent.list_contracts")
-    separator = "&" if "?" in return_to else "?"
-    return redirect(f"{return_to}{separator}eq_id={eq_id}")
-
-
-@bp.route("/api/equipment/<int:eq_id>")
-def api_equipment(eq_id):
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM rent_equipment WHERE id=?;", (eq_id,))
-    row = cur.fetchone()
-    conn.close()
-    if not row:
-        return jsonify({}), 404
-    return jsonify(dict(row))
+    return redirect(return_to)
 
 
 @bp.route("/api/calculate")

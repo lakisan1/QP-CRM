@@ -1,19 +1,29 @@
-"""R-T4/R-T5 (2026-09-24 user request): the standalone /rent/equipment page
-is gone; the contract form carries an inline add-to-catalog form, and the
-Delete action moved from the contracts list into the contract edit form.
+"""R-T4/R-T5 + same-day follow-up (2026-09-24 user requests): the standalone
+/rent/equipment page is gone; the contract form carries an inline
+add-to-catalog form; the equipment PICKER is removed too (user: equipment
+is typed directly into the contract now — the catalog form only saves
+defaults for reuse); the Delete action moved from the contracts list into
+the contract edit form; and the list's Edit button is gone (the contract
+number is the link).
 
 Pinned:
 
-* POST /rent/contracts/contracts/equipment/save... (URL is
-  /rent/contracts/equipment/save) creates a rent_equipment row from the
-  inline form and redirects back to the contract form with ?eq_id=<new>;
+* POST /rent/contracts/equipment/save creates a rent_equipment row from
+  the inline form and redirects back to return_to (no eq_id preselect —
+  the picker no longer exists);
 * the redirect target is validated (same-site absolute path only) — a
   hand-crafted return_to falls back to the contracts list;
 * an empty name bounces back without inserting;
 * /rent/equipment (GET and POST) redirects to the contracts list;
 * the rent banner no longer links the equipment page;
-* the edit form renders the inline add-to-catalog form (marker strings)
-  and the Delete button + confirm modal; the list has neither.
+* the edit form has NO equipment picker (no equipSelect, no options list)
+  and no autofill fetch — section 4. Oprema is the free-text
+  equipment_model textarea plus the add-to-catalog form;
+* GET /rent/api/equipment/<id> is gone (404);
+* the list table has no Actions column / Edit button; the contract
+  number cell is the edit link;
+* the edit form renders the Delete button + confirm modal; the list has
+  neither.
 """
 
 import sys
@@ -64,11 +74,12 @@ def test_inline_equipment_save_creates_row_and_redirects_back():
         **_csrf(client),
     })
     assert resp.status_code == 302
-    assert resp.headers["Location"].startswith("/rent/contracts/edit/1?eq_id=")
-    eq_id = int(resp.headers["Location"].rsplit("=", 1)[1])
+    # plain redirect back — the picker is gone, no ?eq_id= preselect
+    assert resp.headers["Location"] == "/rent/contracts/edit/1"
     row = get_db().execute(
-        "SELECT * FROM rent_equipment WHERE id=?;", (eq_id,)).fetchone()
-    assert row["name"] == "Inline Test Masina"
+        "SELECT * FROM rent_equipment WHERE name='Inline Test Masina';"
+    ).fetchone()
+    assert row is not None
     assert row["price"] == 9999.5
     assert row["default_rent_months"] == 36
     assert row["default_guarantee_rate"] == 7.0
@@ -120,9 +131,11 @@ def test_banner_has_no_equipment_link():
     assert 'href="/rent/equipment"' not in html
 
 
-def test_edit_form_has_inline_equipment_form_and_delete():
+def test_edit_form_inline_catalog_and_delete_but_no_picker():
     client = _client()
     conn = get_db()
+    conn.execute(
+        "INSERT INTO rent_equipment (name, price) VALUES ('Katalog Masina', 100);")
     conn.execute(
         "INSERT INTO rent_contracts (contract_number, client_name, status) "
         "VALUES ('EQ-1', 'Eq Firma', 'u_izradi');")
@@ -134,21 +147,35 @@ def test_edit_form_has_inline_equipment_form_and_delete():
 
     html = client.get(f"/rent/contracts/edit/{cid}").data.decode()
     # inline catalog form markers
-    assert "rent.save_equipment_inline" in html or \
-           "/rent/contracts/equipment/save" in html
-    assert "Dodaj novu opremu u bazu" in html
+    assert "/rent/contracts/equipment/save" in html
+    assert "Sačuvaj ovu opremu u bazu" in html
+    # the PICKER is gone: no select of catalog entries, no autofill fetch
+    assert 'id="equipSelect"' not in html
+    assert "/rent/api/equipment/" not in html
+    assert "Katalog Masina" not in html
+    # free-text equipment entry remains
+    assert 'id="equipment_model"' in html
     # delete button + modal on the record's own page
     assert f'data-action="/rent/contracts/delete/{cid}"' in html
     assert 'id="deleteModal"' in html
     assert "openDeleteModal" in html
 
 
-def test_list_has_no_delete_and_no_inline_form():
+def test_list_has_no_delete_no_inline_form_no_edit_button():
     client = _client()
     html = client.get("/rent/contracts").data.decode()
     assert "openDeleteModal" not in html
     assert "deleteModal" not in html
-    assert "Dodaj novu opremu u bazu" not in html
+    assert "Sačuvaj ovu opremu u bazu" not in html
+    # the Actions column is gone; the contract number is the edit link
+    assert "Akcije" not in html
+    assert 'class="btn btn-secondary btn-sm"' not in html
+
+
+def test_equipment_autofill_api_removed():
+    client = _client()
+    resp = client.get("/rent/api/equipment/1")
+    assert resp.status_code == 404
 
 
 def test_delete_from_edit_still_works():
@@ -169,18 +196,3 @@ def test_delete_from_edit_still_works():
         "SELECT COUNT(*) c FROM rent_contracts WHERE id=?;", (cid,)
     ).fetchone()
     assert row["c"] == 0
-
-
-def test_equipment_picker_prefills_from_new_entry():
-    """After inline save the edit form preselects the new catalog entry
-    (?eq_id=) so one save+fill round-trip completes without a search."""
-    client = _client()
-    resp = client.post("/rent/contracts/equipment/save", data={
-        "name": "Preselect Masina",
-        "price": "5000",
-        "return_to": "/rent/contracts/edit/1",
-        **_csrf(client),
-    })
-    eq_id = int(resp.headers["Location"].rsplit("=", 1)[1])
-    html = client.get(f"/rent/contracts/edit/1?eq_id={eq_id}").data.decode()
-    assert f'<option value="{eq_id}" selected>' in html
