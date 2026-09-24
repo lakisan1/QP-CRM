@@ -1574,6 +1574,24 @@
       ],
       "createdAt": 1790256312860,
       "updatedAt": 1790256312860
+    },
+    {
+      "id": "card-535720ea-2e19-4610-be2d-6865dadd41fb",
+      "title": "Imenik lista: izbaciti Status kolonu, dodati Državu pored Grada",
+      "description": "Lista imenika (/contacts/contacts): Status kolona ('Aktivan'/'Arhiviran') uklonjena — bio je šum u default prikazu; arhivirani status je sada sufiks '· Arhiviran' uz naziv (vidljiv u arhiviranom prikazu, opacity 0.55 ostaje). Nova kolona Država odmah posle Grada prikazuje contacts.country.",
+      "summary": "Implementirano + deployovano (c85cc05): Status kolona izbačena, Država kolona posle Grada, arhivirani sufiks uz naziv. E2E + suite 356 passed; image rebuilt, kontejner healthy, verifikovano živo u kontejneru (Status False, Država True, redosled Grad→Država).",
+      "rationale": "Korisnički zahtev sa URL-om stranice: izbaciti Status polje i dodati Državu pored Grada u tabeli imenika. Status je u default prikazu uvek 'Aktivan' pa ne nosi informaciju; država je nova korisna kolona od pošto je uvedena dropdown lista.",
+      "rejected": "Uklanjanje arhiviran indikatora potpuno (izgubila bi se informacija u arhiviranom prikazu — kompromis: sufiks uz naziv); filter po državi u pretrazi (nije traženo, doda se lako kasnije ako treba).",
+      "sourceSessionId": "session-2a931069-ce16-40a9-ae01-b1c50dd03ecc",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "contacts",
+        "ui",
+        "deployed"
+      ],
+      "createdAt": 1790256868885,
+      "updatedAt": 1790256868885
     }
   ]
 }

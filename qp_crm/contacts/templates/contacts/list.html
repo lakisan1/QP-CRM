@@ -65,4 +65,19 @@
         {% endfor %}
     </table>
 </div>
+
+<!-- Pagination Controls (isti model kao lista ponuda) -->
+<div style="margin-top: 20px; display: flex; justify-content: center; gap: 10px; align-items: center;">
+    {% if current_page > 1 %}
+    <a href="{{ url_for('contacts.list_contacts', page=current_page - 1, search=search, kind=kind, role=role, archived=(1 if show_archived else 0)) }}"
+        class="btn btn-secondary">&laquo; Prethodna</a>
+    {% endif %}
+
+    <span style="padding: 10px; font-weight: 500;">Strana {{ current_page }} od {{ total_pages }} <small style="color: var(--text-muted);">({{ total_count }} kontakata)</small></span>
+
+    {% if current_page < total_pages %}
+    <a href="{{ url_for('contacts.list_contacts', page=current_page + 1, search=search, kind=kind, role=role, archived=(1 if show_archived else 0)) }}"
+        class="btn btn-secondary">Sledeća &raquo;</a>
+    {% endif %}
+</div>
 {% endblock %}

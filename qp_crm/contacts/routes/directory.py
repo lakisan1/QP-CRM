@@ -62,8 +62,22 @@ def list_contacts():
     kind = request.args.get("kind") or None
     role = request.args.get("role") or None
     roles = [role] if role in CONTACT_ROLES else None
-    contacts = contact_service.list_contacts(
-        include_archived=show_archived, search=search, roles=roles, kind=kind)
+    # Pagination (2026-09-24 user request): the 2000+ contact list renders
+    # one page at a time -- same model as the offer list, page size from
+    # the shared 'default_items_per_page' setting (Settings app). An
+    # out-of-range page (stale ?page= after a delete or filter change)
+    # clamps to the LAST page instead of rendering an empty table.
+    page = max(request.args.get("page", 1, type=int), 1)
+    per_page = _items_per_page()
+    contacts, total_count = contact_service.list_contacts(
+        include_archived=show_archived, search=search, roles=roles, kind=kind,
+        page=page, per_page=per_page)
+    import math
+    total_pages = math.ceil(total_count / per_page) if total_count > 0 else 1
+    if page > total_pages:
+        return redirect(url_for("contacts.list_contacts", page=total_pages,
+                                search=search, kind=kind, role=role,
+                                archived=(1 if show_archived else 0)))
     # Role badges resolve in bulk (one query, not one per row).
     contacts = [dict(c) for c in contacts]
     for c in contacts:
@@ -77,7 +91,25 @@ def list_contacts():
         role=role or "",
         kinds=CONTACT_KINDS,
         all_roles=CONTACT_ROLES,
+        current_page=page,
+        total_pages=total_pages,
+        total_count=total_count,
     )
+
+
+def _items_per_page():
+    """Shared page size (Settings -> default_items_per_page), offer-list
+    fallback of 25 when the setting is absent or unparsable."""
+    from qp_crm.shared.auth import get_db
+    conn = get_db()
+    row = conn.execute(
+        "SELECT value FROM global_settings WHERE key = 'default_items_per_page';"
+    ).fetchone()
+    conn.close()
+    try:
+        return max(int(row["value"]), 1) if row else 25
+    except (ValueError, TypeError):
+        return 25
 
 
 def _safe_return_to():

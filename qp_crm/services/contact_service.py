@@ -43,25 +43,36 @@ def _utcnow_iso():
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def list_contacts(include_archived=False, search="", roles=None, kind=None):
-    """Directory rows for lists/pickers, newest-relevant last.
+def list_contacts(include_archived=False, search="", roles=None, kind=None,
+                  page=None, per_page=None):
+    """Directory rows for lists/pickers, alphabetically.
 
     roles:   None = all; a sequence filters to contacts holding ANY of the
              given roles (a supplier+client contact matches both).
     kind:    None = all; 'company' | 'person'.
     Search matches display_name, first/last, pib, mb, jmbg, email, phone,
     city -- the fields a receptionist actually types.
+
+    page/per_page: when per_page is given, returns
+    (rows, total_count) with LIMIT/OFFSET pushed into SQL -- the 2000+
+    contact list renders one page at a time (same pagination model as the
+    offer list). page is 1-based; out-of-range pages clamp to page 1 via
+    the route. Without per_page the all-rows behavior stays intact for
+    pickers (_directory_party_choices etc. must NOT paginate).
     """
     conn = get_db()
     cur = conn.cursor()
     sql = "SELECT DISTINCT c.* FROM contacts c"
+    count_sql = ("SELECT COUNT(DISTINCT c.id) FROM contacts c")
     clauses, params = [], []
     if roles:
         wanted = [r for r in (roles or []) if r in _VALID_ROLES]
         if wanted:
             placeholders = ",".join("?" for _ in wanted)
-            sql += (f" JOIN contact_roles cr ON cr.contact_id = c.id "
+            join = (f" JOIN contact_roles cr ON cr.contact_id = c.id "
                     f"AND cr.role IN ({placeholders})")
+            sql += join
+            count_sql += join
             params += wanted
     if not include_archived:
         clauses.append("c.archived = 0")
@@ -76,12 +87,23 @@ def list_contacts(include_archived=False, search="", roles=None, kind=None):
         like = f"%{search}%"
         params += [like] * 9
     if clauses:
-        sql += " WHERE " + " AND ".join(clauses)
-    sql += " ORDER BY c.display_name COLLATE NOCASE;"
+        where = " WHERE " + " AND ".join(clauses)
+        sql += where
+        count_sql += where
+    sql += " ORDER BY c.display_name COLLATE NOCASE"
+    if per_page:
+        offset = (max(page or 1, 1) - 1) * per_page
+        sql += f" LIMIT {int(per_page)} OFFSET {int(offset)}"
+    sql += ";"
     cur.execute(sql, params)
     rows = cur.fetchall()
+    if not per_page:
+        conn.close()
+        return rows
+    cur.execute(count_sql, params)
+    total = cur.fetchone()[0]
     conn.close()
-    return rows
+    return rows, total
 
 
 def get_contact(contact_id):
