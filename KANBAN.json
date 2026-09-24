@@ -1782,8 +1782,8 @@
         "task"
       ],
       "createdAt": 1790287100244,
-      "updatedAt": 1790287605790,
-      "summary": "Oprema: nova ruta /rent/contracts/equipment/save kreira katalog unos iz inline forme u sekciji '4. Oprema' edit forme (naziv/cena/meseci/garancija/avans — ista whitelist polja kao stara stranica), redirect nazad na ugovor sa ?eq_id=<new> pa se nova oprema odmah preselectuje; return_to kroz same-site validaciju. /rent/equipment (GET+POST) redirect na /rent/contracts, rent_equipment.html obrisan, Equipment link izbačen iz headera, 'Equipment' i18n par uklonjen. Delete dugme + confirm modal premešteni sa liste u edit formu (R-T5 zajedno). 9 novih karakterizacija (tests/characterization/test_rent_inline_equipment_delete.py) + full suite 374 passed. Commit 8b08926-na-ime (vidi git log)."
+      "updatedAt": 1790288573247,
+      "summary": "Oprema: nova ruta /rent/contracts/equipment/save kreira katalog unos iz inline forme u sekciji '4. Oprema' edit forme (naziv/cena/meseci/garancija/avans — ista whitelist polja kao stara stranica), redirect nazad na ugovor sa ?eq_id=<new> pa se nova oprema odmah preselectuje; return_to kroz same-site validaciju. /rent/equipment (GET+POST) redirect na /rent/contracts, rent_equipment.html obrisan, Equipment link izbačen iz headera, 'Equipment' i18n par uklonjen. Delete dugme + confirm modal premešteni sa liste u edit formu (R-T5 zajedno). 9 novih karakterizacija + full suite 374 passed. Commit 8a706b2. LIVE verifikacija na :5000: badges, 5 statusa u selectu, delete modal, inline forma, /rent/equipment→302, status izmena kroz POST OK (revertovano)."
     }
   ]
 }
