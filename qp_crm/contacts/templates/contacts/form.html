@@ -126,17 +126,6 @@
                         <input type="text" name="phone" class="long-input" value="{{ contact.phone if contact else '' }}">
                     </label>
                 </p>
-                <h2 style="margin-top: 12px;">Veze</h2>
-                <p>
-                    <label>Nalog (zaposleni):<br>
-                        <select name="user_id" class="long-input">
-                            <option value="">— nema —</option>
-                            {% for u in user_choices %}
-                            <option value="{{ u.id }}" {{ 'selected' if contact and contact.user_id == u.id }}>{{ u.username }}</option>
-                            {% endfor %}
-                        </select>
-                    </label>
-                </p>
                 <p>
                     <label>Beleške:<br>
                         <textarea name="notes" rows="4">{{ contact.notes if contact else '' }}</textarea>

@@ -99,6 +99,7 @@
                             <form id="user-form-{{ user.id }}" action="{{ url_for('admin.save_user_action', user_id=user.id) }}" method="POST">
                                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                                 {% if user.role == 'staff' %}<input type="hidden" name="has_modules" value="1">{% endif %}
+                                <input type="hidden" name="has_contact_link" value="1">
                             </form>
                         </td>
                         <td>
@@ -122,6 +123,21 @@
                                     <select name="role" form="user-form-{{ user.id }}">
                                         <option value="staff" {{ 'selected' if user.role == 'staff' }}>staff</option>
                                         <option value="admin" {{ 'selected' if user.role == 'admin' }}>admin</option>
+                                    </select>
+                                </label>
+                            </div>
+                            {# Kontakt u imeniku (2026-09-24: moved from the contacts
+                               form — the link is an account property). Empty select
+                               = unbound; the hidden carrier marks forms that manage
+                               the link so admin-row saves (which render no select)
+                               never touch it. #}
+                            <div style="margin-top: 6px;">
+                                <label style="font-weight: normal;">Kontakt u imeniku
+                                    <select name="contact_id" form="user-form-{{ user.id }}">
+                                        <option value="">— nema —</option>
+                                        {% for c_id, c_label in contact_choices %}
+                                        <option value="{{ c_id }}" {{ 'selected' if user.contact_link and user.contact_link.id == c_id }}>{{ c_label }}</option>
+                                        {% endfor %}
                                     </select>
                                 </label>
                             </div>

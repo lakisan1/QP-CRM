@@ -18,7 +18,7 @@
     <h2>Uloge</h2>
     {{ role_badges(contact.roles) }}
     {% if contact.job_title %}<p style="margin-top: 8px;">Radno mesto: <strong>{{ contact.job_title }}</strong></p>{% endif %}
-    {% if contact.user_id %}<p>Nalog: <strong>{{ contact.user_id }}</strong> (zaposleni)</p>{% endif %}
+    {% if contact.user_id %}<p>Nalog: <strong>{{ linked_username or contact.user_id }}</strong> <small style="color: var(--text-muted);">(upravlja se u Admin → Users → Kontakt u imeniku)</small></p>{% endif %}
 </div>
 
 <div class="card">

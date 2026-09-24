@@ -1611,6 +1611,25 @@
       ],
       "createdAt": 1790257793908,
       "updatedAt": 1790257793908
+    },
+    {
+      "id": "card-b235e854-e794-4659-950f-7a01399d8dd6",
+      "title": "Imenik lista: filter Država (dropdown)",
+      "description": "Dropdown filter Država pored Uloge na /contacts/contacts — iste vrednosti iz zajedničke countries liste (205), exact match na contacts.country, ?-bound. Kombinuje se sa search/Vrsta/Ulogom, preselektuje izbor, nosi se kroz paginacione linkove i out-of-range redirect. list_contacts: country parametar u zajedničkom WHERE (row + COUNT upit identično filtriraju).",
+      "summary": "Implementirano + deployovano: dropdown filter pored Uloge, preselected, kombinabilan, page linkovi nose country. Suite 356 passed; kontejner healthy; živo verifikovano na realnim podacima: Srbija=2119 kontakata (85 strana, preselected), Hrvatska=0, Kosovo=2 (u listi), Crna Gora=2. NAPOMENA: 32 kontakta ima legacy 'BiH' umesto 'Bosna i Hercegovina' — dropdown ih ne vidi (exact match); prijavljeno korisniku za odluku (normalizacija ili ne).",
+      "rationale": "Korisnički zahtev (nastavak na Država kolonu + dropdown unos): mogućnost suženja 2156-kontakta liste na jednu državu — kombinacija sa postojećim filterima i paginacijom.",
+      "rejected": "Filter po državi lokacija (JOIN contact_locations) — kolona pokazuje glavnu državu, lokacijski filter bi vraćao kontakte čija glavna adresa nije iz filtera (čita se kao bag); LIKE slobodan unos (vraća typo problem koji je dropdown rešio); multi-select (nema pokrivenog potrebnog slučaja, single odgovara ostalim filterima); session persistencija filtera (GET parametri su stateless i bookmark-safe).",
+      "sourceSessionId": "session-2a931069-ce16-40a9-ae01-b1c50dd03ecc",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "contacts",
+        "countries",
+        "filter",
+        "deployed"
+      ],
+      "createdAt": 1790258679584,
+      "updatedAt": 1790258679584
     }
   ]
 }

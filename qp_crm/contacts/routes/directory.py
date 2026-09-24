@@ -28,7 +28,6 @@ def _form_fields():
         "email": request.form.get("email"),
         "phone": request.form.get("phone"),
         "job_title": request.form.get("job_title"),
-        "user_id": request.form.get("user_id", type=int),
         "notes": request.form.get("notes"),
     }
 
@@ -36,18 +35,6 @@ def _form_fields():
 def _form_roles():
     """Checked role boxes (unknown values ignored by the service)."""
     return request.form.getlist("roles")
-
-
-def _user_choices():
-    """Active app login accounts (feed for the employee -> nalog link)."""
-    from qp_crm.shared.auth import get_db
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute(
-        "SELECT id, username FROM users WHERE is_active = 1 ORDER BY username;")
-    rows = cur.fetchall()
-    conn.close()
-    return rows
 
 
 @bp.route("/")
@@ -160,7 +147,6 @@ def new_contact():
     return render_template(
         "contacts/form.html",
         contact=None,
-        user_choices=_user_choices(),
         countries=get_country_list(),
         return_to=return_to,
     )
@@ -173,11 +159,19 @@ def view_contact(contact_id):
         return "Kontakt nije pronađen.", 404
     locations = contact_service.list_contact_locations(contact_id)
     documents = contact_service.linked_documents(contact_id)
+    # login username for the account link (read-only display here; the
+    # link itself is managed in Admin -> Users -> 'Kontakt u imeniku')
+    linked_username = None
+    if contact["user_id"]:
+        from qp_crm.shared.auth import get_user_by_id
+        linked_user = get_user_by_id(contact["user_id"])
+        linked_username = linked_user["username"] if linked_user else None
     return render_template(
         "contacts/detail.html",
         contact=contact,
         locations=locations,
         documents=documents,
+        linked_username=linked_username,
         countries=get_country_list(),
     )
 
@@ -208,7 +202,6 @@ def edit_contact(contact_id):
     return render_template(
         "contacts/form.html",
         contact=contact,
-        user_choices=_user_choices(),
         countries=get_country_list(),
     )
 

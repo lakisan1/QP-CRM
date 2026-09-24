@@ -300,6 +300,59 @@ def find_by_user_id(user_id):
     return row
 
 
+def set_contact_user_link(contact_id, user_id):
+    """Bind (or unbind, user_id None) a directory contact to a login
+    account. Returns (ok, message).
+
+    Admin-side helper (Admin -> Users -> 'Kontakt u imeniku'): ONE login
+    account maps to AT MOST ONE directory entry -- binding to a contact
+    already held by ANOTHER account clears that account's stale link
+    first, so the invariant 'no user_id on two contacts' holds without
+    manual cleanup. Also clears the mirror link from the previous contact
+    when an account is re-pointed.
+    """
+    conn = get_db()
+    cur = conn.cursor()
+    if user_id is not None:
+        cur.execute("SELECT id FROM users WHERE id = ?;", (user_id,))
+        if cur.fetchone() is None:
+            conn.close()
+            return False, "Nalog nije pronađen."
+        # one account -> one contact: free the account from any other contact
+        cur.execute("UPDATE contacts SET user_id = NULL WHERE user_id = ? AND id != ?;",
+                    (user_id, contact_id))
+    # one contact -> one account: free the contact from any other account
+    cur.execute("SELECT user_id FROM contacts WHERE id = ?;", (contact_id,))
+    row = cur.fetchone()
+    if row is None:
+        conn.close()
+        return False, "Kontakt nije pronađen."
+    cur.execute("UPDATE contacts SET user_id = ? WHERE id = ?;",
+                (user_id, contact_id))
+    conn.commit()
+    conn.close()
+    return True, "ok"
+
+
+def user_link_choices():
+    """(id, username, linked_contact_id, linked_contact_name) for the
+    Admin -> Users dropdown: every active login account plus what it
+    currently points to (NULL when unlinked)."""
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT u.id, u.username, c.id AS contact_id, c.display_name AS contact_name
+        FROM users u
+        LEFT JOIN contacts c ON c.user_id = u.id
+        WHERE u.is_active = 1
+        ORDER BY u.username;
+        """)
+    rows = [dict(r) for r in cur.fetchall()]
+    conn.close()
+    return rows
+
+
 # ---------------------------------------------------------------------------
 # contact locations (sites of one contact -- the directory's own children)
 # ---------------------------------------------------------------------------
