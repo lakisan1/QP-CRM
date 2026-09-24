@@ -81,7 +81,16 @@ details > summary::-webkit-details-marker { display:none; }
     <label>Datum zaključenja<input type="date" name="contract_date" value="{{ contract.contract_date if contract else today }}" required></label>
 </div>
 <div class="form-grid">
+    <label>Status ugovora
+        <select name="status">
+            {% for value, label in contract_statuses %}
+            <option value="{{ value }}" {% if (contract and contract.status == value) or (not contract and value == status_default) %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </label>
     <label>Datum preuzimanja<input type="date" name="delivery_date" value="{{ contract.delivery_date if contract else '' }}"></label>
+</div>
+<div class="form-grid">
     <label>Vreme preuzimanja<input type="time" name="delivery_time" value="{{ contract.delivery_time if contract else '10:00' }}"></label>
 </div>
 </div>

@@ -6,7 +6,15 @@ from flask import jsonify, redirect, render_template, request, url_for
 
 from qp_crm.shared.web import fetch_rent_defaults
 
-from ..app import bp, calculate_rent, get_db
+from ..app import (
+    CONTRACT_STATUSES,
+    STATUS_DEFAULT,
+    STATUS_LABELS,
+    STATUS_VALUES,
+    bp,
+    calculate_rent,
+    get_db,
+)
 from qp_crm.services import contact_service
 
 
@@ -15,7 +23,6 @@ def list_contracts():
     search = request.args.get("search", "").strip()
     date_from = request.args.get("date_from", "").strip()
     date_to = request.args.get("date_to", "").strip()
-    signed_filter = request.args.get("signed", "all").strip()  # all, signed, unsigned
     page = request.args.get("page", 1, type=int)
     per_page = 25
     offset = (page - 1) * per_page
@@ -33,10 +40,6 @@ def list_contracts():
     if date_to:
         clauses.append("contract_date <= ?")
         params.append(date_to)
-    if signed_filter == "signed":
-        clauses.append("is_signed = 1")
-    elif signed_filter == "unsigned":
-        clauses.append("(is_signed IS NULL OR is_signed = 0)")
 
     where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
 
@@ -51,25 +54,9 @@ def list_contracts():
     return render_template("rent/rent_contracts.html",
                            contracts=contracts,
                            search=search, date_from=date_from, date_to=date_to,
-                           signed_filter=signed_filter,
+                           status_labels=STATUS_LABELS,
                            current_page=page, total_pages=total_pages, total=total,
                            calculate_rent=calculate_rent)
-
-
-@bp.route("/contracts/toggle_signed/<int:contract_id>", methods=["POST"])
-def toggle_signed(contract_id):
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT is_signed FROM rent_contracts WHERE id=?;", (contract_id,))
-    row = cur.fetchone()
-    if not row:
-        conn.close()
-        return jsonify({"error": "Not found"}), 404
-    new_val = 0 if row["is_signed"] else 1
-    cur.execute("UPDATE rent_contracts SET is_signed=? WHERE id=?;", (new_val, contract_id))
-    conn.commit()
-    conn.close()
-    return jsonify({"is_signed": new_val})
 
 
 @bp.route("/contracts/new", methods=["GET", "POST"])
@@ -166,6 +153,10 @@ def _contract_form(contract_id):
             # client; the printed snapshot fields stay whatever the user
             # confirmed -- linking never rewrites them).
             "contact_id": request.form.get("contact_id", type=int) or None,
+            # Lifecycle status (2026-09-24): select in the form; anything
+            # outside the fixed list falls back to the default instead of
+            # 500ing on a hand-crafted POST.
+            "status": request.form.get("status") if request.form.get("status") in STATUS_VALUES else STATUS_DEFAULT,
         }
         cols = ", ".join(data.keys())
         placeholders = ", ".join(["?"] * len(data))
@@ -188,6 +179,8 @@ def _contract_form(contract_id):
                            contract=contract,
                            clients=clients,
                            equipment=equipment,
+                           contract_statuses=CONTRACT_STATUSES,
+                           status_default=STATUS_DEFAULT,
                            today=date.today().isoformat(),
                            rent_defaults=rent_defaults)
 

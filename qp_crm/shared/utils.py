@@ -176,6 +176,7 @@ TRANSLATIONS = {
         'No categories defined yet. Go to Category Defaults first.': 'Nema definisanih kategorija. Idite prvo na "Podrazumevane vrednosti kategorija".',
         'No contracts.': 'Nema ugovora.',
         'Not signed': 'Nije potpisan',
+        'Edit': 'Izmeni',
         'Offer Comparison': 'Poređenje ponuda',
         'Offer Comparison Tool': 'Alat za poređenje ponuda',
         'One login for all modules': 'Jedinstvena prijava za sve module',

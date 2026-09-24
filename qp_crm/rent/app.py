@@ -46,6 +46,20 @@ bp = Blueprint("rent", __name__, template_folder="templates")
 
 CSV_DIR = os.path.join(BASE_DIR, "excell Rent calc")
 
+# Contract lifecycle status (2026-09-24 user request). Single source for the
+# edit-form select AND the contracts-list badge; values are DB strings, the
+# label is what the UI shows (sr wording, the app's working language).
+CONTRACT_STATUSES = (
+    ("u_izradi",          "U izradi"),
+    ("poslata_ponuda",    "Poslata ponuda"),
+    ("prihvacena_ponuda", "Prihvaćena ponuda"),
+    ("potpisan_ugovor",   "Potpisan ugovor"),
+    ("zatvoren_ugovor",   "Zatvoren ugovor"),
+)
+STATUS_DEFAULT = "u_izradi"
+STATUS_VALUES = tuple(value for value, _label in CONTRACT_STATUSES)
+STATUS_LABELS = dict(CONTRACT_STATUSES)
+
 
 # Per-user app access gate (post-Phase-3 request).
 bp.before_request(require_module("rent"))

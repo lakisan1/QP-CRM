@@ -322,7 +322,8 @@ def create_rent_tables(cur):
             interest_rate REAL DEFAULT 14.0,
             insurance_rate REAL DEFAULT 1.13,
             guarantee_rate REAL DEFAULT 5.0,
-            admin_fee REAL DEFAULT 50.0
+            admin_fee REAL DEFAULT 50.0,
+            status TEXT NOT NULL DEFAULT 'u_izradi'
         );
     """)
 
@@ -606,6 +607,19 @@ def migrate_offer_tables(cur):
 def migrate_rent_tables(cur):
     """rent ALTERs for legacy databases (verbatim from rent/app.py)."""
     add_column_if_missing(cur, "rent_contracts", "is_signed INTEGER DEFAULT 0")
+    # 2026-09-24 (user request): contract lifecycle status replaces the
+    # is_signed boolean. Legacy rows translate once: signed -> 'potpisan_
+    # ugovor', everything else -> the default 'u_izradi'. Idempotent (only
+    # NULL/unset rows are matched, and the column DEFAULT fills fresh ones);
+    # the is_signed column itself stays in the schema untouched -- old
+    # backups/fixtures keep inserting it, no reader uses it anymore.
+    add_column_if_missing(
+        cur, "rent_contracts", "status TEXT NOT NULL DEFAULT 'u_izradi'")
+    cur.execute("""
+        UPDATE rent_contracts
+        SET status = 'potpisan_ugovor'
+        WHERE is_signed = 1 AND status = 'u_izradi';
+    """)
 
 
 # ---------------------------------------------------------------------------
