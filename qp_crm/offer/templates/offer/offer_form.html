@@ -870,6 +870,10 @@
                         const blank = document.createElement('option');
                         blank.value = '';
                         blank.textContent = d.address ? 'Glavna adresa — ' + d.address : '-- glavna adresa musterije --';
+                        blank.dataset.address = d.address || '';
+                        blank.dataset.city = d.city || '';
+                        blank.dataset.postalCode = d.postal_code || '';
+                        blank.dataset.country = d.country || '';
                         siteSelect.appendChild(blank);
                         (d.sites || []).forEach(s => {
                             if (!s.id) return;  // id 0 = main, already the blank
@@ -878,6 +882,8 @@
                             opt.textContent = s.label + (s.address ? ' — ' + s.address : '');
                             opt.dataset.address = s.address || '';
                             opt.dataset.city = s.city || '';
+                            opt.dataset.postalCode = s.postal_code || '';
+                            opt.dataset.country = s.country || '';
                             siteSelect.appendChild(opt);
                         });
                         siteSelect.value = '';
@@ -897,21 +903,26 @@
                 siteSelect.addEventListener('change', function () {
                     const opt = this.options[this.selectedIndex];
                     if (!opt) return;
+                    const addr = document.getElementsByName('client_address')[0];
                     if (!this.value) {
                         // blank = main address: refill from the party autofill data
                         const cid = (document.getElementById('picked-contact-id') || {}).value;
                         if (cid) {
                             fetch(`/offer/api/contact/${cid}`).then(r => r.json()).then(d => {
-                                const el = document.getElementsByName('client_address')[0];
-                                if (el) el.value = d.address || '';
+                                if (addr) addr.value = d.address || '';
+                                const country = document.getElementsByName('country')[0];
+                                if (country && d.country) country.value = d.country;
                             });
                         }
                         return;
                     }
-                    const addr = document.getElementsByName('client_address')[0];
                     if (addr && opt.dataset.address !== undefined) {
-                        addr.value = opt.dataset.city ? (opt.dataset.address + ', ' + opt.dataset.city) : opt.dataset.address;
+                        const parts = [opt.dataset.address, opt.dataset.city,
+                                       opt.dataset.postalCode].filter(Boolean);
+                        addr.value = parts.join(', ');
                     }
+                    const country = document.getElementsByName('country')[0];
+                    if (country && opt.dataset.country) country.value = opt.dataset.country;
                 });
             }
         }

@@ -33,8 +33,8 @@ _VALID_ROLES = frozenset(CONTACT_ROLES)
 # form can never write a column this module does not own.
 _CONTACT_FIELDS = (
     "kind", "display_name", "first_name", "last_name", "jmbg", "pib", "mb",
-    "account", "billing_address", "city", "country", "email", "phone",
-    "job_title", "user_id", "notes",
+    "account", "billing_address", "city", "postal_code", "country", "email",
+    "phone", "job_title", "user_id", "notes",
 )
 
 
@@ -308,7 +308,9 @@ MAIN_LOCATION_ID = 0
 def location_choices(contact_id, include_default=True):
     """Site picker feed for ONE contact: default address + extra sites.
 
-    Returns [(id, label, address, city)]:
+    Returns dicts (2026-09-24 user request: locations carry postal code
+    and country):
+      {id, label, address, city, postal_code, country}
       * id MAIN_LOCATION_ID (0) = the contact's main billing address,
         present whenever the contact HAS one (and include_default);
       * then every contact_locations row by its real id.
@@ -320,45 +322,72 @@ def location_choices(contact_id, include_default=True):
     choices = []
     main_address = (contact["billing_address"] or "").strip()
     if include_default and main_address:
-        city = (contact["city"] or "").strip()
-        choices.append((MAIN_LOCATION_ID, "Glavna adresa", main_address, city))
+        choices.append({
+            "id": MAIN_LOCATION_ID,
+            "label": "Glavna adresa",
+            "address": main_address,
+            "city": (contact["city"] or "").strip(),
+            "postal_code": (contact.get("postal_code") or "").strip()
+            if "postal_code" in contact.keys() else "",
+            "country": (contact["country"] or "").strip(),
+        })
     for row in list_contact_locations(contact_id):
         address = (row["address"] or "").strip()
-        city = (row["city"] or "").strip()
         label = row["name"] or address or f"Lokacija #{row['id']}"
-        choices.append((row["id"], label, address, city))
+        choices.append({
+            "id": row["id"],
+            "label": label,
+            "address": address,
+            "city": (row["city"] or "").strip(),
+            "postal_code": (row["postal_code"] or "").strip(),
+            "country": (row["country"] or "").strip(),
+        })
     return choices
 
 
 def resolve_location(contact_id, location_id):
-    """Resolve a picked site to (address, city) for snapshot fields.
+    """Resolve a picked site to its full address dict for snapshot fields.
 
     location_id MAIN_LOCATION_ID (0/None) resolves the contact's MAIN
     billing address; a real id resolves the contact_locations row (404-
     safe: an unknown id or a site of ANOTHER contact returns None --
     never leak another party's address).
+
+    Returns {address, city, postal_code, country} or None.
     """
     contact = get_contact(contact_id)
     if contact is None:
         return None
     if location_id in (None, "", MAIN_LOCATION_ID):
-        return ((contact["billing_address"] or "").strip(),
-                (contact["city"] or "").strip())
+        return {
+            "address": (contact["billing_address"] or "").strip(),
+            "city": (contact["city"] or "").strip(),
+            "postal_code": (contact.get("postal_code") or "").strip()
+            if "postal_code" in contact.keys() else "",
+            "country": (contact["country"] or "").strip(),
+        }
     conn = get_db()
     cur = conn.cursor()
     cur.execute(
-        "SELECT address, city FROM contact_locations WHERE id = ? AND contact_id = ?;",
+        "SELECT address, city, postal_code, country FROM contact_locations "
+        "WHERE id = ? AND contact_id = ?;",
         (location_id, contact_id),
     )
     row = cur.fetchone()
     conn.close()
     if row is None:
         return None
-    return ((row["address"] or "").strip(), (row["city"] or "").strip())
+    return {
+        "address": (row["address"] or "").strip(),
+        "city": (row["city"] or "").strip(),
+        "postal_code": (row["postal_code"] or "").strip(),
+        "country": (row["country"] or "").strip(),
+    }
 
 
 def create_contact_location(contact_id, name, address="", city="",
-                            contact_name="", contact_phone="", notes=""):
+                            contact_name="", contact_phone="", notes="",
+                            postal_code="", country=""):
     """Add a site to a contact. Returns (ok, id_or_message)."""
     name = (name or "").strip()
     if not name:
@@ -372,10 +401,12 @@ def create_contact_location(contact_id, name, address="", city="",
     cur.execute(
         """
         INSERT INTO contact_locations (contact_id, name, address, city,
+                                       postal_code, country,
                                        contact_name, contact_phone, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?);
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
         """,
         (contact_id, name, (address or "").strip(), (city or "").strip(),
+         (postal_code or "").strip(), (country or "").strip(),
          (contact_name or "").strip(), (contact_phone or "").strip(),
          (notes or "").strip()),
     )
@@ -386,7 +417,8 @@ def create_contact_location(contact_id, name, address="", city="",
 
 
 def update_contact_location(location_id, name, address="", city="",
-                            contact_name="", contact_phone="", notes=""):
+                            contact_name="", contact_phone="", notes="",
+                            postal_code="", country=""):
     """Edit one site row. Returns (ok, message)."""
     name = (name or "").strip()
     if not name:
@@ -400,10 +432,12 @@ def update_contact_location(location_id, name, address="", city="",
     cur.execute(
         """
         UPDATE contact_locations SET name = ?, address = ?, city = ?,
+                                     postal_code = ?, country = ?,
                                      contact_name = ?, contact_phone = ?, notes = ?
         WHERE id = ?;
         """,
         (name, (address or "").strip(), (city or "").strip(),
+         (postal_code or "").strip(), (country or "").strip(),
          (contact_name or "").strip(), (contact_phone or "").strip(),
          (notes or "").strip(), location_id),
     )

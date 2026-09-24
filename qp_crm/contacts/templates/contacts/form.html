@@ -101,6 +101,11 @@
                     </label>
                 </p>
                 <p>
+                    <label>Poštanski broj:<br>
+                        <input type="text" name="postal_code" class="long-input" value="{{ contact.postal_code if contact and contact.postal_code is defined else '' }}" style="max-width: 200px;">
+                    </label>
+                </p>
+                <p>
                     <label>Država:<br>
                         <input type="text" name="country" class="long-input" value="{{ contact.country if contact else 'Srbija' }}">
                     </label>

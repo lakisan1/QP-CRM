@@ -239,11 +239,7 @@ def api_client(client_ref):
         # site (virtual id 0); extras from contact_locations. The form's
         # Adresa zakupa stays a free snapshot field -- sites are datalist
         # suggestions only.
-        sites = [
-            {"id": loc_id, "label": label, "address": address, "city": city}
-            for loc_id, label, address, city
-            in contact_service.location_choices(contact["id"])
-        ]
+        sites = contact_service.location_choices(contact["id"])
         return jsonify({
             "name": contact["display_name"],
             "mb": contact["mb"] or "",

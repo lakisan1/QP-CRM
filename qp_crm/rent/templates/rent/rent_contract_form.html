@@ -318,8 +318,9 @@ document.getElementById('clientSelect').addEventListener('change',function(){
         if (dl) {
             dl.innerHTML = '';
             (d.sites || []).forEach(s => {
+                const parts = [s.address, s.city, s.postal_code].filter(Boolean);
                 const opt = document.createElement('option');
-                opt.value = s.city ? (s.address + ', ' + s.city) : s.address;
+                opt.value = parts.join(', ');
                 if (s.id) opt.label = s.label;
                 dl.appendChild(opt);
             });

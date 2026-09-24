@@ -222,18 +222,51 @@ def test_location_choices_merges_main_address_and_extras():
 
     choices = contact_service.location_choices(cid)
     # default FIRST, virtual id 0, resolved live from the contact row
-    assert choices[0][0] == contact_service.MAIN_LOCATION_ID
-    assert choices[0][1] == "Glavna adresa"
-    assert choices[0][2] == "Glavna 1"
-    assert choices[0][3] == "Beograd"
+    assert choices[0]["id"] == contact_service.MAIN_LOCATION_ID
+    assert choices[0]["label"] == "Glavna adresa"
+    assert choices[0]["address"] == "Glavna 1"
+    assert choices[0]["city"] == "Beograd"
     # extras after, by real id
-    assert choices[1][1] == "Magacin"
-    assert choices[1][2] == "Magacinska 5"
+    assert choices[1]["label"] == "Magacin"
+    assert choices[1]["address"] == "Magacinska 5"
 
     # single-address contact WITHOUT main address: only extras
     ok, pid = contact_service.create_contact("Bez Adrese", kind="person")
     assert ok
     assert contact_service.location_choices(pid) == []
+
+
+def test_location_choices_and_crud_carry_postal_and_country():
+    cid = _company("Posta Firma", roles=("client",))
+    ok, _ = contact_service.update_contact(
+        cid, "Posta Firma", kind="company",
+        fields={"billing_address": "Glavna 1", "city": "Beograd",
+                "country": "Srbija"})
+    assert ok
+
+    # main (default) site inherits the contact's country
+    main = contact_service.location_choices(cid)[0]
+    assert main["postal_code"] == "" and main["country"] == "Srbija"
+
+    ok, extra_id = contact_service.create_contact_location(
+        cid, "Magacin", address="Magacinska 5", city="Zemun",
+        postal_code="11080", country="Srbija")
+    assert ok
+    locs = contact_service.list_contact_locations(cid)
+    assert locs[0]["postal_code"] == "11080"
+    assert locs[0]["country"] == "Srbija"
+
+    # update persists both fields
+    ok, _ = contact_service.update_contact_location(
+        extra_id, "Magacin", postal_code="11081", country="Crna Gora")
+    assert ok
+    locs = contact_service.list_contact_locations(cid)
+    assert locs[0]["postal_code"] == "11081"
+    assert locs[0]["country"] == "Crna Gora"
+
+    # choices expose them
+    extra = [c for c in contact_service.location_choices(cid) if c["id"] == extra_id][0]
+    assert extra["postal_code"] == "11081" and extra["country"] == "Crna Gora"
 
 
 def test_resolve_location_default_and_extras():
@@ -243,15 +276,18 @@ def test_resolve_location_default_and_extras():
         fields={"billing_address": "Glavna 9", "city": "Novi Sad"})
     assert ok
     ok, extra_id = contact_service.create_contact_location(
-        cid, "Dvoriste", address="Bočna 2", city="Novi Sad")
+        cid, "Dvoriste", address="Bočna 2", city="Novi Sad",
+        postal_code="21000", country="Srbija")
     assert ok
 
     # default: None / "" / 0 all resolve the MAIN billing address
-    assert contact_service.resolve_location(cid, None) == ("Glavna 9", "Novi Sad") \
-        or contact_service.resolve_location(cid, None) == ("Glavna 9", "Novi Sad")
-    assert contact_service.resolve_location(cid, 0)[0] == "Glavna 9"
-    # extra object resolves its own address
-    assert contact_service.resolve_location(cid, extra_id) == ("Bočna 2", "Novi Sad")
+    default = contact_service.resolve_location(cid, None)
+    assert default["address"] == "Glavna 9" and default["city"] == "Novi Sad"
+    assert contact_service.resolve_location(cid, 0)["address"] == "Glavna 9"
+    # extra object resolves its own full address incl. postal + country
+    extra = contact_service.resolve_location(cid, extra_id)
+    assert extra["address"] == "Bočna 2"
+    assert extra["postal_code"] == "21000" and extra["country"] == "Srbija"
     # another contact's site NEVER resolves (no cross-party leak)
     ok, other_cid = contact_service.create_contact("Druga Firma", kind="company")
     assert ok
@@ -268,14 +304,16 @@ def test_offer_autofill_api_exposes_sites():
         fields={"billing_address": "Glavna 7", "city": "Beograd"})
     assert ok
     ok, _ = contact_service.create_contact_location(
-        cid, "Gradiliste", address="Autoput 5", city="Beograd")
+        cid, "Gradiliste", address="Autoput 5", city="Beograd",
+        postal_code="11070", country="Srbija")
     assert ok
     resp = client.get(f"/offer/api/contact/{cid}")
     data = resp.get_json()
     assert data["address"] == "Glavna 7"
     sites = data["sites"]
     assert sites[0]["id"] == 0 and sites[0]["label"] == "Glavna adresa"
-    assert any(s["label"] == "Gradiliste" for s in sites)
+    site = [s for s in sites if s["label"] == "Gradiliste"][0]
+    assert site["postal_code"] == "11070" and site["country"] == "Srbija"
 
 
 def test_rent_autofill_api_exposes_sites():

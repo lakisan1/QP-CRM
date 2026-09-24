@@ -32,7 +32,7 @@
         <tr><th>Matični broj</th><td>{{ contact.mb or '—' }}</td></tr>
         <tr><th>Broj računa</th><td>{{ contact.account or '—' }}</td></tr>
         {% endif %}
-        <tr><th>Adresa</th><td>{{ contact.billing_address or '—' }}{% if contact.city %}, {{ contact.city }}{% endif %}{% if contact.country %}, {{ contact.country }}{% endif %}</td></tr>
+        <tr><th>Adresa</th><td>{{ contact.billing_address or '—' }}{% if contact.city %}, {{ contact.city }}{% endif %}{% if contact.postal_code is defined and contact.postal_code %}, {{ contact.postal_code }}{% endif %}{% if contact.country %}, {{ contact.country }}{% endif %}</td></tr>
         <tr><th>eMail</th><td>{{ contact.email or '—' }}</td></tr>
         <tr><th>Telefon</th><td>{{ contact.phone or '—' }}</td></tr>
         {% if contact.notes %}<tr><th>Beleške</th><td>{{ contact.notes | md | safe }}</td></tr>{% endif %}
@@ -50,6 +50,8 @@
             <th scope="col">Naziv</th>
             <th scope="col">Adresa</th>
             <th scope="col">Grad</th>
+            <th scope="col">Poštanski broj</th>
+            <th scope="col">Država</th>
             <th scope="col">Kontakt osoba</th>
             <th scope="col">Telefon</th>
             <th scope="col">Akcija</th>
@@ -61,6 +63,8 @@
             <td><strong>⭐ Glavna adresa</strong> <small style="color: var(--text-muted);">(podrazumevana)</small></td>
             <td>{{ contact.billing_address }}</td>
             <td>{{ contact.city or '—' }}</td>
+            <td>{{ contact.postal_code or '—' if contact.postal_code is defined else '—' }}</td>
+            <td>{{ contact.country or '—' }}</td>
             <td>{{ contact.job_title or '—' }}</td>
             <td>{{ contact.phone or '—' }}</td>
             <td><a href="{{ url_for('contacts.edit_contact', contact_id=contact.id) }}" class="btn btn-sm">Izmeni u formi</a></td>
@@ -71,19 +75,23 @@
             <td>{{ loc.name }}</td>
             <td>{{ loc.address or '—' }}</td>
             <td>{{ loc.city or '—' }}</td>
+            <td>{{ loc.postal_code or '—' }}</td>
+            <td>{{ loc.country or '—' }}</td>
             <td>{{ loc.contact_name or '—' }}</td>
             <td>{{ loc.contact_phone or '—' }}</td>
             <td>
                 <form method="post" action="{{ url_for('contacts.edit_contact_location', location_id=loc.id) }}" style="display: flex; gap: 6px; flex-wrap: wrap;">
                     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="name" value="{{ loc.name }}">
+                    <input type="hidden" name="postal_code" value="{{ loc.postal_code or '' }}">
+                    <input type="hidden" name="country" value="{{ loc.country or '' }}">
                     <button type="submit" class="btn btn-sm">Izmeni</button>
                 </form>
             </td>
         </tr>
         {% else %}
-        {% if contact.billing_address %}<tr><td colspan="6" style="color: var(--text-muted);">Nema dodatnih objekata — svi radovi se vode na glavnoj adresi.</td></tr>
-        {% else %}<tr><td colspan="6" style="color: var(--text-muted);">Glavna adresa nije uneta — dodajte je u formi kontakta, ili dodajte lokaciju ispod.</td></tr>{% endif %}
+        {% if contact.billing_address %}<tr><td colspan="8" style="color: var(--text-muted);">Nema dodatnih objekata — svi radovi se vode na glavnoj adresi.</td></tr>
+        {% else %}<tr><td colspan="8" style="color: var(--text-muted);">Glavna adresa nije uneta — dodajte je u formi kontakta, ili dodajte lokaciju ispod.</td></tr>{% endif %}
         {% endfor %}
     </table>
 
@@ -93,6 +101,8 @@
         <label>Naziv:<br><input type="text" name="name" required placeholder="Sajt / objekat"></label>
         <label>Adresa:<br><input type="text" name="address"></label>
         <label>Grad:<br><input type="text" name="city"></label>
+        <label>Poštanski broj:<br><input type="text" name="postal_code" style="max-width: 110px;"></label>
+        <label>Država:<br><input type="text" name="country" placeholder="Srbija"></label>
         <label>Kontakt osoba:<br><input type="text" name="contact_name"></label>
         <label>Telefon:<br><input type="text" name="contact_phone"></label>
         <button type="submit" class="btn btn-success">Dodaj</button>

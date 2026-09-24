@@ -663,7 +663,8 @@ def create_contacts_tables(cur):
             jmbg TEXT,
             pib TEXT, mb TEXT,
             account TEXT,
-            billing_address TEXT, city TEXT, country TEXT,
+            billing_address TEXT, city TEXT,
+            postal_code TEXT, country TEXT,
             email TEXT, phone TEXT,
             job_title TEXT,
             user_id INTEGER REFERENCES users(id),
@@ -687,6 +688,7 @@ def create_contacts_tables(cur):
             contact_id INTEGER NOT NULL REFERENCES contacts(id),
             name TEXT,
             address TEXT, city TEXT,
+            postal_code TEXT, country TEXT,
             contact_name TEXT, contact_phone TEXT,
             notes TEXT
         );
@@ -713,6 +715,12 @@ def migrate_contacts(cur):
     add_column_if_missing(cur, "rent_clients", "migrated_contact_id INTEGER REFERENCES contacts(id)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_offers_contact_id ON offers(contact_id);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_rent_contracts_contact ON rent_contracts(contact_id);")
+
+    # 2026-09-24 (user request): locations gain postal code + country --
+    # ALTERs for legacy DBs; the canonical CREATE already carries them.
+    add_column_if_missing(cur, "contact_locations", "postal_code TEXT")
+    add_column_if_missing(cur, "contact_locations", "country TEXT")
+    add_column_if_missing(cur, "contacts", "postal_code TEXT")
 
     backfill_rent_clients_into_contacts(cur)
 

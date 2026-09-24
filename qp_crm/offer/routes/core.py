@@ -36,15 +36,14 @@ def api_contact(contact_id):
     # objects come from contact_locations. The form JS fills the location
     # select from this list; picking one overwrites client_address with
     # that site's address (snapshot — saved with the offer).
-    sites = [
-        {"id": loc_id, "label": label, "address": address, "city": city}
-        for loc_id, label, address, city
-        in contact_service.location_choices(contact_id)
-    ]
+    sites = contact_service.location_choices(contact_id)
     return jsonify({
         "contact_id": contact["id"],
         "name": full_name,
         "address": contact["billing_address"] or "",
+        "city": contact["city"] or "",
+        "postal_code": (contact["postal_code"] or "")
+        if "postal_code" in contact.keys() else "",
         "email": contact["email"] or "",
         "phone": contact["phone"] or "",
         "pib": contact["pib"] or "",
