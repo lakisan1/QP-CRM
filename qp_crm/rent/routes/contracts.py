@@ -179,6 +179,7 @@ def _contract_form(contract_id):
                            contract=contract,
                            clients=clients,
                            equipment=equipment,
+                           eq_id=request.args.get("eq_id", type=int),
                            contract_statuses=CONTRACT_STATUSES,
                            status_default=STATUS_DEFAULT,
                            today=date.today().isoformat(),
@@ -267,6 +268,46 @@ def api_client(client_ref):
     if not contact:
         return jsonify({}), 404
     return _contact_json(contact)
+
+
+@bp.route("/contracts/equipment/save", methods=["POST"])
+def save_equipment_inline():
+    """Create a catalog entry from the contract form (R-T4, 2026-09-24).
+
+    The standalone /rent/equipment page is gone; section '4. Oprema' of the
+    contract form carries a compact add-to-catalog form. Same field
+    whitelist the old page's action=save used. Redirects back to where the
+    user came from (edit form of the contract, or the new-contract form)
+    with ?eq_id=<new> so the picker preselects the fresh entry.
+    """
+    name = request.form.get("name", "").strip()
+    if not name:
+        # nothing to add: bounce back without touching the catalog
+        return redirect(request.form.get("return_to")
+                        or url_for("rent.list_contracts"))
+    data = {
+        "name": name,
+        "price": float(request.form.get("price") or 0),
+        "default_rent_months": int(request.form.get("default_rent_months") or 48),
+        "default_guarantee_rate": float(request.form.get("default_guarantee_rate") or 5),
+        "default_downpayment_percent": float(request.form.get("default_downpayment_percent") or 20),
+    }
+    conn = get_db()
+    cur = conn.cursor()
+    cols = ", ".join(data.keys())
+    placeholders = ", ".join(["?"] * len(data))
+    cur.execute(f"INSERT INTO rent_equipment ({cols}) VALUES ({placeholders});",
+                list(data.values()))
+    eq_id = cur.lastrowid
+    conn.commit()
+    conn.close()
+
+    return_to = request.form.get("return_to") or ""
+    # same-site absolute paths only (open-redirect guard, safe_next_url discipline)
+    if not return_to.startswith("/") or return_to.startswith("//"):
+        return_to = url_for("rent.list_contracts")
+    separator = "&" if "?" in return_to else "?"
+    return redirect(f"{return_to}{separator}eq_id={eq_id}")
 
 
 @bp.route("/api/equipment/<int:eq_id>")

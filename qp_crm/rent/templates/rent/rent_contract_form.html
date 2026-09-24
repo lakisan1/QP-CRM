@@ -133,12 +133,44 @@ details > summary::-webkit-details-marker { display:none; }
 <select id="equipSelect" class="searchable-select" style="margin-bottom:14px;">
     <option value="">-- Izaberi opremu --</option>
     {% for eq in equipment %}
-    <option value="{{ eq.id }}" {% if contract and contract.equipment_model == eq.name %}selected{% endif %}>{{ eq.name }}</option>
+    <option value="{{ eq.id }}" {% if eq_id and eq.id == eq_id %}selected{% endif %}>{{ eq.name }}</option>
     {% endfor %}
 </select>
 <label>Model / Opis predmeta zakupa
     <textarea name="equipment_model" id="equipment_model" rows="3" style="font-size:13px;">{{ contract.equipment_model if contract else '' }}</textarea>
 </label>
+
+{# Inline add-to-catalog (R-T4, 2026-09-24): the standalone equipment page
+   is gone — a new catalog entry is created right here, without leaving the
+   contract form. Same field whitelist the old page used. #}
+<details style="margin-top:16px;">
+    <summary style="color:var(--accent-primary);font-weight:600;">+ Dodaj novu opremu u bazu</summary>
+    <form method="post" action="{{ url_for('rent.save_equipment_inline') }}" style="margin-top:10px;">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="return_to" value="{{ request.full_path if request.endpoint == 'rent.edit_contract' else request.path }}">
+        <div class="form-grid">
+            <label style="grid-column:1/-1;">Naziv (maks 255 znakova) *
+                <textarea name="name" rows="2" required placeholder="Marka i tip opreme"></textarea>
+            </label>
+            <label>Prodajna cena neto (€)
+                <input type="number" name="price" step="0.01" min="0" value="0">
+            </label>
+            <label>Podrazumevani broj meseci
+                <input type="number" name="default_rent_months" step="1" min="1" value="48">
+            </label>
+            <label>Stopa garancije/troška – god. (%)
+                <input type="number" name="default_guarantee_rate" step="0.01" min="0" value="5">
+            </label>
+            <label>Učešće / Avans (%)
+                <input type="number" name="default_downpayment_percent" step="0.01" min="0" max="100" value="20">
+            </label>
+        </div>
+        <button type="submit" class="btn btn-success" style="margin-top:8px;">💾 Sačuvaj u bazu opreme</button>
+        <small style="display:block;margin-top:6px;color:var(--text-muted);font-size:12px;">
+            Snima se u bazu opreme; izborom iz selektora iznad automatski popunjava cenu, mesece, garanciju i avans.
+        </small>
+    </form>
+</details>
 </div>
 
 <!-- ── Finansijski parametri ── -->
@@ -203,7 +235,41 @@ details > summary::-webkit-details-marker { display:none; }
     <a href="{{ url_for('rent.pdf_schedule', contract_id=contract.id) }}" target="_blank" class="btn btn-primary">📅 Prilog 4 – Plan Plaćanja</a>
     <a href="{{ url_for('rent.contract_documents', contract_id=contract.id) }}" class="btn btn-secondary" style="border:2px solid var(--accent-primary);">📁 Dokumenta</a>
     {% endif %}
+    {% if contract %}
+    {# Delete lives HERE since R-T4/R-T5 (2026-09-24): the list keeps only
+       Edit links, so the destructive action sits on the record's own page,
+       behind the same confirm modal the list used to have. #}
+    <button type="button" class="btn btn-danger"
+            data-action="{{ url_for('rent.delete_contract', contract_id=contract.id) }}"
+            onclick="openDeleteModal(this)"
+            style="margin-left:auto;">🗑 {{ _('Delete') }}</button>
+    {% endif %}
 </div>
+
+{% if contract %}
+<!-- ── Delete confirmation modal ──────────────────────────────── -->
+<div id="deleteModal" style="
+    display:none; position:fixed; inset:0;
+    background:rgba(0,0,0,0.65); z-index:9999;
+    align-items:center; justify-content:center;">
+  <div style="
+      background:var(--bg-card,#1e1e2e);
+      border:1px solid var(--border-color,#333);
+      border-radius:14px; padding:36px 44px;
+      max-width:380px; width:90%; text-align:center;
+      box-shadow:0 24px 64px rgba(0,0,0,0.6);">
+    <div style="font-size:2.8rem;margin-bottom:12px;">🗑️</div>
+    <h3 style="margin:0 0 8px;font-size:1.15rem;">{{ _('Delete Contract') }}</h3>
+    <p style="color:var(--text-muted,#aaa);margin:0 0 28px;font-size:0.92rem;">
+        Da li ste sigurni? Ova akcija je <strong>nepovratna</strong>.
+    </p>
+    <div style="display:flex;gap:14px;justify-content:center;">
+        <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">{{ _('Cancel') }}</button>
+        <button type="button" class="btn btn-danger" onclick="doDelete()">{{ _('Yes, delete') }}</button>
+    </div>
+  </div>
+</div>
+{% endif %}
 
 </form>
 </div><!-- end left -->
@@ -356,5 +422,29 @@ document.getElementById('equipSelect').addEventListener('change',function(){
 });
 
 recalc();
+
+// ── Delete modal (R-T5: delete moved from the list into this form) ──
+var _deleteUrl = null;
+function openDeleteModal(btn) {
+    _deleteUrl = btn.getAttribute('data-action');
+    var m = document.getElementById('deleteModal');
+    if (m) m.style.display = 'flex';
+}
+function closeDeleteModal() {
+    document.getElementById('deleteModal').style.display = 'none';
+    _deleteUrl = null;
+}
+function doDelete() {
+    if (!_deleteUrl) return;
+    var f = document.createElement('form');
+    f.method = 'POST';
+    f.action = _deleteUrl;
+    document.body.appendChild(f);
+    f.submit();
+}
+var _dm = document.getElementById('deleteModal');
+if (_dm) _dm.addEventListener('click', function(e) {
+    if (e.target === this) closeDeleteModal();
+});
 </script>
 {% endblock %}

@@ -15,7 +15,6 @@
 {% from '_banner.html' import banner with context %}
 {% call banner() %}
     <a href="{{ url_for('rent.list_contracts') }}" {% if request.endpoint=='rent.list_contracts' %}class="active"{% endif %}>{{ _('Contracts') }}</a>
-    <a href="{{ url_for('rent.list_equipment') }}" {% if request.endpoint=='rent.list_equipment' %}class="active"{% endif %}>{{ _('Equipment') }}</a>
 {% endcall %}
 {% endif %}
 {% block content %}{% endblock %}

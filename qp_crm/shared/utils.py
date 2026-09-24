@@ -149,7 +149,6 @@ TRANSLATIONS = {
         'Directory': 'Imenik',
         'Down Payment / Advance (%)': 'Učešće / Avans (%)',
         'Duplicate this product?': 'Duplirati ovaj proizvod?',
-        'Equipment': 'Oprema',
         'Equipment Model': 'Model Opreme',
         'Error downloading image from URL: ': 'Greška pri preuzimanju slike sa URL-a: ',
         'Error fetching exchange rates.': 'Greška pri preuzimanju kurseva.',
