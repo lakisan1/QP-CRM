@@ -1784,6 +1784,25 @@
       "createdAt": 1790287100244,
       "updatedAt": 1790288573247,
       "summary": "Oprema: nova ruta /rent/contracts/equipment/save kreira katalog unos iz inline forme u sekciji '4. Oprema' edit forme (naziv/cena/meseci/garancija/avans — ista whitelist polja kao stara stranica), redirect nazad na ugovor sa ?eq_id=<new> pa se nova oprema odmah preselectuje; return_to kroz same-site validaciju. /rent/equipment (GET+POST) redirect na /rent/contracts, rent_equipment.html obrisan, Equipment link izbačen iz headera, 'Equipment' i18n par uklonjen. Delete dugme + confirm modal premešteni sa liste u edit formu (R-T5 zajedno). 9 novih karakterizacija + full suite 374 passed. Commit 8a706b2. LIVE verifikacija na :5000: badges, 5 statusa u selectu, delete modal, inline forma, /rent/equipment→302, status izmena kroz POST OK (revertovano)."
+    },
+    {
+      "id": "card-c28c1b74-f4df-4541-8b1d-762b5d87256c",
+      "title": "R-T7 · Follow-up: lista bez Edit dugmeta + edit forma bez selektora opreme",
+      "description": "Follow-up na R-T3/R-T4 (ista sesija, user povratne informacije posle deploy-a): 1) Actions kolona sa Edit dugmetom uklonjena iz contracts liste — broj ugovora je već link ka edit formi, isto ponašanje; 2) equipment picker (equipSelect + autofill JS + GET /rent/api/equipment/<id>) uklonjen iz edit forme — oprema se unosi direktno kao free-text, inline 'Sačuvaj ovu opremu u bazu za sledeći put' forma ostaje za reuse defaulta. Commit f5ca820, full suite 374 passed, live verifikacija na :5000.",
+      "summary": "Lista: Actions kolona + Edit dugme uklonjeni (broj ugovora = link). Edit forma: equipSelect picker + autofill fetch + /rent/api/equipment/<id> endpoint uklonjeni; section 4. Oprema = equipment_model textarea + inline katalog forma (bez eq_id preselecta). 18 testova ažurirano/dodato, 374 passed. Commit f5ca820, kontejner rebuilt, live verifikacija OK.",
+      "rationale": "User je posle deploy-a rekao: Edit dugme nije potrebno (broj ugovora je link) i selektor opreme više nije potreban (oprema se unosi direktno).",
+      "rejected": "Zadržati picker samo za autofill defaulta (bez vidljivog select-a) — odbijeno: bez vidljivog selecta nema prirodnog mesta za njega, a inline katalog forma već ima default vrednosti; komplikovalo bi formu bez stvarne koristi. Ukloniti i rent_equipment tabelu — odbijeno: inline save forma i dalje piše u nju (reuse defaulta), backup/factory-reset je referenciraju.",
+      "sourceSessionId": "session-9b6bb521-1670-43c9-bc2c-3dd3d43f0330",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "rent",
+        "ui",
+        "follow-up",
+        "deployed"
+      ],
+      "createdAt": 1790291581759,
+      "updatedAt": 1790291581759
     }
   ]
 }
