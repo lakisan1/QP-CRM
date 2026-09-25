@@ -266,45 +266,6 @@ def api_client(client_ref):
     return _contact_json(contact)
 
 
-@bp.route("/contracts/equipment/save", methods=["POST"])
-def save_equipment_inline():
-    """Create a catalog entry from the contract form (R-T4, 2026-09-24).
-
-    The standalone /rent/equipment page is gone; section '4. Oprema' of the
-    contract form carries a compact add-to-catalog form. Same field
-    whitelist the old page's action=save used. Redirects back to where the
-    user came from (edit form of the contract, or the new-contract form).
-    The equipment picker was removed the same day (user: equipment is typed
-    directly into the contract now), so there is no eq_id preselect.
-    """
-    name = request.form.get("name", "").strip()
-    if not name:
-        # nothing to add: bounce back without touching the catalog
-        return redirect(request.form.get("return_to")
-                        or url_for("rent.list_contracts"))
-    data = {
-        "name": name,
-        "price": float(request.form.get("price") or 0),
-        "default_rent_months": int(request.form.get("default_rent_months") or 48),
-        "default_guarantee_rate": float(request.form.get("default_guarantee_rate") or 5),
-        "default_downpayment_percent": float(request.form.get("default_downpayment_percent") or 20),
-    }
-    conn = get_db()
-    cur = conn.cursor()
-    cols = ", ".join(data.keys())
-    placeholders = ", ".join(["?"] * len(data))
-    cur.execute(f"INSERT INTO rent_equipment ({cols}) VALUES ({placeholders});",
-                list(data.values()))
-    conn.commit()
-    conn.close()
-
-    return_to = request.form.get("return_to") or ""
-    # same-site absolute paths only (open-redirect guard, safe_next_url discipline)
-    if not return_to.startswith("/") or return_to.startswith("//"):
-        return_to = url_for("rent.list_contracts")
-    return redirect(return_to)
-
-
 @bp.route("/api/calculate")
 def api_calculate():
     try:

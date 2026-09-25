@@ -356,16 +356,19 @@ def factory_reset():
         tables_to_clear = [
             "products", "prices", "offers", "offer_items", "brands",
             "category_pricing_defaults", "text_presets", "price_rounding_rules",
-            "rent_clients", "rent_equipment", "rent_contracts",
+            "rent_clients", "rent_contracts",
             "rent_contract_documents", "rent_templates",
             # P5-unification: the shared directory resets too (children
             # first -- locations and roles reference contacts)
             "contact_locations", "contact_roles", "contacts",
         ]
-        # G31: Use parameterized queries — table names come from a fixed allow-list
-        allowed_tables = set(tables_to_clear)
+        # G31: table names come from a fixed allow-list; each is cleared only
+        # if it exists (rent_equipment was retired 2026-09-24 — legacy DBs may
+        # still carry the orphan table, fresh DBs never create it).
+        existing = {r[0] for r in cur.execute(
+            "SELECT name FROM sqlite_master WHERE type='table';").fetchall()}
         for table in tables_to_clear:
-            if table in allowed_tables:
+            if table in existing:
                 cur.execute(f"DELETE FROM {table};")
 
         # Reset PDF Templates (keep only 'System Default' and make it read-only)

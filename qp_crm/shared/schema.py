@@ -268,8 +268,15 @@ def create_admin_tables(cur):
 # ---------------------------------------------------------------------------
 
 def create_rent_tables(cur):
-    """rent_clients, rent_equipment, rent_contracts, rent_templates,
-    rent_contract_documents. Verbatim from rent/app.py init_db."""
+    """rent_clients, rent_contracts, rent_templates,
+    rent_contract_documents. Verbatim from rent/app.py init_db.
+
+    rent_equipment is RETIRED (2026-09-24 user request, R-T8): the equipment
+    catalog was removed — equipment lives only inside individual rent
+    contracts now. The CREATE is gone from the schema; legacy DBs keep an
+    inert orphan table (no reader, no writer) until the P5 schema cleanup
+    drops it. Old backups that contain the table restore fine (restore
+    writes only what the backup has)."""
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS rent_clients (
@@ -283,17 +290,6 @@ def create_rent_tables(cur):
             email TEXT,
             rent_address TEXT,
             guarantor TEXT
-        );
-    """)
-
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS rent_equipment (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            price REAL NOT NULL DEFAULT 0,
-            default_rent_months INTEGER DEFAULT 48,
-            default_guarantee_rate REAL DEFAULT 5.0,
-            default_downpayment_percent REAL DEFAULT 20.0
         );
     """)
 

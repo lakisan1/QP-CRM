@@ -84,7 +84,6 @@ def init_db():
 
     # Seed from CSV if tables are empty
     _seed_clients(conn)
-    _seed_equipment(conn)
     seed_templates(conn)
 
     conn.close()
@@ -131,43 +130,6 @@ def _seed_clients(conn):
                 (row.get("Adresa Zakupa") or "").strip(),
                 (row.get("Jamac: Ime, Grad, JMBG: ") or "").strip(),
             ))
-    conn.commit()
-
-
-def _seed_equipment(conn):
-    cur = conn.cursor()
-    cur.execute("SELECT COUNT(*) as c FROM rent_equipment;")
-    if cur.fetchone()["c"] > 0:
-        return
-    csv_path = os.path.join(CSV_DIR, "Marikovic Hofmann Rent Oprema.csv")
-    if not os.path.exists(csv_path):
-        return
-    with open(csv_path, encoding="utf-8-sig", newline="") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            name = (row.get("NAZIV MAX 255 karaktera") or "").strip()
-            if not name:
-                continue
-            price = _clean_num(row.get("CENA")) or 0
-            months_raw = (row.get("BROJ MESECI") or "48").strip()
-            try:
-                months = int(months_raw)
-            except ValueError:
-                months = 48
-            stopa_raw = (row.get("Stopa Troska") or "5,00%").strip().replace('%', '').replace(',', '.')
-            try:
-                guarantee = float(stopa_raw)
-            except ValueError:
-                guarantee = 5.0
-            ucesce_val = _clean_num(row.get("Ucesce"))
-            if ucesce_val and price > 0:
-                dp_pct = round(ucesce_val / price * 100, 2)
-            else:
-                dp_pct = 20.0
-            cur.execute("""
-                INSERT INTO rent_equipment (name, price, default_rent_months, default_guarantee_rate, default_downpayment_percent)
-                VALUES (?,?,?,?,?)
-            """, (name, price, months, guarantee, dp_pct))
     conn.commit()
 
 
