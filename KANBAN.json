@@ -1803,6 +1803,25 @@
       ],
       "createdAt": 1790291581759,
       "updatedAt": 1790291581759
+    },
+    {
+      "id": "card-fc077857-f703-4c05-85ba-721e58ac46a2",
+      "title": "R-T8 · Ukidanje baze opreme: bez inline forme, bez rent_equipment seed-a i katalog rute",
+      "description": "User: i inline 'Sačuvaj ovu opremu u bazu' forma i cela baza opreme (rent_equipment) nisu potrebni — oprema se unosi samo u ugovor (Model/Opis + cena + broj meseci), svi finansijski parametri se ionako određuju u sekciji 5. Plan: (1) ukloniti inline katalog formu iz rent_contract_form.html sekcije 4; (2) ukloniti save_equipment_inline rutu iz contracts.py; (3) ukloniti _seed_equipment CSV seed iz rent/app.py (excell Rent calc/Marikovic Hofmann Rent Oprema.csv); (4) ukloniti rent_equipment CREATE iz schema.py create_rent_tables; (5) NE DROP-ovati tabelu u migrate_rent_tables (stari backupovi je imaju; factory_reset/backup.py je čisti, infra test traži tabelu → promeniti infra test da ne traži rent_equipment); (6) backup.py tables_to_clear zadržati rent_equipment (DELETE na nepostojećoj tabeli pada? proveriti — factory_reset radi na aktuelnoj šemi koja više nema tabelu); (7) pdf_templates.py photo check: try/except već pokriva odsustvo tabele; (8) ažurirati karakterizacije (inline forma testovi pada) i infra test; (9) commit + rebuild + live verifikacija.",
+      "rationale": "User odluka: baza opreme je suvišna — oprema živi samo u individualnim ugovorima; parametri se određuju u polju 5 forme.",
+      "rejected": "DROP TABLE rent_equipment u migraciji — odbijeno za sada: stari backupovi i konvertovani backup test je referenciraju; tabela bez writer-a i reader-a je inertna, DROP može kasnije u P5 stock karti kad se čisti legacy šema. Zadržati tabelu bez seed-a — odbijeno: user je eksplicitno rekao 'cela baza može da se obriše'.",
+      "sourceSessionId": "session-9b6bb521-1670-43c9-bc2c-3dd3d43f0330",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "rent",
+        "equipment",
+        "removal",
+        "task"
+      ],
+      "createdAt": 1790316970674,
+      "updatedAt": 1790317430721,
+      "summary": "Baza opreme ukijena: inline 'Sačuvaj ovu opremu u bazu' forma uklonjena iz sekcije 4. Oprema (ostaje samo free-text equipment_model textarea); POST /rent/contracts/equipment/save ruta obrisana (404 sa validnim tokenom); _seed_equipment CSV seed (Marikovic Hofmann Rent Oprema.csv) obrisan iz rent/app.py; rent_equipment CREATE uklonjen iz schema.py create_rent_tables (sveža baza ne pravi tabelu; legacy baze zadržavaju inertnu orphan tabelu — live DB je još ima, no reader/writer); factory_reset briše samo postojeće tabele (sqlite_master check); infra test više ne traži rent_equipment; novi suite tests/characterization/test_rent_equipment_retirement.py (11 testova, legacy-tolerant test DROP-uje simuliranu tabelu iza sebe). Full suite 376 passed / 3 skipped. Commit (vidi git log), kontejner rebuilt, live verifikacija na :5000: bez katalog forme, textarea+status+delete modal prisutni, endpoint 404, ugovori netaknuti."
     }
   ]
 }
