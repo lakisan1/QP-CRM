@@ -146,6 +146,28 @@ def test_list_has_no_actions_column_no_edit_button():
     assert 'href="/rent/contracts/edit/' in html
 
 
+def test_list_hides_equipment_model_and_net_installment_columns():
+    """Same-day follow-up (2026-09-24): the list shows only Datum / broj
+    ugovora / musterija / cena / rata BRUTO / status — Model opreme and
+    Rata neto live in the edit form, not the overview table."""
+    client = _client()
+    conn = get_db()
+    conn.execute(
+        "INSERT INTO rent_contracts (contract_number, client_name, status, "
+        "equipment_model, price) VALUES ('EQ-COLS', 'Cols Firma', 'u_izradi', "
+        "'Secret Masina XYZ', 1000);")
+    conn.commit()
+    conn.close()
+
+    html = client.get("/rent/contracts").data.decode()
+    # columns gone from the header AND the row data not leaked
+    assert "Model Opreme" not in html
+    assert "Monthly Net Installment" not in html
+    assert "Secret Masina XYZ" not in html
+    # gross installment column remains (the overview's money column)
+    assert "Rata BRUTO" in html or "Monthly Gross Installment" in html
+
+
 # ── R-T4/R-T7: edit form carries delete + status, no picker, no catalog ──────
 
 def test_edit_form_has_delete_modal_and_status_but_no_catalog():

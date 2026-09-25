@@ -57,9 +57,7 @@ tr.status-potpisan_ugovor:hover {
             <th scope="col">Datum</th>
             <th scope="col">{{ _('Contract Number') }}</th>
             <th scope="col">{{ _('Client') }}</th>
-            <th scope="col">{{ _('Equipment Model') }}</th>
             <th scope="col">{{ _('Price (€)') }}</th>
-            <th scope="col">{{ _('Monthly Net Installment (€)') }}</th>
             <th scope="col">{{ _('Monthly Gross Installment (€)') }}</th>
             <th scope="col">Status</th>
         </tr>
@@ -75,16 +73,14 @@ tr.status-potpisan_ugovor:hover {
                 <td style="white-space:nowrap;">{{ c.contract_date }}</td>
                 <td><a href="{{ url_for('rent.edit_contract', contract_id=c.id) }}">{{ c.contract_number or c.id }}</a></td>
                 <td>{{ c.client_name }}</td>
-                <td style="max-width:200px;font-size:12px;">{{ c.equipment_model }}</td>
                 <td style="text-align:right;">{{ format_amount(c.price) }}</td>
-                <td style="text-align:right;font-weight:600;">{{ format_amount(calc.rata_neto) }}</td>
                 <td style="text-align:right;font-weight:600;color:var(--accent-primary);">{{ format_amount(calc.rata_bruto) }}</td>
                 <td style="text-align:center;white-space:nowrap;">
                     <span class="status-badge status-{{ c_status }}">{{ status_labels[c_status] }}</span>
                 </td>
             </tr>
         {% else %}
-            <tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:30px;">{{ _('No contracts.') }}</td></tr>
+            <tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:30px;">{{ _('No contracts.') }}</td></tr>
         {% endfor %}
         </tbody>
     </table>
