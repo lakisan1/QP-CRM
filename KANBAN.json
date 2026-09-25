@@ -1822,6 +1822,25 @@
       "createdAt": 1790316970674,
       "updatedAt": 1790317430721,
       "summary": "Baza opreme ukijena: inline 'Sačuvaj ovu opremu u bazu' forma uklonjena iz sekcije 4. Oprema (ostaje samo free-text equipment_model textarea); POST /rent/contracts/equipment/save ruta obrisana (404 sa validnim tokenom); _seed_equipment CSV seed (Marikovic Hofmann Rent Oprema.csv) obrisan iz rent/app.py; rent_equipment CREATE uklonjen iz schema.py create_rent_tables (sveža baza ne pravi tabelu; legacy baze zadržavaju inertnu orphan tabelu — live DB je još ima, no reader/writer); factory_reset briše samo postojeće tabele (sqlite_master check); infra test više ne traži rent_equipment; novi suite tests/characterization/test_rent_equipment_retirement.py (11 testova, legacy-tolerant test DROP-uje simuliranu tabelu iza sebe). Full suite 376 passed / 3 skipped. Commit (vidi git log), kontejner rebuilt, live verifikacija na :5000: bez katalog forme, textarea+status+delete modal prisutni, endpoint 404, ugovori netaknuti."
+    },
+    {
+      "id": "card-76d6a6b5-8f49-4eeb-a791-63ff7bd65656",
+      "title": "R-T9 · Lista: sakrij Model opreme i Mesečna rata neto kolone",
+      "description": "User: u tabeli ugovora sakriti i 'Model Opreme' i 'Mesečna rata neto (€)' kolone. Tabela sada ima 6 kolona: Datum, Broj Ugovora (link na edit), Klijent, Cena (€), Mesečna rata bruto (€), Status badge. Dodat test test_list_hides_equipment_model_and_net_installment_columns (proverava header + da se podatak o opremi ne curi u HTML). Commit 62f58b7, full suite 377 passed, live verifikacija na :5000.",
+      "summary": "Tabela ugovora: uklonjene kolone 'Model Opreme' i 'Mesečna rata neto (€)' (header + red; colspan 8→6). Ostalo: Datum, Broj Ugovora (link), Klijent, Cena (€), Mesečna rata bruto (€), Status. Novi test u retirement suite-u, 377 passed. Commit 62f58b7, rebuilt, live verifikacija: headeri tačno tih 6, podaci o opremi ne cure.",
+      "rationale": "User odluka: pregledna tabela treba samo ključne novčane kolone — model opreme i rata neto su vidljivi u edit formi.",
+      "rejected": "Zadržati rata neto (bruto = neto + PDV je izvediv) — odbijeno: user je eksplicitno naveo obe kolone za skrivanje; bruto je jedina prikazana rata jer je ta koju musterija plaća.",
+      "sourceSessionId": "session-9b6bb521-1670-43c9-bc2c-3dd3d43f0330",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "rent",
+        "ui",
+        "follow-up",
+        "deployed"
+      ],
+      "createdAt": 1790317653084,
+      "updatedAt": 1790317653084
     }
   ]
 }
