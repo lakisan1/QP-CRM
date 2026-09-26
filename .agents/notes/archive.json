@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "archived": [
+    {
+      "id": "card-e20fb211-a088-4583-95c3-ba3cd08df668",
+      "title": "Familiarize with QP-CRM codebase and architecture",
+      "description": "Read all 4 docs (README_API/FEATURES/PROGRAM_DOCUMENTATION/API_INSTRUCTIONS), main.py, every module's routes/schema, and AUDIT_FINDINGS.md. Verified vs code this pass: 6 sub-apps merged via DispatcherMiddleware on :5000 + /api/v1 blueprint; single SQLite app_data/pricing.db (WAL) with ~16 tables incl. site_products (WP sync snapshot); module-level WeasyPrint imports (offer/app.py:8, rent/app.py:10) are the known boot blocker (missing libpango, needs root). NEW vs prior pass: undocumented site-sync feature (pricing/templates/product_sync.html + /api/v1/sync/{fetch,table,link,unlink,product_info,add_product} pulling from autoservisnaoprema.com WP REST API, 1:1 products.site_product_id link); rent lease calculator replicates Excel PMT; 'System Default' PDF template re-synced from filesystem at every admin boot; AUDIT_FINDINGS.md tracks C1-C5/H1-H10/M1-M11 issues (SSTI via stored PDF templates, no CSRF except settings app, plaintext passwords).",
+      "summary": "Re-surveyed docs + all 7 packages' entry points, route maps, DB schema (all CREATE TABLE blocks), rent PMT calculator, offer recalc_totals cascade, sync API, deploy scripts; wrote architecture summary for the user.",
+      "rationale": "Goal 1 of the session request — understand the app before running it; needed to predict the WeasyPrint boot blocker (module-level imports in offer/app.py:8 and rent/app.py:10).",
+      "rejected": "Skimming every route in the 1.2-1.8k-line app.py files — PROGRAM_DOCUMENTATION.md already enumerates all routes per module with implementation notes, so per-route reading was redundant for setup purposes.",
+      "sourceSessionId": "session-5cc94371-fc3f-4d12-a3cd-ea499a7f897c",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "familiarization"
+      ],
+      "createdAt": 1788442332644,
+      "updatedAt": 1788443324865
+    }
+  ]
+}
