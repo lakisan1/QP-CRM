@@ -10,6 +10,7 @@ from qp_crm.offer.app import init_db as offer_init_db, bp as offer_bp
 from qp_crm.admin.app import init_db as admin_init_db, bp as admin_bp
 from qp_crm.rent.app import init_db as rent_init_db, bp as rent_bp
 from qp_crm.contacts.app import init_db as contacts_init_db, bp as contacts_bp
+from qp_crm.warehouse.app import init_db as warehouse_init_db, bp as warehouse_bp
 from qp_crm.settings.app import bp as settings_bp
 from qp_crm.sale.app import bp as sale_bp
 from qp_crm.pricing.api_v1 import api_v1
@@ -101,6 +102,10 @@ app.register_blueprint(admin_bp, url_prefix="/admin")
 # /contacts, per-user grant 'contacts'.
 app.register_blueprint(contacts_bp, url_prefix="/contacts")
 
+# Warehouse module blueprint (P5): stock & equipment (custody of machines,
+# opt-in tracking, shortfall debts) at /warehouse, per-user grant 'warehouse'.
+app.register_blueprint(warehouse_bp, url_prefix="/warehouse")
+
 # CSRF on ALL state-changing routes (Phase 3 step 5): the settings app's
 # per-session token pattern generalized into shared/web.py and wired once at
 # the app level -- every POST/PUT/PATCH/DELETE on every blueprint (auth,
@@ -182,6 +187,7 @@ if __name__ == "__main__":
     admin_init_db()
     rent_init_db()
     contacts_init_db()
+    warehouse_init_db()
 
     # We use run_simple to run the WSGI application
     # This replaces app.run() for the combined app

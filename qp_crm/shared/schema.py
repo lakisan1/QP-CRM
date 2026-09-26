@@ -28,6 +28,12 @@ Canonical union of the historical duplicates:
   date), price_rounding_rules.min/max and rent_contracts.contract_number
   all legally carry duplicates today (duplicate-offer copies, price
   history, bracket boundaries, imported contracts).
+
+P5 (2026-09-25): warehouse module tables (equipment, stock_movements,
+reservations, equipment_shortfalls) + products tracking-regime columns.
+Blueprint §3 adapted to the no-deals reality (user answers 2026-09-25):
+no deal links, custodian counterparty = contacts directory, fleet/POs
+deferred, rent_equipment orphan dropped on migrate.
 """
 
 import sqlite3
@@ -53,7 +59,13 @@ def create_pricing_tables(cur):
             website_url TEXT,        -- optional link to the product's web page
             manufacturer_url TEXT,   -- optional link to the manufacturer's page
             product_code TEXT,       -- optional external ID / catalogue code (offer-invisible)
-            item_type TEXT NOT NULL DEFAULT 'proizvod'  -- 'proizvod' | 'usluga'
+            item_type TEXT NOT NULL DEFAULT 'proizvod',  -- 'proizvod' | 'usluga'
+            tracking_regime TEXT NOT NULL DEFAULT 'untracked',
+                                     -- 'untracked' | 'qty' | 'serialized' (P5, blueprint §3;
+                                     -- untracked = catalog-only, no stock ledger)
+            min_stock REAL,          -- qty-regime reorder point (optional)
+            unit_base TEXT,          -- practical unit ('kom', 'litar', 'metar', ...)
+            pack_size REAL           -- units per pack (optional)
         );
     """)
 
@@ -516,6 +528,16 @@ def migrate_pricing(cur):
     # REQUIRED on the form). NOT NULL DEFAULT 'proizvod' backfills every
     # existing row as a physical product (user: everything so far is one).
     add_column_if_missing(cur, "products", "item_type TEXT NOT NULL DEFAULT 'proizvod'")
+    # 3f. P5 tracking regime (blueprint §3, amendment 5): 'untracked' is the
+    # DEFAULT so the whole existing catalog (254 rows) carries zero tracking
+    # burden — small parts stay catalog entries only. 'qty' opts a product
+    # into the loose movement ledger; 'serialized' into identity tracking
+    # (equipment rows). min_stock/unit_base/pack_size apply to qty only.
+    add_column_if_missing(
+        cur, "products", "tracking_regime TEXT NOT NULL DEFAULT 'untracked'")
+    add_column_if_missing(cur, "products", "min_stock REAL")
+    add_column_if_missing(cur, "products", "unit_base TEXT")
+    add_column_if_missing(cur, "products", "pack_size REAL")
     cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_products_site_product_id ON products(site_product_id);")
     # Index for fast lookups by name when building the comparison table
     cur.execute("CREATE INDEX IF NOT EXISTS idx_products_name ON products(name);")
@@ -806,3 +828,156 @@ def backfill_rent_clients_into_contacts(cur):
             "UPDATE rent_clients SET migrated_contact_id = ? WHERE id = ?;",
             (contact_id, row["id"]),
         )
+
+
+# ---------------------------------------------------------------------------
+# warehouse module tables (P5 — stock & equipment)
+# ---------------------------------------------------------------------------
+# Adapted from blueprint §3 + amendments 2/5/6 with the 2026-09-25 user
+# answers: NO deal links anywhere (the /deals spine was removed 2026-09-16;
+# reservations use a free-text for_whom), custodian counterparty is the
+# contacts directory (contact_locations sites resolve through it), fleet
+# vehicles and purchase_orders are deferred (po_ref is free text for v1).
+
+# Fixed closed sets (extend only by migration — same discipline as
+# CONTACT_KINDS/CONTACT_ROLES, blueprint §5):
+TRACKING_REGIMES = ("untracked", "qty", "serialized")
+
+CUSTODIAN_TYPES = ("warehouse", "customer", "scrap")
+
+EQUIPMENT_STATUSES = (
+    ("in_stock",   "U magacinu"),
+    ("delivered",  "Isporučen"),
+    ("loaned",     "Posuđen"),
+    ("test_demo",  "Test/Demo"),
+    ("in_service", "Na servisu"),
+    ("scrapped",   "Rashodovan"),
+)
+EQUIPMENT_STATUS_VALUES = tuple(value for value, _label in EQUIPMENT_STATUSES)
+EQUIPMENT_STATUS_LABELS = dict(EQUIPMENT_STATUSES)
+
+MOVEMENT_REASONS = (
+    ("purchase_in",          "Nabavka (ulaz)"),
+    ("sale",                 "Prodaja"),
+    ("free_issue",           "Besplatno izdato"),
+    ("loan",                 "Zajam / pozajmica"),
+    ("test_demo",            "Test / demo"),
+    ("return",               "Povraćaj"),
+    ("service_in",           "Prihvat na servis"),
+    ("scrap",                "Rashod"),
+    ("stocktake_adjustment", "Popis / korekcija"),
+)
+MOVEMENT_REASON_VALUES = tuple(value for value, _label in MOVEMENT_REASONS)
+MOVEMENT_REASON_LABELS = dict(MOVEMENT_REASONS)
+
+
+def create_warehouse_tables(cur):
+    """equipment, stock_movements, reservations, equipment_shortfalls (P5).
+
+    Conventions (blueprint §3/§4):
+      * id + snapshot: rows reference products by nullable id AND carry
+        name_snapshot, so a temp product (ad-hoc part/device with no catalog
+        row) is representable everywhere — no forced catalog entries.
+      * NO deletes: equipment rows live forever (exit = custodian 'scrap');
+        movements are never deleted (correcting = a reversing movement);
+        reservations/shortfalls close (released_at/closed_at), never vanish.
+      * names resolved at read time: views JOIN products/contacts for
+        display; nothing stores another entity's name as its key (rename =
+        editing one master row).
+      * tracking is opt-in per product (amendment 5): untracked products
+        never appear in movements/reservations — the service layer gates.
+    """
+    # Serialized instances (lifts, PTI lanes, testers): ONE row per physical
+    # machine, forever. custodian_type='warehouse' + status='in_stock' IS the
+    # warehouse count (derived, no separate qty ledger for serialized goods).
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS equipment (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_id INTEGER REFERENCES products(id),
+                                     -- NULL allowed = temp registration (no catalog row)
+            name_snapshot TEXT NOT NULL,
+                                     -- what it was called when registered
+            serial_number TEXT,
+                                     -- free text; duplicates allowed (visible in UI)
+            custodian_type TEXT NOT NULL DEFAULT 'warehouse',
+                                     -- warehouse | customer | scrap
+            custodian_contact_id INTEGER REFERENCES contacts(id),
+                                     -- set when custodian_type='customer'
+            since_date TEXT NOT NULL,-- custody "since when" (the machine page's headline fact)
+            status TEXT NOT NULL DEFAULT 'in_stock',
+                                     -- in_stock|delivered|loaned|test_demo|in_service|scrapped
+            expected_return_at TEXT, -- loan/test reminder hooks (P7 reads this)
+            notes TEXT,
+            created_at TEXT
+        );
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_equipment_product ON equipment(product_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_equipment_custodian ON equipment(custodian_contact_id);")
+
+    # The single movement ledger. direction='in' adds stock, 'out' removes;
+    # contact_id is the counterparty (supplier on purchase_in, customer on
+    # sale/loan/free_issue/service_in...). doc refs are deliberately NOT
+    # modeled in v1 (optional evidence, blueprint §4.7) — the note carries
+    # "po ponudi P-..." until a document-link batch adds them.
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS stock_movements (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_id INTEGER REFERENCES products(id),
+                                     -- qty-regime rows
+            equipment_id INTEGER REFERENCES equipment(id),
+                                     -- serialized rows
+            name_snapshot TEXT,      -- temp products / free-text part names
+            qty REAL,                -- qty regime only (direction-sign applied on read)
+            direction TEXT NOT NULL, -- 'in' | 'out'
+            reason TEXT NOT NULL,    -- MOVEMENT_REASONS closed set
+            contact_id INTEGER REFERENCES contacts(id),
+                                     -- counterparty (supplier/customer), NULL for internal
+            note TEXT,
+            moved_at TEXT NOT NULL,
+            moved_by INTEGER REFERENCES users(id)
+        );
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_stock_movements_product ON stock_movements(product_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_stock_movements_equipment ON stock_movements(equipment_id);")
+
+    # Coverage loop (user answer 2026-09-25: free-text 'for whom' only — the
+    # deals spine is gone). Active = released_at IS NULL. One of
+    # product_id (qty regime) / equipment_id (pinned instance) is required.
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS reservations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_id INTEGER REFERENCES products(id),
+            equipment_id INTEGER REFERENCES equipment(id),
+            qty REAL,
+            for_whom TEXT NOT NULL,  -- customer name, job, internal note...
+            note TEXT,
+            created_at TEXT,
+            released_at TEXT
+        );
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_reservations_product ON reservations(product_id);")
+
+    # Donor parts = DEBTS, not inventory (amendment 5b): device A owes a part
+    # that was taken to fix something else. po_ref is free text in v1 (POs
+    # are a deferred batch); closed_at set = debt settled.
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS equipment_shortfalls (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            equipment_id INTEGER NOT NULL REFERENCES equipment(id),
+            part_product_id INTEGER REFERENCES products(id),
+            part_name TEXT NOT NULL,
+            taken_at TEXT NOT NULL,
+            po_ref TEXT,
+            closed_at TEXT,
+            note TEXT
+        );
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_shortfalls_equipment ON equipment_shortfalls(equipment_id);")
+
+
+def migrate_warehouse(cur):
+    """Warehouse-side idempotent migrations. All CREATEs are IF NOT EXISTS
+    and every column is born in its canonical CREATE, so this is only the
+    P5 schema cleanup: the retired rent_equipment orphan table is dropped
+    from legacy DBs (fresh ones never had it — R-T8, 2026-09-24)."""
+    cur.execute("DROP TABLE IF EXISTS rent_equipment;")
