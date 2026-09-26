@@ -2,22 +2,6 @@
   "version": 1,
   "cards": [
     {
-      "id": "card-e20fb211-a088-4583-95c3-ba3cd08df668",
-      "title": "Familiarize with QP-CRM codebase and architecture",
-      "description": "Read all 4 docs (README_API/FEATURES/PROGRAM_DOCUMENTATION/API_INSTRUCTIONS), main.py, every module's routes/schema, and AUDIT_FINDINGS.md. Verified vs code this pass: 6 sub-apps merged via DispatcherMiddleware on :5000 + /api/v1 blueprint; single SQLite app_data/pricing.db (WAL) with ~16 tables incl. site_products (WP sync snapshot); module-level WeasyPrint imports (offer/app.py:8, rent/app.py:10) are the known boot blocker (missing libpango, needs root). NEW vs prior pass: undocumented site-sync feature (pricing/templates/product_sync.html + /api/v1/sync/{fetch,table,link,unlink,product_info,add_product} pulling from autoservisnaoprema.com WP REST API, 1:1 products.site_product_id link); rent lease calculator replicates Excel PMT; 'System Default' PDF template re-synced from filesystem at every admin boot; AUDIT_FINDINGS.md tracks C1-C5/H1-H10/M1-M11 issues (SSTI via stored PDF templates, no CSRF except settings app, plaintext passwords).",
-      "summary": "Re-surveyed docs + all 7 packages' entry points, route maps, DB schema (all CREATE TABLE blocks), rent PMT calculator, offer recalc_totals cascade, sync API, deploy scripts; wrote architecture summary for the user.",
-      "rationale": "Goal 1 of the session request — understand the app before running it; needed to predict the WeasyPrint boot blocker (module-level imports in offer/app.py:8 and rent/app.py:10).",
-      "rejected": "Skimming every route in the 1.2-1.8k-line app.py files — PROGRAM_DOCUMENTATION.md already enumerates all routes per module with implementation notes, so per-route reading was redundant for setup purposes.",
-      "sourceSessionId": "session-5cc94371-fc3f-4d12-a3cd-ea499a7f897c",
-      "status": "done",
-      "tags": [
-        "qp-crm",
-        "familiarization"
-      ],
-      "createdAt": 1788442332644,
-      "updatedAt": 1788443324865
-    },
-    {
       "id": "card-e61c6848-8617-4de6-bb61-07222cbb6666",
       "title": "Set up QP-CRM Python environment (venv + deps)",
       "description": "run_apps.sh aborted at its sudo apt step (sandbox: \"no new privileges\" flag blocks sudo; set -e killed the script), so app_data/, venv/ and pip install never ran from the script. Manual fallback: mkdir -p app_data/product_images; python3 -m venv failed because ensurepip/python3.12-venv is missing and there is no system pip3; recreated with `python3 -m venv --without-pip venv` + curl get-pip.py bootstrap; installed requirements.txt (Flask 3.1.3, Pillow 12.3.0, requests, WeasyPrint 69.0, pypdf 6.16.2, python-docx 1.2.0, mammoth 1.12.1, lxml 6.1.3) + Werkzeug 3.1.8. Note: `markdown` is intentionally NOT a pip dep — it is vendored in custom_libs/ and added to sys.path at runtime by the sub-apps.",
@@ -926,7 +910,7 @@
       "rationale": "User's final two requirements: (a) the quotation temp-product must exist in the warehouse too (one-off parts/devices shouldn't force catalog rows), and (b) the DB being \"just links\" must make renames and N-into-1 merges non-breaking. Both follow from one convention (id + snapshot + alias map) that is cheap to adopt on day one and painful to retrofit — recording it before P4/P5 schemas are written.",
       "rejected": "Foreign-key-name lookups everywhere (name as key) — rejected: makes renames break references, the exact opposite of the requirement. Auto-updating historical document lines on rename/merge — rejected: issued offers/invoices are legal records; they keep issuance-time snapshots. Cascade-rewriting all references at merge time with no alias map — rejected: irreversible and lossy; alias map keeps old ids resolvable forever. Fancy dedup engines — rejected: alias map + duplicate-suspect view + manual confirm is enough and stays understandable.",
       "sourceSessionId": "session-7383d563-60ad-4303-be85-68798dd7746b",
-      "status": "todo",
+      "status": "in_progress",
       "tags": [
         "qp-crm",
         "stock",
@@ -935,7 +919,7 @@
         "plan"
       ],
       "createdAt": 1788800562300,
-      "updatedAt": 1788821723919
+      "updatedAt": 1790449007502
     },
     {
       "id": "card-2cf8375c-9aa9-4fd6-8d84-1b7c077ec29b",
@@ -1841,6 +1825,54 @@
       ],
       "createdAt": 1790317653084,
       "updatedAt": 1790317653084
+    },
+    {
+      "id": "card-b64efea5-e8a0-46dc-9df5-881e833abfc8",
+      "title": "P-6 User logs",
+      "summary": "Log za svaku izmenu poslovnih dokumenata Po useru i datum+vreme npr:\n- Imenik, ponude, rent, magacin, price...\n--Ko je dodao\n--Ko je izmenio i sa\n--Spisak svih izmena",
+      "rationale": "Da znamo ko je sta uradio kako bi znali koga da pitamo ako nismo sigurni zasto je nesto tako",
+      "status": "todo",
+      "tags": [],
+      "createdAt": 1790448866173,
+      "updatedAt": 1790448866173
+    },
+    {
+      "id": "card-b87d2562-ed1d-4c0a-901d-7c8464772e7f",
+      "title": "P5-T1 · Schema: products tracking regime + equipment, stock_movements, reservations, equipment_shortfalls; drop rent_equipment",
+      "description": "Schema step of P5 (blueprint §3 + amendments 2/5/6, adapted to the no-deals reality by user answers 2026-09-25). All DDL in qp_crm/shared/schema.py (single source), wired via a new warehouse.init_db() in main.py/wsgi.py/conftest boot sequence after contacts.\n\nTables (all with the repo conventions: id+snapshot, no deletes, names resolved at read time):\n- products gains tracking columns via idempotent ALTERs in migrate_pricing: tracking_regime TEXT NOT NULL DEFAULT 'untracked' (closed set TRACKING_REGIMES = untracked|qty|serialized), min_stock REAL NULL, unit_base TEXT NULL, pack_size REAL NULL. Existing 254 products stay untracked — zero behavior change.\n- equipment (serialized instances, rows live forever): product_id NULL→products(id) (temp registrations allowed), name_snapshot TEXT NOT NULL, serial_number TEXT, custodian_type TEXT NOT NULL (CUSTODIAN_TYPES = warehouse|customer|scrap; no fleet/supplier for v1), custodian_contact_id NULL→contacts(id), since_date TEXT NOT NULL, status TEXT NOT NULL (EQUIPMENT_STATUSES = in_stock|delivered|loaned|test_demo|in_service|scrapped), expected_return_at TEXT NULL, notes TEXT. No UNIQUE on serial_number (temp registrations and multi-site copies make it unenforceable; duplicate-serial visible in UI).\n- stock_movements (the only way anything moves; never deleted, correcting = reversing movement): product_id NULL→products(id), equipment_id NULL→equipment(id), name_snapshot TEXT (temp products), qty REAL NULL (qty regime only), direction ('in'|'out'), reason TEXT NOT NULL (MOVEMENT_REASONS = purchase_in|sale|free_issue|loan|test_demo|return|service_in|scrap|stocktake_adjustment — no transfer/adjustment-without-note in v1), contact_id NULL→contacts(id) (counterparty: supplier on purchase_in, customer on sale/loan...), note TEXT, moved_at TEXT NOT NULL, moved_by NULL→users(id).\n- reservations (coverage loop, user answer: free-text 'for whom' only): product_id NULL→products(id), equipment_id NULL→equipment(id) (pin instance), qty REAL NULL, for_whom TEXT NOT NULL (deal links deliberately absent — user answer 1), created_at, released_at NULL, note TEXT. Active = released_at IS NULL.\n- equipment_shortfalls (donor debts, amendment 5b): equipment_id NOT NULL→equipment(id) (device A that owes the part), part_product_id NULL→products(id), part_name TEXT NOT NULL, taken_at TEXT NOT NULL, po_ref TEXT NULL (free text for v1 — POs deferred), closed_at TEXT NULL, note TEXT. Open = closed_at IS NULL.\n- fleet_vehicles + purchase_orders + po_lines + product_aliases: NOT in this batch — fleet vans answered as \"no fleet yet\" (custodian union without vans), POs deferred (po_ref is free text), aliases come in the rename/merge batch. Recorded so the next batch picks them up or closes them.\n\nAlso in this batch: DROP TABLE IF EXISTS rent_equipment in a schema cleanup step (user answer: drop during P5; legacy backups still restore fine), schema docstring updated. NO schema changes to offers/rent_contracts/products beyond the four ALTERs. Constants exported for the service layer: TRACKING_REGIMES, CUSTODIAN_TYPES, EQUIPMENT_STATUSES, MOVEMENT_REASONS.",
+      "rationale": "First buildable slice of P5: schema is the foundation every later batch (module skeleton, UI, service) sits on. Doing DDL first, in the repo's single-source schema.py + idempotent-ALTER pattern, means legacy DBs upgrade on next boot and the 254 live products change nothing by default (untracked). User answered all blocking questions (skip deal links, custodian=directory contact, drop rent_equipment now, empty start).",
+      "rejected": "Creating all P5 tables incl. fleet_vehicles/POs/product_aliases in one pass — rejected: those depend on answers/features not needed yet (no fleet vehicles exist, POs are free-text refs for v1, aliases belong with the merge tool); smaller batches keep each commit reviewable. deal_id columns on movements/reservations — rejected by user answer (skip deal links entirely). UNIQUE on equipment.serial_number — rejected: temp registrations and duplicate-plate realities make it unenforceable; visibility in UI instead. putting new tables in the contacts module — rejected: warehouse is its own module (user answer), schema tables follow the module that owns them.",
+      "sourceSessionId": "session-9f4384f9-153f-4dc6-aa7e-177d87591a7a",
+      "status": "in_progress",
+      "tags": [
+        "qp-crm",
+        "stock",
+        "equipment",
+        "phase-5",
+        "schema",
+        "task"
+      ],
+      "createdAt": 1790449061294,
+      "updatedAt": 1790449061294
+    },
+    {
+      "id": "card-24878434-5088-45c7-a1d8-824cf1d5dfe6",
+      "title": "Imenik: layout liste kao u Rent ugovorima (dugme iznad, filter u sivoj kartici)",
+      "description": "User (sa screenshot-ovima): /contacts/contacts treba isti layout kao /rent/contacts — prvo '+ Novi kontakt' dugme (levo) + brojač (desno), pa onda filter bar u .card-u sa sivom pozadinom, sve na postojećoj zajedničkoj .filter-row/.card konvenciji iz static/css/main.css. contacts/list.html: dugme+count red iznad, filter forma preseljena u .card (gap 15px, margin-bottom:0 na kontrolama). Tabela i paginacija nepromenjeni. Commit 71dbdca, rebuilt, live verifikacija: dugme PRE filter kartice, filter u .card-u, count pill prisutan.",
+      "summary": "contacts/list.html prepravljen na rent layout: '+ Novi kontakt' btn-success + count pill u gornjem redu, filter bar (Pretraga/Vrsta/Uloga/Država/Pretraži/Prikaži arhivirane) u .card filter-row konvenciji. 29 contacts testova passed. Commit 71dbdca, rebuilt, live verifikacija OK.",
+      "rationale": "User odluka: imenik da prati isti standard layout kao ostale app liste (rent ugovori) — dugme iznad, filter u sivoj kartici.",
+      "rejected": "Kopirati rent H1 sa emoji (📄 Zajednički imenik) — odbijeno: user je tražio raspored dugmad/filtera, ne naslov; imenik zadržava svoj H1. Dynamic1. Ukloniti arhivirane toggle iz filter reda — odbijeno: funkcionalnost ostaje, samo raspored prati standard.",
+      "sourceSessionId": "session-9b6bb521-1670-43c9-bc2c-3dd3d43f0330",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "contacts",
+        "ui",
+        "layout",
+        "deployed"
+      ],
+      "createdAt": 1790449693496,
+      "updatedAt": 1790449693496
     }
   ]
 }
