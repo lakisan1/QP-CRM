@@ -5,43 +5,52 @@
 {% block content %}
 <h1>Zajednički imenik</h1>
 
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
-    <p style="margin: 0;"><a href="{{ url_for('contacts.new_contact') }}" class="btn btn-success">Novi kontakt</a></p>
-    <form method="get" action="{{ url_for('contacts.list_contacts') }}" class="filter-row" style="gap: 8px;">
+{# Same layout as the rent contracts list (user request 2026-09-24):
+   the New button + count pill row first, THEN the filter bar inside a
+   .card (gray background), then the table card. #}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+    <a href="{{ url_for('contacts.new_contact') }}" class="btn btn-success">+ Novi kontakt</a>
+    <span style="background:var(--accent-primary);color:white;padding:4px 14px;border-radius:20px;font-weight:bold;">
+        {{ total_count }} kontakata
+    </span>
+</div>
+
+<div class="card">
+    <form method="get" action="{{ url_for('contacts.list_contacts') }}" class="filter-row" style="gap:15px;">
         {% if show_archived %}<input type="hidden" name="archived" value="1">{% endif %}
-        <label style="display: flex; flex-direction: column;">
-            <span style="margin-bottom: 8px; font-size: 14px;">Pretraga:</span>
-            <input type="text" name="search" value="{{ search or '' }}">
+        <label style="display:flex;flex-direction:column;">
+            <span style="margin-bottom:6px;font-size:13px;font-weight:500;">Pretraga:</span>
+            <input type="text" name="search" value="{{ search or '' }}" style="margin-bottom:0;">
         </label>
-        <label style="display: flex; flex-direction: column;">
-            <span style="margin-bottom: 8px; font-size: 14px;">Vrsta:</span>
-            <select name="kind">
+        <label style="display:flex;flex-direction:column;">
+            <span style="margin-bottom:6px;font-size:13px;font-weight:500;">Vrsta:</span>
+            <select name="kind" style="margin-bottom:0;">
                 <option value="">Sve</option>
                 {% for k in kinds %}
                 <option value="{{ k }}" {{ 'selected' if kind == k }}>{{ 'Fizičko lice' if k == 'person' else 'Pravno lice' }}</option>
                 {% endfor %}
             </select>
         </label>
-        <label style="display: flex; flex-direction: column;">
-            <span style="margin-bottom: 8px; font-size: 14px;">Uloga:</span>
-            <select name="role">
+        <label style="display:flex;flex-direction:column;">
+            <span style="margin-bottom:6px;font-size:13px;font-weight:500;">Uloga:</span>
+            <select name="role" style="margin-bottom:0;">
                 <option value="">Sve</option>
                 {% for r in all_roles %}
                 <option value="{{ r }}" {{ 'selected' if role == r }}>{{ r }}</option>
                 {% endfor %}
             </select>
         </label>
-        <label style="display: flex; flex-direction: column;">
-            <span style="margin-bottom: 8px; font-size: 14px;">Država:</span>
-            <select name="country">
+        <label style="display:flex;flex-direction:column;">
+            <span style="margin-bottom:6px;font-size:13px;font-weight:500;">Država:</span>
+            <select name="country" style="margin-bottom:0;">
                 <option value="">Sve</option>
                 {% for c in countries %}
                 <option value="{{ c.name }}" {{ 'selected' if country == c.name }}>{{ c.name }}</option>
                 {% endfor %}
             </select>
         </label>
-        <button type="submit" class="btn btn-primary">Pretraži</button>
-        <a href="{{ url_for('contacts.list_contacts', archived=(0 if show_archived else 1)) }}" class="btn btn-secondary">
+        <button type="submit" class="btn btn-primary" style="margin-bottom:0;">Pretraži</button>
+        <a href="{{ url_for('contacts.list_contacts', archived=(0 if show_archived else 1)) }}" class="btn btn-secondary" style="margin-bottom:0;">
             {{ 'Samo aktivni' if show_archived else 'Prikaži arhivirane' }}
         </a>
     </form>
