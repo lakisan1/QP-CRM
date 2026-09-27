@@ -2,24 +2,6 @@
   "version": 1,
   "cards": [
     {
-      "id": "card-73c5c1ac-ff9f-4e8b-947e-14272a21349f",
-      "title": "P0-T5 · docker-compose.yml + .dockerignore",
-      "description": "Steps 4+5. Compose: build ., image qp-crm:phase0, port 5000:5000, bind mounts ./app_data ./app_assets ./static/img (logo upload writes into static/img — lost on rebuild without the volume), env_file .env, TZ=Europe/Belgrade, restart unless-stopped, healthcheck on /api/v1/health via python urllib (no curl in slim). .dockerignore: venv, .git, .agents, KANBAN.json, README_Images, *.pdf, *.xlsx, *.xlsb, logs, scratch scripts (download_pdf*, measure_pdf*, test_*), app_data/, .env — but NOT custom_libs/.",
-      "rationale": "Volumes keep all mutable state outside the image so rebuilds never lose data (card step 4); .dockerignore keeps secrets, DBs and scratch files out of image layers (step 5).",
-      "rejected": "Named volumes — bind mounts reuse existing host data and stay inspectable; curl in image for healthcheck — python stdlib is already present; obsolete compose version: key — removed per Compose v2.",
-      "sourceSessionId": "session-ffcc3e3a-6384-411f-8100-d723ee8c50c7",
-      "status": "done",
-      "tags": [
-        "qp-crm",
-        "docker",
-        "phase-0",
-        "task"
-      ],
-      "createdAt": 1788448599947,
-      "updatedAt": 1788451508594,
-      "summary": "docker-compose.yml (qp-crm:phase0, port 5000, env_file .env, TZ=Europe/Belgrade, bind mounts app_data/app_assets/static/img, restart unless-stopped, python-stdlib healthcheck on /api/v1/health with 60s start_period), .dockerignore (venv/.git/app_data/.env/scratch junk with **/ depth variants; custom_libs deliberately NOT ignored), .env.example (six secret keys + generation hint). Verified with docker compose config."
-    },
-    {
       "id": "card-a9cc70f9-a9c5-499f-b5e0-ef9bb37f1a2f",
       "title": "P0-T6 · deploy.sh: image-rebuild update flow (replaces run_apps.sh update path, audit M11)",
       "description": "Step 7. New deploy.sh: docker compose build → up -d → wait for /api/v1/health → show ps/logs. run_apps.sh stays untouched for bare-metal users. Short DOCKER.md documenting first run, update flow, volumes, backups.",
@@ -1879,6 +1861,26 @@
       ],
       "createdAt": 1790498992002,
       "updatedAt": 1790498992002
+    },
+    {
+      "id": "card-b9fbbc7b-6c70-45ac-9136-d56abc67b6b9",
+      "title": "Merge Dev→main (5b61a74) + push + CI build — zatim deploy.sh i verifikacija Magacina",
+      "description": "Posle otkrivene praznine (GHCR latest od 23.9. bez P5 rada): merge Dev (43 commit-a, 5b61a74) → push deploy-main:main po odluci korisnika \"Direktno push u main\". Pre push-a lokalna suite provera: 477 passed / 3 skipped. CI run 5b61a74 je u toku (pytest + coverage gate + image push latest + sha-5b61a74). SLEDEĆE: čekati da CI postane success, pa sudo ./deploy.sh (pull + backup + up), verifikovati /warehouse rute i landing karticu u novom kontejneru.",
+      "rationale": "Korisnik traži Magacin u produkciji; jedini podržani deploy put je GHCR image koji gradi CI iz main. Kartica vezuje merge+push+CI i daje tačan nastavak (deploy.sh posle zelenog CI).",
+      "sourceSessionId": "session-983fa0e2-a9e1-4ac7-920b-eefd4a21a045",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "deploy",
+        "ghcr",
+        "phase-5",
+        "magacin",
+        "ci"
+      ],
+      "createdAt": 1790501463093,
+      "updatedAt": 1790501788033,
+      "summary": "Merge Dev (43 commit-a) u main preko privremenog deploy-main branch-a → push deploy-main:main = 5b61a74. Lokalna suite provera pre push-a: 477 passed / 3 skipped. CI run za 5b61a74: completed success (pytest + coverage gate + push latest i sha-5b61a74 na GHCR). sudo ./deploy.sh: pre-deploy backup (backups/pre-deploy-20260927-*.db), pull, recreate, healthcheck healthy. Verifikacija u produkciji: 12 /warehouse ruta registrovano; container fajlovi identični repo-u (md5 routes/__init__ 70c2739d, service 3181490b); /warehouse/equipment i /warehouse/coverage → 302 na login (očekvano za nelogovanog); sve P5 tabele postoje u prod DB (equipment, stock_movements, reservations, equipment_shortfalls, product_aliases); /login 200.",
+      "rejected": "PR route — odbijen po korisnikovom izboru (tražio direktan push u main). Lokalni docker build — odbijen jer zaobilazi CI kapiju i rollback sistem. Napomena: /warehouse/ (samo trailing slash) daje 404 jer rute nemaju strict_slashes; korisnici ulaze preko landing kartice na /warehouse/equipment, pa je bez praktičnog značaja."
     }
   ]
 }
