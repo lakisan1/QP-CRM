@@ -314,17 +314,29 @@ def outtake(product_id, serial_numbers=None, qty=None, reason=None,
                            "prvo (Oprema → Nova mašina), pa je izdaj.")
         if existing["status"] == "scrapped":
             return False, f"S/N {s}: rashodovana oprema se ne može izdavati."
-        # map the commercial reason onto the equipment transition (statuses
-        # come from the closed EQUIPMENT_STATUSES set — 'sold'/'given_free'
-        # do not exist as statuses, a sold machine is 'delivered')
-        status_by_reason = {"sale": "delivered", "free_issue": "delivered",
+        # map the operator's four-word outtake vocabulary onto the equipment
+        # transition (statuses come from the closed EQUIPMENT_STATUSES set —
+        # 'sold'/'given_free' do not exist as statuses, a sold machine is
+        # 'delivered'). UI labels: Prodaja→sale, Revers→return, Servis→loan,
+        # Rashod→scrap (user request 2026-09-27 — the operator never picks
+        # free_issue/test_demo; those granular ledger reasons remain valid
+        # for anything recorded via api_v1 or services directly).
+        status_by_reason = {"sale": "delivered", "return": "delivered",
                             "loan": "loaned", "test_demo": "test_demo",
-                            "service_in": "in_service"}
+                            "free_issue": "delivered", "service_in": "in_service"}
         new_status = status_by_reason.get(reason)
-        ok, result = transition_equipment(
-            existing["id"], custodian_type="customer",
-            custodian_contact_id=contact_id, status=new_status,
-            note=note, moved_by=moved_by)
+        if reason == "scrap":
+            # Rashod: terminal write-off — custodian becomes 'scrap', not a
+            # customer (a scrapped machine has no counterparty).
+            ok, result = transition_equipment(
+                existing["id"], custodian_type="scrap",
+                custodian_contact_id=None, status="scrapped",
+                note=note, moved_by=moved_by)
+        else:
+            ok, result = transition_equipment(
+                existing["id"], custodian_type="customer",
+                custodian_contact_id=contact_id, status=new_status,
+                note=note, moved_by=moved_by)
         if not ok:
             return False, f"S/N {s}: {result}"
         left.append(existing["id"])

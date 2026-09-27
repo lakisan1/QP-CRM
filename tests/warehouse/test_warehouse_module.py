@@ -568,3 +568,41 @@ def test_intake_page_hides_contact_on_ulaz(client):
     html = client.get("/warehouse/intake").get_data(as_text=True)
     assert 'id="contact-label"' in html
     assert "display:none" in html
+
+
+def test_outtake_scrap_transitions_to_scrapped_no_customer(client):
+    """Rashod (scrap) na izlazu: mašina ide u rashod — čuvar 'scrap',
+    bez kontakta (nema komu), status scrapped."""
+    from qp_crm.services import warehouse_service as wh
+    login_client(client, "admin", DEFAULT_PASSWORDS["admin"])
+    _grant_warehouse("admin")
+    cust = _new_contact("Kupac Scrap DOO")
+    pid = _new_product("Rashod proizvod", regime="serialized")
+    ok, _ = wh.register_equipment(product_id=pid, serial_number="SCRAP-1")
+    assert ok
+    tok = csrf_token_for(client)
+    r = client.post("/warehouse/intake", data={
+        "_csrf_token": tok, "direction": "out", "product_id": str(pid),
+        "reason": "scrap", "contact_id": str(cust),
+        "serial_numbers": ["SCRAP-1"], "note": "", "again": "0",
+    }, follow_redirects=False)
+    assert r.status_code == 302
+    eq = _scalar(
+        "SELECT custodian_type, status FROM equipment "
+        "WHERE serial_number = 'SCRAP-1';", ())
+    assert eq["custodian_type"] == "scrap" and eq["status"] == "scrapped"
+
+
+def test_outtake_form_shows_four_reasons_only(client):
+    """Izlaz razlog: samo Prodaja / Revers / Servis / Rashod (user request
+    2026-09-27) — granularni razlozi ne postoje u REASONS.out nizu iz kog
+    se puni select (labels dict ostaje kompletnan za prikaz istorije)."""
+    login_client(client, "admin", DEFAULT_PASSWORDS["admin"])
+    _grant_warehouse("admin")
+    html = client.get("/warehouse/intake").get_data(as_text=True)
+    for word in ("Prodaja", "Revers", "Servis", "Rashod"):
+        assert word in html, word
+    # the OUT options array carries exactly the four ledger reasons
+    reasons_block = html.split('const REASONS = {')[1].split('};')[0]
+    for gone in ("free_issue", "test_demo"):
+        assert f'"{gone}"' not in reasons_block, gone

@@ -80,7 +80,7 @@
         in: {{ reasons_in|tojson }},
         out: {{ reasons_out|tojson }}
     };
-    const REASON_LABELS = {{ reason_labels|tojson }};
+    const REASON_LABELS = Object.assign({}, {{ reason_labels|tojson }}, {{ outtake_reason_labels|tojson }});
     let regime = null;
     let serialCount = 0;
 

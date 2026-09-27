@@ -16,11 +16,24 @@ from qp_crm.services import warehouse_service as wh
 from qp_crm.shared.schema import MOVEMENT_REASON_VALUES, MOVEMENT_REASON_LABELS
 
 # Intake reasons a warehouse operator can meaningfully choose on the
-# unified form (the closed set filtered to in-flow ones); out-flow keeps
-# the commercial reasons (sale / free issue / loan / service / scrap).
+# unified form (the closed set filtered to in-flow ones).
 INTAKE_REASONS = ("purchase_in", "return", "service_in")
-OUTTAKE_REASONS = ("sale", "free_issue", "loan", "test_demo", "return",
-                   "service_in", "scrap")
+# Out-flow is the user's four-word vocabulary (2026-09-27): the operator
+# does NOT know why stock leaves — commercial nuance (free issue vs loan
+# vs demo) is the sender's business. Mapping to ledger reasons:
+#   Prodaja  → sale   (custodian: customer, status delivered)
+#   Revers   → return (custodian: customer, status delivered)
+#   Servis   → loan   (custodian: customer/service, status loaned)
+#   Rashod   → scrap  (write-off, terminal)
+OUTTAKE_REASONS = ("sale", "return", "loan", "scrap")
+# UI labels for the operator's four-word outtake vocabulary (the ledger
+# keeps the granular MOVEMENT_REASON_LABELS; the form shows these).
+OUTTAKE_REASON_LABELS = {
+    "sale":   "Prodaja",
+    "return": "Revers",
+    "loan":   "Servis",
+    "scrap":  "Rashod",
+}
 
 
 @bp.route("/intake", methods=("GET", "POST"))
@@ -94,6 +107,7 @@ def intake():
         reasons_in=INTAKE_REASONS,
         reasons_out=OUTTAKE_REASONS,
         reason_labels=MOVEMENT_REASON_LABELS,
+        outtake_reason_labels=OUTTAKE_REASON_LABELS,
         contacts=wh.contact_choices(),
         selected_direction=keep_direction,
         selected_reason=keep_reason,
