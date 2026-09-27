@@ -15,6 +15,8 @@ consolidated behavior:
   serving 500s until a container restart.
 """
 
+import sqlite3
+
 import pytest
 
 from qp_crm.shared.bootstrap import init_all_modules
@@ -83,29 +85,26 @@ def test_init_all_modules_recovers_a_database_that_predates_p5():
         for table in ("stock_movements", "equipment_shortfalls", "reservations",
                       "equipment"):
             cur.execute(f"DROP TABLE IF EXISTS {table};")
-        # SQLite cannot drop a column before 3.35 and this app supports older
-        # files, so emulate a pre-P5 products table by rebuilding it without
-        # the tracking columns.
-        cur.execute("ALTER TABLE products RENAME TO products_pre_p5;")
-        cur.execute("""
-            CREATE TABLE products (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                description TEXT,
-                category TEXT,
-                brand TEXT,
-                photo_path TEXT,
-                website_url TEXT,
-                manufacturer_url TEXT,
-                product_code TEXT,
-                item_type TEXT NOT NULL DEFAULT 'proizvod'
-            );
-        """)
-        cur.execute("""
-            INSERT INTO products (name, item_type)
-            SELECT name, item_type FROM products_pre_p5;
-        """)
-        cur.execute("DROP TABLE products_pre_p5;")
+        # Emulate a pre-P5 products table by dropping the tracking columns.
+        #
+        # DO NOT "simplify" this into ALTER TABLE products RENAME TO tmp and
+        # a rebuild. Since SQLite 3.25 the default behaviour of RENAME is to
+        # REWRITE the foreign-key clauses of every OTHER table to point at the
+        # new name, and PRAGMA legacy_alter_table=ON does NOT reliably
+        # suppress that here (measured on sqlite 3.45.1: offer_items, prices
+        # and product_aliases all came back declaring
+        # `REFERENCES "products_pre_p5"(id)`). Dropping the temp table then
+        # leaves the whole database pointing at a table that no longer
+        # exists, and every later INSERT into those tables dies with
+        # `no such table: main.products_pre_p5` — failures that surface far
+        # away, in unrelated test files, looking like someone else's bug.
+        # DROP COLUMN touches only `products` and cannot do that. It needs
+        # SQLite >= 3.35 (2021); the guard below keeps old-SQLite hosts
+        # honest instead of silently testing nothing.
+        if sqlite3.sqlite_version_info < (3, 35, 0):
+            pytest.skip(f"ALTER TABLE DROP COLUMN needs SQLite >= 3.35, have {sqlite3.sqlite_version}")
+        for column in ("tracking_regime", "min_stock", "unit_base", "pack_size"):
+            cur.execute(f"ALTER TABLE products DROP COLUMN {column};")
         conn.commit()
     finally:
         conn.close()
@@ -122,3 +121,57 @@ def test_init_all_modules_recovers_a_database_that_predates_p5():
                   "equipment_shortfalls"):
         assert table in tables, f"{table} was not re-created"
     assert {"tracking_regime", "min_stock", "unit_base", "pack_size"} <= _product_columns()
+
+
+def test_no_schema_object_points_at_a_table_that_does_not_exist():
+    """General integrity guard, and the regression guard for the rename trap.
+
+    A previous version of the recovery test above rebuilt `products` via
+    ALTER TABLE ... RENAME TO products_pre_p5. SQLite rewrote the FK clauses
+    of every child table to the temp name and then the temp table was
+    dropped, leaving the whole schema dangling — later inserts failed with
+    `no such table: main.products_pre_p5`. This asserts that nothing in
+    sqlite_master names a table that is not actually present, so that class
+    of breakage can never come back silently.
+    """
+    conn = get_db()
+    try:
+        present = {
+            r["name"]
+            for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table';").fetchall()
+        }
+        objects = conn.execute(
+            "SELECT type, name, tbl_name FROM sqlite_master "
+            "WHERE type IN ('table', 'index', 'trigger', 'view');").fetchall()
+    finally:
+        conn.close()
+    dangling = [
+        f"{r['type']} {r['name']} -> {r['tbl_name']}"
+        for r in objects
+        if r["tbl_name"] and r["tbl_name"] not in present
+    ]
+    assert dangling == [], f"schema objects pointing at missing tables: {dangling}"
+
+
+def test_referencing_tables_still_accept_inserts_after_the_recovery():
+    """The concrete failure the rename trap produced: inserting into the
+    tables that carry a products(id) foreign key. Exercises the FK for real."""
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO products (name, item_type) VALUES ('FK guard product', 'proizvod');")
+        pid = cur.lastrowid
+        cur.execute(
+            "INSERT INTO prices (product_id, date, base_price) "
+            "VALUES (?, '2026-01-01', 10.0);",
+            (pid,),
+        )
+        cur.execute(
+            "INSERT INTO product_aliases (alias, product_id) VALUES ('FK guard alias', ?);",
+            (pid,),
+        )
+        conn.commit()
+    finally:
+        conn.close()

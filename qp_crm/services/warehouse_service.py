@@ -220,18 +220,34 @@ def _resolve_name_snapshot(conn, product_id, name_snapshot):
     return None
 
 
+# The ONE place custodian -> status is decided. register_equipment and
+# transition_equipment both use it so the two paths can never disagree:
+# before this, register defaulted to 'in_stock' unconditionally, which let a
+# machine be registered "at a customer" while still claiming to be in stock.
+_DEFAULT_STATUS_BY_CUSTODIAN = {
+    "warehouse": "in_stock",
+    "customer": "delivered",
+    "scrap": "scrapped",
+}
+
+
 def register_equipment(product_id=None, name_snapshot=None, serial_number=None,
                        custodian_type="warehouse", custodian_contact_id=None,
-                       since_date=None, status="in_stock", notes=None,
+                       since_date=None, status=None, notes=None,
                        registered_by=None):
     """Add one machine to the registry. Returns (ok, id-or-message).
 
     product_id NULL = temp registration (ad-hoc device without a catalog
     row); name_snapshot is then required. custodian/status validate against
-    the closed sets. No delete path exists — scrap is a transition.
+    the closed sets; status=None derives from custodian_type (warehouse ->
+    in_stock, customer -> delivered, scrap -> scrapped), the same mapping
+    transition_equipment uses. No delete path exists — scrap is a
+    transition.
     """
     if custodian_type not in CUSTODIAN_TYPES:
         return False, "Nepoznat čuvar (custodian_type)."
+    if status is None:
+        status = _DEFAULT_STATUS_BY_CUSTODIAN[custodian_type]
     if status not in EQUIPMENT_STATUS_VALUES:
         return False, "Nepoznat status opreme."
     if not since_date:
@@ -357,11 +373,7 @@ def transition_equipment(equipment_id, custodian_type, custodian_contact_id=None
         return False, "Rashodovana oprema se ne može vratiti u promet."
 
     if status is None:
-        status = {
-            "warehouse": "in_stock",
-            "customer": "delivered",
-            "scrap": "scrapped",
-        }[custodian_type]
+        status = _DEFAULT_STATUS_BY_CUSTODIAN[custodian_type]
     if status not in EQUIPMENT_STATUS_VALUES:
         return False, "Nepoznat status opreme."
     if custodian_type in ("warehouse", "scrap"):
@@ -405,8 +417,19 @@ def transition_equipment(equipment_id, custodian_type, custodian_contact_id=None
 
 
 def equipment_history(equipment_id):
-    """Everything that ever happened to one machine, oldest first."""
-    return list_movements(equipment_id=equipment_id, limit=1000)
+    """Everything that ever happened to one machine, OLDEST FIRST.
+
+    Deliberately the reverse of list_movements() (which is newest-first for
+    the ledger table): a machine's page reads as a life story, so the
+    custody chain runs forward from registration to scrap. Reversing here
+    rather than at the call site keeps the two orderings named in one place.
+
+    Edge case: the underlying query caps at the most recent 1000 movements,
+    so for a machine past that many events this returns the oldest-first
+    view OF THAT WINDOW, not of its entire life. No machine is anywhere
+    near it; raising the cap is the fix if one ever is.
+    """
+    return list(reversed(list_movements(equipment_id=equipment_id, limit=1000)))
 
 
 # ---------------------------------------------------------------------------

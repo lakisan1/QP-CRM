@@ -140,7 +140,11 @@ def test_products_list_filter_and_badge():
     assert "Filter Usl Product" in html
     assert "Filter Fiz Product" not in html
 
-    all_html = client.get("/pricing/products").data.decode()
+    # Searched, not assumed page 1: the list is paginated (ORDER BY name ASC,
+    # LIMIT from 'default_items_per_page'), so the service row is only on the
+    # first page while the catalogue stays under one page.
+    all_html = client.get(
+        "/pricing/products?search=Filter+Usl+Product").data.decode()
     assert ">Service<" in all_html  # badge on the service row
 
 

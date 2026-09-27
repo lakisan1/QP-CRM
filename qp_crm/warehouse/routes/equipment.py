@@ -58,7 +58,11 @@ def equipment_new():
             custodian_type=request.form.get("custodian_type", "warehouse"),
             custodian_contact_id=request.form.get("custodian_contact_id", type=int),
             since_date=request.form.get("since_date") or None,
-            status=request.form.get("status", "in_stock"),
+            # No status posted -> None, so the service derives it from the
+            # chosen custodian (warehouse -> in_stock, customer -> delivered,
+            # scrap -> scrapped). Forcing 'in_stock' here would let a machine
+            # be registered as handed to a customer yet still "in stock".
+            status=request.form.get("status") or None,
             notes=request.form.get("notes"),
             registered_by=session.get("user_id"),
         )

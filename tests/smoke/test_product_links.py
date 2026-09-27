@@ -211,7 +211,13 @@ def test_links_visible_on_products_list_and_sale_view():
         manufacturer_url="https://visible-maker.example.com",
     )
 
-    list_html = pricing.get("/pricing/products").data.decode()
+    # The products list is paginated (ORDER BY name ASC, LIMIT from the
+    # 'default_items_per_page' setting), so a freshly created product sits on
+    # page 1 only while the catalogue is smaller than one page. Searching for
+    # it makes this assertion independent of how many products OTHER test
+    # modules have added to the shared suite database.
+    list_html = pricing.get(
+        "/pricing/products?search=Visible+Link+Product").data.decode()
     assert "https://visible.example.com" in list_html
     assert "https://visible-maker.example.com" in list_html
 

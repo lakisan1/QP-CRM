@@ -111,7 +111,12 @@ def test_code_shows_on_products_list():
     pricing = login_client(app.test_client(), "pricing")
     _create_product(pricing, "Visible Code Product", product_code="VIS-42")
 
-    list_html = pricing.get("/pricing/products").data.decode()
+    # Search rather than assuming page 1: the products list is paginated
+    # (ORDER BY name ASC, LIMIT from 'default_items_per_page'), so whether a
+    # new product lands on the first page depends on how many products other
+    # test modules have added to the shared suite database.
+    list_html = pricing.get(
+        "/pricing/products?search=Visible+Code+Product").data.decode()
     assert "VIS-42" in list_html
 
 

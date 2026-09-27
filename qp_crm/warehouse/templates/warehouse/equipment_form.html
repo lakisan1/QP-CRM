@@ -49,6 +49,7 @@
     <label>
         Status
         <select name="status" style="width:100%;">
+            <option value="">automatski (po čuvaru)</option>
             {% for s in statuses %}
             <option value="{{ s }}" {{ 'selected' if s == 'in_stock' }}>{{ status_labels[s] }}</option>
             {% endfor %}
