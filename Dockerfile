@@ -40,6 +40,11 @@ RUN pip install --no-cache-dir -r dev-requirements.txt
 # Application code. Build-context junk (venv, .git, PDFs, scratch scripts,
 # app_data, .env, ...) is kept out by .dockerignore. Markdown comes from
 # requirements.txt (pinned 3.10.2) since the Phase-2 stage-6 devendor.
+# CACHE-BUST (2026-09-27): two CI runs failed with pytest exit 2 in seconds
+# while the identical local container build passed 513/513 — the gha
+# cache-from restore served a stale COPY layer. The arg changes this
+# layer's key on every CI run after a suspicious failure.
+ARG CACHE_BUST=2026-09-27-r1
 COPY . .
 
 # COPY preserves the source file modes, and some files may carry mode 600
