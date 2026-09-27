@@ -220,6 +220,17 @@ def backup_quick_restore(name):
         except Exception as auth_e:
             flash(f"Database restored, but auth re-init failed: {auth_e}", "warning")
 
+        # P5: a restored file may predate any module (an old backup has no
+        # warehouse tables and no products.tracking_regime column). Boot init
+        # only runs at process start, so without this the restored DB serves
+        # 500s until a container restart. The sequence is idempotent, so
+        # re-running it on a current backup is a cheap no-op.
+        try:
+            from qp_crm.shared.bootstrap import init_all_modules
+            init_all_modules()
+        except Exception as schema_e:
+            flash(f"Database restored, but schema re-init failed: {schema_e}", "error")
+
         flash(f"Restored {name}. Pre-restore safety snapshot: {os.path.basename(safety)}", "success")
     except Exception as e:
         flash(f"Error restoring backup: {e}", "error")
@@ -320,6 +331,17 @@ def restore_full():
         except Exception as auth_e:
             flash(f"Backup restored, but auth re-init failed: {auth_e}", "warning")
 
+        # P5: a restored file may predate any module (an old backup has no
+        # warehouse tables and no products.tracking_regime column). Boot init
+        # only runs at process start, so without this the restored DB serves
+        # 500s until a container restart. The sequence is idempotent, so
+        # re-running it on a current backup is a cheap no-op.
+        try:
+            from qp_crm.shared.bootstrap import init_all_modules
+            init_all_modules()
+        except Exception as schema_e:
+            flash(f"Backup restored, but schema re-init failed: {schema_e}", "error")
+
         flash("Full System Restore successful.", "success")
 
     except Exception as e:
@@ -353,7 +375,16 @@ def factory_reset():
         cur.execute("PRAGMA foreign_keys = OFF;")
 
         # Truncate tables
+        # ORDER MATTERS: foreign keys are enforced, so every referencing
+        # table must be emptied before the table it points at. The
+        # warehouse block (P5) therefore comes BEFORE products/contacts
+        # and inside itself children-first: stock_movements and
+        # equipment_shortfalls reference equipment, reservations
+        # references equipment, and every one of them references products.
         tables_to_clear = [
+            # P5 warehouse (children first)
+            "stock_movements", "equipment_shortfalls", "reservations",
+            "equipment", "product_aliases",
             "products", "prices", "offers", "offer_items", "brands",
             "category_pricing_defaults", "text_presets", "price_rounding_rules",
             "rent_clients", "rent_contracts",

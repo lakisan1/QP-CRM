@@ -5,12 +5,15 @@ from flask import Flask, redirect, render_template, send_from_directory, session
 # Import the existing apps
 # Note: These imports might trigger some initialization code, which is fine.
 # We assume they have `if __name__ == "__main__":` blocks to prevent running servers.
-from qp_crm.pricing.app import init_db as pricing_init_db, migrate_schema as pricing_migrate_schema, bp as pricing_bp
-from qp_crm.offer.app import init_db as offer_init_db, bp as offer_bp
-from qp_crm.admin.app import init_db as admin_init_db, bp as admin_bp
-from qp_crm.rent.app import init_db as rent_init_db, bp as rent_bp
-from qp_crm.contacts.app import init_db as contacts_init_db, bp as contacts_bp
-from qp_crm.warehouse.app import init_db as warehouse_init_db, bp as warehouse_bp
+# Only the blueprints are imported here: the DB init/migration sequence is
+# owned by qp_crm/shared/bootstrap.py (single source of truth, shared with
+# wsgi.py and the Admin -> Backup restore flow).
+from qp_crm.pricing.app import bp as pricing_bp
+from qp_crm.offer.app import bp as offer_bp
+from qp_crm.admin.app import bp as admin_bp
+from qp_crm.rent.app import bp as rent_bp
+from qp_crm.contacts.app import bp as contacts_bp
+from qp_crm.warehouse.app import bp as warehouse_bp
 from qp_crm.settings.app import bp as settings_bp
 from qp_crm.sale.app import bp as sale_bp
 from qp_crm.pricing.api_v1 import api_v1
@@ -179,15 +182,13 @@ application = wrap_wsgi(app)
 if __name__ == "__main__":
     from werkzeug.serving import run_simple
 
-    # Run database initializations and migrations
+    # Run database initializations and migrations (single source of truth:
+    # qp_crm/shared/bootstrap.py -- the same sequence gunicorn's wsgi.py and
+    # the Admin -> Backup restore flow run).
     print("Initializing databases...")
-    pricing_init_db()
-    pricing_migrate_schema()
-    offer_init_db()
-    admin_init_db()
-    rent_init_db()
-    contacts_init_db()
-    warehouse_init_db()
+    from qp_crm.shared.bootstrap import init_all_modules
+
+    init_all_modules()
 
     # We use run_simple to run the WSGI application
     # This replaces app.run() for the combined app
