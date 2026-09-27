@@ -1,0 +1,50 @@
+{% extends "warehouse/base.html" %}
+{% block title %}Nova rezervacija — Magacin{% endblock %}
+
+{% block content %}
+<h1>Nova rezervacija</h1>
+
+<form method="post" class="card" style="max-width:720px;display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+
+    <label>
+        Količinski proizvod ('qty')
+        <select name="product_id" class="searchable-select" style="width:100%;">
+            <option value="">—</option>
+            {% for p in qty_products %}
+            <option value="{{ p['id'] }}">{{ p['name'] }}</option>
+            {% endfor %}
+        </select>
+    </label>
+
+    <label>
+        ILI konkretna mašina (instanca)
+        <select name="equipment_id" class="searchable-select" style="width:100%;">
+            <option value="">—</option>
+            {% for e in equipment %}
+            <option value="{{ e['id'] }}">{{ e['name_snapshot'] }}{% if e['serial_number'] %} (S/N {{ e['serial_number'] }}){% endif %}</option>
+            {% endfor %}
+        </select>
+    </label>
+
+    <label>
+        Količina (samo za qty proizvod)
+        <input type="number" name="qty" step="0.01" min="0" style="width:100%;">
+    </label>
+
+    <label>
+        Za koga (obavezno)
+        <input type="text" name="for_whom" placeholder="kupac, posao, interno..." style="width:100%;">
+    </label>
+
+    <label style="grid-column:1/3;">
+        Napomena
+        <textarea name="note" rows="2" style="width:100%;"></textarea>
+    </label>
+
+    <div style="grid-column:1/3;display:flex;gap:10px;">
+        <button type="submit" class="btn btn-success">Rezerviši</button>
+        <a href="{{ url_for('warehouse.reservations_list') }}" class="btn btn-secondary">Otkaži</a>
+    </div>
+</form>
+{% endblock %}

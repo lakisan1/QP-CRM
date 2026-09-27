@@ -1,0 +1,67 @@
+{% extends "warehouse/base.html" %}
+{% block title %}Novo kretanje — Magacin{% endblock %}
+
+{% block content %}
+<h1>Novo kretanje zaliha</h1>
+
+<form method="post" class="card" style="max-width:720px;display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+
+    <label style="grid-column:1/3;">
+        Proizvod (samo 'qty' režim)
+        <select name="product_id" class="searchable-select" style="width:100%;">
+            <option value="">— temp proizvod (bez kataloga) —</option>
+            {% for p in products %}
+            <option value="{{ p['id'] }}">{{ p['name'] }}</option>
+            {% endfor %}
+        </select>
+    </label>
+
+    <label>
+        ili naziv temp proizvoda
+        <input type="text" name="name_snapshot" style="width:100%;">
+    </label>
+
+    <label>
+        Količina
+        <input type="number" name="qty" step="0.01" min="0" style="width:100%;">
+    </label>
+
+    <label>
+        Smer
+        <select name="direction" style="width:100%;">
+            <option value="in">→ Ulaz</option>
+            <option value="out">← Izlaz</option>
+        </select>
+    </label>
+
+    <label>
+        Razlog
+        <select name="reason" style="width:100%;">
+            {% for r in reasons %}
+            <option value="{{ r }}">{{ reason_labels[r] }}</option>
+            {% endfor %}
+        </select>
+    </label>
+
+    <label>
+        Kontakt (dobavljač / kupac)
+        <select name="contact_id" class="searchable-select" style="width:100%;">
+            <option value="">— interno —</option>
+            {% for c in contacts %}
+            <option value="{{ c['id'] }}">{{ c['display_name'] }}</option>
+            {% endfor %}
+        </select>
+    </label>
+
+    <label style="grid-column:1/3;">
+        Napomena (obavezna za korekciju popisa!)
+        <textarea name="note" rows="2" style="width:100%;"></textarea>
+    </label>
+
+    <div style="grid-column:1/3;display:flex;gap:10px;">
+        <button type="submit" class="btn btn-success">Zabeleži kretanje</button>
+        <a href="{{ url_for('warehouse.movements_list') }}" class="btn btn-secondary">Otkaži</a>
+    </div>
+</form>
+{% endblock %}

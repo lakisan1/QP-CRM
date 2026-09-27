@@ -1,0 +1,50 @@
+{% extends "warehouse/base.html" %}
+{% block title %}Pokrivenost — Magacin{% endblock %}
+
+{% block content %}
+<h1>Pokrivenost (ATP)</h1>
+<p style="color:var(--text-muted);">
+    Dostupno = stanje − rezervacije. Samo praćeni proizvodi ('qty' / 'serialized') —
+    'untracked' katalog je namerno ovde nevidljiv.
+</p>
+
+<div class="card">
+    <table class="larg-table">
+        <thead>
+            <tr>
+                <th>Proizvod</th>
+                <th>Režim</th>
+                <th>Stanje</th>
+                <th>Rezervisano</th>
+                <th>Dostupno</th>
+                <th>U magacinu (mašine)</th>
+                <th>Min. stanje</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in rows %}
+            <tr {% if r['tracking_regime'] == 'qty' and r['min_stock'] is not none and r['available'] is not none and r['available'] < r['min_stock'] %}style="background:rgba(231,76,60,0.15);"{% endif %}>
+                <td>{{ r['name'] }}</td>
+                <td>{{ 'qty' if r['tracking_regime'] == 'qty' else 'serialized' }}</td>
+                {% if r['tracking_regime'] == 'qty' %}
+                <td>{{ r['on_hand'] }}</td>
+                <td>{{ r['reserved'] }}</td>
+                <td><strong>{{ r['available'] }}</strong></td>
+                <td>—</td>
+                {% else %}
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                {% endif %}
+                <td>{{ r['warehouse_count'] }}</td>
+                <td>{{ r['min_stock'] if r['min_stock'] is not none else '—' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" style="text-align:center;color:var(--text-muted);">
+                Nema praćenih proizvoda. Uključi praćenje u katalogu (pricing app).
+            </td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
