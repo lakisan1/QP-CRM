@@ -68,18 +68,13 @@ def temp_db():
     idempotent and seed deterministic defaults (rounding rules, "System
     Default" PDF template, rent templates from rent_templates_defaults.json).
     """
-    from qp_crm.pricing.app import init_db as pricing_init_db, migrate_schema as pricing_migrate_schema
-    from qp_crm.offer.app import init_db as offer_init_db
-    from qp_crm.admin.app import init_db as admin_init_db
-    from qp_crm.rent.app import init_db as rent_init_db
-    from qp_crm.contacts.app import init_db as contacts_init_db
+    # Single source of truth for the ordered sequence (qp_crm/shared/
+    # bootstrap.py) — the same one wsgi.py, main.py and the Admin -> Backup
+    # restore flow run, so a new module can never be wired into one boot
+    # path and forgotten in another.
+    from qp_crm.shared.bootstrap import init_all_modules
 
-    pricing_init_db()
-    pricing_migrate_schema()
-    offer_init_db()
-    admin_init_db()
-    rent_init_db()
-    contacts_init_db()
+    init_all_modules()
     return TEST_DATABASE
 
 

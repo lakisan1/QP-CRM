@@ -8,6 +8,7 @@ from flask import flash, redirect, render_template, request, url_for
 
 from ..app import bp
 from qp_crm.services import contact_service
+from qp_crm.shared.countries import get_country_list
 from qp_crm.shared.schema import CONTACT_KINDS, CONTACT_ROLES
 
 
@@ -22,11 +23,11 @@ def _form_fields():
         "account": request.form.get("account"),
         "billing_address": request.form.get("billing_address"),
         "city": request.form.get("city"),
+        "postal_code": request.form.get("postal_code"),
         "country": request.form.get("country"),
         "email": request.form.get("email"),
         "phone": request.form.get("phone"),
         "job_title": request.form.get("job_title"),
-        "user_id": request.form.get("user_id", type=int),
         "notes": request.form.get("notes"),
     }
 
@@ -34,18 +35,6 @@ def _form_fields():
 def _form_roles():
     """Checked role boxes (unknown values ignored by the service)."""
     return request.form.getlist("roles")
-
-
-def _user_choices():
-    """Active app login accounts (feed for the employee -> nalog link)."""
-    from qp_crm.shared.auth import get_db
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute(
-        "SELECT id, username FROM users WHERE is_active = 1 ORDER BY username;")
-    rows = cur.fetchall()
-    conn.close()
-    return rows
 
 
 @bp.route("/")
@@ -59,9 +48,25 @@ def list_contacts():
     show_archived = request.args.get("archived") == "1"
     kind = request.args.get("kind") or None
     role = request.args.get("role") or None
+    country = request.args.get("country") or None
     roles = [role] if role in CONTACT_ROLES else None
-    contacts = contact_service.list_contacts(
-        include_archived=show_archived, search=search, roles=roles, kind=kind)
+    # Pagination (2026-09-24 user request): the 2000+ contact list renders
+    # one page at a time -- same model as the offer list, page size from
+    # the shared 'default_items_per_page' setting (Settings app). An
+    # out-of-range page (stale ?page= after a delete or filter change)
+    # clamps to the LAST page instead of rendering an empty table.
+    page = max(request.args.get("page", 1, type=int), 1)
+    per_page = _items_per_page()
+    contacts, total_count = contact_service.list_contacts(
+        include_archived=show_archived, search=search, roles=roles, kind=kind,
+        country=country, page=page, per_page=per_page)
+    import math
+    total_pages = math.ceil(total_count / per_page) if total_count > 0 else 1
+    if page > total_pages:
+        return redirect(url_for("contacts.list_contacts", page=total_pages,
+                                search=search, kind=kind, role=role,
+                                country=country,
+                                archived=(1 if show_archived else 0)))
     # Role badges resolve in bulk (one query, not one per row).
     contacts = [dict(c) for c in contacts]
     for c in contacts:
@@ -73,9 +78,29 @@ def list_contacts():
         show_archived=show_archived,
         kind=kind or "",
         role=role or "",
+        country=country or "",
+        countries=get_country_list(),
         kinds=CONTACT_KINDS,
         all_roles=CONTACT_ROLES,
+        current_page=page,
+        total_pages=total_pages,
+        total_count=total_count,
     )
+
+
+def _items_per_page():
+    """Shared page size (Settings -> default_items_per_page), offer-list
+    fallback of 25 when the setting is absent or unparsable."""
+    from qp_crm.shared.auth import get_db
+    conn = get_db()
+    row = conn.execute(
+        "SELECT value FROM global_settings WHERE key = 'default_items_per_page';"
+    ).fetchone()
+    conn.close()
+    try:
+        return max(int(row["value"]), 1) if row else 25
+    except (ValueError, TypeError):
+        return 25
 
 
 def _safe_return_to():
@@ -107,6 +132,7 @@ def new_contact():
         if not ok:
             return render_template("contacts/form.html",
                                    contact=None, error=result,
+                                   countries=get_country_list(),
                                    return_to=return_to), 200
         flash("Kontakt sačuvan.", "success")
         # Musterija-first flow: when the user came from a document form
@@ -121,7 +147,7 @@ def new_contact():
     return render_template(
         "contacts/form.html",
         contact=None,
-        user_choices=_user_choices(),
+        countries=get_country_list(),
         return_to=return_to,
     )
 
@@ -133,11 +159,20 @@ def view_contact(contact_id):
         return "Kontakt nije pronađen.", 404
     locations = contact_service.list_contact_locations(contact_id)
     documents = contact_service.linked_documents(contact_id)
+    # login username for the account link (read-only display here; the
+    # link itself is managed in Admin -> Users -> 'Kontakt u imeniku')
+    linked_username = None
+    if contact["user_id"]:
+        from qp_crm.shared.auth import get_user_by_id
+        linked_user = get_user_by_id(contact["user_id"])
+        linked_username = linked_user["username"] if linked_user else None
     return render_template(
         "contacts/detail.html",
         contact=contact,
         locations=locations,
         documents=documents,
+        linked_username=linked_username,
+        countries=get_country_list(),
     )
 
 
@@ -158,7 +193,8 @@ def edit_contact(contact_id):
             contact = dict(contact)
             contact["roles"] = contact_service.roles_of(contact_id)
             return render_template("contacts/form.html",
-                                   contact=contact, error=result), 200
+                                   contact=contact, error=result,
+                                   countries=get_country_list()), 200
         # Archive is its own toggle on the detail page; the form does not
         # touch it (explicit archive route below).
         flash("Kontakt sačuvan.", "success")
@@ -166,7 +202,7 @@ def edit_contact(contact_id):
     return render_template(
         "contacts/form.html",
         contact=contact,
-        user_choices=_user_choices(),
+        countries=get_country_list(),
     )
 
 
@@ -190,6 +226,8 @@ def create_contact_location(contact_id):
         request.form.get("name"),
         address=request.form.get("address"),
         city=request.form.get("city"),
+        postal_code=request.form.get("postal_code"),
+        country=request.form.get("country"),
         contact_name=request.form.get("contact_name"),
         contact_phone=request.form.get("contact_phone"),
         notes=request.form.get("notes"),
@@ -208,6 +246,8 @@ def edit_contact_location(location_id):
         request.form.get("name"),
         address=request.form.get("address"),
         city=request.form.get("city"),
+        postal_code=request.form.get("postal_code"),
+        country=request.form.get("country"),
         contact_name=request.form.get("contact_name"),
         contact_phone=request.form.get("contact_phone"),
         notes=request.form.get("notes"),

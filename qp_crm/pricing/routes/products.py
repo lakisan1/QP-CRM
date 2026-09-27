@@ -8,6 +8,7 @@ from datetime import date
 from flask import redirect, render_template, request, session, url_for
 
 from qp_crm.shared.config import IMAGE_DIR
+from qp_crm.shared.schema import TRACKING_REGIMES
 from qp_crm.shared.utils import _, get_current_language
 
 from ..app import (
@@ -17,6 +18,38 @@ from ..app import (
     get_db,
     save_product_image,
 )
+
+# ---------- PRODUCT TRACKING HELPERS (P5-T5) ----------
+# The products tracking columns are opt-in (schema P5-T1): a row created
+# without any tracking field must land on the column default
+# tracking_regime='untracked', exactly like the 254 legacy catalog rows.
+
+def _optional_float(form_value):
+    """Form value -> float, or None when empty/unparsable.
+
+    Never raises: a garbage number clears the field instead of 500-ing the
+    form. The Serbian decimal comma is accepted ('1,5').
+    """
+    text = (form_value or "").strip().replace(",", ".")
+    if not text:
+        return None
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+def _optional_text(form_value):
+    """Form value -> stripped text, or None when empty."""
+    return (form_value or "").strip() or None
+
+def _tracking_regime(form_value):
+    """Whitelist the regime against TRACKING_REGIMES.
+
+    Empty or garbage input falls back to 'untracked' (the default for the
+    whole existing catalog) -- it is never an error and never a 500.
+    """
+    regime = (form_value or "").strip()
+    return regime if regime in TRACKING_REGIMES else "untracked"
 
 # ---------- PRODUCTS ----------
 
@@ -39,6 +72,7 @@ def list_products():
         session.pop("products_filter_category", None)
         session.pop("products_filter_search", None)
         session.pop("products_filter_item_type", None)
+        session.pop("products_filter_tracking", None)
         return redirect(url_for("pricing.list_products"))
 
     # Load from request or fallback to session
@@ -65,6 +99,12 @@ def list_products():
         item_type_filter = session.get("products_filter_item_type", "")
     else:
         session["products_filter_item_type"] = item_type_filter
+
+    tracking_filter = request.args.get("tracking_regime")
+    if tracking_filter is None:
+        tracking_filter = session.get("products_filter_tracking", "")
+    else:
+        session["products_filter_tracking"] = tracking_filter
 
     sort_option = request.args.get("sort")
     if sort_option is None:
@@ -113,6 +153,9 @@ def list_products():
     if item_type_filter in ("proizvod", "usluga"):
         where_clauses.append("p.item_type = ?")
         params.append(item_type_filter)
+    if tracking_filter in TRACKING_REGIMES:
+        where_clauses.append("p.tracking_regime = ?")
+        params.append(tracking_filter)
 
     if where_clauses:
         where_stmt = " WHERE " + " AND ".join(where_clauses)
@@ -174,6 +217,7 @@ def list_products():
         category_options=category_options,
         search_term=search_term,
         item_type_filter=item_type_filter,
+        tracking_filter=tracking_filter,
         sort_option=sort_option,
         current_page=page,
         total_pages=total_pages,
@@ -434,6 +478,10 @@ def add_product():
         manufacturer_url = (request.form.get("manufacturer_url") or "").strip() or None
         product_code = (request.form.get("product_code") or "").strip() or None
         item_type = request.form.get("item_type") or ""
+        tracking_regime = _tracking_regime(request.form.get("tracking_regime"))
+        min_stock = _optional_float(request.form.get("min_stock"))
+        unit_base = _optional_text(request.form.get("unit_base"))
+        pack_size = _optional_float(request.form.get("pack_size"))
 
         # reload categories/brands for error cases
         cur.execute("SELECT category FROM category_pricing_defaults ORDER BY category;")
@@ -455,6 +503,8 @@ def add_product():
                     "brand": brand, "website_url": website_url,
                     "manufacturer_url": manufacturer_url, "product_code": product_code,
                     "item_type": item_type, "id": None,
+                    "tracking_regime": tracking_regime, "min_stock": min_stock,
+                    "unit_base": unit_base, "pack_size": pack_size,
                 },
                 error="Vrsta stavke je obavezna: fizički proizvod ili usluga."
             )
@@ -512,6 +562,10 @@ def add_product():
                 "manufacturer_url": manufacturer_url,
                 "product_code": product_code,
                 "photo_url": photo_url,
+                "tracking_regime": tracking_regime,
+                "min_stock": min_stock,
+                "unit_base": unit_base,
+                "pack_size": pack_size,
                 "id": None
             }
             conn.close()
@@ -525,10 +579,12 @@ def add_product():
 
         cur.execute("""
             INSERT INTO products (name, description, category, brand, photo_path,
-                                  website_url, manufacturer_url, product_code, item_type)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+                                  website_url, manufacturer_url, product_code, item_type,
+                                  tracking_regime, min_stock, unit_base, pack_size)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """, (name, description, category, brand, photo_path,
-              website_url, manufacturer_url, product_code, item_type))
+              website_url, manufacturer_url, product_code, item_type,
+              tracking_regime, min_stock, unit_base, pack_size))
         
         new_product_id = cur.lastrowid
         conn.commit()
@@ -593,13 +649,28 @@ def edit_product(product_id):
         manufacturer_url = (request.form.get("manufacturer_url") or "").strip() or None
         product_code = (request.form.get("product_code") or "").strip() or None
         item_type = request.form.get("item_type") or ""
+        tracking_regime = _tracking_regime(request.form.get("tracking_regime"))
+        min_stock = _optional_float(request.form.get("min_stock"))
+        unit_base = _optional_text(request.form.get("unit_base"))
+        pack_size = _optional_float(request.form.get("pack_size"))
         if item_type not in ("proizvod", "usluga"):
+            # The error re-render needs the form's dropdowns. They used to be
+            # loaded far below, in the duplicate-name branch, so this path
+            # raised UnboundLocalError (a 500) instead of showing the
+            # validation message. Load them here, before first use; the
+            # later branches re-load them anyway and stay correct.
+            cur.execute("SELECT category FROM category_pricing_defaults ORDER BY category;")
+            categories = [row["category"] for row in cur.fetchall()]
+            cur.execute("SELECT name FROM brands ORDER BY name;")
+            brand_options = [row["name"] for row in cur.fetchall()]
             product_dict = dict(product)
             product_dict.update({
                 "name": name, "description": description, "category": category,
                 "brand": brand, "website_url": website_url,
                 "manufacturer_url": manufacturer_url, "product_code": product_code,
                 "item_type": item_type,
+                "tracking_regime": tracking_regime, "min_stock": min_stock,
+                "unit_base": unit_base, "pack_size": pack_size,
             })
             return render_template(
                 "pricing/product_form.html",
@@ -639,6 +710,10 @@ def edit_product(product_id):
             product_dict["manufacturer_url"] = manufacturer_url
             product_dict["product_code"] = product_code
             product_dict["item_type"] = item_type
+            product_dict["tracking_regime"] = tracking_regime
+            product_dict["min_stock"] = min_stock
+            product_dict["unit_base"] = unit_base
+            product_dict["pack_size"] = pack_size
             
             return render_template(
                 "pricing/product_form.html",
@@ -706,6 +781,10 @@ def edit_product(product_id):
             product["manufacturer_url"] = manufacturer_url
             product["product_code"] = product_code
             product["item_type"] = item_type
+            product["tracking_regime"] = tracking_regime
+            product["min_stock"] = min_stock
+            product["unit_base"] = unit_base
+            product["pack_size"] = pack_size
             product["photo_url"] = photo_url # Carry over the failed URL so user can see/fix it
             
             conn.close()
@@ -729,10 +808,12 @@ def edit_product(product_id):
         cur.execute("""
             UPDATE products
             SET name = ?, description = ?, category = ?, brand = ?, photo_path = ?,
-                website_url = ?, manufacturer_url = ?, product_code = ?, item_type = ?
+                website_url = ?, manufacturer_url = ?, product_code = ?, item_type = ?,
+                tracking_regime = ?, min_stock = ?, unit_base = ?, pack_size = ?
             WHERE id = ?;
         """, (name, description, category, brand, photo_path,
-              website_url, manufacturer_url, product_code, item_type, product_id))
+              website_url, manufacturer_url, product_code, item_type,
+              tracking_regime, min_stock, unit_base, pack_size, product_id))
         conn.commit()
         conn.close()
 

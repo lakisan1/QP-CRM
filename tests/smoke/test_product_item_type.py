@@ -140,7 +140,11 @@ def test_products_list_filter_and_badge():
     assert "Filter Usl Product" in html
     assert "Filter Fiz Product" not in html
 
-    all_html = client.get("/pricing/products").data.decode()
+    # Searched, not assumed page 1: the list is paginated (ORDER BY name ASC,
+    # LIMIT from 'default_items_per_page'), so the service row is only on the
+    # first page while the catalogue stays under one page.
+    all_html = client.get(
+        "/pricing/products?search=Filter+Usl+Product").data.decode()
     assert ">Service<" in all_html  # badge on the service row
 
 
@@ -191,3 +195,29 @@ def test_api_update_absent_keeps_invalid_rejected():
     # invalid -> 400
     resp = client.put(f"/api/v1/products/{product['id']}", json={"item_type": "bogus"})
     assert resp.status_code == 400
+
+
+def test_edit_product_with_invalid_item_type_shows_error_not_500():
+    """Regression: the invalid-item_type branch re-rendered the form using
+    `categories`/`brand_options` before either was assigned, so a POST with a
+    missing or bogus item_type raised UnboundLocalError -> HTTP 500 instead of
+    showing the validation message."""
+    client = login_client(app.test_client(), "pricing")
+    _create_product(client, "Edit Invalid ItemType Product", item_type="proizvod")
+    product = _product_row_by_name("Edit Invalid ItemType Product")
+
+    for bad_value in ("", "nesto-trece"):
+        r = client.post(
+            f"/pricing/products/{product['id']}/edit",
+            data={
+                "_csrf_token": csrf_token_for(client),
+                "name": "Edit Invalid ItemType Product",
+                "category": "Test",
+                "brand": "Test",
+                "item_type": bad_value,
+            },
+        )
+        assert r.status_code == 200, f"item_type={bad_value!r} gave {r.status_code}"
+        assert "Vrsta stavke je obavezna" in r.data.decode()
+    # the product is untouched
+    assert _product_row_by_name("Edit Invalid ItemType Product")["item_type"] == "proizvod"

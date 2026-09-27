@@ -1,22 +1,24 @@
-# Auto-update preko Watchtower-a — OPCIJONI compose override.
+# Auto-update via Watchtower — OPTIONAL compose override.
 #
-# Kopiraj ovaj fajl kao `docker-compose.override.yml` (PORED glavnog
-# docker-compose.yml) i `docker compose up -d` — Compose ga sam učita i
-# spoji sa glavnim stack-om. Watchtower tada jednom dnevno (04:00) proverava
-# ghcr.io/lakisan1/qp-crm:latest i, ako je CI pushovao noviji image,
-# skine ga i rekreira qp-crm kontejner. Podaci (bind mountovi) ostaju.
+# Copy this file as `docker-compose.override.yml` (NEXT TO the main
+# docker-compose.yml) and run `docker compose up -d` — Compose loads it
+# automatically and merges it with the main stack. Watchtower then checks
+# ghcr.io/lakisan1/qp-crm:latest once a day (04:00) and, if CI pushed a
+# newer image, pulls it and recreates the qp-crm container. Data (bind
+# mounts) stays untouched.
 #
-# Namerno u posebnom fajlu (ne u glavnom compose): auto-update je izbor
-# operatora, ne default ponašanje stack-a. Ako override ne želiš — samo ga
-# ne kopiraj; ručni update ostaje ./deploy.sh (vidi UPDATE.md).
+# Deliberately in a separate file (not the main compose): auto-update is the
+# operator's choice, not the stack's default behavior. If you don't want it,
+# simply don't copy the file; manual updating stays ./deploy.sh (see
+# UPDATE.md).
 #
-# VAŽNO: image pushuje TEK CI koji je prethodno prosao ceo test suite
-# (.github/workflows/ci.yml), pa "najnoviji image" uvek znači
-# "najnoviji testirani image".
+# IMPORTANT: the image is pushed ONLY by CI that previously passed the whole
+# test suite (.github/workflows/ci.yml), so "the newest image" always means
+# "the newest TESTED image".
 
 services:
   app:
-    # Watchtower update-uje SAMO kontejnere sa ovom labelom.
+    # Watchtower updates ONLY containers carrying this label.
     labels:
       - com.centurylinklabs.watchtower.enable=true
 
@@ -25,14 +27,14 @@ services:
     container_name: watchtower
     restart: unless-stopped
     volumes:
-      # Watchtower razgovara sa Docker API-jem da skine/zameni kontejner.
+      # Watchtower talks to the Docker API to pull/replace the container.
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
-      # cron: svaki dan u 04:00 (sek min sat ...). Alternativa: @hourly, @daily.
+      # cron: every day at 04:00 (sec min hour ...). Alternatives: @hourly, @daily.
       - WATCHTOWER_SCHEDULE=0 0 4 * * *
-      # posle uspešnog update-a obriši stari image (disk higijena)
+      # after a successful update, remove the old image (disk hygiene)
       - WATCHTOWER_CLEANUP=true
-      # prati SAMO labelisane kontejnere — ne dira ostatak Docker mašine
+      # watch ONLY labeled containers — never touches the rest of the Docker host
       - WATCHTOWER_LABEL_ENABLE=true
-      # ne šalji notifikacije (podesi ako želiš: WATCHTOWER_NOTIFICATIONS)
+      # no notifications (configure if you want: WATCHTOWER_NOTIFICATIONS)
       - WATCHTOWER_NOTIFICATIONS=

@@ -43,7 +43,7 @@
                         {% for r in contact_roles %}
                         <label style="font-weight: normal; text-transform: capitalize;">
                             <input type="checkbox" name="roles" value="{{ r }}"
-                                {{ 'checked' if contact and r in (contact.roles if contact.roles is defined else []) }}> {{ r }}
+                                {{ 'checked' if (contact and r in (contact.roles if contact.roles is defined else [])) or (not contact and r == 'client') }}> {{ r }}
                         </label>
                         {% endfor %}
                     </div>
@@ -101,8 +101,19 @@
                     </label>
                 </p>
                 <p>
+                    <label>Poštanski broj:<br>
+                        <input type="text" name="postal_code" class="long-input" value="{{ contact.postal_code if contact and contact.postal_code is defined else '' }}" style="max-width: 200px;">
+                    </label>
+                </p>
+                <p>
                     <label>Država:<br>
-                        <input type="text" name="country" class="long-input" value="{{ contact.country if contact else 'Srbija' }}">
+                        <select name="country" class="long-input">
+                            {% for c in countries %}
+                            <option value="{{ c.name }}" {% if contact and contact.country == c.name %}selected{% endif %}{% if not contact and loop.first %}selected{% endif %}>
+                                {% if current_lang == 'en' %}{{ c.name_en }}{% else %}{{ c.name }}{% endif %} ({{ c.code }})
+                            </option>
+                            {% endfor %}
+                        </select>
                     </label>
                 </p>
                 <p>
@@ -113,17 +124,6 @@
                 <p>
                     <label>Telefon:<br>
                         <input type="text" name="phone" class="long-input" value="{{ contact.phone if contact else '' }}">
-                    </label>
-                </p>
-                <h2 style="margin-top: 12px;">Veze</h2>
-                <p>
-                    <label>Nalog (zaposleni):<br>
-                        <select name="user_id" class="long-input">
-                            <option value="">— nema —</option>
-                            {% for u in user_choices %}
-                            <option value="{{ u.id }}" {{ 'selected' if contact and contact.user_id == u.id }}>{{ u.username }}</option>
-                            {% endfor %}
-                        </select>
                     </label>
                 </p>
                 <p>

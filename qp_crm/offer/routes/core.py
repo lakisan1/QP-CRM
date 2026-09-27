@@ -31,15 +31,25 @@ def api_contact(contact_id):
     full_name = " ".join(
         part for part in (contact["first_name"], contact["last_name"]) if part
     ) or contact["display_name"]
+    # Site picker feed (2026-09-24 model): the contact's MAIN billing
+    # address IS the default site (virtual id 0 = MAIN_LOCATION_ID); extra
+    # objects come from contact_locations. The form JS fills the location
+    # select from this list; picking one overwrites client_address with
+    # that site's address (snapshot — saved with the offer).
+    sites = contact_service.location_choices(contact_id)
     return jsonify({
         "contact_id": contact["id"],
         "name": full_name,
         "address": contact["billing_address"] or "",
+        "city": contact["city"] or "",
+        "postal_code": (contact["postal_code"] or "")
+        if "postal_code" in contact.keys() else "",
         "email": contact["email"] or "",
         "phone": contact["phone"] or "",
         "pib": contact["pib"] or "",
         "mb": contact["mb"] or "",
         "country": contact["country"] or "",
+        "sites": sites,
     })
 
 # /product-image route: shared implementation (also on pricing and sale)

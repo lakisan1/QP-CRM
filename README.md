@@ -12,13 +12,13 @@ Please open issues for any bugs or suggestions!
 
 ![Landing Page](README_Images/Menu/menu1.png)
 
-## 📚 Guides (uputstva)
+## 📚 Guides
 
-| Guide | Šta pokriva |
+| Guide | What it covers |
 |---|---|
-| **[📦 Instalacija](INSTALL.md)** | Prva instalacija sa Docker-om — skine gotov image sa GitHub-a i startuje (bez build-a, 3 koraka) |
-| **[🔄 Update](UPDATE.md)** | Update na novu verziju — jedna komanda (`./deploy.sh`), automatski backup, rollback; ili potpuno automatski (Watchtower) |
-| **[🐳 Docker operacije](DOCKER.md)** | Volumes, logs, backup, nginx/HTTPS, test suite |
+| **[📦 Installation](INSTALL.md)** | First install with Docker — pulls the ready-made image from GitHub and starts (no build, 3 steps) |
+| **[🔄 Updating](UPDATE.md)** | Update to a new version — one command (`./deploy.sh`), automatic backup, rollback; or fully automatic (Watchtower) |
+| **[🐳 Docker operations](DOCKER.md)** | Volumes, logs, backup, nginx/HTTPS, test suite |
 | **[🔌 API](README_API.md)** | REST API — auth (per-user API keys), endpoints |
 
 ## 🌟 Key Features
@@ -36,7 +36,7 @@ Manage your product catalog with precision. Calculate margins, track base costs,
 - **Quick Price Update**: Update prices for multiple products on one page.
 - **Bulk Import/Export**: Import and Export your database with ease.
 - **Price Comparison**: Compare prices of products or different offers.
-- **Filters**: Advanced filtering for products and offers.
+- **Filters**: Advanced filtering for products or offers.
 - **Date Format**: Customizable date format settings.
 
 #### ➕ Add and edit Products and Prices
@@ -58,17 +58,17 @@ Presets from category and brand.
 
 ### 💻 Docker (recommended — Linux)
 
-Najbrži start: skineš gotov image sa GitHub-a i startuješ. Bez build-a, bez git-a.
+Fastest start: pull the ready-made image from GitHub and run. No build, no git needed.
 
 ```bash
-# 1. preuzmi docker-compose.yml i .env.example iz ovog repo-a u prazan folder
-# 2. napravi .env od primera i popuni 6 tajni ključeva (uputstvo u fajlu)
+# 1. download docker-compose.yml and .env.example from this repo into an empty folder
+# 2. create .env from the example and fill in the 6 secret keys (instructions in the file)
 cp .env.example .env
-# 3. startuj
+# 3. start
 docker compose up -d
 ```
 
-Detaljno uputstvo sa objašnjenjima: **[📦 INSTALL.md](INSTALL.md)**.
+Detailed walkthrough with explanations: **[📦 INSTALL.md](INSTALL.md)**.
 
 ### 💻 Bare-metal (Linux/Ubuntu) — old way
 
@@ -108,16 +108,16 @@ Because PWAs usually require HTTPS, using a local IP might show a "Not secure" t
 
 ### 🔄 How to Update
 
-Docker deployment: **[🔄 UPDATE.md](UPDATE.md)** — ukratko:
+Docker deployment: **[🔄 UPDATE.md](UPDATE.md)** — in short:
 
 ```bash
-./deploy.sh      # skine novi image + automatski backup baze + restart + healthcheck
-./rollback.sh    # (samo ako treba) vrati na prethodnu verziju
+./deploy.sh      # pulls the new image + automatic DB backup + restart + healthcheck
+./rollback.sh    # (only if needed) returns to the previous version
 ```
 
-Podaci (korisnici, šifre, ponude, ugovori, slike) su na disku van image-a —
-update ih nikad ne gubi. Postoji i **potpuno automatski** update preko
-Watchtower-a (podešavanje u UPDATE.md, fajl `watchtower-compose.example.yml`).
+Your data (users, passwords, offers, contracts, images) lives on disk OUTSIDE
+the image — updates never lose it. Fully automatic updates are also possible
+via Watchtower (setup in UPDATE.md, file `watchtower-compose.example.yml`).
 
 Bare-metal (`run_apps.sh`) users: run the script again — it pulls the latest
 code and restarts.

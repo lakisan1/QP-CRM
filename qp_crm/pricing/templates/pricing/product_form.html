@@ -110,6 +110,39 @@
             </label>
         </p>
         <p>
+            <label>{{ _('Tracking regime') }}:<br>
+                <select name="tracking_regime" id="tracking_regime" class="long-input">
+                    <option value="untracked" {% if not product or (product.tracking_regime or 'untracked') == 'untracked' %}selected{% endif %}>{{ _('Ne prati') }}</option>
+                    <option value="qty" {% if product and product.tracking_regime == 'qty' %}selected{% endif %}>{{ _('Količinski') }}</option>
+                    <option value="serialized" {% if product and product.tracking_regime == 'serialized' %}selected{% endif %}>{{ _('Serijski') }}</option>
+                </select>
+                <br><small>{{ _('Optional — stock tracking is off by default; turn it on only for products you actually track.') }}</small>
+            </label>
+        </p>
+        <div id="tracking-qty-fields" style="display:none;">
+            <p>
+                <label>{{ _('Minimum stock') }}:<br>
+                    <input type="number" step="any" min="0" name="min_stock" class="long-input"
+                        value="{% if product and product.min_stock is not none %}{{ product.min_stock }}{% endif %}">
+                    <br><small>{{ _('Optional — reorder point; used only by the warehouse coverage view.') }}</small>
+                </label>
+            </p>
+            <p>
+                <label>{{ _('Unit of measure') }}:<br>
+                    <input type="text" name="unit_base" class="long-input" placeholder="kom, litar, metar"
+                        value="{% if product %}{{ product.unit_base or '' }}{% endif %}">
+                    <br><small>{{ _('Optional — practical unit, e.g. kom, litar.') }}</small>
+                </label>
+            </p>
+            <p>
+                <label>{{ _('Pack size') }}:<br>
+                    <input type="number" step="any" min="0" name="pack_size" class="long-input"
+                        value="{% if product and product.pack_size is not none %}{{ product.pack_size }}{% endif %}">
+                    <br><small>{{ _('Optional — units per pack.') }}</small>
+                </label>
+            </p>
+        </div>
+        <p>
             <label>{{ _('Image (JPG, PNG, WEBP):') }}<br>
                 <div class="file-upload-wrapper">
                     {% if product and product.photo_path %}
@@ -182,6 +215,20 @@
                 spellChecker: false,
                 toolbar: ["bold", "italic", "heading", "|", "quote", "unordered-list", "ordered-list", "|", "link", "preview"]
             });
+        }
+
+        // Tracking regime: min_stock / unit_base / pack_size are meaningful
+        // only for the 'qty' regime, so hide them otherwise (no `disabled`:
+        // hidden inputs still submit their values, so flipping back to qty
+        // keeps whatever the user typed).
+        const trackingSelect = document.getElementById("tracking_regime");
+        const trackingQtyFields = document.getElementById("tracking-qty-fields");
+        if (trackingSelect && trackingQtyFields) {
+            const syncTrackingQtyFields = function () {
+                trackingQtyFields.style.display = trackingSelect.value === "qty" ? "" : "none";
+            };
+            trackingSelect.addEventListener("change", syncTrackingQtyFields);
+            syncTrackingQtyFields();
         }
     });
 </script>

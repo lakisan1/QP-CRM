@@ -1,0 +1,18 @@
+# Agent Note: contact-account-link-moved-to-admin
+
+Status: implemented
+
+## Problem
+
+User: 'nije mi jasno u kontaktima kad se novi dodaje šta je tacno Veze → Nalog (zaposleni)'. The link was an account property living on the contact form — wrong home, and nothing in the UI explained it. User's fix: 'mozda da ta opcija bude u admin panelu kod User menagment sistema a ne ovde u kontaktima'.
+
+## Decision
+
+The account↔contact link is managed ONLY in Admin → Users. The users page (qp_crm/admin/templates/admin/users.html) gained a 'Kontakt u imeniku' select in the apps/active/role cell for every non-own row, fed by contact_service.directory_choices(include_archived=True); saving runs through save_user_action behind _guard_sensitive (acting admin's password), gated by a hidden has_contact_link carrier so the own-row save (password-only semantics) and admin-role rows never touch the link unintentionally. contact_service.set_contact_user_link(contact_id, user_id) enforces the 1:1 invariant in BOTH directions — binding contact B to account X clears X's link off contact A AND clears contact B's stale link to account Y — and user_link_choices() exists for future dropdown feeds. The contacts form (contacts/form.html) no longer renders the 'Veze → Nalog' select; _form_fields no longer forwards user_id; update_contact keeps user_id writable at the service level. The directory detail page shows the linked USERNAME (resolved live via get_user_by_id) with the hint 'upravlja se u Admin → Users → Kontakt u imeniku'.
+## Alternatives considered
+
+["**Keep the select in the contacts form AND add one in admin**: rejected — two writable sites for one invariant (1 account ↔ 1 contact) means either can silently break the other; the admin site is the single writer, the directory only displays.", "**Remove the user_id link entirely (it has no consumers)**: rejected — the user asked to move it, not delete it; the link is the intended hook for 'who am I in the directory' features (e.g. a logged-in employee landing on their own record), and deleting a column the user just asked about is overreach.", "**Auto-create a directory contact for every new login**: rejected — most logins are not directory parties (admins, pdf_probe-style probes) and auto-rows would pollute the 2156-contact registry; linking stays an explicit admin decision.", "**Managed on the contact detail page as a read-only chip with an edit modal**: rejected — the admin panel already owns account properties (role, apps, active); a second modal duplicates the save-with-password guard users already know from that page."]
+## Consequences
+
+Bought: the confusing 'Veze → Nalog' select is gone from the directory form (the 99% case — musterije without logins — no longer sees an irrelevant dropdown); the link lives next to role/app-access where account properties belong; both-direction stale-link cleanup makes the 1:1 invariant structural, not behavioral. Cost: binding a contact now requires admin password confirmation (like every users-page change) — directory editors can no longer set it, which is the POINT (account properties are admin scope); find_by_user_id remains a live-read helper, so an admin row's select shows the linked contact even when archived. Negative guarantees: admin rows (role admin) render NO contact select but their hidden has_contact_link carrier means the link IS saved when set — the select is absent only because admins bypass app-access, not because the link is forbidden; set_contact_user_link is NOT exposed on any directory route (admin-only writer); update_contact still accepts user_id in _CONTACT_FIELDS for service-level use but the directory form no longer sends it, so the form path can never change it.
+

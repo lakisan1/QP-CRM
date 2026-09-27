@@ -1,4 +1,7 @@
-"""Rent catalog CRUD: equipment (clients live in the shared directory)."""
+"""Rent catalogs: the equipment catalog lives INSIDE the contract form
+(2026-09-24 user request) — the standalone /rent/equipment page is gone.
+Clients were already moved to the shared directory (P5-unification).
+"""
 from flask import redirect, render_template, request, url_for
 
 from ..app import bp, get_db
@@ -50,48 +53,10 @@ def list_clients():
     return redirect(url_for("contacts.list_contacts", role="client"))
 
 
-# ─── Equipment CRUD ────────────────────────────────────────────────────────────
+# ─── Legacy /equipment URL: page removed (R-T4) ───────────────────────────────
 @bp.route("/equipment", methods=["GET", "POST"])
 def list_equipment():
-    conn = get_db()
-    cur = conn.cursor()
-    msg = None
-    edit_eq = None
-    edit_id = request.args.get("edit_id", type=int)
-
-    if request.method == "POST":
-        action = request.form.get("action")
-        if action == "save":
-            data = {
-                "name": request.form.get("name", "").strip(),
-                "price": float(request.form.get("price") or 0),
-                "default_rent_months": int(request.form.get("default_rent_months") or 48),
-                "default_guarantee_rate": float(request.form.get("default_guarantee_rate") or 5),
-                "default_downpayment_percent": float(request.form.get("default_downpayment_percent") or 20),
-            }
-            eid = request.form.get("eq_id", type=int)
-            if eid:
-                sets = ", ".join(f"{k}=?" for k in data)
-                cur.execute(f"UPDATE rent_equipment SET {sets} WHERE id=?;", list(data.values()) + [eid])
-            else:
-                cols = ", ".join(data.keys())
-                ph = ", ".join(["?"] * len(data))
-                cur.execute(f"INSERT INTO rent_equipment ({cols}) VALUES ({ph});", list(data.values()))
-            conn.commit()
-            msg = "Sačuvano."
-        elif action == "delete":
-            eid = request.form.get("eq_id", type=int)
-            cur.execute("DELETE FROM rent_equipment WHERE id=?;", (eid,))
-            conn.commit()
-            msg = "Obrisano."
-        conn.close()
-        return redirect(url_for("rent.list_equipment"))
-
-    if edit_id:
-        cur.execute("SELECT * FROM rent_equipment WHERE id=?;", (edit_id,))
-        edit_eq = cur.fetchone()
-
-    cur.execute("SELECT * FROM rent_equipment ORDER BY name;")
-    equipment = cur.fetchall()
-    conn.close()
-    return render_template("rent/rent_equipment.html", equipment=equipment, edit_eq=edit_eq, msg=msg)
+    """The standalone equipment page is gone: the catalog is created/edited
+    inline in the contract form (section 4. Oprema). Old bookmarks and the
+    old header link land back on the contracts list."""
+    return redirect(url_for("rent.list_contracts"))

@@ -1,0 +1,74 @@
+{% extends "warehouse/base.html" %}
+{% block title %}Nova mašina — Magacin{% endblock %}
+
+{% block content %}
+<h1>Registracija mašine</h1>
+
+<form method="post" class="card" style="max-width:720px;display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+
+    <label style="grid-column:1/3;">
+        Katalog proizvod (opciono — izostavi za ad-hoc mašinu van kataloga)
+        <select name="product_id" class="searchable-select" style="width:100%;">
+            <option value="">— bez kataloga (temp prijava) —</option>
+            {% for p in products %}
+            <option value="{{ p['id'] }}">{{ p['name'] }}</option>
+            {% endfor %}
+        </select>
+    </label>
+
+    <label>
+        Naziv mašine (obavezno ako nema kataloga)
+        <input type="text" name="name_snapshot" style="width:100%;">
+    </label>
+
+    <label>
+        Serijski broj
+        <input type="text" name="serial_number" style="width:100%;">
+    </label>
+
+    <label>
+        Čuvar
+        <select name="custodian_type" style="width:100%;">
+            {% for c in custodian_types %}
+            <option value="{{ c }}" {{ 'selected' if c == 'warehouse' }}>{{ custodian_labels[c] }}</option>
+            {% endfor %}
+        </select>
+    </label>
+
+    <label>
+        Kontakt čuvar (za 'Kod kontakta')
+        <select name="custodian_contact_id" class="searchable-select" style="width:100%;">
+            <option value="">—</option>
+            {% for c in contacts %}
+            <option value="{{ c['id'] }}">{{ c['display_name'] }}</option>
+            {% endfor %}
+        </select>
+    </label>
+
+    <label>
+        Status
+        <select name="status" style="width:100%;">
+            <option value="">automatski (po čuvaru)</option>
+            {% for s in statuses %}
+            <option value="{{ s }}" {{ 'selected' if s == 'in_stock' }}>{{ status_labels[s] }}</option>
+            {% endfor %}
+        </select>
+    </label>
+
+    <label>
+        Kod čuvara od (datum)
+        <input type="date" name="since_date" style="width:100%;">
+    </label>
+
+    <label style="grid-column:1/3;">
+        Napomena
+        <textarea name="notes" rows="3" style="width:100%;"></textarea>
+    </label>
+
+    <div style="grid-column:1/3;display:flex;gap:10px;">
+        <button type="submit" class="btn btn-success">Registruj</button>
+        <a href="{{ url_for('warehouse.equipment_list') }}" class="btn btn-secondary">Otkaži</a>
+    </div>
+</form>
+{% endblock %}

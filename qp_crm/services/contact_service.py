@@ -33,8 +33,8 @@ _VALID_ROLES = frozenset(CONTACT_ROLES)
 # form can never write a column this module does not own.
 _CONTACT_FIELDS = (
     "kind", "display_name", "first_name", "last_name", "jmbg", "pib", "mb",
-    "account", "billing_address", "city", "country", "email", "phone",
-    "job_title", "user_id", "notes",
+    "account", "billing_address", "city", "postal_code", "country", "email",
+    "phone", "job_title", "user_id", "notes",
 )
 
 
@@ -43,31 +43,47 @@ def _utcnow_iso():
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def list_contacts(include_archived=False, search="", roles=None, kind=None):
-    """Directory rows for lists/pickers, newest-relevant last.
+def list_contacts(include_archived=False, search="", roles=None, kind=None,
+                  country=None, page=None, per_page=None):
+    """Directory rows for lists/pickers, alphabetically.
 
     roles:   None = all; a sequence filters to contacts holding ANY of the
              given roles (a supplier+client contact matches both).
     kind:    None = all; 'company' | 'person'.
+    country: None = all; exact match on contacts.country (dropdown values
+             come from the shared countries list, so exact == case-true).
     Search matches display_name, first/last, pib, mb, jmbg, email, phone,
     city -- the fields a receptionist actually types.
+
+    page/per_page: when per_page is given, returns
+    (rows, total_count) with LIMIT/OFFSET pushed into SQL -- the 2000+
+    contact list renders one page at a time (same pagination model as the
+    offer list). page is 1-based; out-of-range pages clamp to page 1 via
+    the route. Without per_page the all-rows behavior stays intact for
+    pickers (_directory_party_choices etc. must NOT paginate).
     """
     conn = get_db()
     cur = conn.cursor()
     sql = "SELECT DISTINCT c.* FROM contacts c"
+    count_sql = ("SELECT COUNT(DISTINCT c.id) FROM contacts c")
     clauses, params = [], []
     if roles:
         wanted = [r for r in (roles or []) if r in _VALID_ROLES]
         if wanted:
             placeholders = ",".join("?" for _ in wanted)
-            sql += (f" JOIN contact_roles cr ON cr.contact_id = c.id "
+            join = (f" JOIN contact_roles cr ON cr.contact_id = c.id "
                     f"AND cr.role IN ({placeholders})")
+            sql += join
+            count_sql += join
             params += wanted
     if not include_archived:
         clauses.append("c.archived = 0")
     if kind in _VALID_KINDS:
         clauses.append("c.kind = ?")
         params.append(kind)
+    if country:
+        clauses.append("c.country = ?")
+        params.append(country)
     if search:
         clauses.append(
             "(c.display_name LIKE ? OR c.first_name LIKE ? OR c.last_name LIKE ? "
@@ -76,12 +92,23 @@ def list_contacts(include_archived=False, search="", roles=None, kind=None):
         like = f"%{search}%"
         params += [like] * 9
     if clauses:
-        sql += " WHERE " + " AND ".join(clauses)
-    sql += " ORDER BY c.display_name COLLATE NOCASE;"
+        where = " WHERE " + " AND ".join(clauses)
+        sql += where
+        count_sql += where
+    sql += " ORDER BY c.display_name COLLATE NOCASE"
+    if per_page:
+        offset = (max(page or 1, 1) - 1) * per_page
+        sql += f" LIMIT {int(per_page)} OFFSET {int(offset)}"
+    sql += ";"
     cur.execute(sql, params)
     rows = cur.fetchall()
+    if not per_page:
+        conn.close()
+        return rows
+    cur.execute(count_sql, params)
+    total = cur.fetchone()[0]
     conn.close()
-    return rows
+    return rows, total
 
 
 def get_contact(contact_id):
@@ -121,10 +148,11 @@ def create_contact(display_name, kind="company", roles=(), fields=None):
     cur.execute(
         """
         INSERT INTO contacts (kind, display_name, first_name, last_name, jmbg,
-                              pib, mb, account, billing_address, city, country,
+                              pib, mb, account, billing_address, city,
+                              postal_code, country,
                               email, phone, job_title, user_id,
                               notes, created_at, archived)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0);
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0);
         """,
         (
             kind,
@@ -137,6 +165,7 @@ def create_contact(display_name, kind="company", roles=(), fields=None):
             (fields.get("account") or "").strip(),
             (fields.get("billing_address") or "").strip(),
             (fields.get("city") or "").strip(),
+            (fields.get("postal_code") or "").strip(),
             (fields.get("country") or "").strip(),
             (fields.get("email") or "").strip(),
             (fields.get("phone") or "").strip(),
@@ -273,12 +302,74 @@ def find_by_user_id(user_id):
     return row
 
 
+def set_contact_user_link(contact_id, user_id):
+    """Bind (or unbind, user_id None) a directory contact to a login
+    account. Returns (ok, message).
+
+    Admin-side helper (Admin -> Users -> 'Kontakt u imeniku'): ONE login
+    account maps to AT MOST ONE directory entry -- binding to a contact
+    already held by ANOTHER account clears that account's stale link
+    first, so the invariant 'no user_id on two contacts' holds without
+    manual cleanup. Also clears the mirror link from the previous contact
+    when an account is re-pointed.
+    """
+    conn = get_db()
+    cur = conn.cursor()
+    if user_id is not None:
+        cur.execute("SELECT id FROM users WHERE id = ?;", (user_id,))
+        if cur.fetchone() is None:
+            conn.close()
+            return False, "Nalog nije pronađen."
+        # one account -> one contact: free the account from any other contact
+        cur.execute("UPDATE contacts SET user_id = NULL WHERE user_id = ? AND id != ?;",
+                    (user_id, contact_id))
+    # one contact -> one account: free the contact from any other account
+    cur.execute("SELECT user_id FROM contacts WHERE id = ?;", (contact_id,))
+    row = cur.fetchone()
+    if row is None:
+        conn.close()
+        return False, "Kontakt nije pronađen."
+    cur.execute("UPDATE contacts SET user_id = ? WHERE id = ?;",
+                (user_id, contact_id))
+    conn.commit()
+    conn.close()
+    return True, "ok"
+
+
+def user_link_choices():
+    """(id, username, linked_contact_id, linked_contact_name) for the
+    Admin -> Users dropdown: every active login account plus what it
+    currently points to (NULL when unlinked)."""
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT u.id, u.username, c.id AS contact_id, c.display_name AS contact_name
+        FROM users u
+        LEFT JOIN contacts c ON c.user_id = u.id
+        WHERE u.is_active = 1
+        ORDER BY u.username;
+        """)
+    rows = [dict(r) for r in cur.fetchall()]
+    conn.close()
+    return rows
+
+
 # ---------------------------------------------------------------------------
 # contact locations (sites of one contact -- the directory's own children)
 # ---------------------------------------------------------------------------
 
 def list_contact_locations(contact_id):
-    """All site rows of one contact, oldest first."""
+    """All EXTRA site rows of one contact, oldest first.
+
+    The contact's MAIN address (contacts.billing_address + city) is the
+    DEFAULT site by user decision (2026-09-24): it is NOT a table row --
+    it exists virtually as location id 0 (MAIN_LOCATION_ID). Only EXTRA
+    objects (dvorište, drugi magacin, gradilište) live in
+    contact_locations, so the 1600+ single-address contacts from the
+    musterije import carry zero extra rows. Use location_choices() for
+    picker feeds -- it merges the default with the extras.
+    """
     conn = get_db()
     cur = conn.cursor()
     cur.execute(
@@ -290,8 +381,95 @@ def list_contact_locations(contact_id):
     return rows
 
 
+# Virtual location id: "Glavna adresa" of a contact. It is never a
+# contact_locations row -- pickers resolve it live from the contacts row,
+# so editing the main address updates the default site everywhere.
+MAIN_LOCATION_ID = 0
+
+
+def location_choices(contact_id, include_default=True):
+    """Site picker feed for ONE contact: default address + extra sites.
+
+    Returns dicts (2026-09-24 user request: locations carry postal code
+    and country):
+      {id, label, address, city, postal_code, country}
+      * id MAIN_LOCATION_ID (0) = the contact's main billing address,
+        present whenever the contact HAS one (and include_default);
+      * then every contact_locations row by its real id.
+    The label "Glavna adresa" sorts first so pickers default to it.
+    """
+    contact = get_contact(contact_id)
+    if contact is None:
+        return []
+    choices = []
+    main_address = (contact["billing_address"] or "").strip()
+    if include_default and main_address:
+        choices.append({
+            "id": MAIN_LOCATION_ID,
+            "label": "Glavna adresa",
+            "address": main_address,
+            "city": (contact["city"] or "").strip(),
+            "postal_code": (contact.get("postal_code") or "").strip()
+            if "postal_code" in contact.keys() else "",
+            "country": (contact["country"] or "").strip(),
+        })
+    for row in list_contact_locations(contact_id):
+        address = (row["address"] or "").strip()
+        label = row["name"] or address or f"Lokacija #{row['id']}"
+        choices.append({
+            "id": row["id"],
+            "label": label,
+            "address": address,
+            "city": (row["city"] or "").strip(),
+            "postal_code": (row["postal_code"] or "").strip(),
+            "country": (row["country"] or "").strip(),
+        })
+    return choices
+
+
+def resolve_location(contact_id, location_id):
+    """Resolve a picked site to its full address dict for snapshot fields.
+
+    location_id MAIN_LOCATION_ID (0/None) resolves the contact's MAIN
+    billing address; a real id resolves the contact_locations row (404-
+    safe: an unknown id or a site of ANOTHER contact returns None --
+    never leak another party's address).
+
+    Returns {address, city, postal_code, country} or None.
+    """
+    contact = get_contact(contact_id)
+    if contact is None:
+        return None
+    if location_id in (None, "", MAIN_LOCATION_ID):
+        return {
+            "address": (contact["billing_address"] or "").strip(),
+            "city": (contact["city"] or "").strip(),
+            "postal_code": (contact.get("postal_code") or "").strip()
+            if "postal_code" in contact.keys() else "",
+            "country": (contact["country"] or "").strip(),
+        }
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT address, city, postal_code, country FROM contact_locations "
+        "WHERE id = ? AND contact_id = ?;",
+        (location_id, contact_id),
+    )
+    row = cur.fetchone()
+    conn.close()
+    if row is None:
+        return None
+    return {
+        "address": (row["address"] or "").strip(),
+        "city": (row["city"] or "").strip(),
+        "postal_code": (row["postal_code"] or "").strip(),
+        "country": (row["country"] or "").strip(),
+    }
+
+
 def create_contact_location(contact_id, name, address="", city="",
-                            contact_name="", contact_phone="", notes=""):
+                            contact_name="", contact_phone="", notes="",
+                            postal_code="", country=""):
     """Add a site to a contact. Returns (ok, id_or_message)."""
     name = (name or "").strip()
     if not name:
@@ -305,10 +483,12 @@ def create_contact_location(contact_id, name, address="", city="",
     cur.execute(
         """
         INSERT INTO contact_locations (contact_id, name, address, city,
+                                       postal_code, country,
                                        contact_name, contact_phone, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?);
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
         """,
         (contact_id, name, (address or "").strip(), (city or "").strip(),
+         (postal_code or "").strip(), (country or "").strip(),
          (contact_name or "").strip(), (contact_phone or "").strip(),
          (notes or "").strip()),
     )
@@ -319,7 +499,8 @@ def create_contact_location(contact_id, name, address="", city="",
 
 
 def update_contact_location(location_id, name, address="", city="",
-                            contact_name="", contact_phone="", notes=""):
+                            contact_name="", contact_phone="", notes="",
+                            postal_code="", country=""):
     """Edit one site row. Returns (ok, message)."""
     name = (name or "").strip()
     if not name:
@@ -333,10 +514,12 @@ def update_contact_location(location_id, name, address="", city="",
     cur.execute(
         """
         UPDATE contact_locations SET name = ?, address = ?, city = ?,
+                                     postal_code = ?, country = ?,
                                      contact_name = ?, contact_phone = ?, notes = ?
         WHERE id = ?;
         """,
         (name, (address or "").strip(), (city or "").strip(),
+         (postal_code or "").strip(), (country or "").strip(),
          (contact_name or "").strip(), (contact_phone or "").strip(),
          (notes or "").strip(), location_id),
     )

@@ -7,7 +7,7 @@
 
 <div class="card">
     <form method="get" action="{{ url_for('pricing.list_products') }}">
-        <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end;">
+        <div class="filter-row" style="gap: 20px;">
             <label style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
                 <span style="font-weight: 500; font-size: 14px; white-space: nowrap;">Brand:</span>
                 <div style="width: 200px;">
@@ -48,6 +48,18 @@
                 </div>
             </label>
             <label style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
+                <span style="font-weight: 500; font-size: 14px; white-space: nowrap;">{{ _('Tracking') }}:</span>
+                <div style="width: 160px;">
+                    <select name="tracking_regime" class="searchable-select" onchange="this.form.submit()"
+                        style="margin-bottom: 0;">
+                        <option value="">-- {{ _('all') }} --</option>
+                        <option value="untracked" {% if tracking_filter=='untracked' %}selected{% endif %}>{{ _('Ne prati') }}</option>
+                        <option value="qty" {% if tracking_filter=='qty' %}selected{% endif %}>{{ _('Količinski') }}</option>
+                        <option value="serialized" {% if tracking_filter=='serialized' %}selected{% endif %}>{{ _('Serijski') }}</option>
+                    </select>
+                </div>
+            </label>
+            <label style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
                 <span style="font-weight: 500; font-size: 14px; white-space: nowrap;">{{ _('Search by name:') }}</span>
                 <input type="text" name="search" value="{{ search_term or '' }}" aria-label="{{ _('Search by name') }}" onchange="this.form.submit()"
                     style="margin-bottom: 0; width: 200px;">
@@ -67,16 +79,13 @@
                     </select>
                 </div>
             </label>
-            <div style="display: flex; flex-direction: column;">
-                <span style="margin-bottom: 8px; font-weight: 500; font-size: 14px; visibility: hidden;">.</span>
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <a href="{{ url_for('pricing.list_products', clear=1) }}" class="btn btn-secondary"
-                        style="margin-bottom: 0px; padding: 10px 20px; font-size: 14px;">{{ _('Reset search') }}</a>
-                    <span
-                        style="background: var(--accent-primary, #3498db); color: white; padding: 4px 12px; border-radius: 20px; font-weight: bold; font-size: 14px;">
-                        {{ total_count }} {{ _('products') }}
-                    </span>
-                </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <a href="{{ url_for('pricing.list_products', clear=1) }}" class="btn btn-secondary"
+                    style="font-size: 14px;">{{ _('Reset search') }}</a>
+                <span
+                    style="background: var(--accent-primary, #3498db); color: white; padding: 4px 12px; border-radius: 20px; font-weight: bold; font-size: 14px;">
+                    {{ total_count }} {{ _('products') }}
+                </span>
             </div>
         </div>
     </form>
@@ -107,6 +116,11 @@
                 </a>
                 {% if p.item_type == 'usluga' %}
                 <span style="font-size: 11px; background: #8e44ad; color: white; padding: 2px 8px; border-radius: 10px; margin-left: 4px;">{{ _('Service') }}</span>
+                {% endif %}
+                {% if p.tracking_regime == 'qty' %}
+                <span style="font-size: 11px; background: #16a085; color: white; padding: 2px 8px; border-radius: 10px; margin-left: 4px;">{{ _('Količinski') }}</span>
+                {% elif p.tracking_regime == 'serialized' %}
+                <span style="font-size: 11px; background: #2980b9; color: white; padding: 2px 8px; border-radius: 10px; margin-left: 4px;">{{ _('Serijski') }}</span>
                 {% endif %}
                 {% if p.product_code %}
                 <br><span style="font-size: 12px; color: var(--text-muted);">ID: {{ p.product_code }}</span>

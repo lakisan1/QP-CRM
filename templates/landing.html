@@ -135,6 +135,14 @@
                 <span class="app-desc">Zajednički imenik: kupci, dobavljači, zaposleni, spoljni saradnici — firme i fizička lica.</span>
             </a>
             {% endif %}
+
+            {% if is_admin or 'warehouse' in granted %}
+            <a href="/warehouse/" class="app-card">
+                <span class="app-icon">📦</span>
+                <span class="app-title">Magacin</span>
+                <span class="app-desc">Oprema i zalihu: mašine (serijski brojevi, čuvari), kretanja zaliha, rezervacije i pokrivenost.</span>
+            </a>
+            {% endif %}
             <a href="/settings/" class="app-card">
                 <span class="app-icon">🛠️</span>
                 <span class="app-title">Podešavanja</span>

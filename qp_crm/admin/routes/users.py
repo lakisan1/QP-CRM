@@ -15,6 +15,7 @@ auth blueprint at /change-password.
 from flask import flash, redirect, render_template, request, session, url_for
 
 from ..app import bp
+from qp_crm.services import contact_service
 from qp_crm.shared.auth import (
     MODULE_CHOICES,
     admin_reset_user_password,
@@ -47,11 +48,15 @@ def list_users():
     users = [dict(u) for u in list_users_rows()]
     for u in users:
         u["modules"] = get_user_modules(u["id"])
+        # Contact link (2026-09-24: moved from the contacts form here --
+        # it is an account property: WHICH directory entry is this login).
+        u["contact_link"] = contact_service.find_by_user_id(u["id"])
     return render_template(
         "admin/users.html",
         users=users,
         module_choices=MODULE_CHOICES,
         current_user_id=session.get("user_id"),
+        contact_choices=contact_service.directory_choices(include_archived=True),
     )
 
 
@@ -141,6 +146,31 @@ def save_user_action(user_id):
                 notes.append("password updated")
             else:
                 errors.append(error)
+
+        # Contact link (2026-09-24): 'contact_id' empty string = unbind,
+        # an id = bind (the service clears stale links both directions).
+        # Guarded by _guard_sensitive like every other field here.
+        if request.form.get("has_contact_link"):
+            contact_id = request.form.get("contact_id", type=int) or None
+            current_link = contact_service.find_by_user_id(user_id)
+            current_id = current_link["id"] if current_link else None
+            if contact_id != current_id:
+                if contact_id is None:
+                    ok, error = contact_service.set_contact_user_link(contact_id, None)
+                    # contact_id None: nothing to unbind on the contact side --
+                    # clear the account's mirror link off its current contact
+                    if current_id is not None:
+                        ok, error = contact_service.set_contact_user_link(current_id, None)
+                    if ok:
+                        notes.append("contact link removed")
+                    else:
+                        errors.append(error)
+                else:
+                    ok, error = contact_service.set_contact_user_link(contact_id, user_id)
+                    if ok:
+                        notes.append("contact link set")
+                    else:
+                        errors.append(error)
 
     if errors:
         flash(" ".join(errors), "error")

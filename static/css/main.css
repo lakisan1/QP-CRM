@@ -251,6 +251,57 @@ label {
     font-size: 14px;
 }
 
+/* Filter bar rows (list pages): fields and action buttons on one level.
+   align-items:flex-end aligns MARGIN boxes, and inputs/selects carry a global
+   margin-bottom:16px while .btn has none — that difference is what pushed the
+   buttons below the search line. .filter-row zeroes bottom margins inside the
+   row so every child's bottom edge is the input line itself. */
+.filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    align-items: flex-end;
+}
+
+.filter-row label {
+    margin-bottom: 0;
+}
+
+.filter-row label>span {
+    margin-bottom: 8px;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.filter-row input,
+.filter-row select,
+.filter-row .btn,
+.filter-row button {
+    margin-bottom: 0;
+}
+
+/* Native inputs are 46px tall (padding 10 + line 1.6 of 15px + border); the
+   default .btn (padding 10, line 1.4 of 14px) is ~40px, so its top edge sat a
+   few px below the input tops. Match the height so the whole row reads level. */
+.filter-row .btn,
+.filter-row button {
+    padding-top: 13px;
+    padding-bottom: 13px;
+}
+
+/* TomSelect replaces <select> with .ts-wrapper (any inline margin-bottom stays
+   on the hidden original select). Match the wrapper's control metrics to the
+   app's native inputs (padding 10/14, font 15) so TS-enhanced selects are the
+   same height as plain inputs and sit level with them. */
+.ts-wrapper .ts-control {
+    padding: 10px 14px;
+    font-size: 15px;
+}
+
+.ts-wrapper .ts-control>input {
+    font-size: 15px;
+}
+
 /* Buttons */
 button,
 .btn {

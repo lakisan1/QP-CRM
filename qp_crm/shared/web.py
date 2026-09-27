@@ -228,6 +228,17 @@ def require_role(*roles, exempt_endpoints=()):
             session.clear()
             return redirect(url_for("auth.login"))
 
+        # Identity bind (stale-session defence): the numeric user_id alone is
+        # NOT proof of identity across DB replacements. factory_reset wipes
+        # and re-seeds users (AUTOINCREMENT hands out NEW ids), and
+        # backup_quick_restore / restore_full swap the whole DB file, so an
+        # id can come back belonging to a DIFFERENT person. Login stores the
+        # username in the session; require both to match the row, else the
+        # cookie is stale and must re-authenticate.
+        if session.get("username") != user["username"]:
+            session.clear()
+            return redirect(url_for("auth.login"))
+
         if roles and user["role"] not in roles:
             abort(403, description="Nemate dozvolu za ovu stranicu. (Your account role does not permit this page.)")
 
@@ -271,6 +282,14 @@ def require_module(module, exempt_endpoints=()):
 
         user = get_user_by_id(user_id)
         if user is None:
+            session.clear()
+            return redirect(url_for("auth.login"))
+
+        # Same identity bind as require_role: after factory_reset (users
+        # wiped + re-seeded under new AUTOINCREMENT ids) or a DB-file restore
+        # (old ids reappear under different usernames), a session whose
+        # user_id no longer belongs to the same username must re-login.
+        if session.get("username") != user["username"]:
             session.clear()
             return redirect(url_for("auth.login"))
 

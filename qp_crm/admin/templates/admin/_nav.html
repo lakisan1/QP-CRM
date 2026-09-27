@@ -6,13 +6,13 @@
        {% set active = 'dashboard' %}{% include 'admin/_nav.html' %}
 
    `active` selects the highlighted link; one of:
-       dashboard | pdf_templates | rounding_rules | users | api_keys |
-       rent_templates
+       dashboard | backups | pdf_templates | rounding_rules | users |
+       api_keys | rent_templates
    Optional `nav_extra` renders a muted trail after the links (the PDF
    template editor's "Edit: <name>" breadcrumb).
 
    Behavior decisions (user requests, board cards):
-     * all six admin links appear on EVERY admin page (no more drifted
+     * all seven admin links appear on EVERY admin page (no more drifted
        copy-pasted headers missing Users / API Keys / Rent Šabloni);
      * the header carries NO logout button — logout lives in the settings
        app (/settings);
@@ -26,6 +26,7 @@
 {% from '_banner.html' import banner with context %}
 {% call banner(nav_extra=nav_extra|default(None), hr=false) %}
     <a href="{{ url_for('admin.index') }}" {% if active == 'dashboard' %}class="active"{% endif %}>Dashboard</a>
+    <a href="{{ url_for('admin.backup_page') }}" {% if active == 'backups' %}class="active"{% endif %}>Backup</a>
     <a href="{{ url_for('admin.list_pdf_templates') }}" {% if active == 'pdf_templates' %}class="active"{% endif %}>PDF Templates</a>
     <a href="{{ url_for('admin.list_rounding_rules') }}" {% if active == 'rounding_rules' %}class="active"{% endif %}>Rounding Rules</a>
     <a href="{{ url_for('admin.list_users') }}" {% if active == 'users' %}class="active"{% endif %}>Users</a>

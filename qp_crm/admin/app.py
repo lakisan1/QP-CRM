@@ -1,12 +1,8 @@
 # pyrefly: ignore [missing-import]
-from flask import Blueprint, Flask, render_template, request, redirect, url_for, session, flash, send_file
+from flask import Blueprint
 import os
-import time
-import zipfile
 import io
-import pathlib
-import shutil
-import sqlite3
+import zipfile
 
 # Directory of the qp_crm package (this file is qp_crm/admin/app.py). Used
 # only to seed the System Default PDF template from the filesystem templates
@@ -15,7 +11,9 @@ PACKAGE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 from qp_crm.shared.config import STATIC_DIR, DATABASE, APP_ASSETS_DIR, IMAGE_DIR
 from qp_crm.shared.db import get_db
-from qp_crm.shared.auth import check_password, set_password
+# set_password is NOT imported: the legacy /admin/update_passwords route is
+# gone — password changes live in Admin -> Users (admin_reset_user_password).
+from qp_crm.shared.auth import check_password
 from qp_crm.shared.countries import get_country_list
 from qp_crm.shared.web import (
     require_role,

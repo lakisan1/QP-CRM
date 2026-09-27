@@ -1,0 +1,59 @@
+{% extends "warehouse/base.html" %}
+{% block title %}Rezervacije — Magacin{% endblock %}
+
+{% block content %}
+<h1>Rezervacije</h1>
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+    <a href="{{ url_for('warehouse.reservation_new') }}" class="btn btn-success">+ Nova rezervacija</a>
+    <a href="{{ url_for('warehouse.reservations_list', all=(0 if active_only else 1)) }}" class="btn btn-secondary">
+        {{ 'Prikaži sve (i oslobođene)' if active_only else 'Samo aktivne' }}
+    </a>
+</div>
+
+<div class="card">
+    <table class="larg-table">
+        <thead>
+            <tr>
+                <th>Šta</th>
+                <th>Količina</th>
+                <th>Za koga</th>
+                <th>Od</th>
+                <th>Status</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in reservations %}
+            <tr>
+                <td>
+                    {% if r['product_name'] %}{{ r['product_name'] }}
+                    {% elif r['equipment_name'] %}{{ r['equipment_name'] }}{% if r['serial_number'] %} <span style="color:var(--text-muted);">S/N {{ r['serial_number'] }}</span>{% endif %}
+                    {% else %}?{% endif %}
+                </td>
+                <td>{{ r['qty'] if r['qty'] is not none else '—' }}</td>
+                <td><strong>{{ r['for_whom'] }}</strong></td>
+                <td>{{ format_date(r['created_at'][:10]) }}</td>
+                <td>
+                    {% if r['released_at'] %}
+                        <span style="color:var(--text-muted);">Oslobođena {{ format_date(r['released_at'][:10]) }}</span>
+                    {% else %}
+                        <span style="background:#e67e22;color:white;padding:2px 10px;border-radius:20px;font-weight:bold;">Aktivna</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if not r['released_at'] %}
+                    <form method="post" action="{{ url_for('warehouse.reservation_release', reservation_id=r['id']) }}" style="margin:0;">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-secondary">Oslobodi</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" style="text-align:center;color:var(--text-muted);">Nema rezervacija.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

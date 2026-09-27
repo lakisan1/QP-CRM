@@ -202,6 +202,7 @@ def test_unknown_module_prefix_404s():
 
 ADMIN_SUBPAGES = (
     "/admin/",
+    "/admin/backup",
     "/admin/pdf_templates",
     "/admin/rounding_rules",
     "/admin/users",
@@ -211,7 +212,7 @@ ADMIN_SUBPAGES = (
 
 
 @pytest.mark.parametrize("path", ("/admin/rent/templates",
-                                  "/admin/backup_db",
+                                  "/admin/backup",
                                   "/admin/backup_full"))
 def test_admin_gated_routes_reachable_after_login(admin_client, path):
     """Regression: these routes still carried per-route checks of the
@@ -225,12 +226,12 @@ def test_admin_gated_routes_reachable_after_login(admin_client, path):
 
 @pytest.mark.parametrize("path", ADMIN_SUBPAGES)
 def test_admin_pages_share_one_full_header(admin_client, path):
-    """Every admin page renders the SAME nav: all six links + Home, and no
+    """Every admin page renders the SAME nav: all seven links + Home, and no
     logout button (logout lives in the settings app now)."""
     page = admin_client.get(path)
     assert page.status_code == 200, path
     html = page.data.decode()
-    for link in ("/admin/", "/admin/pdf_templates", "/admin/rounding_rules",
+    for link in ("/admin/", "/admin/backup", "/admin/pdf_templates", "/admin/rounding_rules",
                  "/admin/users", "/admin/api_keys", "/admin/rent/templates"):
         assert link in html, f"{path}: missing nav link {link}"
     assert ">Home</a>" in html, f"{path}: missing Home link"

@@ -1,0 +1,170 @@
+{% extends "warehouse/base.html" %}
+{% block title %}{{ equipment['name_snapshot'] }} — Magacin{% endblock %}
+
+{% block content %}
+<h1>
+    {{ equipment['name_snapshot'] }}
+    {% if equipment['serial_number'] %}<span style="color:var(--text-muted);font-size:0.6em;">S/N: {{ equipment['serial_number'] }}</span>{% endif %}
+</h1>
+
+<div class="card" style="margin-bottom:16px;">
+    <div style="display:flex;gap:30px;flex-wrap:wrap;align-items:center;">
+        <div>
+            <strong>Status:</strong>
+            <span style="background:var(--accent-primary);color:white;padding:2px 12px;border-radius:20px;font-weight:bold;">
+                {{ status_labels.get(equipment['status'], equipment['status']) }}
+            </span>
+        </div>
+        <div>
+            <strong>Čuvar:</strong>
+            {% if equipment['custodian_type'] == 'customer' %}
+                Kod kontakta: {{ equipment['custodian_name'] or '?' }}
+            {% else %}
+                {{ {'warehouse': 'Magacin', 'customer': 'Kod kontakta', 'scrap': 'Rashodovano'}[equipment['custodian_type']] }}
+            {% endif %}
+        </div>
+        <div><strong>Od:</strong> {{ format_date(equipment['since_date']) }}</div>
+        {% if equipment['expected_return_at'] %}
+        <div><strong>Očekivani povratak:</strong> {{ format_date(equipment['expected_return_at']) }}</div>
+        {% endif %}
+        {% if open_shortfalls > 0 %}
+        <div style="background:#e67e22;color:white;padding:2px 12px;border-radius:20px;font-weight:bold;">
+            ⚠ Duguje {{ open_shortfalls }} deo {{ 'delova' if open_shortfalls > 1 else '' }}
+        </div>
+        {% endif %}
+    </div>
+    {% if equipment['notes'] %}<p style="margin-top:10px;"><strong>Napomena:</strong> {{ equipment['notes'] }}</p>{% endif %}
+</div>
+
+{# Two-tap custody change: pick custodian (+contact) → Promeni. #}
+<div class="card" style="margin-bottom:16px;">
+    <h3 style="margin-top:0;">Promena čuvara (2 klika)</h3>
+    <form method="post" action="{{ url_for('warehouse.equipment_transition', equipment_id=equipment['id']) }}"
+          style="display:flex;gap:15px;flex-wrap:wrap;align-items:flex-end;">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <label>
+            Novi čuvar
+            <select name="custodian_type" style="margin-bottom:0;">
+                {% for c in custodian_types %}
+                <option value="{{ c }}">{{ {'warehouse': 'Magacin', 'customer': 'Kod kontakta', 'scrap': 'Rashodovano'}[c] }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>
+            Kontakt (za 'Kod kontakta')
+            <select name="custodian_contact_id" class="searchable-select" style="min-width:220px;margin-bottom:0;">
+                <option value="">—</option>
+                {% for c in contacts %}
+                <option value="{{ c['id'] }}">{{ c['display_name'] }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>
+            Status (opciono)
+            <select name="status" style="margin-bottom:0;">
+                <option value="">automatski</option>
+                {% for s, label in status_labels.items() %}
+                <option value="{{ s }}">{{ label }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>
+            Očekivani povratak
+            <input type="date" name="expected_return_at" style="margin-bottom:0;">
+        </label>
+        <label style="flex:1;min-width:200px;">
+            Napomena
+            <input type="text" name="note" style="margin-bottom:0;">
+        </label>
+        <button type="submit" class="btn btn-primary" style="margin-bottom:0;">Promeni</button>
+    </form>
+</div>
+
+{# Donor-part shortfalls: what this machine OWES. #}
+<div class="card" style="margin-bottom:16px;">
+    <h3 style="margin-top:0;">Nedostajući delovi (dugovi mašine)</h3>
+    <table class="larg-table">
+        <thead>
+            <tr><th>Deo</th><th>Uzet</th><th>PO referenca</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody>
+            {% for s in shortfalls %}
+            <tr>
+                <td>{{ s['part_product_name'] or s['part_name'] }}</td>
+                <td>{{ format_date(s['taken_at']) }}</td>
+                <td>{{ s['po_ref'] or '—' }}</td>
+                <td>
+                    {% if s['closed_at'] %}
+                        <span style="color:#2ecc71;">Zatvoren</span>
+                    {% else %}
+                        <span style="color:#e67e22;font-weight:bold;">Otvoren</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if not s['closed_at'] %}
+                    <form method="post" action="{{ url_for('warehouse.shortfall_close', shortfall_id=s['id']) }}" style="margin:0;">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-secondary">Zatvori</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" style="color:var(--text-muted);">Nema zabeleženih dugova.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <h4 style="margin-bottom:6px;">Zabeleži skinut deo (mašina duguje)</h4>
+    <form method="post" action="{{ url_for('warehouse.shortfall_create') }}"
+          style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="equipment_id" value="{{ equipment['id'] }}">
+        <label>
+            Deo iz kataloga
+            <select name="part_product_id" class="searchable-select" style="min-width:220px;margin-bottom:0;">
+                <option value="">—</option>
+                {% for p in products %}
+                <option value="{{ p['id'] }}">{{ p['name'] }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>
+            ili naziv ručno
+            <input type="text" name="part_name" style="margin-bottom:0;">
+        </label>
+        <label>
+            PO referenca
+            <input type="text" name="po_ref" style="margin-bottom:0;">
+        </label>
+        <label style="flex:1;min-width:180px;">
+            Napomena
+            <input type="text" name="note" style="margin-bottom:0;">
+        </label>
+        <button type="submit" class="btn btn-warning" style="margin-bottom:0;">Zabeleži dug</button>
+    </form>
+</div>
+
+{# The machine's story. #}
+<div class="card">
+    <h3 style="margin-top:0;">Istorija kretanja</h3>
+    <table class="larg-table">
+        <thead>
+            <tr><th>Kada</th><th>Smer</th><th>Razlog</th><th>Kontakt</th><th>Napomena</th></tr>
+        </thead>
+        <tbody>
+            {% for m in movements %}
+            <tr>
+                <td>{{ format_date(m['moved_at'][:10]) }}</td>
+                <td>{{ '→ ulaz' if m['direction'] == 'in' else '← izlaz' }}</td>
+                <td>{{ movement_reason_labels.get(m['reason'], m['reason']) }}</td>
+                <td>{{ m['contact_name'] or '—' }}</td>
+                <td>{{ m['note'] or '—' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" style="color:var(--text-muted);">Nema kretanja.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

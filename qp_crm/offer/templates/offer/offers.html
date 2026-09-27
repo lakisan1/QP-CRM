@@ -52,7 +52,7 @@
 
 <div class="card">
     <form method="get" action="{{ url_for('offer.list_offers') }}">
-        <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end;">
+        <div class="filter-row">
             <label style="display: flex; flex-direction: column;">
                 <span style="margin-bottom: 8px; font-weight: 500; font-size: 14px;">Od datuma:</span>
                 <input type="date" name="date_from" value="{{ date_from or '' }}" onchange="this.form.submit()"
@@ -94,9 +94,9 @@
                     {% endfor %}
                 </select>
             </label>
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
                 <a href="{{ url_for('offer.list_offers', clear=1) }}" class="btn btn-secondary"
-                    style="margin-bottom: 0px; padding: 10px 20px; font-size: 14px;">Reset
+                    style="font-size: 14px;">Reset
                     pretrage</a>
                 <span
                     style="background: var(--accent-primary, #3498db); color: white; padding: 4px 12px; border-radius: 20px; font-weight: bold; font-size: 14px; white-space: nowrap;">

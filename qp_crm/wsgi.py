@@ -40,26 +40,17 @@ from qp_crm.shared.config import APP_DATA_DIR, IMAGE_DIR, APP_ASSETS_DIR
 for _directory in (APP_DATA_DIR, IMAGE_DIR, APP_ASSETS_DIR):
     os.makedirs(_directory, exist_ok=True)
 
-# 2) Run the DB init/migration sequence in the same order as `python -m qp_crm.main`
-#    (main.py:66-70), importing each function from the same module main.py
-#    imports it from (main.py:15-20).
+# 2) Run the DB init/migration sequence -- the exact same ordered sequence a
+#    `python -m qp_crm.main` run and the Admin -> Backup restore flow use
+#    (qp_crm/shared/bootstrap.py is the single source of truth for it).
 #    Deliberately NO try/except here: if initialization fails, the import of
 #    this module fails and gunicorn refuses to boot with a full traceback,
 #    instead of silently serving an empty schema.
 print("Initializing databases (wsgi.py)...", flush=True)
 
-from qp_crm.pricing.app import init_db as pricing_init_db, migrate_schema as pricing_migrate_schema  # noqa: E402
-from qp_crm.offer.app import init_db as offer_init_db  # noqa: E402
-from qp_crm.admin.app import init_db as admin_init_db  # noqa: E402
-from qp_crm.rent.app import init_db as rent_init_db  # noqa: E402
-from qp_crm.contacts.app import init_db as contacts_init_db  # noqa: E402
+from qp_crm.shared.bootstrap import init_all_modules  # noqa: E402
 
-pricing_init_db()
-pricing_migrate_schema()
-offer_init_db()
-admin_init_db()
-rent_init_db()
-contacts_init_db()
+init_all_modules()
 
 print("Database initialization complete.", flush=True)
 

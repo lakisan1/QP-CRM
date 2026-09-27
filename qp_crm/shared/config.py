@@ -30,6 +30,12 @@ STATIC_DIR = os.path.join(BASE_DIR, "static")
 # app_assets inside app_data
 APP_ASSETS_DIR = os.path.join(BASE_DIR, "app_assets")
 
+# backups folder inside QP-CRM — quick (DB-only) backups saved from the
+# Admin -> Backup tab, plus the pre-deploy snapshots deploy.sh writes.
+# NEVER shipped in the image (.dockerignore) and never tracked (gitignored):
+# these files contain password hashes.
+BACKUP_DIR = os.path.join(BASE_DIR, "backups")
+
 # ---------- Website sync (Sajt <-> CRM product sync) ----------
 # Public WP REST API for autoservisnaoprema.com (no auth keys needed).
 # Sync is EXCLUSIVELY manual - triggered only by clicking the button in the UI.

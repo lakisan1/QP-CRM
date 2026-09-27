@@ -7,18 +7,13 @@
 
 <div style="display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;">
     <a href="{{ url_for('contacts.edit_contact', contact_id=contact.id) }}" class="btn btn-primary">Izmeni</a>
-    <form method="post" action="{{ url_for('contacts.archive_contact', contact_id=contact.id) }}" onsubmit="return confirm('{{ 'Vratiti kontakt u aktivne?' if contact.archived else 'Arhivirati kontakt? (ne može se obrisati, samo arhivirati)' }}');">
-        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-        <input type="hidden" name="archive" value="{{ '0' if contact.archived else '1' }}">
-        <button type="submit" class="btn btn-warning">{{ 'Vrati u aktivne' if contact.archived else 'Arhiviraj' }}</button>
-    </form>
 </div>
 
 <div class="card">
     <h2>Uloge</h2>
     {{ role_badges(contact.roles) }}
     {% if contact.job_title %}<p style="margin-top: 8px;">Radno mesto: <strong>{{ contact.job_title }}</strong></p>{% endif %}
-    {% if contact.user_id %}<p>Nalog: <strong>{{ contact.user_id }}</strong> (zaposleni)</p>{% endif %}
+    {% if contact.user_id %}<p>Nalog: <strong>{{ linked_username or contact.user_id }}</strong> <small style="color: var(--text-muted);">(upravlja se u Admin → Users → Kontakt u imeniku)</small></p>{% endif %}
 </div>
 
 <div class="card">
@@ -32,7 +27,7 @@
         <tr><th>Matični broj</th><td>{{ contact.mb or '—' }}</td></tr>
         <tr><th>Broj računa</th><td>{{ contact.account or '—' }}</td></tr>
         {% endif %}
-        <tr><th>Adresa</th><td>{{ contact.billing_address or '—' }}{% if contact.city %}, {{ contact.city }}{% endif %}{% if contact.country %}, {{ contact.country }}{% endif %}</td></tr>
+        <tr><th>Adresa</th><td>{{ contact.billing_address or '—' }}{% if contact.city %}, {{ contact.city }}{% endif %}{% if contact.postal_code is defined and contact.postal_code %}, {{ contact.postal_code }}{% endif %}{% if contact.country %}, {{ contact.country }}{% endif %}</td></tr>
         <tr><th>eMail</th><td>{{ contact.email or '—' }}</td></tr>
         <tr><th>Telefon</th><td>{{ contact.phone or '—' }}</td></tr>
         {% if contact.notes %}<tr><th>Beleške</th><td>{{ contact.notes | md | safe }}</td></tr>{% endif %}
@@ -41,32 +36,70 @@
 
 <div class="card">
     <h2>Lokacije (objekti, sajtovi)</h2>
+    <p style="color: var(--text-muted); margin-top: 0;">
+        Glavna adresa kontakta je uvek podrazumevana lokacija — dokumenata je koriste kad ne izaberete drugi objekat.
+        Dodatne lokacije dodajte samo za one koji imaju više objekata.
+    </p>
     <table class="larg-table">
         <tr>
             <th scope="col">Naziv</th>
             <th scope="col">Adresa</th>
             <th scope="col">Grad</th>
+            <th scope="col">Poštanski broj</th>
+            <th scope="col">Država</th>
             <th scope="col">Kontakt osoba</th>
             <th scope="col">Telefon</th>
             <th scope="col">Akcija</th>
         </tr>
+        {# Glavna adresa = DEFAULT lokacija (virtualni red, čita se živo iz
+           kontakta — uredjuje se u formi kontakta iznad). #}
+        {% if contact.billing_address %}
+        <tr style="background: var(--bg-input);">
+            <td><strong>⭐ Glavna adresa</strong> <small style="color: var(--text-muted);">(podrazumevana)</small></td>
+            <td>{{ contact.billing_address }}</td>
+            <td>{{ contact.city or '—' }}</td>
+            <td>{{ contact.postal_code or '—' if contact.postal_code is defined else '—' }}</td>
+            <td>{{ contact.country or '—' }}</td>
+            <td>{{ contact.job_title or '—' }}</td>
+            <td>{{ contact.phone or '—' }}</td>
+            <td><a href="{{ url_for('contacts.edit_contact', contact_id=contact.id) }}" class="btn btn-sm">Izmeni u formi</a></td>
+        </tr>
+        {% endif %}
         {% for loc in locations %}
         <tr>
             <td>{{ loc.name }}</td>
             <td>{{ loc.address or '—' }}</td>
             <td>{{ loc.city or '—' }}</td>
+            <td>{{ loc.postal_code or '—' }}</td>
+            <td>{{ loc.country or '—' }}</td>
             <td>{{ loc.contact_name or '—' }}</td>
             <td>{{ loc.contact_phone or '—' }}</td>
             <td>
-                <form method="post" action="{{ url_for('contacts.edit_contact_location', location_id=loc.id) }}" style="display: flex; gap: 6px; flex-wrap: wrap;">
-                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                    <input type="hidden" name="name" value="{{ loc.name }}">
-                    <button type="submit" class="btn btn-sm">Izmeni</button>
-                </form>
+                <details>
+                    <summary class="btn btn-sm" style="display: inline-block; cursor: pointer;">Izmeni</summary>
+                    <form method="post" action="{{ url_for('contacts.edit_contact_location', location_id=loc.id) }}" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; margin-top: 8px; padding: 8px; background: var(--bg-input); border-radius: 4px;">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <label>Naziv:<br><input type="text" name="name" value="{{ loc.name }}" required></label>
+                        <label>Adresa:<br><input type="text" name="address" value="{{ loc.address or '' }}"></label>
+                        <label>Grad:<br><input type="text" name="city" value="{{ loc.city or '' }}"></label>
+                        <label>Poštanski broj:<br><input type="text" name="postal_code" value="{{ loc.postal_code or '' }}" style="max-width: 110px;"></label>
+                        <label>Država:<br>
+                            <select name="country">
+                                {% for c in countries %}
+                                <option value="{{ c.name }}" {% if loc.country == c.name %}selected{% endif %}>{{ c.name }} ({{ c.code }})</option>
+                                {% endfor %}
+                            </select>
+                        </label>
+                        <label>Kontakt osoba:<br><input type="text" name="contact_name" value="{{ loc.contact_name or '' }}"></label>
+                        <label>Telefon:<br><input type="text" name="contact_phone" value="{{ loc.contact_phone or '' }}"></label>
+                        <button type="submit" class="btn btn-sm btn-success">Sačuvaj</button>
+                    </form>
+                </details>
             </td>
         </tr>
         {% else %}
-        <tr><td colspan="6" style="color: var(--text-muted);">Nema unetih lokacija.</td></tr>
+        {% if contact.billing_address %}<tr><td colspan="8" style="color: var(--text-muted);">Nema dodatnih objekata — svi radovi se vode na glavnoj adresi.</td></tr>
+        {% else %}<tr><td colspan="8" style="color: var(--text-muted);">Glavna adresa nije uneta — dodajte je u formi kontakta, ili dodajte lokaciju ispod.</td></tr>{% endif %}
         {% endfor %}
     </table>
 
@@ -76,6 +109,14 @@
         <label>Naziv:<br><input type="text" name="name" required placeholder="Sajt / objekat"></label>
         <label>Adresa:<br><input type="text" name="address"></label>
         <label>Grad:<br><input type="text" name="city"></label>
+        <label>Poštanski broj:<br><input type="text" name="postal_code" style="max-width: 110px;"></label>
+        <label>Država:<br>
+            <select name="country">
+                {% for c in countries %}
+                <option value="{{ c.name }}" {% if c.name == 'Srbija' %}selected{% endif %}>{{ c.name }} ({{ c.code }})</option>
+                {% endfor %}
+            </select>
+        </label>
         <label>Kontakt osoba:<br><input type="text" name="contact_name"></label>
         <label>Telefon:<br><input type="text" name="contact_phone"></label>
         <button type="submit" class="btn btn-success">Dodaj</button>
@@ -102,5 +143,16 @@
         <tr><td colspan="4" style="color: var(--text-muted);">Nema povezanih dokumenata — kontakt još nije korišćen u modulima.</td></tr>
         {% endfor %}
     </table>
+</div>
+
+{# Archive NA DNU stranice (user request 2026-09-24): opasan/dvostruki
+   klik dalje od gornjih akcija — manje greškom kliktanje. #}
+<div style="margin-top: 24px; border-top: 1px solid var(--border-color); padding-top: 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+    <form method="post" action="{{ url_for('contacts.archive_contact', contact_id=contact.id) }}" onsubmit="return confirm('{{ 'Vratiti kontakt u aktivne?' if contact.archived else 'Arhivirati kontakt? (ne može se obrisati, samo arhivirati)' }}');">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="archive" value="{{ '0' if contact.archived else '1' }}">
+        <button type="submit" class="btn btn-warning">{{ 'Vrati u aktivne' if contact.archived else 'Arhiviraj kontakt' }}</button>
+    </form>
+    <small style="color: var(--text-muted);">Arhiviranje ne briše kontakt — dokumenti koji ga referenciraju ga i dalje rešavaju po id-u.</small>
 </div>
 {% endblock %}
