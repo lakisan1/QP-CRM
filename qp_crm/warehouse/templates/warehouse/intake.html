@@ -28,8 +28,8 @@
         <select name="reason" id="reason" style="width:100%;"></select>
     </label>
 
-    <label>
-        Kontakt (dobavljač / kupac)
+    <label id="contact-label" style="display:none;">
+        Kontakt (kupac)
         <select name="contact_id" class="searchable-select" style="width:100%;">
             <option value="">— interno —</option>
             {% for c in contacts %}
@@ -113,6 +113,14 @@
         if (isSerial && serialCount === 0) addSerialField();
     }
 
+    function refreshContact() {
+        // Kontakt se traži SAMO kod izlaza (komu se izdaje); ulaz je prijem
+        // u magacin — dobavljač se ne beleži (user request 2026-09-27).
+        const dir = document.getElementById('direction').value;
+        document.getElementById('contact-label').style.display =
+            (dir === 'out') ? 'block' : 'none';
+    }
+
     function addSerialField() {
         serialCount++;
         const wrap = document.createElement('div');
@@ -166,11 +174,15 @@
         refreshSections();
     });
 
-    document.getElementById('direction').addEventListener('change', (e) => fillReasons(e.target.value));
+    document.getElementById('direction').addEventListener('change', (e) => {
+        fillReasons(e.target.value);
+        refreshContact();
+    });
     document.getElementById('add-serial').addEventListener('click', addSerialField);
 
     // init from carried-over query (Zabeleži i dodaj još)
     fillReasons(document.getElementById('direction').value);
+    refreshContact();
     if ({{ '1' if selected_direction == 'in' else '0' }} && productPicker.value === '') {
         // keep serial section hidden until product picked — default state
     }

@@ -39,6 +39,9 @@ def intake():
         elif product_id is None:
             flash("Izaberi proizvod iz kataloga.", "error")
         else:
+            # Kontakt se beleži SAMO kod izlaza (komu se izdaje); kod ulaza
+            # UI ne pokazuje dobavljača — ako se pošalje, ignoriše se.
+            contact_id = contact_id if direction == "out" else None
             if direction == "in":
                 serials = request.form.getlist("serial_numbers")
                 ok, result = wh.intake_inbound(
@@ -67,9 +70,11 @@ def intake():
                     flash("Kretanje je zabeleženo.", "success")
                 if again:
                     # Re-render the form keeping WHO/WHY (same truck), but
-                    # fresh product/serials.
+                    # fresh product/serials. Contact is only carried for
+                    # outtake (it's not asked on intake).
                     return redirect(url_for("warehouse.intake", again="1",
-                                            direction=direction, reason=reason or "",
+                                            direction=direction,
+                                            reason=reason or "",
                                             contact=contact_id or ""))
                 return redirect(url_for("warehouse.stock_list"))
             flash(result, "error")

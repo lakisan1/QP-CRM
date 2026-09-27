@@ -526,3 +526,45 @@ def test_zabelezi_i_dodaj_jos_keeps_context(client):
     assert r.status_code == 302
     assert "/warehouse/intake?" in r.headers["Location"]
     assert "again=1" in r.headers["Location"]
+
+
+def test_intake_contact_only_for_outtake(client):
+    """Ulaz ne traži kontakt (dobavljač se ne beleži); izlaz ga čuva
+    (user request 2026-09-27)."""
+    login_client(client, "admin", DEFAULT_PASSWORDS["admin"])
+    _grant_warehouse("admin")
+    cust = _new_contact("Kupac Kontakt DOO")
+    pid = _new_product("Kontakt proizvod", regime="qty")
+    tok = csrf_token_for(client)
+
+    # intake (ulaz): contact posted but must be IGNORED (no custodian data)
+    r = client.post("/warehouse/intake", data={
+        "_csrf_token": tok, "direction": "in", "product_id": str(pid),
+        "reason": "purchase_in", "qty": "3", "contact_id": str(cust),
+        "note": "", "again": "0",
+    }, follow_redirects=False)
+    assert r.status_code == 302
+    mov = _scalar(
+        "SELECT contact_id FROM stock_movements WHERE product_id = ?", (pid,))
+    assert mov["contact_id"] is None
+
+    # outtake (izlaz): contact recorded
+    r = client.post("/warehouse/intake", data={
+        "_csrf_token": tok, "direction": "out", "product_id": str(pid),
+        "reason": "sale", "qty": "1", "contact_id": str(cust),
+        "note": "", "again": "0",
+    }, follow_redirects=False)
+    assert r.status_code == 302
+    mov = _scalar(
+        "SELECT contact_id FROM stock_movements "
+        "WHERE product_id = ? AND direction = 'out'", (pid,))
+    assert mov["contact_id"] == cust
+
+
+def test_intake_page_hides_contact_on_ulaz(client):
+    """The contact label is display:none for 'in' (JS toggles it on out)."""
+    login_client(client, "admin", DEFAULT_PASSWORDS["admin"])
+    _grant_warehouse("admin")
+    html = client.get("/warehouse/intake").get_data(as_text=True)
+    assert 'id="contact-label"' in html
+    assert "display:none" in html
