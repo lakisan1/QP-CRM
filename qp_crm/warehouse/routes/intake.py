@@ -38,7 +38,10 @@ OUTTAKE_REASON_LABELS = {
 
 @bp.route("/intake", methods=("GET", "POST"))
 def intake():
-    products = wh.tracked_products()
+    # Ceo katalog u picker-u (user request 2026-09-27: 'svi uređaji iz
+    # cenovnika' kao u Oprema registru); nepraćeni proizvodi se unose
+    # kao količina (service tretira untracked kao qty u formama).
+    products = wh.catalog_products()
     if request.method == "POST":
         direction = request.form.get("direction", "in")
         product_id = request.form.get("product_id", type=int)
@@ -102,7 +105,7 @@ def intake():
         products=products,
         products_payload=json.dumps(
             [{"id": p["id"], "name": p["name"],
-              "regime": p["tracking_regime"]} for p in products],
+              "regime": p["effective_regime"]} for p in products],
             ensure_ascii=False),
         reasons_in=INTAKE_REASONS,
         reasons_out=OUTTAKE_REASONS,

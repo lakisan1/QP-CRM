@@ -248,11 +248,17 @@ def test_qty_movement_ledger_balance():
 
 
 def test_untracked_product_rejected():
+    """2026-09-27: nepraćen proizvod se KNJIŽI kao količina (ceo katalog
+    u picker-u); odbija se samo serialized proizvod na qty putu."""
     from qp_crm.services import warehouse_service as wh
     pid = _new_product("Nepraćeni deo")
-    ok, message = wh.record_movement(product_id=pid, qty=5, direction="in",
+    ok, result = wh.record_movement(product_id=pid, qty=5, direction="in",
+                                    reason="purchase_in")
+    assert ok, result
+    pid_ser = _new_product("Serijski na qty putu", regime="serialized")
+    ok, message = wh.record_movement(product_id=pid_ser, qty=5, direction="in",
                                      reason="purchase_in")
-    assert not ok and "qty" in message
+    assert not ok and "serialized" in message
 
 
 def test_stocktake_adjustment_requires_note():
@@ -606,3 +612,16 @@ def test_outtake_form_shows_four_reasons_only(client):
     reasons_block = html.split('const REASONS = {')[1].split('};')[0]
     for gone in ("free_issue", "test_demo"):
         assert f'"{gone}"' not in reasons_block, gone
+
+
+def test_intake_picker_lists_whole_catalog(client):
+    """Picker na Ulaz/Izlaz sadrži CEO katalog (i nepraćene proizvode),
+    kao Oprema registar — user request 2026-09-27."""
+    from qp_crm.services import warehouse_service as wh
+    login_client(client, "admin", DEFAULT_PASSWORDS["admin"])
+    _grant_warehouse("admin")
+    _new_product("Praćeni Picker", regime="qty")
+    _new_product("Nepraćeni Picker")  # untracked
+    html = client.get("/warehouse/intake").get_data(as_text=True)
+    assert "Praćeni Picker" in html and "Nepraćeni Picker" in html
+    assert wh.catalog_products()  # sanity: non-empty

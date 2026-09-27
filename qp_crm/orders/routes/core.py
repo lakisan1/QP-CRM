@@ -72,7 +72,9 @@ def order_new():
             flash("Narudžbina je kreirana.", "success")
             return redirect(url_for("orders.order_detail", po_id=result))
         flash(result, "error")
-    products = wh.tracked_products()
+    # Ceo katalog (user request 2026-09-27): i nepraćeni proizvodi se
+    # mogu naručiti — name_snapshot nosi naziv ako proizvod kasnije nestane.
+    products = wh.catalog_products()
     shortfall = None
     if shortfall_id:
         all_short = wh.list_shortfalls()

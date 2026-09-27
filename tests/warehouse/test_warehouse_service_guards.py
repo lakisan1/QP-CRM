@@ -453,11 +453,13 @@ def test_intake_inbound_qty_validation():
     assert ok
 
 
-def test_intake_inbound_rejects_untracked_and_bad_reason():
+def test_intake_inbound_untracked_treated_as_qty():
+    """P5-UI (2026-09-27): ceo katalog je u picker-u — nepraćen proizvod
+    kroz ulaznu formu se knjiži kao količina (gate je bio friction)."""
     from qp_crm.services import warehouse_service as wh
     pid = _new_product("Intake untracked")  # untracked default
-    ok, msg = wh.intake_inbound(pid, qty="1")
-    assert not ok and "praćenje" in msg
+    ok, result = wh.intake_inbound(pid, qty="1")
+    assert ok, result
     pid_q = _new_product("Intake bad reason", regime="qty")
     ok, msg = wh.intake_inbound(pid_q, qty="1", reason="nepoznat")
     assert not ok and "Nepoznat razlog" in msg
@@ -531,11 +533,13 @@ def test_outtake_qty_happy_path_and_bad_reason():
     assert wh.qty_on_hand(pid) == -2
 
 
-def test_outtake_untracked_rejected():
+def test_outtake_untracked_treated_as_qty():
+    """Isti izbor kao intake (2026-09-27): nepraćen proizvod kroz izlaznu
+    formu je količinski izlaz."""
     from qp_crm.services import warehouse_service as wh
     pid = _new_product("Outtake untracked")
-    ok, msg = wh.outtake(pid, qty="1")
-    assert not ok and "praćenje" in msg
+    ok, result = wh.outtake(pid, qty="1", reason="sale")
+    assert ok, result
 
 
 def test_outtake_qty_non_numeric_and_zero():

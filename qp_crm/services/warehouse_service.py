@@ -56,8 +56,10 @@ def get_product(product_id):
 def tracked_products(regime=None):
     """Catalog rows with a tracking regime (optionally one specific).
 
-    untracked rows are NEVER returned here — that is the gate. Lists the
-    pickers and the coverage view feed from.
+    untracked rows are NOT returned by default — the pickers that want the
+    WHOLE catalog (intake, orders — user request 2026-09-27: 'svi uređaji
+    iz cenovnika') call list_products() / tracked_products() + catalog
+    products; the stock/coverage views keep the tracked-only filter.
     """
     conn = get_db()
     cur = conn.cursor()
@@ -70,6 +72,21 @@ def tracked_products(regime=None):
             "SELECT * FROM products WHERE tracking_regime IN ('qty', 'serialized') "
             "ORDER BY name;")
     rows = cur.fetchall()
+    conn.close()
+    return rows
+
+
+def catalog_products():
+    """Every catalog product (any regime) — feeds the intake and order
+    pickers so the operator sees the full Cenovnik like the equipment
+    registry does. untracked rows arrive as regime 'qty' for the form's
+    section logic (they are entered as quantities)."""
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT id, name, tracking_regime, "
+        "CASE WHEN tracking_regime = 'untracked' THEN 'qty' "
+        "     ELSE tracking_regime END AS effective_regime "
+        "FROM products ORDER BY name;").fetchall()
     conn.close()
     return rows
 
@@ -132,10 +149,13 @@ def record_movement(product_id=None, equipment_id=None, name_snapshot=None,
         product = get_product(product_id)
         if product is None:
             return False, "Proizvod ne postoji."
-        if product["tracking_regime"] != "qty":
+        # Nepraćen proizvod se knjiži kao količina (2026-09-27: ceo katalog
+        # u picker-u); serialized proizvode na qty putu odbijamo jer se oni
+        # vode po komadu, ne po količini.
+        if product["tracking_regime"] == "serialized":
             return False, (
-                f"Proizvod nije u 'qty' režimu ({product['tracking_regime']}) "
-                "— količinski kretanja se ne beleže.")
+                f"Proizvod je u 'serialized' režimu — količinska kretanja se "
+                "ne beleže (unos ide po serijskim brojevima).")
 
     conn = get_db()
     cur = conn.cursor()
@@ -185,7 +205,11 @@ def intake_inbound(product_id, serial_numbers=None, qty=None, reason=None,
         return False, "Proizvod ne postoji."
     regime = product["tracking_regime"]
     if regime == "untracked":
-        return False, "Proizvod nema uključeno praćenje (Cenovnik → praćenje)."
+        # Magacioner unosi količinu i za nepraćene proizvode (user request
+        # 2026-09-27: katalog je ceo u picker-u — biranje proizvoda iz
+        # Cenovnika kroz Magacin ga tretira kao količinski; režim praćenja
+        # ostaje display/krytstvo izbor, ne ulazna brana).
+        regime = "qty"
     reason = reason or "purchase_in"
     if reason not in MOVEMENT_REASON_VALUES:
         return False, "Nepoznat razlog kretanja."
@@ -281,7 +305,9 @@ def outtake(product_id, serial_numbers=None, qty=None, reason=None,
         return False, "Proizvod ne postoji."
     regime = product["tracking_regime"]
     if regime == "untracked":
-        return False, "Proizvod nema uključeno praćenje (Cenovnik → praćenje)."
+        # Isti izbor kao record_movement (2026-09-27): nepraćen proizvod
+        # kroz izlaznu formu je količinski izlaz.
+        regime = "qty"
     if reason not in MOVEMENT_REASON_VALUES:
         return False, "Nepoznat razlog kretanja."
 
