@@ -34,6 +34,10 @@ reservations, equipment_shortfalls) + products tracking-regime columns.
 Blueprint §3 adapted to the no-deals reality (user answers 2026-09-25):
 no deal links, custodian counterparty = contacts directory, fleet/POs
 deferred, rent_equipment orphan dropped on migrate.
+
+P5-T6 (alias map): product_aliases -- alternate product names resolving to
+the surviving product id, so a merge never has to delete the merged-away
+row (see create_product_aliases). Created from create_pricing_tables.
 """
 
 import sqlite3
@@ -151,6 +155,52 @@ def create_pricing_tables(cur):
             FOREIGN KEY (product_id) REFERENCES products(id)
         );
     """)
+
+    # P5-T6: the product alias map is a satellite of products (references
+    # products.id), so it is created with the table it hangs off. Wiring it
+    # HERE means every existing entry point -- pricing_init_db (main.py,
+    # wsgi.py) and tests/conftest.py's temp_db -- gets it with no extra
+    # call site to remember.
+    create_product_aliases(cur)
+
+
+# ---------------------------------------------------------------------------
+# product alias map (P5-T6 -- rename & merge safety)
+# ---------------------------------------------------------------------------
+
+def create_product_aliases(cur):
+    """product_aliases: old/alternate product NAME -> surviving product id.
+
+    WHY (P5 blueprint amendment 6, archive-only rule): the catalogue carries
+    real duplicate/prefix names (31 prefix pairs in the live DB, e.g.
+    'BODYGUARD 1.2' vs 'BODYGUARD 1.2 Spoljasnja verzija'). Renames are
+    already safe -- everything references products by id and documents keep
+    their own line snapshots -- but a MERGE turns two rows into one concept,
+    and deletes are forbidden. The alias map expresses the merge instead:
+    the merged-away row stays exactly where it is (its id keeps resolving
+    for anything left un-repointed), while its former name resolves to the
+    canonical target at read time.
+
+    alias is UNIQUE because this is a brand-new table with no legacy rows:
+    one alternate name can never mean two products. Names are stored
+    ALREADY canonicalized (see services/product_alias_service.normalize) so
+    lookups are a plain equality test, and an alias is always a NAME, never
+    another alias -- no chains are representable (product_id points at a
+    products row, not at another alias).
+
+    product_id is an enforced FK (PRAGMA foreign_keys = ON everywhere), so
+    a service-layer existence check turns an insert for a missing product
+    into a clean refusal instead of an IntegrityError at commit time.
+    """
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS product_aliases (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            alias TEXT NOT NULL UNIQUE,          -- old/alternate name, canonicalized
+            product_id INTEGER NOT NULL REFERENCES products(id),
+            created_at TEXT
+        );
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_product_aliases_product ON product_aliases(product_id);")
 
 
 # ---------------------------------------------------------------------------
