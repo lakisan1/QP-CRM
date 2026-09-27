@@ -128,6 +128,15 @@ def test_staff_with_grant_sees_pages(client):
         assert client.get(path).status_code == 200, path
 
 
+def test_module_root_redirects_to_equipment(client):
+    # /warehouse/ is the landing app-card target; it must not 404.
+    login_client(client, "rent")
+    _grant_warehouse("rent")
+    r = client.get("/warehouse/")
+    assert r.status_code == 302
+    assert r.headers["Location"].endswith("/warehouse/equipment")
+
+
 def test_admin_bypasses_grant(client):
     _admin(client)
     assert client.get("/warehouse/equipment").status_code == 200
