@@ -542,7 +542,8 @@ def count_active_admins():
 # on the next boot (users.modules_set stores the last seed version seen).
 # ----------
 
-MODULE_CHOICES = ("pricing", "offer", "rent", "sale", "contacts", "warehouse")
+MODULE_CHOICES = ("pricing", "offer", "rent", "sale", "contacts", "warehouse",
+                  "orders")
 
 # v1: the original pricing/offer/rent rollout. v2: sale joined the
 # per-user list (it was public before and every staff account could open
@@ -552,9 +553,13 @@ MODULE_CHOICES = ("pricing", "offer", "rent", "sale", "contacts", "warehouse")
 # for 'deals' are inert and simply never appear again).
 # v4: contacts joined (P5-pre shared directory) -- same exactly-once grant.
 # v5: warehouse joined (P5 stock & equipment) -- same exactly-once grant.
+# v6: orders joined (P5-UI rework batch B: purchase orders, the commercial
+# side) -- same exactly-once grant. NOTE: v6 seeding grants orders to
+# EXISTING staff accounts automatically (the exactly-once rule); revoke
+# per-user from Admin -> Users if an account shouldn't see it.
 MODULE_INTRODUCED = {"pricing": 1, "offer": 1, "rent": 1, "sale": 2,
-                     "contacts": 4, "warehouse": 5}
-CURRENT_MODULE_VERSION = 5
+                     "contacts": 4, "warehouse": 5, "orders": 6}
+CURRENT_MODULE_VERSION = 6
 
 
 def get_user_modules(user_id):

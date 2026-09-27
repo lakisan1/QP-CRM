@@ -1,0 +1,72 @@
+{% extends "orders/base.html" %}
+{% block title %}{{ order['header']['po_number'] }} — Narudžbine{% endblock %}
+
+{% block content %}
+<h1>{{ order['header']['po_number'] }}
+    {% if order['header']['status'] == 'received' %}
+    <span style="color:#2ecc71;font-size:0.6em;">{{ order_status_labels['received'] }}</span>
+    {% elif order['header']['status'] == 'cancelled' %}
+    <span style="color:var(--text-muted);font-size:0.6em;">{{ order_status_labels['cancelled'] }}</span>
+    {% else %}
+    <span style="background:#e67e22;color:white;padding:2px 12px;border-radius:20px;font-size:0.5em;font-weight:bold;">{{ order_status_labels[order['header']['status']] }}</span>
+    {% endif %}
+</h1>
+
+<div class="card" style="margin-bottom:16px;">
+    <div style="display:flex;gap:30px;flex-wrap:wrap;">
+        <div><strong>Dobavljač:</strong> {{ order['header']['supplier_name'] }}</div>
+        <div><strong>Naručeno:</strong> {{ format_date(order['header']['ordered_at']) }}</div>
+        {% if order['header']['expected_at'] %}
+        <div><strong>Očekivano:</strong> {{ format_date(order['header']['expected_at']) }}</div>
+        {% endif %}
+    </div>
+    {% if order['header']['note'] %}<p style="margin-top:10px;"><strong>Napomena:</strong> {{ order['header']['note'] }}</p>{% endif %}
+</div>
+
+<div class="card">
+    <h3 style="margin-top:0;">Stavke</h3>
+    <table class="larg-table">
+        <thead>
+            <tr><th>Šta</th><th>Količina</th><th>Za dug mašine</th><th>Primljeno</th><th></th></tr>
+        </thead>
+        <tbody>
+            {% for l in order['lines'] %}
+            <tr>
+                <td>{{ l['product_name'] or l['name_snapshot'] }}</td>
+                <td>{{ l['qty'] }}</td>
+                <td>
+                    {% if l['shortfall_part'] %}
+                        {{ l['shortfall_part'] }}
+                        {% if l['shortfall_closed'] %}<span style="color:#2ecc71;">(dug zatvoren)</span>
+                        {% else %}<span style="color:#e67e22;">(dug otvoren)</span>{% endif %}
+                    {% else %}—{% endif %}
+                </td>
+                <td>
+                    {% if l['received_at'] %}
+                        <span style="color:#2ecc71;">{{ format_date(l['received_at'][:10]) }}</span>
+                    {% else %}
+                        <span style="color:#e67e22;font-weight:bold;">Čeka se</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if not l['received_at'] and order['header']['status'] not in ('received', 'cancelled') %}
+                    <form method="post" action="{{ url_for('orders.line_receive', line_id=l['id']) }}" style="margin:0;">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="po_id" value="{{ order['header']['id'] }}">
+                        <button type="submit" class="btn btn-success">Stiglo</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if order['header']['status'] in ('ordered', 'partially') %}
+    <form method="post" action="{{ url_for('orders.order_cancel', po_id=order['header']['id']) }}" style="margin-top:14px;">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-warning">Otkaži narudžbinu</button>
+    </form>
+    {% endif %}
+</div>
+{% endblock %}

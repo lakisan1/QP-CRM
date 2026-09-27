@@ -920,6 +920,19 @@ MOVEMENT_REASONS = (
 MOVEMENT_REASON_VALUES = tuple(value for value, _label in MOVEMENT_REASONS)
 MOVEMENT_REASON_LABELS = dict(MOVEMENT_REASONS)
 
+# Purchase-order statuses (P5-UI rework batch B). Transitions are
+# service-gated: ordered → partially/received/cancelled; partially →
+# received/cancelled; received/cancelled are terminal (no reopen —
+# mistakes get a new PO).
+ORDER_STATUSES = (
+    ("ordered",    "Naručeno"),
+    ("partially",  "Delimično primljeno"),
+    ("received",   "Primljeno"),
+    ("cancelled",  "Otkazano"),
+)
+ORDER_STATUS_VALUES = tuple(value for value, _label in ORDER_STATUSES)
+ORDER_STATUS_LABELS = dict(ORDER_STATUSES)
+
 
 def create_warehouse_tables(cur):
     """equipment, stock_movements, reservations, equipment_shortfalls (P5).
@@ -1023,6 +1036,47 @@ def create_warehouse_tables(cur):
         );
     """)
     cur.execute("CREATE INDEX IF NOT EXISTS idx_shortfalls_equipment ON equipment_shortfalls(equipment_id);")
+
+def create_order_tables(cur):
+    """purchase_orders + po_lines (P5-UI rework batch B). Split from
+    create_warehouse_tables because the orders module owns this DDL;
+    both run in the shared boot sequence (wsgi.py) so one boot covers
+    both apps. All CREATEs IF NOT EXISTS — idempotent."""
+    # Purchase orders (user request 2026-09-27): the commercial side
+    # orders; the warehouse receives. Supplier free text in v1 (open
+    # question #12). Statuses are a closed set (ORDER_STATUSES); receiving
+    # a line appends the inbound ledger movement and auto-closes any
+    # shortfall linked to that line (po_ref fills with the PO number).
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS purchase_orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            po_number TEXT UNIQUE,
+                                     -- PO-YYYY-NNN (global counter, like invoices)
+            supplier_name TEXT NOT NULL,
+            ordered_at TEXT NOT NULL,
+            expected_at TEXT,
+            status TEXT NOT NULL DEFAULT 'ordered',
+                                     -- ordered|partially|received|cancelled
+            note TEXT,
+            created_by INTEGER REFERENCES users(id),
+            created_at TEXT
+        );
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS po_lines (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            po_id INTEGER NOT NULL REFERENCES purchase_orders(id),
+            product_id INTEGER REFERENCES products(id),
+                                     -- NULL = temp line (name_snapshot then required)
+            name_snapshot TEXT,
+            qty REAL NOT NULL,
+            shortfall_id INTEGER REFERENCES equipment_shortfalls(id),
+                                     -- this line REPLACES the missing part
+            received_at TEXT,        -- NULL until the line arrives
+            received_qty REAL
+        );
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_po_lines_po ON po_lines(po_id);")
 
 
 def migrate_warehouse(cur):

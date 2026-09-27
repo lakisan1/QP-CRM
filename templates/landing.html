@@ -140,7 +140,14 @@
             <a href="/warehouse/" class="app-card">
                 <span class="app-icon">📦</span>
                 <span class="app-title">Magacin</span>
-                <span class="app-desc">Oprema i zalihu: mašine (serijski brojevi, čuvari), kretanja zaliha, rezervacije i pokrivenost.</span>
+                <span class="app-desc">Ulaz i izlaz robe: prijem po serijskim brojevima, izdavanje, stanje magacina.</span>
+            </a>
+            {% endif %}
+            {% if is_admin or 'orders' in granted %}
+            <a href="/orders/" class="app-card">
+                <span class="app-icon">🧾</span>
+                <span class="app-title">Narudžbine</span>
+                <span class="app-desc">Naručivanje od dobavljača: šta treba naručiti, status isporuke, prijem robe.</span>
             </a>
             {% endif %}
             <a href="/settings/" class="app-card">

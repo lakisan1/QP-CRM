@@ -13,12 +13,13 @@ not replayed boots into a half-missing schema.
 ORDER IS LOAD-BEARING
 ---------------------
 pricing first (offer/rent/admin/contacts all read its products and
-global_settings), then the modules that depend on it, and warehouse last
-because it references products AND contacts:
+global_settings), then the modules that depend on it, warehouse last
+because it references products AND contacts, orders after warehouse
+because po_lines references equipment_shortfalls:
 
     pricing_init_db -> pricing_migrate_schema
     -> offer_init_db -> admin_init_db -> rent_init_db
-    -> contacts_init_db -> warehouse_init_db
+    -> contacts_init_db -> warehouse_init_db -> orders_init_db
 
 Every function in the sequence is idempotent (CREATE TABLE IF NOT EXISTS,
 "column already exists"-guarded ALTERs, INSERT OR IGNORE / count-checked
@@ -54,6 +55,7 @@ def init_all_modules():
     from qp_crm.rent.app import init_db as rent_init_db
     from qp_crm.contacts.app import init_db as contacts_init_db
     from qp_crm.warehouse.app import init_db as warehouse_init_db
+    from qp_crm.orders.app import init_db as orders_init_db
 
     # Imports happen here (not at module import time) so importing this
     # module never triggers the app package import graph -- that ordering
@@ -65,3 +67,6 @@ def init_all_modules():
     rent_init_db()
     contacts_init_db()
     warehouse_init_db()
+    # orders last: purchase_orders/po_lines reference products AND
+    # equipment_shortfalls (warehouse tables must exist first).
+    orders_init_db()

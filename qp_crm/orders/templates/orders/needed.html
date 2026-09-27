@@ -1,0 +1,58 @@
+{% extends "orders/base.html" %}
+{% block title %}Treba naručiti{% endblock %}
+
+{% block content %}
+<h1>Treba naručiti</h1>
+<p style="color:var(--text-muted);">
+    Dve liste: dugovi mašina (skinuti delovi koje treba vratiti) i proizvodi
+    ispod minimalnog stanja. Naručivanje = nova narudžbina sa stavkom.
+</p>
+
+<div class="card" style="margin-bottom:16px;">
+    <h3 style="margin-top:0;">Dugovi mašina (nedostajući delovi)</h3>
+    <table class="larg-table">
+        <thead>
+            <tr><th>Deo</th><th>Mašina</th><th>Uzet</th><th></th></tr>
+        </thead>
+        <tbody>
+            {% for d in data['debts'] %}
+            <tr>
+                <td><strong>{{ d['part_name'] }}</strong></td>
+                <td>{{ d['equipment_name'] }}{% if d['serial_number'] %} <span style="color:var(--text-muted);">S/N {{ d['serial_number'] }}</span>{% endif %}</td>
+                <td>{{ format_date(d['taken_at']) }}</td>
+                <td>
+                    {% if d['part_product_id'] %}
+                    <a class="btn btn-primary" href="{{ url_for('orders.order_new', shortfall=d['id']) }}">Naruči</a>
+                    {% else %}
+                    <span style="color:var(--text-muted);font-size:13px;">temp deo — naruči ručno</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" style="color:var(--text-muted);">Nema otvorenih dugova.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="card">
+    <h3 style="margin-top:0;">Ispod minimalnog stanja</h3>
+    <table class="larg-table">
+        <thead>
+            <tr><th>Proizvod</th><th>Dostupno</th><th>Min. stanje</th><th></th></tr>
+        </thead>
+        <tbody>
+            {% for g in data['gaps'] %}
+            <tr style="background:rgba(231,76,60,0.15);">
+                <td><strong>{{ g['name'] }}</strong></td>
+                <td>{{ g['available'] }}</td>
+                <td>{{ g['min_stock'] }}</td>
+                <td><a class="btn btn-primary" href="{{ url_for('orders.order_new') }}">Naruči</a></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" style="color:var(--text-muted);">Sve je iznad minimalnog stanja.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

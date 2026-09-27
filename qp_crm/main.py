@@ -14,6 +14,7 @@ from qp_crm.admin.app import bp as admin_bp
 from qp_crm.rent.app import bp as rent_bp
 from qp_crm.contacts.app import bp as contacts_bp
 from qp_crm.warehouse.app import bp as warehouse_bp
+from qp_crm.orders.app import bp as orders_bp
 from qp_crm.settings.app import bp as settings_bp
 from qp_crm.sale.app import bp as sale_bp
 from qp_crm.pricing.api_v1 import api_v1
@@ -108,6 +109,12 @@ app.register_blueprint(contacts_bp, url_prefix="/contacts")
 # Warehouse module blueprint (P5): stock & equipment (custody of machines,
 # opt-in tracking, shortfall debts) at /warehouse, per-user grant 'warehouse'.
 app.register_blueprint(warehouse_bp, url_prefix="/warehouse")
+
+# Orders module blueprint (P5-UI rework batch B): purchase orders — the
+# commercial side orders, receives, and closes shortfall debts, at /orders,
+# per-user grant 'orders'. The warehouse operator does NOT open this app:
+# their stock updates automatically when lines are received.
+app.register_blueprint(orders_bp, url_prefix="/orders")
 
 # CSRF on ALL state-changing routes (Phase 3 step 5): the settings app's
 # per-session token pattern generalized into shared/web.py and wired once at

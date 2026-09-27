@@ -1,0 +1,50 @@
+{% extends "orders/base.html" %}
+{% block title %}Narudžbine{% endblock %}
+
+{% block content %}
+<h1>Narudžbine</h1>
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+    <a href="{{ url_for('orders.order_new') }}" class="btn btn-success">+ Nova narudžbina</a>
+    <a href="{{ url_for('orders.orders_list', all=(0 if active_only else 1)) }}" class="btn btn-secondary">
+        {{ 'Prikaži sve (i zatvorene)' if active_only else 'Samo aktivne' }}
+    </a>
+</div>
+
+<div class="card">
+    <table class="larg-table">
+        <thead>
+            <tr>
+                <th>Broj</th>
+                <th>Dobavljač</th>
+                <th>Naručeno</th>
+                <th>Očekivano</th>
+                <th>Stavke</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for o in orders %}
+            <tr>
+                <td><a href="{{ url_for('orders.order_detail', po_id=o['id']) }}"><strong>{{ o['po_number'] }}</strong></a></td>
+                <td>{{ o['supplier_name'] }}</td>
+                <td>{{ format_date(o['ordered_at']) }}</td>
+                <td>{{ format_date(o['expected_at']) if o['expected_at'] else '—' }}</td>
+                <td>{{ o['line_count'] - o['open_lines'] }}/{{ o['line_count'] }} primljeno</td>
+                <td>
+                    {% if o['status'] == 'received' %}
+                        <span style="color:#2ecc71;font-weight:bold;">{{ order_status_labels[o['status']] }}</span>
+                    {% elif o['status'] == 'cancelled' %}
+                        <span style="color:var(--text-muted);">{{ order_status_labels[o['status']] }}</span>
+                    {% else %}
+                        <span style="background:#e67e22;color:white;padding:2px 10px;border-radius:20px;font-weight:bold;">{{ order_status_labels[o['status']] }}</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" style="text-align:center;color:var(--text-muted);">Nema narudžbina.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,77 @@
+{% extends "orders/base.html" %}
+{% block title %}Nova narudžbina{% endblock %}
+
+{% block content %}
+<h1>Nova narudžbina</h1>
+
+<form method="post" class="card" style="max-width:900px;display:grid;gap:16px;">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <label>
+            Dobavljač (obavezno)
+            <input type="text" name="supplier_name" required style="width:100%;">
+        </label>
+        <label>
+            Očekivani datum isporuke
+            <input type="date" name="expected_at" style="width:100%;">
+        </label>
+    </div>
+
+    {% if shortfall %}
+    <div style="background:rgba(230,126,34,0.15);padding:10px 14px;border-radius:6px;">
+        Naručuje se za dug mašine: <strong>{{ shortfall['equipment_name'] }}</strong>
+        {% if shortfall['serial_number'] %} (S/N {{ shortfall['serial_number'] }}){% endif %}
+        — deo <strong>{{ shortfall['part_product_name'] or shortfall['part_name'] }}</strong>.
+        Stavka će automatski zatvoriti dug kad stigne.
+        <input type="hidden" name="line_shortfall" value="{{ shortfall['id'] }}">
+    </div>
+    {% endif %}
+
+    <div id="lines">
+        <div class="line-row" style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;align-items:end;margin-bottom:8px;">
+            <label>Proizvod ili naziv (temp stavka)
+                <select name="line_product" class="searchable-select line-product" style="width:100%;">
+                    <option value="">— temp stavka (upiši naziv) —</option>
+                    {% for p in products %}
+                    <option value="{{ p['id'] }}">{{ p['name'] }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>ili naziv ručno
+                <input type="text" name="line_name" style="width:100%;">
+            </label>
+            <label>Količina
+                <input type="number" name="line_qty" step="0.01" min="0" style="width:100%;">
+            </label>
+        </div>
+    </div>
+
+    <button type="button" class="btn btn-secondary" id="add-line" style="justify-self:start;">+ dodaj stavku</button>
+
+    <label>
+        Napomena
+        <textarea name="note" rows="2" style="width:100%;"></textarea>
+    </label>
+
+    <div style="display:flex;gap:10px;">
+        <button type="submit" class="btn btn-success">Naruči</button>
+        <a href="{{ url_for('orders.orders_list') }}" class="btn btn-secondary">Otkaži</a>
+    </div>
+</form>
+
+<script>
+    document.getElementById('add-line').addEventListener('click', function() {
+        const first = document.querySelector('.line-row');
+        const clone = first.cloneNode(true);
+        clone.querySelectorAll('input').forEach(i => i.value = '');
+        document.getElementById('lines').appendChild(clone);
+        // re-init TomSelect on the cloned select
+        const sel = clone.querySelector('select');
+        if (sel && window.TomSelect) {
+            sel.classList.add('searchable-select');
+            new TomSelect(sel, { create: false, sortField: { field: "text", direction: "asc" } });
+        }
+    });
+</script>
+{% endblock %}
