@@ -160,6 +160,178 @@ def record_movement(product_id=None, equipment_id=None, name_snapshot=None,
     return True, movement_id
 
 
+def intake_inbound(product_id, serial_numbers=None, qty=None, reason=None,
+                   contact_id=None, note=None, moved_by=None):
+    """One delivery line: into the warehouse, whichever regime.
+
+    The unified intake form posts here (magacioner flow, user request
+    2026-09-27: one screen for a whole truck). Semantics per regime:
+
+      * 'serialized' product → serial_numbers is the list of S/Ns read off
+        the machines; each becomes an equipment row (custodian=warehouse,
+        status=in_stock). A serial already in the registry is NOT re-registered:
+        its story continues via a warehouse transition (return/service).
+        Duplicate serials inside one submission are rejected.
+      * 'qty' product → qty is the counted amount (required, > 0) and one
+        ledger movement is appended.
+
+    reason: 'purchase_in' for a supplier truck, 'return' for customer
+    returns, 'service_in' for machines arriving for service. Defaults to
+    'purchase_in'.
+    Returns (ok, result) where result is a dict summary or a message.
+    """
+    product = get_product(product_id)
+    if product is None:
+        return False, "Proizvod ne postoji."
+    regime = product["tracking_regime"]
+    if regime == "untracked":
+        return False, "Proizvod nema uključeno praćenje (Cenovnik → praćenje)."
+    reason = reason or "purchase_in"
+    if reason not in MOVEMENT_REASON_VALUES:
+        return False, "Nepoznat razlog kretanja."
+
+    if regime == "qty":
+        try:
+            qty_val = float(qty)
+        except (TypeError, ValueError):
+            return False, "Količina je obavezna i mora biti broj."
+        if qty_val <= 0:
+            return False, "Količina mora biti veća od nule."
+        ok, result = record_movement(
+            product_id=product_id, qty=qty_val, direction="in",
+            reason=reason, contact_id=contact_id, note=note,
+            moved_by=moved_by)
+        if not ok:
+            return False, result
+        return True, {"movement_id": result, "registered": 0,
+                      "returned": 0, "product_name": product["name"]}
+
+    # serialized regime
+    serials = []
+    for raw in serial_numbers or []:
+        s = (raw or "").strip()
+        if s:
+            serials.append(s)
+    if not serials:
+        return False, "Unesi bar jedan serijski broj."
+    if len(set(s.lower() for s in serials)) != len(serials):
+        return False, "Isti serijski broj je unet dva puta."
+
+    registered, returned = [], []
+    for s in serials:
+        existing = find_equipment_by_serial(s, product_id=product_id)
+        if existing is not None:
+            # Known machine re-entering the warehouse (return / service):
+            # continue its story via a transition instead of a new row.
+            ok, result = transition_equipment(
+                existing["id"], custodian_type="warehouse", status="in_stock",
+                note=note, moved_by=moved_by)
+            if not ok:
+                return False, f"S/N {s}: {result}"
+            returned.append(existing["id"])
+        else:
+            ok, result = register_equipment(
+                product_id=product_id, serial_number=s,
+                custodian_type="warehouse", status="in_stock",
+                notes=note, registered_by=moved_by)
+            if not ok:
+                return False, f"S/N {s}: {result}"
+            registered.append(result)
+    return True, {"product_name": product["name"], "registered": len(registered),
+                  "returned": len(returned), "equipment_ids": registered + returned}
+
+
+def contact_choices():
+    """Imenik rows for picker dropdowns (id + display name only)."""
+    from qp_crm.services import contact_service
+    return [{"id": c["id"], "display_name": c["display_name"]}
+            for c in contact_service.list_contacts()]
+
+
+def equipment_for_product(product_id):
+    """Registry rows of one product (any custody), newest first."""
+    conn = get_db()
+    rows = conn.execute(
+        """
+        SELECT e.*, c.display_name AS custodian_name
+        FROM equipment e
+        LEFT JOIN contacts c ON c.id = e.custodian_contact_id
+        WHERE e.product_id = ?
+        ORDER BY e.id DESC;
+        """,
+        (product_id,),
+    ).fetchall()
+    conn.close()
+    return rows
+
+
+def outtake(product_id, serial_numbers=None, qty=None, reason=None,
+            contact_id=None, note=None, moved_by=None):
+    """One delivery-out line from the unified form.
+
+    * 'qty' product → one ledger movement out (qty required, > 0).
+    * 'serialized' product → serial_numbers are the machines leaving;
+      each known serial transitions out (reason mapped by status, like
+      the detail page does), an unknown serial is rejected — the
+      registry is the truth, a machine that was never registered can't
+      leave, it must be registered first.
+    """
+    product = get_product(product_id)
+    if product is None:
+        return False, "Proizvod ne postoji."
+    regime = product["tracking_regime"]
+    if regime == "untracked":
+        return False, "Proizvod nema uključeno praćenje (Cenovnik → praćenje)."
+    if reason not in MOVEMENT_REASON_VALUES:
+        return False, "Nepoznat razlog kretanja."
+
+    if regime == "qty":
+        try:
+            qty_val = float(qty)
+        except (TypeError, ValueError):
+            return False, "Količina je obavezna i mora biti broj."
+        if qty_val <= 0:
+            return False, "Količina mora biti veća od nule."
+        ok, result = record_movement(
+            product_id=product_id, qty=qty_val, direction="out",
+            reason=reason, contact_id=contact_id, note=note,
+            moved_by=moved_by)
+        if not ok:
+            return False, result
+        return True, {"movement_id": result, "product_name": product["name"]}
+
+    serials = [(s or "").strip() for s in serial_numbers or [] if (s or "").strip()]
+    if not serials:
+        return False, "Unesi bar jedan serijski broj."
+    if len(set(s.lower() for s in serials)) != len(serials):
+        return False, "Isti serijski broj je unet dva puta."
+
+    left = []
+    for s in serials:
+        existing = find_equipment_by_serial(s, product_id=product_id)
+        if existing is None:
+            return False, (f"S/N {s}: mašina nije u registru — registruj je "
+                           "prvo (Oprema → Nova mašina), pa je izdaj.")
+        if existing["status"] == "scrapped":
+            return False, f"S/N {s}: rashodovana oprema se ne može izdavati."
+        # map the commercial reason onto the equipment transition (statuses
+        # come from the closed EQUIPMENT_STATUSES set — 'sold'/'given_free'
+        # do not exist as statuses, a sold machine is 'delivered')
+        status_by_reason = {"sale": "delivered", "free_issue": "delivered",
+                            "loan": "loaned", "test_demo": "test_demo",
+                            "service_in": "in_service"}
+        new_status = status_by_reason.get(reason)
+        ok, result = transition_equipment(
+            existing["id"], custodian_type="customer",
+            custodian_contact_id=contact_id, status=new_status,
+            note=note, moved_by=moved_by)
+        if not ok:
+            return False, f"S/N {s}: {result}"
+        left.append(existing["id"])
+    return True, {"product_name": product["name"], "left": len(left),
+                  "equipment_ids": left}
+
+
 def qty_on_hand(product_id):
     """Ledger balance for a qty-regime product: Σin − Σout."""
     conn = get_db()
@@ -207,6 +379,37 @@ def list_movements(product_id=None, equipment_id=None, limit=200):
 # ---------------------------------------------------------------------------
 # equipment (serialized instances; transitions only)
 # ---------------------------------------------------------------------------
+
+def find_equipment_by_serial(serial_number, product_id=None):
+    """Registry lookup for the intake form's known-serial indicator.
+
+    Exact serial match (case-insensitive, trimmed), optionally scoped to
+    one product. Returns the joined row (custodian_name resolved) or None.
+    Used by the unified movement form: a serial the warehouse has seen
+    before must NOT be silently registered again — the form shows where
+    the machine is now and offers 'return it' vs 'register as new'.
+    """
+    serial = (serial_number or "").strip()
+    if not serial:
+        return None
+    conn = get_db()
+    sql = """
+        SELECT e.*, p.name AS product_name,
+               c.display_name AS custodian_name
+        FROM equipment e
+        LEFT JOIN products p ON p.id = e.product_id
+        LEFT JOIN contacts c ON c.id = e.custodian_contact_id
+        WHERE LOWER(e.serial_number) = LOWER(?)
+    """
+    params = [serial]
+    if product_id is not None:
+        sql += " AND e.product_id = ?"
+        params.append(product_id)
+    sql += " ORDER BY e.id LIMIT 1;"
+    row = conn.execute(sql, params).fetchone()
+    conn.close()
+    return row
+
 
 def _resolve_name_snapshot(conn, product_id, name_snapshot):
     """name_snapshot from product_id when the caller didn't supply one."""
@@ -257,6 +460,16 @@ def register_equipment(product_id=None, name_snapshot=None, serial_number=None,
     if custodian_type in ("warehouse", "scrap"):
         custodian_contact_id = None
 
+    serial = (serial_number or "").strip() or None
+    if serial:
+        existing = find_equipment_by_serial(serial, product_id=product_id)
+        if existing is not None:
+            return False, (
+                f"Serijski broj '{serial}' već postoji u registru "
+                f"(čuvar: {existing['custodian_name'] or existing['custodian_type']}). "
+                "Koristi promenu čuvara za postojeću mašinu, ili upiši drugi "
+                "serijski broj.")
+
     conn = get_db()
     resolved = _resolve_name_snapshot(conn, product_id, name_snapshot)
     if not resolved:
@@ -271,7 +484,7 @@ def register_equipment(product_id=None, name_snapshot=None, serial_number=None,
                                notes, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?);
         """,
-        (product_id, resolved, (serial_number or "").strip() or None,
+        (product_id, resolved, serial,
          custodian_type, custodian_contact_id, since_date, status,
          notes, _utcnow_iso()),
     )

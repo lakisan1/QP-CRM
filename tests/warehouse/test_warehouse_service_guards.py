@@ -168,13 +168,23 @@ def test_register_explicit_status_still_wins():
     assert wh.get_equipment(eid)["status"] == "loaned"
 
 
-def test_duplicate_serial_numbers_are_allowed():
-    """Deliberate: serial uniqueness is unenforceable (temp registrations,
-    multi-site copies). Duplicates are surfaced in the UI, not blocked."""
+def test_duplicate_serial_numbers_are_blocked_within_product():
+    """2026-09-27 user request (unified intake): a serial the warehouse has
+    seen must be RETURNED via transition, not silently re-registered — the
+    intake form offers 'return it' and the service blocks same-product
+    duplicates. Different-product copies (temp registrations, multi-site)
+    remain allowed: the duplicate check is scoped to product_id."""
     from qp_crm.services import warehouse_service as wh
-    ok1, _ = wh.register_equipment(name_snapshot="Dup A", serial_number="DUP-1")
-    ok2, _ = wh.register_equipment(name_snapshot="Dup B", serial_number="DUP-1")
-    assert ok1 and ok2
+    pid = _new_product("Dup proizvod", regime="serialized")
+    ok1, _ = wh.register_equipment(product_id=pid, serial_number="DUP-1")
+    assert ok1
+    # same product, case-insensitive: blocked
+    ok2, msg = wh.register_equipment(product_id=pid, serial_number="dup-1")
+    assert not ok2 and "već postoji" in msg
+    # different product: allowed (temp/other-site copy)
+    pid2 = _new_product("Dup proizvod 2", regime="serialized")
+    ok3, _ = wh.register_equipment(product_id=pid2, serial_number="DUP-1")
+    assert ok3
     row = _scalar("SELECT COUNT(*) AS c FROM equipment WHERE serial_number = 'DUP-1';")
     assert row["c"] == 2
 
@@ -426,3 +436,138 @@ def test_scrap_movement_reduces_qty_balance():
     wh.record_movement(product_id=pid, qty=10, direction="in", reason="purchase_in")
     wh.record_movement(product_id=pid, qty=4, direction="out", reason="scrap")
     assert wh.qty_on_hand(pid) == 6
+
+
+# ---------------------------------------------------------------------------
+# intake_inbound / outtake (unified form services, user request 2026-09-27)
+# ---------------------------------------------------------------------------
+
+def test_intake_inbound_qty_validation():
+    from qp_crm.services import warehouse_service as wh
+    pid = _new_product("Intake qty guard", regime="qty")
+    ok, msg = wh.intake_inbound(pid, qty="nije-broj")
+    assert not ok and "broj" in msg
+    ok, msg = wh.intake_inbound(pid, qty="0")
+    assert not ok and "veća od nule" in msg
+    ok, msg = wh.intake_inbound(pid, qty="3")
+    assert ok
+
+
+def test_intake_inbound_rejects_untracked_and_bad_reason():
+    from qp_crm.services import warehouse_service as wh
+    pid = _new_product("Intake untracked")  # untracked default
+    ok, msg = wh.intake_inbound(pid, qty="1")
+    assert not ok and "praćenje" in msg
+    pid_q = _new_product("Intake bad reason", regime="qty")
+    ok, msg = wh.intake_inbound(pid_q, qty="1", reason="nepoznat")
+    assert not ok and "Nepoznat razlog" in msg
+
+
+def test_intake_inbound_serialized_requires_serials():
+    from qp_crm.services import warehouse_service as wh
+    pid = _new_product("Intake no serials", regime="serialized")
+    ok, msg = wh.intake_inbound(pid, serial_numbers=["", "  "])
+    assert not ok and "serijski" in msg.lower()
+
+
+def test_intake_inbound_unknown_product():
+    from qp_crm.services import warehouse_service as wh
+    ok, msg = wh.intake_inbound(999999, qty="1")
+    assert not ok and "ne postoji" in msg
+
+
+def test_outtake_qty_requires_positive_number():
+    from qp_crm.services import warehouse_service as wh
+    pid = _new_product("Outtake qty guard", regime="qty")
+    ok, msg = wh.outtake(pid, qty="-2")
+    assert not ok
+    ok, msg = wh.outtake(pid, qty=None)
+    assert not ok
+
+
+def test_outtake_serialized_scrapped_rejected():
+    from qp_crm.services import warehouse_service as wh
+    pid = _new_product("Outtake scrap guard", regime="serialized")
+    ok, eid = wh.register_equipment(product_id=pid, serial_number="SCR-1")
+    assert ok
+    ok, _ = wh.transition_equipment(eid, custodian_type="scrap")
+    assert ok
+    ok, msg = wh.outtake(pid, serial_numbers=["SCR-1"], reason="sale")
+    assert not ok and "rashodovana" in msg.lower()
+
+
+def test_outtake_reason_maps_to_status():
+    from qp_crm.services import warehouse_service as wh
+    pid = _new_product("Outtake status map", regime="serialized")
+    cust = _new_contact("Kupac mapiranje")
+    ok, eid = wh.register_equipment(product_id=pid, serial_number="MAP-1")
+    assert ok
+    ok, _ = wh.outtake(pid, serial_numbers=["MAP-1"], reason="loan",
+                       contact_id=cust)
+    assert ok
+    assert wh.get_equipment(eid)["status"] == "loaned"
+
+
+def test_intake_inbound_return_reason_known_serial():
+    """Return flow: known machine back in — transition, not new row."""
+    from qp_crm.services import warehouse_service as wh
+    pid = _new_product("Intake return flow", regime="serialized")
+    ok, eid = wh.register_equipment(product_id=pid, serial_number="RET-1")
+    assert ok
+    ok, _ = wh.transition_equipment(eid, custodian_type="scrap")
+    assert ok
+    # scrapped machine cannot come back through intake either
+    ok, msg = wh.intake_inbound(pid, serial_numbers=["RET-1"], reason="return")
+    assert not ok and "Rashodovana" in msg
+
+
+def test_outtake_qty_happy_path_and_bad_reason():
+    from qp_crm.services import warehouse_service as wh
+    pid = _new_product("Outtake qty happy", regime="qty")
+    ok, msg = wh.outtake(pid, qty="2", reason="nepoznat")
+    assert not ok and "Nepoznat razlog" in msg
+    ok, result = wh.outtake(pid, qty="2", reason="sale")
+    assert ok and result["product_name"] == "Outtake qty happy"
+    assert wh.qty_on_hand(pid) == -2
+
+
+def test_outtake_untracked_rejected():
+    from qp_crm.services import warehouse_service as wh
+    pid = _new_product("Outtake untracked")
+    ok, msg = wh.outtake(pid, qty="1")
+    assert not ok and "praćenje" in msg
+
+
+def test_outtake_qty_non_numeric_and_zero():
+    from qp_crm.services import warehouse_service as wh
+    pid = _new_product("Outtake qty edge", regime="qty")
+    ok, msg = wh.outtake(pid, qty="abc", reason="sale")
+    assert not ok and "broj" in msg
+    ok, msg = wh.outtake(pid, qty="0", reason="sale")
+    assert not ok and "veća od nule" in msg
+
+
+def test_outtake_serialized_empty_serials_and_dupe():
+    from qp_crm.services import warehouse_service as wh
+    pid = _new_product("Outtake serial edges", regime="serialized")
+    ok, msg = wh.outtake(pid, serial_numbers=[""], reason="sale")
+    assert not ok and "serijski" in msg.lower()
+    ok, _ = wh.register_equipment(product_id=pid, serial_number="DUP-OUT")
+    assert ok
+    ok, msg = wh.outtake(pid, serial_numbers=["DUP-OUT", "dup-out"], reason="sale")
+    assert not ok and "dva puta" in msg
+
+
+def test_intake_inbound_duplicate_across_known_and_new():
+    """Mixed intake: one known serial (returns) + one new (registers)."""
+    from qp_crm.services import warehouse_service as wh
+    pid = _new_product("Intake mixed", regime="serialized")
+    ok, eid = wh.register_equipment(product_id=pid, serial_number="MIX-1")
+    assert ok
+    ok, _ = wh.transition_equipment(eid, custodian_type="customer",
+                                    custodian_contact_id=_new_contact("Mix kupac"))
+    assert ok
+    ok, result = wh.intake_inbound(pid, serial_numbers=["MIX-1", "MIX-2"])
+    assert ok
+    assert result["returned"] == 1 and result["registered"] == 1
+    assert wh.warehouse_equipment_count(pid) == 2

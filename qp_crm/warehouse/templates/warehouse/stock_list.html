@@ -1,0 +1,94 @@
+{% extends "warehouse/base.html" %}
+{% block title %}Stanje — Magacin{% endblock %}
+
+{% block content %}
+<h1>Stanje magacina</h1>
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+    <a href="{{ url_for('warehouse.intake') }}" class="btn btn-success">+ Novo kretanje (ulaz / izlaz)</a>
+</div>
+
+<div class="card">
+    <form method="get" action="{{ url_for('warehouse.stock_list') }}" class="filter-row" style="gap:15px;">
+        <label style="display:flex;flex-direction:column;">
+            <span style="margin-bottom:6px;font-size:13px;font-weight:500;">Pretraga proizvoda:</span>
+            <input type="text" name="search" value="{{ search }}" style="margin-bottom:0;">
+        </label>
+        <button type="submit" class="btn btn-primary" style="margin-bottom:0;">Pretraži</button>
+    </form>
+</div>
+
+{% for r in rows %}
+<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+        <h3 style="margin:0;">{{ r['name'] }}</h3>
+        {% if r['tracking_regime'] == 'qty' %}
+        <span style="background:var(--accent-primary);color:white;padding:4px 14px;border-radius:20px;font-weight:bold;">
+            {{ r['on_hand'] }} kom
+        </span>
+        {% else %}
+        <span style="background:var(--accent-primary);color:white;padding:4px 14px;border-radius:20px;font-weight:bold;">
+            {{ r['machines']|length }} mašina
+        </span>
+        {% endif %}
+    </div>
+
+    {% if r['tracking_regime'] == 'serialized' and r['machines'] %}
+    <table class="larg-table" style="margin-top:10px;">
+        <thead>
+            <tr><th>Serijski broj</th><th>Status</th><th>Čuvar</th><th>Od</th></tr>
+        </thead>
+        <tbody>
+            {% for m in r['machines'] %}
+            <tr>
+                <td>{{ m['serial_number'] or '—' }}</td>
+                <td>{{ r['status_labels'].get(m['status'], m['status']) }}</td>
+                <td>
+                    {% if m['custodian_type'] == 'customer' %}
+                        Kod kontakta: {{ m['custodian_name'] or '?' }}
+                    {% elif m['custodian_type'] == 'warehouse' %}
+                        Magacin
+                    {% else %}
+                        Rashodovano
+                    {% endif %}
+                </td>
+                <td>{{ format_date(m['since_date']) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if r['latest'] %}
+    <details style="margin-top:8px;">
+        <summary style="cursor:pointer;color:var(--text-muted);font-size:14px;">Poslednja kretanja ({{ r['latest']|length }})</summary>
+        <table class="larg-table" style="margin-top:6px;">
+            <thead>
+                <tr><th>Kada</th><th>Šta</th><th>Količina</th><th>Smer</th><th>Razlog</th><th>Kontakt</th></tr>
+            </thead>
+            <tbody>
+                {% for m in r['latest'] %}
+                <tr>
+                    <td>{{ format_date(m['moved_at'][:10]) }}</td>
+                    <td>
+                        {% if m['equipment_name'] %}{{ m['equipment_name'] }} <span style="color:var(--text-muted);">(mašina)</span>
+                        {% elif m['name_snapshot'] %}{{ m['name_snapshot'] }} <span style="color:var(--text-muted);">(temp)</span>
+                        {% else %}{{ r['name'] }}{% endif %}
+                    </td>
+                    <td>{{ m['qty'] if m['qty'] is not none else '—' }}</td>
+                    <td>{{ '→ ulaz' if m['direction'] == 'in' else '← izlaz' }}</td>
+                    <td>{{ movement_reason_labels.get(m['reason'], m['reason']) }}</td>
+                    <td>{{ m['contact_name'] or '—' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </details>
+    {% endif %}
+</div>
+{% else %}
+<div class="card"><p style="text-align:center;color:var(--text-muted);">
+    Nema praćenih proizvoda. Uključi praćenje u Cenovniku (forma proizvoda → Režim praćenja).
+</p></div>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,178 @@
+{% extends "warehouse/base.html" %}
+{% block title %}Ulaz / Izlaz — Magacin{% endblock %}
+
+{% block content %}
+<h1>Ulaz / Izlaz</h1>
+
+<form method="post" class="card" id="intake-form"
+      style="max-width:900px;display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+
+    <label>
+        Smer
+        <select name="direction" id="direction" style="width:100%;">
+            <option value="in" {{ 'selected' if selected_direction == 'in' }}>→ Ulaz (prijem u magacin)</option>
+            <option value="out" {{ 'selected' if selected_direction == 'out' }}>← Izlaz (izdavanje iz magacina)</option>
+        </select>
+    </label>
+
+    <label>
+        Proizvod (katalog)
+        <select name="product_id" id="product-picker" class="searchable-select" style="width:100%;">
+            <option value="">— izaberi proizvod —</option>
+        </select>
+    </label>
+
+    <label>
+        Razlog
+        <select name="reason" id="reason" style="width:100%;"></select>
+    </label>
+
+    <label>
+        Kontakt (dobavljač / kupac)
+        <select name="contact_id" class="searchable-select" style="width:100%;">
+            <option value="">— interno —</option>
+            {% for c in contacts %}
+            <option value="{{ c['id'] }}" {{ 'selected' if selected_contact == c['id'] }}>{{ c['display_name'] }}</option>
+            {% endfor %}
+        </select>
+    </label>
+
+    {# ===== qty regime section ===== #}
+    <div id="qty-section" style="grid-column:1/3;display:none;">
+        <label>
+            Količina (kom / kg / pakovanje — po proizvodu)
+            <input type="number" name="qty" id="qty" step="0.01" min="0" style="width:100%;">
+        </label>
+    </div>
+
+    {# ===== serialized regime section ===== #}
+    <div id="serial-section" style="grid-column:1/3;display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <strong>Serijski brojevi (jedan po komadu)</strong>
+            <button type="button" class="btn btn-secondary" id="add-serial" style="margin:0;">+ dodaj polje</button>
+        </div>
+        <div id="serial-fields"></div>
+        <div id="serial-hint" style="margin-top:10px;padding:8px 12px;border-radius:6px;background:rgba(230,126,34,0.15);color:var(--text-main);display:none;">
+            <strong>⚠ Ovaj uređaj je već u sistemu:</strong> <span id="serial-hint-text"></span>
+            <div style="margin-top:6px;font-size:13px;color:var(--text-muted);">
+                Ako se vraća u magacin — samo zabeleži (sistem ga vraća automatski).
+                Ako je novi uređaj istog modela — proveri serijski broj sa nalepnice.
+            </div>
+        </div>
+    </div>
+
+    <label style="grid-column:1/3;">
+        Napomena
+        <textarea name="note" rows="2" style="width:100%;"></textarea>
+    </label>
+
+    <div style="grid-column:1/3;display:flex;gap:10px;">
+        <button type="submit" name="again" value="0" class="btn btn-success">Zabeleži</button>
+        <button type="submit" name="again" value="1" class="btn btn-primary">Zabeleži i dodaj još</button>
+        <a href="{{ url_for('warehouse.stock_list') }}" class="btn btn-secondary">Otkaži</a>
+    </div>
+</form>
+
+<script>
+    const PRODUCTS = {{ products_payload|safe }};
+    const REASONS = {
+        in: {{ reasons_in|tojson }},
+        out: {{ reasons_out|tojson }}
+    };
+    const REASON_LABELS = {{ reason_labels|tojson }};
+    let regime = null;
+    let serialCount = 0;
+
+    const productPicker = document.getElementById('product-picker');
+    PRODUCTS.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.name + (p.regime === 'serialized' ? '  [serijski br.]' : '  [količina]');
+        opt.dataset.regime = p.regime;
+        productPicker.appendChild(opt);
+    });
+
+    function fillReasons(dir) {
+        const sel = document.getElementById('reason');
+        const keep = sel.value;
+        sel.innerHTML = '';
+        (REASONS[dir] || []).forEach(r => {
+            const opt = document.createElement('option');
+            opt.value = r;
+            opt.textContent = REASON_LABELS[r] || r;
+            sel.appendChild(opt);
+        });
+        if ((REASONS[dir] || []).includes(keep)) sel.value = keep;
+    }
+
+    function refreshSections() {
+        const isSerial = regime === 'serialized';
+        document.getElementById('qty-section').style.display = (regime === 'qty') ? 'block' : 'none';
+        document.getElementById('serial-section').style.display = isSerial ? 'block' : 'none';
+        if (isSerial && serialCount === 0) addSerialField();
+    }
+
+    function addSerialField() {
+        serialCount++;
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'display:flex;gap:10px;margin-bottom:8px;align-items:center;';
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.name = 'serial_numbers';
+        input.className = 'serial-input';
+        input.placeholder = 'S/N komada ' + serialCount;
+        input.style.cssText = 'width:100%;margin-bottom:0;';
+        input.addEventListener('input', () => checkSerial(input));
+        wrap.appendChild(input);
+        document.getElementById('serial-fields').appendChild(wrap);
+    }
+
+    function checkSerial(input) {
+        const sn = input.value.trim();
+        const known = PRODUCTS.find(p => p.id == productPicker.value);
+        if (!sn || !known) { hideHint(input); return; }
+        // known-serial lookup via the equipment list endpoint
+        fetch('/warehouse/api/serial-lookup?product_id=' + productPicker.value + '&serial=' + encodeURIComponent(sn), {
+            headers: {'X-CSRF-Token': '{{ csrf_token() }}'}
+        })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+            if (data && data.found) {
+                input.style.borderColor = '#e67e22';
+                input.style.borderWidth = '2px';
+                const hint = document.getElementById('serial-hint');
+                document.getElementById('serial-hint-text').textContent =
+                    'S/N ' + data.serial + ' — trenutno: ' + data.where + (data.since ? ', od ' + data.since : '');
+                hint.style.display = 'block';
+            } else {
+                hideHint(input);
+            }
+        })
+        .catch(() => hideHint(input));
+    }
+
+    function hideHint(input) {
+        input.style.borderColor = '';
+        input.style.borderWidth = '';
+        // hide the shared hint if no other field is flagged
+        const anyFlagged = [...document.querySelectorAll('.serial-input')].some(i => i.style.borderWidth);
+        if (!anyFlagged) document.getElementById('serial-hint').style.display = 'none';
+    }
+
+    productPicker.addEventListener('change', () => {
+        const opt = productPicker.selectedOptions[0];
+        regime = opt ? opt.dataset.regime : null;
+        refreshSections();
+    });
+
+    document.getElementById('direction').addEventListener('change', (e) => fillReasons(e.target.value));
+    document.getElementById('add-serial').addEventListener('click', addSerialField);
+
+    // init from carried-over query (Zabeleži i dodaj još)
+    fillReasons(document.getElementById('direction').value);
+    if ({{ '1' if selected_direction == 'in' else '0' }} && productPicker.value === '') {
+        // keep serial section hidden until product picked — default state
+    }
+</script>
+{% endblock %}

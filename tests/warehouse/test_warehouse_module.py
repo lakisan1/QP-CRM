@@ -370,3 +370,159 @@ def test_serialized_count_equals_instances():
     ok, _ = wh.transition_equipment(eid, "customer", custodian_contact_id=cust)
     assert ok
     assert wh.warehouse_equipment_count(pid) == 2
+
+
+# ---------------------------------------------------------------------------
+# unified intake/outtake (P5-UI rework, user request 2026-09-27)
+# ---------------------------------------------------------------------------
+
+def test_intake_page_renders_for_granted_staff(client):
+    login_client(client, "rent")
+    _grant_warehouse("rent")
+    r = client.get("/warehouse/intake")
+    assert r.status_code == 200
+
+
+def test_intake_qty_line_records_movement(client):
+    login_client(client, "rent")
+    _grant_warehouse("rent")
+    pid = _new_product("Srafovi kutija", regime="qty")
+    tok = csrf_token_for(client)
+    r = client.post("/warehouse/intake", data={
+        "_csrf_token": tok, "direction": "in", "product_id": str(pid),
+        "qty": "1", "reason": "purchase_in", "again": "0",
+    }, follow_redirects=False)
+    assert r.status_code == 302
+    from qp_crm.services import warehouse_service as wh
+    assert wh.qty_on_hand(pid) == 1
+
+
+def test_intake_serialized_registers_machines(client):
+    login_client(client, "rent")
+    _grant_warehouse("rent")
+    pid = _new_product("Geodina intake", regime="serialized")
+    tok = csrf_token_for(client)
+    r = client.post("/warehouse/intake", data={
+        "_csrf_token": tok, "direction": "in", "product_id": str(pid),
+        "reason": "purchase_in", "again": "0",
+        "serial_numbers": ["G-1", "G-2", "G-3", "G-4"],
+    }, follow_redirects=False)
+    assert r.status_code == 302
+    from qp_crm.services import warehouse_service as wh
+    assert wh.warehouse_equipment_count(pid) == 4
+
+
+def test_intake_known_serial_returns_not_reregisters(client):
+    """Acceptance 5.1: a serial already in the system is RETURNED via a
+    transition (story continues), never duplicated."""
+    from qp_crm.services import warehouse_service as wh
+    login_client(client, "rent")
+    _grant_warehouse("rent")
+    pid = _new_product("EAE intake", regime="serialized")
+    cust = _new_contact("Kupac vraća DOO")
+    ok, eid = wh.register_equipment(product_id=pid, serial_number="E25")
+    assert ok
+    ok, _ = wh.transition_equipment(eid, "customer", custodian_contact_id=cust)
+    assert ok  # machine is out at the customer now
+    tok = csrf_token_for(client)
+    r = client.post("/warehouse/intake", data={
+        "_csrf_token": tok, "direction": "in", "product_id": str(pid),
+        "reason": "return", "again": "0", "serial_numbers": ["E25"],
+    }, follow_redirects=False)
+    assert r.status_code == 302
+    row = _scalar(
+        "SELECT custodian_type, status FROM equipment WHERE serial_number = 'E25';")
+    assert row["custodian_type"] == "warehouse" and row["status"] == "in_stock"
+    count = _scalar("SELECT COUNT(*) AS c FROM equipment WHERE serial_number = 'E25';")
+    assert count["c"] == 1  # no duplicate row
+
+
+def test_intake_duplicate_serials_in_one_post_rejected(client):
+    login_client(client, "rent")
+    _grant_warehouse("rent")
+    pid = _new_product("Blinovare intake", regime="serialized")
+    tok = csrf_token_for(client)
+    r = client.post("/warehouse/intake", data={
+        "_csrf_token": tok, "direction": "in", "product_id": str(pid),
+        "reason": "purchase_in", "again": "0",
+        "serial_numbers": ["B-1", "B-1"],
+    })
+    assert b"dva puta" in r.data
+    assert _scalar(
+        "SELECT COUNT(*) AS c FROM equipment WHERE product_id = ?;", (pid,)
+    )["c"] == 0
+
+
+def test_outtake_serialized_transitions_out(client):
+    from qp_crm.services import warehouse_service as wh
+    login_client(client, "rent")
+    _grant_warehouse("rent")
+    pid = _new_product("Geodina out", regime="serialized")
+    cust = _new_contact("Kupac izlaz DOO")
+    ok, eid = wh.register_equipment(product_id=pid, serial_number="GO-1")
+    assert ok
+    tok = csrf_token_for(client)
+    r = client.post("/warehouse/intake", data={
+        "_csrf_token": tok, "direction": "out", "product_id": str(pid),
+        "reason": "sale", "contact_id": str(cust), "again": "0",
+        "serial_numbers": ["GO-1"],
+    }, follow_redirects=False)
+    assert r.status_code == 302
+    row = _scalar("SELECT custodian_type, status FROM equipment WHERE id = ?;", (eid,))
+    assert row["custodian_type"] == "customer" and row["status"] == "delivered"
+
+
+def test_outtake_unknown_serial_rejected(client):
+    login_client(client, "rent")
+    _grant_warehouse("rent")
+    pid = _new_product("Nepoznat S/N out", regime="serialized")
+    tok = csrf_token_for(client)
+    r = client.post("/warehouse/intake", data={
+        "_csrf_token": tok, "direction": "out", "product_id": str(pid),
+        "reason": "sale", "again": "0", "serial_numbers": ["NIJE-U-SISTEMU"],
+    })
+    assert b"nije u registru" in r.data
+
+
+def test_serial_lookup_api(client):
+    login_client(client, "rent")
+    _grant_warehouse("rent")
+    pid = _new_product("Lookup proizvod", regime="serialized")
+    ok, _ = wh_register(pid, "LK-9")
+    assert ok
+    r = client.get("/warehouse/api/serial-lookup?product_id=%d&serial=LK-9" % pid)
+    assert r.status_code == 200
+    data = r.get_json()
+    assert data["found"] and data["serial"] == "LK-9"
+    r = client.get("/warehouse/api/serial-lookup?product_id=%d&serial=NEMA" % pid)
+    assert r.get_json() == {"found": False}
+
+
+def wh_register(pid, serial):
+    from qp_crm.services import warehouse_service
+    return warehouse_service.register_equipment(
+        product_id=pid, serial_number=serial)
+
+
+def test_stock_list_shows_both_regimes(client):
+    login_client(client, "rent")
+    _grant_warehouse("rent")
+    pid_q = _new_product("Stanje qty", regime="qty")
+    _new_product("Stanje ser", regime="serialized")
+    r = client.get("/warehouse/stock")
+    assert r.status_code == 200
+    assert "Stanje qty" in r.get_data(as_text=True)
+
+
+def test_zabelezi_i_dodaj_jos_keeps_context(client):
+    login_client(client, "rent")
+    _grant_warehouse("rent")
+    pid = _new_product("Kamion linija 1", regime="qty")
+    tok = csrf_token_for(client)
+    r = client.post("/warehouse/intake", data={
+        "_csrf_token": tok, "direction": "in", "product_id": str(pid),
+        "qty": "10", "reason": "purchase_in", "again": "1",
+    }, follow_redirects=False)
+    assert r.status_code == 302
+    assert "/warehouse/intake?" in r.headers["Location"]
+    assert "again=1" in r.headers["Location"]
