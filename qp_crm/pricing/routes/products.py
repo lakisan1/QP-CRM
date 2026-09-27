@@ -654,6 +654,15 @@ def edit_product(product_id):
         unit_base = _optional_text(request.form.get("unit_base"))
         pack_size = _optional_float(request.form.get("pack_size"))
         if item_type not in ("proizvod", "usluga"):
+            # The error re-render needs the form's dropdowns. They used to be
+            # loaded far below, in the duplicate-name branch, so this path
+            # raised UnboundLocalError (a 500) instead of showing the
+            # validation message. Load them here, before first use; the
+            # later branches re-load them anyway and stay correct.
+            cur.execute("SELECT category FROM category_pricing_defaults ORDER BY category;")
+            categories = [row["category"] for row in cur.fetchall()]
+            cur.execute("SELECT name FROM brands ORDER BY name;")
+            brand_options = [row["name"] for row in cur.fetchall()]
             product_dict = dict(product)
             product_dict.update({
                 "name": name, "description": description, "category": category,
