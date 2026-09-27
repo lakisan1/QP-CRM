@@ -2,43 +2,6 @@
   "version": 1,
   "cards": [
     {
-      "id": "card-a9cc70f9-a9c5-499f-b5e0-ef9bb37f1a2f",
-      "title": "P0-T6 · deploy.sh: image-rebuild update flow (replaces run_apps.sh update path, audit M11)",
-      "description": "Step 7. New deploy.sh: docker compose build → up -d → wait for /api/v1/health → show ps/logs. run_apps.sh stays untouched for bare-metal users. Short DOCKER.md documenting first run, update flow, volumes, backups.",
-      "rationale": "Replaces the run_apps.sh git-pull/pkill -f main.py update flow (audit M11) with image rebuild + recreate; data safety comes from the bind mounts.",
-      "rejected": "Editing run_apps.sh to auto-detect Docker — one script doing two jobs is unclear and the card says keep it for bare-metal; requiring --ff-only pull success — offline/diverged deploys should still proceed with a warning.",
-      "sourceSessionId": "session-ffcc3e3a-6384-411f-8100-d723ee8c50c7",
-      "status": "done",
-      "tags": [
-        "qp-crm",
-        "docker",
-        "phase-0",
-        "task"
-      ],
-      "createdAt": 1788448599952,
-      "updatedAt": 1788451508608,
-      "summary": "deploy.sh (git pull --ff-only non-fatal → docker compose build → up -d → ~90s health poll via docker inspect, fail-fast on unhealthy with log dump) + DOCKER.md ops doc (first run, update, volumes, backups incl. WAL stop-and-copy warning, logs). run_apps.sh left untouched for bare-metal users. Committed per step."
-    },
-    {
-      "id": "card-33716e35-c3b0-4459-b8c7-4d305dbe1163",
-      "title": "P0-T7 · Build image + compose up + automated smoke checklist",
-      "description": "Step 6 smoke list, automated as far as curl allows: docker compose build, up -d, healthcheck green; login each app (creds discovered from code/docs), pricing product+price flow, offer PDF render (non-empty %PDF bytes), rent doc PDF, admin backup download; report per-item PASS/FAIL. Requires T1–T6 merged and Docker installed. RUN TWICE — both runs fully green (agent re-executed all form flows on request).",
-      "rationale": "Automating the phase-card smoke list proves the image is genuinely runnable before manual user testing; the offer/rent PDF checks additionally prove WeasyPrint works in-container (the host libpango blocker is bypassed entirely).",
-      "rejected": "Selenium UI checks — curl/form-level POSTs cover the checklist; deeper UI testing stays with the user's manual pass.",
-      "sourceSessionId": "session-ffcc3e3a-6384-411f-8100-d723ee8c50c7",
-      "status": "done",
-      "tags": [
-        "qp-crm",
-        "docker",
-        "phase-0",
-        "task",
-        "verification"
-      ],
-      "createdAt": 1788448599958,
-      "updatedAt": 1788454328298,
-      "summary": "All 6 smoke items PASS — verified in TWO independent runs. (1) /api/v1/health → {success:true} + Docker healthcheck healthy in ~7s. (2) Logins admin/pricing/offer/rent (Admin1/Price1/Offer1/Rent1) → dashboards render. (3) Product via API + prices via UI (run1 final 14500.00/disc 13790.00; run2 final 14900.00/disc 14155.00). (4) Offer PDFs SMOKE-2026-001 + SMOKE-2026-002: %PDF-1.7, ~386KB each. (5) Rent doc PDFs Prilog_4_Plan_Placanja_010926/020926.pdf: %PDF-1.7, ~44.5KB — WeasyPrint renders in-container. (6) /admin/backup_db: 221,184 bytes, SQLite magic. deploy.sh exercised end-to-end twice incl. one failure+fix cycle (mode-600 COPY → chmod a+rX fix, 867ca19). TEST DATA NOW IN DB (runs 1+2): 2 price rows on product 1, offers SMOKE-2026-001/002 (+1 item each), 2 rent clients, 2 equipment, 2 contracts (010926, 020926) — user should delete/ignore before real use."
-    },
-    {
       "id": "card-c3df30d1-349f-44f9-85d1-3610c95d1efa",
       "title": "P0-T8 · Handover: commits per step, image tag, board + Agent Note",
       "description": "Commit each task's files separately on phase-0-docker with step-numbered messages; tag image qp-crm:phase0; mark the parent Phase-0 card done with summary+rejected; write the Agent Note for dockerization decisions; leave Dev untouched.",
@@ -1881,6 +1844,45 @@
       "updatedAt": 1790501788033,
       "summary": "Merge Dev (43 commit-a) u main preko privremenog deploy-main branch-a → push deploy-main:main = 5b61a74. Lokalna suite provera pre push-a: 477 passed / 3 skipped. CI run za 5b61a74: completed success (pytest + coverage gate + push latest i sha-5b61a74 na GHCR). sudo ./deploy.sh: pre-deploy backup (backups/pre-deploy-20260927-*.db), pull, recreate, healthcheck healthy. Verifikacija u produkciji: 12 /warehouse ruta registrovano; container fajlovi identični repo-u (md5 routes/__init__ 70c2739d, service 3181490b); /warehouse/equipment i /warehouse/coverage → 302 na login (očekvano za nelogovanog); sve P5 tabele postoje u prod DB (equipment, stock_movements, reservations, equipment_shortfalls, product_aliases); /login 200.",
       "rejected": "PR route — odbijen po korisnikovom izboru (tražio direktan push u main). Lokalni docker build — odbijen jer zaobilazi CI kapiju i rollback sistem. Napomena: /warehouse/ (samo trailing slash) daje 404 jer rute nemaju strict_slashes; korisnici ulaze preko landing kartice na /warehouse/equipment, pa je bez praktičnog značaja."
+    },
+    {
+      "id": "card-0dcd1b0d-cfb4-4aaf-b5a3-63f0f7fe2fae",
+      "title": "BUG · /warehouse/ (module root) 404 — nema index rute (jedini modul bez nje)",
+      "summary": "Novi routes/index.py: /warehouse/ → redirect na warehouse.equipment_list (kao pricing/contacts/offer index rutine). Test test_module_root_redirects_to_equipment dodat (suite 478 passed / 3 skipped). Push Dev (2cdcfb0) + resync merge origin/main u Dev (8c0f883) + push Dev:main. CI success, deploy.sh odradjen: /warehouse/ sada vraća 302 (login redirect kad nisi logovan) umesto 404 — verifikovano na produkciji.",
+      "rationale": "Korisnik je prijavio 404 na /warehouse/ — tačka je cilj landing app-card kartice i prirodni URL koji se kuca ručno. Ostali moduli (pricing, contacts, offer) imaju index redirect na svom root-u, warehouse je bio jedini bez njega. Popravka mora u produkciju da bi landing kartica radila.",
+      "rejected": "Strict_slashes globalno na blueprintu — odbijen jer menja ponašanje svih ruta (trailing-slash pravila) radi jedne tačke; index redirect je konvencija koju ostali moduli već prate. Promena landing kartice na /warehouse/equipment — odbijen jer ručno kucanje URL-a i dalje bi dalo 404; root redirect je pravi fix.",
+      "sourceSessionId": "session-983fa0e2-a9e1-4ac7-920b-eefd4a21a045",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "warehouse",
+        "bug",
+        "deployed",
+        "ui"
+      ],
+      "createdAt": 1790504954662,
+      "updatedAt": 1790504954662
+    },
+    {
+      "id": "card-dfe6b2d1-fd31-484f-b1c9-19d964301f20",
+      "title": "P5-UI rework: jedinstven Magacin (ulaz/izlaz, auto S/N polja) + nova app Narudžbine (komercijala)",
+      "description": "ZAVRŠENO (deployovano ec19f03, CI success, deploy.sh healthy):\n\nBATCH A — jedinstven Magacin (magacioner): /warehouse/intake jedna forma (smer na vrhu, proizvod iz kataloga; serialized → dinamička S/N polja + žuti indikator poznatog S/N preko /warehouse/api/serial-lookup, poznavanje vraća mašinu kroz transition umesto duplog reda; register_equipment blokira dupli S/N unutar istog proizvoda case-insensitive); /warehouse/stock spojena lista stanja (qty balans ili mašine, poslednjih 5 kretanja); meni za magacionera: Stanje + Ulaz/Izlaz (Oprema/Rezervacije/Pokrivenost admin-only linkovi). 'Zabeleži i dodaj još' pamti smer/razlog/kontakt.\n\nBATCH B — /orders app Narudžbine: purchase_orders (PO-YYYY-NNN brojač, dobavljač slobodan tekst, očekivani datum, closed set ordered|partially|received|cancelled) + po_lines (proizvod ili temp naziv, qty, shortfall_id veza, received_at); receive_line automatski upisuje ulazno kretanje (magacioner NE pomera zalihu ručno) i auto-zatvara povezani dug (po_ref = broj PO); 'Treba naručiti' tabla (dugovi mašina + ispod min. stanja, Naruči pre-filira veza); grant 'orders' (MODULE_CHOICES v6, existing staff dobijaju exactly-once, može se oduzeti u Admin → Users); landing kartica dodata.\n\nCI incident: 2× exit 2 — order_service.py nikad nije commit-ovan (batch commit enumerisao fajlove ručno i preskočio svoj novi modul); dijagnostikovano fresh-clone buildom (22 collection errors reprodukovana lokalno). Fix ec19f03 + Dockerfile CACHE_BUST ostao u istoriji. Suite 510 passed / 3 skipped.",
+      "rationale": "Korisnik je dao konkretan UI tok i podelu uloga (magacioner vs komercijalca); potvrđeno kroz pitanja. Ovo je nova faza P5 UI reworka — velika promena UX-a i novi modul, mora biti zabeležena pre implementacije da ne izgubimo kontekst odluka.",
+      "sourceSessionId": "session-983fa0e2-a9e1-4ac7-920b-eefd4a21a045",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "phase-5",
+        "magacin",
+        "orders",
+        "ui",
+        "plan",
+        "in-flight"
+      ],
+      "createdAt": 1790507071439,
+      "updatedAt": 1790512608427,
+      "summary": "Deployovano: jedinstven Magacin (A) + nova app Narudžbine (B). A: /warehouse/intake (smer/proizvod/prilagođena polja: S/N po komadu sa žutim indikatorom poznatog serijskog preko serial-lookup API; qty → količina; Zabeleži / Zabeleži i dodaj još sa pamćenjem konteksta), /warehouse/stock spojeno stanje, magacionerski meni smanjen na 2 stavke + admin linkovi. B: purchase_orders/po_lines šema (PO-YYYY-NNN), order_service (create/receive_line sa auto ulaznim kretanjem + auto-zatvaranje duga sa po_ref), /orders UI (lista, treba-naručiti tabla, forma, detalj sa Stiglo), grant orders v6, landing kartica. Suite 510 passed / 3 skipped; CI incident (order_service.py uncommitted, 2× exit 2) dijagnostikovan fresh-clone reprodukcijom i rešen (ec19f03). Produkcija healthy, sve nove rute 302 (login gate).",
+      "rejected": "Odvojena app za Rezervacije — odbijen: rezervacije su komercijalna stvar ali ih korisnik nije tražio kao posebnu app; ostaju admin-only u Magacinu dok ne bude potrebe. Više fizičkih magacina (lokacije) — odbijen za ovu fazu: jedan magacin, korak 6 iz korisnikovog predloga preskočen po dogovoru; poseban posao ako zatreba. Ručni unos prijema kod magacionera — odbijen: prijem narudžbine automatski povećava zalihu (dupli unos je bio glavni rizik podeljenog modela)."
     }
   ]
 }
