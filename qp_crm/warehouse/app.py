@@ -58,21 +58,12 @@ def init_db():
 @bp.context_processor
 def inject_helpers():
     """Template helpers every warehouse page expects."""
-    from flask import session
-
     from qp_crm.shared.schema import (
         EQUIPMENT_STATUS_LABELS,
         MOVEMENT_REASON_LABELS,
     )
     from qp_crm.shared.web import get_date_format, get_theme
     from qp_crm.shared.utils import format_amount, format_date
-
-    is_admin = False
-    user_id = session.get("user_id")
-    if user_id is not None:
-        from qp_crm.shared.auth import get_user_by_id
-        user = get_user_by_id(user_id)
-        is_admin = bool(user) and user["role"] == "admin"
 
     fmt = get_date_format()
     return dict(
@@ -81,7 +72,6 @@ def inject_helpers():
         theme=get_theme(),
         equipment_status_labels=EQUIPMENT_STATUS_LABELS,
         movement_reason_labels=MOVEMENT_REASON_LABELS,
-        is_admin=is_admin,
     )
 
 

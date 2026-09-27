@@ -1,12 +1,12 @@
-{% extends "warehouse/base.html" %}
+{% extends "orders/base.html" %}
 {% block title %}Rezervacije — Magacin{% endblock %}
 
 {% block content %}
 <h1>Rezervacije</h1>
 
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-    <a href="{{ url_for('warehouse.reservation_new') }}" class="btn btn-success">+ Nova rezervacija</a>
-    <a href="{{ url_for('warehouse.reservations_list', all=(0 if active_only else 1)) }}" class="btn btn-secondary">
+    <a href="{{ url_for('orders.reservation_new') }}" class="btn btn-success">+ Nova rezervacija</a>
+    <a href="{{ url_for('orders.reservations_list', all=(0 if active_only else 1)) }}" class="btn btn-secondary">
         {{ 'Prikaži sve (i oslobođene)' if active_only else 'Samo aktivne' }}
     </a>
 </div>
@@ -43,7 +43,7 @@
                 </td>
                 <td>
                     {% if not r['released_at'] %}
-                    <form method="post" action="{{ url_for('warehouse.reservation_release', reservation_id=r['id']) }}" style="margin:0;">
+                    <form method="post" action="{{ url_for('orders.reservation_release', reservation_id=r['id']) }}" style="margin:0;">
                         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn btn-secondary">Oslobodi</button>
                     </form>

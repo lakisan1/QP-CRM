@@ -121,10 +121,10 @@ def test_staff_without_grant_gets_403(client):
 def test_staff_with_grant_sees_pages(client):
     login_client(client, "rent")
     _grant_warehouse("rent")
-    for path in ("/warehouse/equipment", "/warehouse/movements",
-                 "/warehouse/reservations", "/warehouse/coverage",
-                 "/warehouse/equipment/new", "/warehouse/movements/new",
-                 "/warehouse/reservations/new"):
+    # P5-UI rework: reservations/coverage moved to the Komercijala app —
+    # the warehouse operator sees Stanje, Ulaz/Izlaz and Oprema only.
+    for path in ("/warehouse/equipment", "/warehouse/equipment/new",
+                 "/warehouse/stock", "/warehouse/intake"):
         assert client.get(path).status_code == 200, path
 
 

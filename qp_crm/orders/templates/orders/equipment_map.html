@@ -1,0 +1,63 @@
+{% extends "orders/base.html" %}
+{% block title %}Gde je oprema — Komercijala{% endblock %}
+
+{% block content %}
+<h1>Gde je oprema (mašine)</h1>
+<p style="color:var(--text-muted);">
+    Pregled svih mašina i kod koga se nalaze — u magacinu, kod mušterije ili rashodovana.
+</p>
+
+<div class="card">
+    <form method="get" action="{{ url_for('orders.equipment_map') }}" class="filter-row" style="gap:15px;">
+        <label style="display:flex;flex-direction:column;">
+            <span style="margin-bottom:6px;font-size:13px;font-weight:500;">Pretraga (naziv / serijski):</span>
+            <input type="text" name="search" value="{{ search or '' }}" style="margin-bottom:0;">
+        </label>
+        <label style="display:flex;flex-direction:column;">
+            <span style="margin-bottom:6px;font-size:13px;font-weight:500;">Status:</span>
+            <select name="status" style="margin-bottom:0;">
+                <option value="">Svi</option>
+                {% for s in statuses %}
+                <option value="{{ s }}" {{ 'selected' if selected_status == s }}>{{ status_labels[s] }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <button type="submit" class="btn btn-primary" style="margin-bottom:0;">Pretraži</button>
+    </form>
+</div>
+
+<div class="card">
+    <table class="larg-table">
+        <thead>
+            <tr>
+                <th>Naziv</th>
+                <th>Serijski broj</th>
+                <th>Status</th>
+                <th>Kod koga</th>
+                <th>Od</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for e in equipment %}
+            <tr>
+                <td>{{ e['name_snapshot'] }}{% if e['product_name'] and e['product_name'] != e['name_snapshot'] %} <span style="color:var(--text-muted);">({{ e['product_name'] }})</span>{% endif %}</td>
+                <td>{{ e['serial_number'] or '—' }}</td>
+                <td>{{ status_labels.get(e['status'], e['status']) }}</td>
+                <td>
+                    {% if e['custodian_type'] == 'customer' %}
+                        <strong>{{ e['custodian_name'] or '?' }}</strong> (mušterija)
+                    {% elif e['custodian_type'] == 'warehouse' %}
+                        Magacin
+                    {% else %}
+                        Rashodovano
+                    {% endif %}
+                </td>
+                <td>{{ format_date(e['since_date']) }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" style="text-align:center;color:var(--text-muted);">Nema registrovane opreme.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

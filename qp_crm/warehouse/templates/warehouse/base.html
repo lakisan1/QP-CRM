@@ -15,11 +15,7 @@
     {% call banner() %}
         <a href="{{ url_for('warehouse.stock_list') }}" {% if request.endpoint == 'warehouse.stock_list' %}class="active"{% endif %}>Stanje</a>
         <a href="{{ url_for('warehouse.intake') }}" {% if request.endpoint == 'warehouse.intake' %}class="active"{% endif %}>Ulaz / Izlaz</a>
-        {% if is_admin %}
-        <a href="{{ url_for('warehouse.equipment_list') }}" {% if request.endpoint in ('warehouse.equipment_list', 'warehouse.equipment_new', 'warehouse.equipment_detail') %}class="active"{% endif %}>Oprema (admin)</a>
-        <a href="{{ url_for('warehouse.reservations_list') }}" {% if request.endpoint in ('warehouse.reservations_list', 'warehouse.reservation_new') %}class="active"{% endif %}>Rezervacije (admin)</a>
-        <a href="{{ url_for('warehouse.coverage') }}" {% if request.endpoint == 'warehouse.coverage' %}class="active"{% endif %}>Pokrivenost (admin)</a>
-        {% endif %}
+        <a href="{{ url_for('warehouse.equipment_list') }}" {% if request.endpoint in ('warehouse.equipment_list', 'warehouse.equipment_new', 'warehouse.equipment_detail') %}class="active"{% endif %}>Oprema</a>
     {% endcall %}
 
     {% with messages = get_flashed_messages(with_categories=true) %}

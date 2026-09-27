@@ -226,3 +226,53 @@ def test_order_form_roundtrip_and_receive(client):
     from qp_crm.services import warehouse_service as wh
     assert wh.qty_on_hand(pid) == 7
     assert _scalar("SELECT status FROM purchase_orders WHERE id = ?;", (po,))["status"] == "received"
+
+
+# ---------------------------------------------------------------------------
+# planning (Komercijala): reservations + coverage + equipment map
+# ---------------------------------------------------------------------------
+
+def test_planning_pages_under_orders_grant(client):
+    login_client(client, "admin", DEFAULT_PASSWORDS["admin"])
+    for path in ("/orders/reservations", "/orders/reservations/new",
+                 "/orders/coverage", "/orders/equipment-map"):
+        assert client.get(path).status_code == 200, path
+
+
+def test_warehouse_reservations_moved_out(client):
+    """Old /warehouse/reservations + /warehouse/coverage are gone (the
+    operator app no longer carries commercial views)."""
+    login_client(client, "admin", DEFAULT_PASSWORDS["admin"])
+    assert client.get("/warehouse/reservations").status_code == 404
+    assert client.get("/warehouse/coverage").status_code == 404
+
+
+def test_reservation_roundtrip_in_komercijala(client):
+    login_client(client, "admin", DEFAULT_PASSWORDS["admin"])
+    pid = _new_product("Rez prod", regime="qty")
+    tok = csrf_token_for(client)
+    r = client.post("/orders/reservations/new", data={
+        "_csrf_token": tok, "product_id": str(pid), "qty": "2",
+        "for_whom": "Kupac Petrović", "note": "",
+    }, follow_redirects=False)
+    assert r.status_code == 302
+    row = _scalar(
+        "SELECT for_whom, released_at FROM reservations WHERE product_id = ?;", (pid,))
+    assert row["for_whom"] == "Kupac Petrović" and row["released_at"] is None
+    rid = _scalar("SELECT id FROM reservations WHERE product_id = ?;", (pid,))["id"]
+    r = client.post(f"/orders/reservations/{rid}/release", data={
+        "_csrf_token": tok}, follow_redirects=False)
+    assert r.status_code == 302
+    row = _scalar("SELECT released_at FROM reservations WHERE id = ?;", (rid,))
+    assert row["released_at"] is not None
+
+
+def test_equipment_map_shows_custodian(client):
+    from qp_crm.services import warehouse_service as wh
+    login_client(client, "admin", DEFAULT_PASSWORDS["admin"])
+    pid = _new_product("Map proizvod", regime="serialized")
+    ok, _ = wh.register_equipment(product_id=pid, serial_number="MAP-E1")
+    assert ok
+    r = client.get("/orders/equipment-map")
+    html = r.get_data(as_text=True)
+    assert "MAP-E1" in html and "Magacin" in html

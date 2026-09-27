@@ -1,11 +1,16 @@
-"""Coverage + reservations routes (P5): the ATP view and the reservation
-ledger. Reservations always carry for_whom (free text — the deals spine
-is gone); release never deletes.
+"""Planning routes (Komercijala, P5-UI rework): reservations + coverage.
+
+Moved from the warehouse app (user decision 2026-09-27, variant B): the
+warehouse operator only physically intakes/out-takes; RESERVING stock
+for customers and watching the ATP coverage is commercial work. This
+module owns the 'Komercijala' app: narudžbine + rezervacije + pokrivenost
++ pregled gde je koja mašina.
 """
 from flask import flash, redirect, render_template, request, url_for
 
 from ..app import bp
 from qp_crm.services import warehouse_service as wh
+from qp_crm.shared.schema import EQUIPMENT_STATUS_VALUES
 
 
 @bp.route("/coverage")
@@ -13,7 +18,7 @@ def coverage():
     """Per tracked product: on hand / reserved / available (qty) or
     warehouse instance count (serialized)."""
     return render_template(
-        "warehouse/coverage.html",
+        "orders/coverage.html",
         rows=wh.coverage_rows(),
     )
 
@@ -23,7 +28,7 @@ def reservations_list():
     active_only = request.args.get("all") != "1"
     reservations = wh.list_reservations(active_only=active_only)
     return render_template(
-        "warehouse/reservations_list.html",
+        "orders/reservations_list.html",
         reservations=reservations,
         active_only=active_only,
     )
@@ -41,10 +46,10 @@ def reservation_new():
         )
         if ok:
             flash("Rezervacija je kreirana.", "success")
-            return redirect(url_for("warehouse.reservations_list"))
+            return redirect(url_for("orders.reservations_list"))
         flash(result, "error")
     return render_template(
-        "warehouse/reservation_form.html",
+        "orders/reservation_form.html",
         qty_products=wh.tracked_products("qty"),
         equipment=wh.list_equipment(),
     )
@@ -57,4 +62,22 @@ def reservation_release(reservation_id):
         flash("Rezervacija je oslobođena.", "success")
     else:
         flash(message, "error")
-    return redirect(url_for("warehouse.reservations_list"))
+    return redirect(url_for("orders.reservations_list"))
+
+
+@bp.route("/equipment-map")
+def equipment_map():
+    """Where is every machine (user request, variant B): the commercialist
+    answers 'koji je uređaj kod koje mušterije' without the warehouse app."""
+    from qp_crm.shared.schema import EQUIPMENT_STATUS_LABELS
+    status = request.args.get("status") or None
+    search = request.args.get("search", "")
+    equipment = wh.list_equipment(status=status, search=search)
+    return render_template(
+        "orders/equipment_map.html",
+        equipment=equipment,
+        statuses=EQUIPMENT_STATUS_VALUES,
+        status_labels=EQUIPMENT_STATUS_LABELS,
+        selected_status=status,
+        search=search,
+    )

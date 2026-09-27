@@ -1,4 +1,4 @@
-{% extends "warehouse/base.html" %}
+{% extends "orders/base.html" %}
 {% block title %}Nova rezervacija — Magacin{% endblock %}
 
 {% block content %}
@@ -44,7 +44,7 @@
 
     <div style="grid-column:1/3;display:flex;gap:10px;">
         <button type="submit" class="btn btn-success">Rezerviši</button>
-        <a href="{{ url_for('warehouse.reservations_list') }}" class="btn btn-secondary">Otkaži</a>
+        <a href="{{ url_for('orders.reservations_list') }}" class="btn btn-secondary">Otkaži</a>
     </div>
 </form>
 {% endblock %}

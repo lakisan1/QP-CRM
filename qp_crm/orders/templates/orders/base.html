@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8">
-    <title>{% block title %}Narudžbine{% endblock %}</title>
+    <title>{% block title %}Komercijala{% endblock %}</title>
     <link rel="icon" type="image/png" href="/app_assets/favicon.png">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
     <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet">
@@ -15,6 +15,9 @@
     {% call banner() %}
         <a href="{{ url_for('orders.orders_list') }}" {% if request.endpoint in ('orders.orders_list', 'orders.order_detail', 'orders.order_new') %}class="active"{% endif %}>Narudžbine</a>
         <a href="{{ url_for('orders.needed') }}" {% if request.endpoint == 'orders.needed' %}class="active"{% endif %}>Treba naručiti</a>
+        <a href="{{ url_for('orders.reservations_list') }}" {% if request.endpoint in ('orders.reservations_list', 'orders.reservation_new') %}class="active"{% endif %}>Rezervacije</a>
+        <a href="{{ url_for('orders.coverage') }}" {% if request.endpoint == 'orders.coverage' %}class="active"{% endif %}>Pokrivenost</a>
+        <a href="{{ url_for('orders.equipment_map') }}" {% if request.endpoint == 'orders.equipment_map' %}class="active"{% endif %}>Gde je oprema</a>
     {% endcall %}
 
     {% with messages = get_flashed_messages(with_categories=true) %}

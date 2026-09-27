@@ -1,1 +1,1 @@
-"""Orders module (P5-UI rework): purchase orders."""
+"""Komercijala module (P5-UI rework): orders, reservations, coverage, equipment map."""
