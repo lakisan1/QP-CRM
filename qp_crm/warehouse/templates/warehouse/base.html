@@ -14,7 +14,6 @@
     {% from '_banner.html' import banner with context %}
     {% call banner() %}
         <a href="{{ url_for('warehouse.stock_list') }}" {% if request.endpoint == 'warehouse.stock_list' %}class="active"{% endif %}>Stanje</a>
-        <a href="{{ url_for('warehouse.intake') }}" {% if request.endpoint == 'warehouse.intake' %}class="active"{% endif %}>Ulaz / Izlaz</a>
         <a href="{{ url_for('warehouse.equipment_list') }}" {% if request.endpoint in ('warehouse.equipment_list', 'warehouse.equipment_new', 'warehouse.equipment_detail') %}class="active"{% endif %}>Oprema</a>
     {% endcall %}
 
