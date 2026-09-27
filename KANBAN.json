@@ -2,167 +2,6 @@
   "version": 1,
   "cards": [
     {
-      "id": "card-e61c6848-8617-4de6-bb61-07222cbb6666",
-      "title": "Set up QP-CRM Python environment (venv + deps)",
-      "description": "run_apps.sh aborted at its sudo apt step (sandbox: \"no new privileges\" flag blocks sudo; set -e killed the script), so app_data/, venv/ and pip install never ran from the script. Manual fallback: mkdir -p app_data/product_images; python3 -m venv failed because ensurepip/python3.12-venv is missing and there is no system pip3; recreated with `python3 -m venv --without-pip venv` + curl get-pip.py bootstrap; installed requirements.txt (Flask 3.1.3, Pillow 12.3.0, requests, WeasyPrint 69.0, pypdf 6.16.2, python-docx 1.2.0, mammoth 1.12.1, lxml 6.1.3) + Werkzeug 3.1.8. Note: `markdown` is intentionally NOT a pip dep — it is vendored in custom_libs/ and added to sys.path at runtime by the sub-apps.",
-      "summary": "Created app_data/product_images, venv (get-pip.py bootstrap since ensurepip missing), all requirements + Werkzeug installed and verified importable.",
-      "rationale": "Goal 2 prerequisite — the app cannot run without its Python dependencies; the sanctioned fallback path when run_apps.sh's apt step aborts.",
-      "rejected": "Editing run_apps.sh to skip the apt block — task said run it as-is and only do remaining steps manually; also rejected --system-site-packages venv (nothing useful installed system-side anyway).",
-      "sourceSessionId": "session-5cc94371-fc3f-4d12-a3cd-ea499a7f897c",
-      "status": "done",
-      "tags": [
-        "qp-crm",
-        "setup"
-      ],
-      "createdAt": 1788442332656,
-      "updatedAt": 1788442332656
-    },
-    {
-      "id": "card-7fa8808b-2629-485c-beb1-256f3e36914b",
-      "title": "Phase 0 — Dockerize QP-CRM (image + compose + volumes + env secrets)",
-      "description": "PHASE 0 of the roadmap (first execution phase; runs in a dedicated chat). Dockerize for easy running/updating of the main instance. Steps: (1) pin requirements (pip freeze from working venv) + add gunicorn; (2) wsgi entrypoint `from main import application` + explicit init sequence (pricing_init_db, pricing_migrate_schema, offer_init_db, admin_init_db, rent_init_db) since those run only under `__main__` today; (3) Dockerfile python:3.12-slim + apt libs from run_apps.sh PKGS list (libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 libgdk-pixbuf-2.0-0 libcairo2 shared-mime-info fonts-dejavu-core) — also fixes the current libpango boot blocker on this machine; non-root user; gunicorn --workers 2 --threads 4 (debugger/reloader OFF, audit C1); switch pricing/offer/rent hardcoded secret keys to os.environ.get; (4) docker-compose.yml: volumes app_data/ + app_assets/ + static/img (logo upload writes into static/img — lost on rebuild without a volume), env-based secrets, TZ=Europe/Belgrade, healthcheck /api/v1/health, restart unless-stopped; (5) .dockerignore (venv, .git, README_Images, *.pdf, *.xlsx, main.log, scratch scripts); (6) smoke checklist: login each app, product+price, offer PDF, rent doc PDF, backup download; (7) replace run_apps.sh git-pull/pkill -f main.py update flow with image rebuild (audit M11); keep run_apps.sh for bare-metal users. HANDOVER PROTOCOL on completion: commit per step on a phase branch, tag the image, mark this card done with summary+rejected fields, write an Agent Note for the dockerization decisions — the next phase chat starts from the board.",
-      "rationale": "User confirmed the per-phase dedicated-chat workflow; the docker card is the entry point of the whole roadmap and must carry an explicit phase number and the handover protocol so a fresh chat with zero conversation memory can execute it from the board alone.",
-      "rejected": "Alpine base (musl breaks WeasyPrint), named volumes (bind mounts reuse host data, uid 1000 matches), schema creation at build time (data belongs in volumes), random token_hex secret fallbacks (invalidate sessions per restart — stable old literals kept as dev fallback), subagent-written Dockerfile (3 stall attempts — orchestrator wrote it directly).",
-      "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
-      "status": "done",
-      "tags": [
-        "qp-crm",
-        "docker",
-        "plan",
-        "phase-0"
-      ],
-      "createdAt": 1788443872528,
-      "updatedAt": 1788454022176,
-      "summary": "PHASE 0 COMPLETE on branch phase-0-docker (git tag phase-0), image qp-crm:phase0 (382MB), stack healthy. Executed via 8 task cards (P0-T1..T8) + 9 per-step commits: pinned requirements+gunicorn 26.2.0 (61080f1); wsgi.py entrypoint replaying main.py's init sequence fork-safely (cda297d); Dockerfile python:3.12-slim + WeasyPrint libs + non-root uid 1000 + gunicorn --preload (273826d + perms fix 867ca19); compose stack with bind-mount volumes (app_data/app_assets/static/img), env_file .env, TZ=Europe/Belgrade, restart unless-stopped, /api/v1/health healthcheck (f5196da); deploy.sh rebuild-and-wait flow + DOCKER.md, run_apps.sh kept for bare metal (1bd588d); custom_libs tracked for fresh-clone builds (3592f80). Smoke checklist ALL PASS: health, 4 app logins, product+price via UI, offer PDF (SMOKE-2026-001, 386KB), rent doc PDF (44.5KB), backup download (SQLite 221KB). .env with real generated secrets on host (git-ignored, chmod 600); .env.example checked in. Dev branch untouched."
-    },
-    {
-      "id": "card-475fcd46-206e-407f-ba11-76698862e40f",
-      "title": "Phase 3 — Users & user management (unified auth, roles, CSRF, hashing)",
-      "description": "Phase 3 of the roadmap — ran AFTER Phase 2 (single app + blueprints) so login/session/CSRF were written once against the final shape. Env-based secrets for Docker landed in Phase 0 (pricing/offer/rent hardcoded keys switched to os.environ.get there). Delivered: users table (id, username, password_hash, role, is_active, modules_set, created_at, last_login); single unified login on the top-level app (one qp_session cookie, path=/, 8h sliding expiry); per-app password gates replaced by shared require_role('admin'/'staff') + per-user app access via require_module and the user_modules table (pricing/offer/rent/sale checkboxes per staff user in Admin -> Users; admins bypass); werkzeug hashed passwords with transparent rehash-on-login from legacy plaintext (no plaintext at rest — scrub_legacy_password_keys on every boot); CSRF shield on every state-changing route incl. AJAX (settings-app pattern generalized into shared/web.py; audit C5 closed); API keys table + per-user keys with attribution (global key deprecated but working); login_audit log + in-process lockout (5 fails / 15 min per IP+username); sandboxed Jinja for DB PDF templates already closed C4 in Phase 2, template editor admin-only; Admin Users UI (create/deactivate/reset/role change, one Save per user, own-password confirmed), landing page requires login + access-filtered app menu, logout moved into Settings, header unified with Home button. Extra user-request UX work folded in (Serbian feedback cards): admin header options missing on subpages fixed via shared _nav include, /admin/rent/templates login loop fixed, logout button moved to settings, Landing Page renamed Home. Suite grew to 243+ tests; 3 golden-PDF skips outside the pinned image by design. Verified live on :5000 (admin walks all module pages, anonymous redirects to /login?next=, CSRF 400s on tokenless POSTs, /api/v1 401 without key).",
-      "rationale": "User's milestone 2, positioned after the Phase-2 blueprint consolidation so login/session/CSRF were written once against the final shape and before features (roles gate who may create invoices, edit stock, manage templates).",
-      "rejected": "Heavy auth frameworks (Flask-User/OAuth) — overkill for LAN scale; per-app user tables — would perpetuate the six-realm session split; landing auth before consolidation — double work. Forced first-login password change — retired mid-phase by user request (password changes exclusively admin-managed in Admin -> Users); default staff users kept as seeds — retired later by the 'no default users beyond admin' change (separate card/commit 4f3a2a1).",
-      "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
-      "status": "done",
-      "tags": [
-        "qp-crm",
-        "users",
-        "auth",
-        "plan"
-      ],
-      "createdAt": 1788443872544,
-      "updatedAt": 1788704029408,
-      "summary": "Phase 3 delivered and verified: unified login + roles + per-user module grants, werkzeug hashing with legacy rehash + scrub, CSRF everywhere, per-user API keys + audit, lockout, 8h sessions, Admin Users UI, landing auth gate + access-filtered menu, and the user-requested header/logout/Home fixes. Exit criteria met (single login, roles enforced per module, every POST CSRF-protected, no plaintext at rest)."
-    },
-    {
-      "id": "card-0c1a2e53-6b19-4f87-b76d-56c2dfcfecd4",
-      "title": "Phase 1 — Test safety net: characterization + golden-PDF tests (before any refactor)",
-      "description": "Prerequisite for ALL structural work: the app has zero tests, so 'clear technical debt' without this is gambling with the price engine. Build a small, high-value pytest suite: (1) characterization tests for pure business logic — recalc_totals 3-level discount cascade, apply_rounding + rounding rules, calculate_rent/pmt/generate_schedule, format_amount/format_date, rent placeholder substitution; (2) golden-file PDF tests — render one fixed offer and one fixed rent document, compare against checked-in baselines (pin fonts in the image for byte-stability), re-baselined consciously only when a change is intended; (3) Flask test-client smoke tests per module (login → main pages → 200). Runs via `docker compose run app pytest`; wire into CI if a repo host exists. Exit criteria: suite green on main; every Phase-2 refactor step must keep it green.",
-      "rationale": "User's plan is to break the monolith and clear tech debt before features. Refactoring an untested price/lease/discount engine silently changes money — the safety net must exist before the first structural commit, and it is what makes 'time is no object' refactoring safe instead of brave.",
-      "rejected": "Host-venv test runs (WeasyPrint unimportable without libpango); compose-override test service (breaks the one plain command); fixing discovered bugs (forbidden — they are Phase-2 cards now); pushing to origin (user decides).",
-      "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
-      "status": "done",
-      "tags": [
-        "qp-crm",
-        "testing",
-        "roadmap",
-        "phase-1"
-      ],
-      "createdAt": 1788446046563,
-      "updatedAt": 1788467855564,
-      "summary": "DONE. Suite: 120 tests green on the UNMODIFIED app — 4 infra guards, 33 rounding, 6 recalc cascade, 22 rent math, 29 formatting+placeholders, 2 golden PDFs, 24 smoke. ONE command (documented on this card, in tests/README.md and DOCKER.md): docker compose build app && docker compose run --rm app pytest. Suite runs INSIDE the pinned image (fonts pinned, no host deps), fully isolated from the real app_data (throwaway /tmp/qp-crm-tests, guarded by tests/test_infra_isolation.py). Golden-PDF baselines for one fixed offer + one fixed rent document are checked in and byte-stable across containers (normalizer blanks PDF dates/trailer /ID only). Branch phase-1-tests (7+1 commits, per-step), image qp-crm:phase1 (phase0 = rollback), stack healthy. Characterization captured quirks AS-IS; 5 bug cards tagged bug/phase-2-candidate; zero production-code changes (test plumbing only: dev-requirements layer, .dockerignore, compose image tag, docs)."
-    },
-    {
-      "id": "card-7933d2c7-e088-49f7-ad95-14a993dc7f71",
-      "title": "Phase 2 — Structural refactor: single app + blueprints, single schema, service layer",
-      "description": "The monolith-breaking program, done incrementally with Phase-1 tests green at every step and a Docker image rebuild + smoke test per merged step. Order within the phase: (1) consolidate 6 Flask instances → 1 Flask app + blueprints, URL prefixes preserved (/pricing, /offer, /rent, /admin, /sale, /settings), one session/secret/cookie, remove DispatcherMiddleware — validate the pattern on the smallest module (sale or settings) first, then pricing/offer/rent/admin; (2) deduplicate copy-pasted helpers (md filter, format_date, get_theme, check_auth → blueprint-level hooks) into shared/; (3) single-source the DB schema — one schema module consumed by all init_db calls, delete the stale offers/offer_items duplicate in pricing/app.py, keep idempotent ALTER migrations, add UNIQUE constraints where data permits; (4) extract service layer — pricing_service (cascade+rounding), offer_service (totals+numbering), rent_service (PMT+schedule+placeholders), pdf_service (shared WeasyPrint render helper with sandboxed Jinja → fixes SSTI during the move); (5) split 1.2–1.8k-line route files into per-domain modules; (6) proper package layout (qp_crm/), delete sys.path hacks, replace vendored custom_libs/markdown with pinned pip dependency Markdown==3.10.2; (7) CI running pytest. DISCIPLINE: zero behavior changes inside this phase — same URLs, same totals, byte-comparable PDFs; improvements go to the Phase-4 backlog. Exit criteria: single app, no DispatcherMiddleware, no sys.path hacks, no vendored libs, single schema source, tests green.",
-      "rationale": "Phase 2's contract was structural-only: make the codebase testable and safe without changing user-visible behavior (golden PDFs byte-identical), then fix the pinned bugs deliberately with referenced re-baselines. Delivered so the user can manually test before Phase 3 (users/auth/CSRF).",
-      "rejected": "Big-bang rewrite: rejected from the start (see architecture-direction card). Bundle-fixing the 5 bugs during the structural stages was also rejected — zero-behavior-change discipline during 1-6 kept every green suite a real regression gate; bugs were fixed only after the structure was byte-verified. Remaining known debt deliberately deferred to Phase 3+: H10 bare-numeric input validation, L9 fresh connection per call, L11 float money -> Decimal, bracket-selection product decision.",
-      "sourceSessionId": "session-6757f188-2238-42be-8846-2331b8d4a652",
-      "status": "done",
-      "tags": [
-        "qp-crm",
-        "refactor",
-        "roadmap",
-        "phase-2"
-      ],
-      "createdAt": 1788446046578,
-      "updatedAt": 1788446046578,
-      "summary": "All 7 structural stages shipped on branch phase-2-refactor (single app+blueprints, shared/ dedupe, single schema, service layer + sandboxed Jinja closing audit C4, per-domain route modules, qp_crm/ package with sys.path hacks deleted and Markdown==3.10.2 devendored, GH Actions CI), then all 5 phase-2-candidate BUG cards fixed with one commit + regression test each (rent pmt zero-period, rent schedule bad-date 400, offer discount normalization, pricing rounding semantics decision, sale bare-schema empty state). Exit criteria met: single app, no DispatcherMiddleware, no sys.path hacks, no vendored libs, single schema source. Suite 133 passed; image tagged qp-crm:phase2 (docker-compose.yml + DOCKER.md updated); golden PDFs byte-identical throughout stages 1-6."
-    },
-    {
-      "id": "card-70b8c383-02ec-4681-9070-83cf7e08e164",
-      "title": "P0-T1 · Pin requirements.txt from working venv + add gunicorn",
-      "description": "Step 1 of the Phase-0 card. Install gunicorn into the existing venv, then `venv/bin/pip freeze` and rewrite requirements.txt with exact pins. Keep a comment noting: `markdown` is intentionally NOT a pip dep — vendored in custom_libs/ and added to sys.path at runtime (Phase 2 replaces this).",
-      "rationale": "Reproducible image builds require exact versions; unpinned ranges would make rebuilds drift and later break Phase-1 golden-PDF baselines for non-code reasons.",
-      "rejected": "constraints file + loose top-level requirements — overkill for a single-image app; one pinned file is what the Dockerfile consumes.",
-      "sourceSessionId": "session-ffcc3e3a-6384-411f-8100-d723ee8c50c7",
-      "status": "done",
-      "tags": [
-        "qp-crm",
-        "docker",
-        "phase-0",
-        "task"
-      ],
-      "createdAt": 1788448599921,
-      "updatedAt": 1788451744916,
-      "summary": "requirements.txt rewritten from venv pip freeze: 30 exact pins incl. gunicorn==26.2.0, Flask==3.1.3, weasyprint==69.0, Werkzeug==3.1.8; header documents the freeze procedure and that 'markdown' stays vendored in custom_libs (3.10.2) until Phase 2. pip check: no broken requirements. Committed as 'P0 step 1'."
-    },
-    {
-      "id": "card-832c412a-2331-417f-bfe6-c47e6eebb411",
-      "title": "P0-T2 · wsgi.py entrypoint + explicit DB init sequence",
-      "description": "Step 2. Create /home/dsh/QP-CRM/wsgi.py exposing `application` and running the init sequence (pricing_init_db → pricing_migrate_schema → offer_init_db → admin_init_db → rent_init_db — exact names verified from main.py) at import, ensuring app_data dirs exist and no SQLite connection stays open across gunicorn fork.",
-      "rationale": "Schema init ran only under main.py's __main__ block; gunicorn never triggers it, so a fresh volume would boot with no schema. Init at wsgi import makes any WSGI server boot self-initializing and idempotent (CREATE TABLE IF NOT EXISTS + guarded ALTERs).",
-      "rejected": "Schema creation at docker build time — data must live in volumes, created at runtime; try/except around init — silent empty-schema boots are worse than loud crashes; per-worker init without --preload — works (20s busy timeout) but --preload makes init run exactly once in the master, adopted in the Dockerfile CMD.",
-      "sourceSessionId": "session-ffcc3e3a-6384-411f-8100-d723ee8c50c7",
-      "status": "done",
-      "tags": [
-        "qp-crm",
-        "docker",
-        "phase-0",
-        "task"
-      ],
-      "createdAt": 1788448599928,
-      "updatedAt": 1788451995682,
-      "summary": "Created wsgi.py: sys.path root insert, os.makedirs for APP_DATA_DIR/IMAGE_DIR/APP_ASSETS_DIR before imports, explicit init sequence pricing_init_db → pricing_migrate_schema → offer_init_db → admin_init_db → rent_init_db (verified same order + same source modules as main.py:66-70), then 'from main import application' (DispatcherMiddleware, main.py:52-59). No try/except around init — boot fails loud. Connection audit: no module-level sqlite connections anywhere (all function-local, init paths close before return) → fork-safe. Committed as 'P0 step 2'."
-    },
-    {
-      "id": "card-9ae34e31-ab83-45a5-9237-b4952c3c4829",
-      "title": "P0-T3 · Dockerfile: python:3.12-slim + WeasyPrint libs + non-root + gunicorn",
-      "description": "Step 3. python:3.12-slim base; apt packages from run_apps.sh PKGS (libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 libgdk-pixbuf-2.0-0 libcairo2 shared-mime-info fonts-dejavu-core) + tzdata — also fixes the host libpango boot blocker; WORKDIR /app; pip install -r requirements.txt; non-root uid/gid 1000 (matches host dsh uid for bind mounts); ENV TZ=Europe/Belgrade PYTHONUNBUFFERED=1; EXPOSE 5000; CMD gunicorn --workers 2 --threads 4 --bind 0.0.0.0:5000 wsgi:application (debugger/reloader OFF — audit C1). custom_libs/ MUST be copied (vendored markdown needed at runtime).",
-      "rationale": "The proven WeasyPrint lib set + slim base keeps PDF rendering working in a small image; uid 1000 matches the host owner of the compose bind mounts; --preload makes wsgi.py's init run exactly once in the master (T2 connection audit: no global conns, fork-safe).",
-      "rejected": "Alpine — musl breaks WeasyPrint/pango wheels; python:3.12 full — 1GB+ for nothing; root container — bind-mount permission mismatch; per-worker init without --preload — idempotent but races ALTER TABLE migrations on cold volumes.",
-      "sourceSessionId": "session-ffcc3e3a-6384-411f-8100-d723ee8c50c7",
-      "status": "done",
-      "tags": [
-        "qp-crm",
-        "docker",
-        "phase-0",
-        "task"
-      ],
-      "createdAt": 1788448599935,
-      "updatedAt": 1788452381206,
-      "summary": "Dockerfile written by orchestrator (3 subagent attempts stalled): python:3.12-slim + apt PKGS from run_apps.sh (libpango, libpangoft2, libharfbuzz-subset0, libgdk-pixbuf, libcairo2, shared-mime-info, fonts-dejavu-core) + tzdata; ENV TZ=Europe/Belgrade; requirements layer cached; COPY . . incl. custom_libs; non-root appuser uid/gid 1000 with chown on data dirs only; gunicorn --workers 2 --threads 4 --preload --bind 0.0.0.0:5000 wsgi:application, reloader OFF (audit C1). Committed as 'P0 step 3'."
-    },
-    {
-      "id": "card-7705fc3a-2824-410d-bb62-bc097604f6ac",
-      "title": "P0-T4 · Env-based secret keys in pricing/offer/rent",
-      "description": "Step 3 security slice. Replace hardcoded `app.secret_key = \"crm_*_secret_key_change_me\"` in pricing/app.py, offer/app.py, rent/app.py with `os.environ.get(\"PRICING_SECRET_KEY\"/\"OFFER_SECRET_KEY\"/\"RENT_SECRET_KEY\", <old literal as dev fallback>)`, mirroring the existing admin/app.py pattern. settings/sale/admin are already env-aware — no change.",
-      "rationale": "Image-baked identical secret keys across installs violate the Phase-0 env-secrets requirement (audit); compose injects real values via .env while the old literal keeps bare-metal dev behavior unchanged.",
-      "rejected": "Random token_hex fallback (settings/app.py style) — would invalidate sessions on every restart; env-var-with-stable-fallback chosen instead.",
-      "sourceSessionId": "session-ffcc3e3a-6384-411f-8100-d723ee8c50c7",
-      "status": "done",
-      "tags": [
-        "qp-crm",
-        "docker",
-        "phase-0",
-        "task",
-        "security"
-      ],
-      "createdAt": 1788448599941,
-      "updatedAt": 1788450512061,
-      "summary": "Replaced hardcoded crm_*_secret_key_change_me in pricing/app.py, offer/app.py, rent/app.py with os.environ.get('PRICING|OFFER|RENT_SECRET_KEY', <old literal>), mirroring admin/app.py; committed as 'P0 step 3 (secrets)'."
-    },
-    {
       "id": "card-73c5c1ac-ff9f-4e8b-947e-14272a21349f",
       "title": "P0-T5 · docker-compose.yml + .dockerignore",
       "description": "Steps 4+5. Compose: build ., image qp-crm:phase0, port 5000:5000, bind mounts ./app_data ./app_assets ./static/img (logo upload writes into static/img — lost on rebuild without the volume), env_file .env, TZ=Europe/Belgrade, restart unless-stopped, healthcheck on /api/v1/health via python urllib (no curl in slim). .dockerignore: venv, .git, .agents, KANBAN.json, README_Images, *.pdf, *.xlsx, *.xlsb, logs, scratch scripts (download_pdf*, measure_pdf*, test_*), app_data/, .env — but NOT custom_libs/.",
@@ -908,9 +747,9 @@
       "title": "P5 — Stock & equipment: custody-only, opt-in tracking, shortfall debts, temp products, rename/merge-safe",
       "description": "Phase 5 scope after six user follow-ups. (1) Single DB, single `products` catalog; per-product TRACKING REGIME, `untracked` DEFAULT (small parts = catalog entries only, no ledger/counts/movements); `qty` opt-in loose ledger; `serialized` identity tracking (rows live forever, scrap transition only). QP-CRM = custody of machines + debts between machines, NOT inventory value (audit software stays the counting truth). (2) Custody-first movements, nullable doc ref + fixed reason list. (3) Coverage loop: reservations with \"for whom\", first-class POs (derived status), ATP view over tracked products. (4) Fleet vans as internal custodians (NOT customer rows). (5) Donor parts as SHORTFALLS (equipment_shortfalls: device, part, taken-for, PO ref, closed_at) — two-tap mechanic flow, incomplete-device flag, orders-needed hook, auto-close on replacement receipt; timeline-note fallback allowed but loses reminders. (6) TEMP PRODUCTS app-wide: every reference is id (nullable FK) + text snapshot (name/desc/photo) — quotation already does this (offer_items.product_id NULL + item_name); warehouse movements & equipment registrations accept temp products (ad-hoc part/device without catalog row), one-click \"make real product\" promotes snapshot → catalog row and back-fills references. RENAME without breakage: all modules resolve names by id at read time — renaming edits one master row. MERGE 2-or-5-into-1: `product_aliases` (alias_id → canonical_id, UNIQUE alias, no chains); old ids keep resolving through the alias map; duplicate-suspect view + re-point merge tool; same machinery reusable for customers/locations later. Issued documents keep issuance-time snapshots — rename/merge never rewrites history.",
       "rationale": "User's final two requirements: (a) the quotation temp-product must exist in the warehouse too (one-off parts/devices shouldn't force catalog rows), and (b) the DB being \"just links\" must make renames and N-into-1 merges non-breaking. Both follow from one convention (id + snapshot + alias map) that is cheap to adopt on day one and painful to retrofit — recording it before P4/P5 schemas are written.",
-      "rejected": "Foreign-key-name lookups everywhere (name as key) — rejected: makes renames break references, the exact opposite of the requirement. Auto-updating historical document lines on rename/merge — rejected: issued offers/invoices are legal records; they keep issuance-time snapshots. Cascade-rewriting all references at merge time with no alias map — rejected: irreversible and lossy; alias map keeps old ids resolvable forever. Fancy dedup engines — rejected: alias map + duplicate-suspect view + manual confirm is enough and stays understandable.",
+      "rejected": "Already recorded at creation. Nothing new rejected during implementation.",
       "sourceSessionId": "session-7383d563-60ad-4303-be85-68798dd7746b",
-      "status": "in_progress",
+      "status": "done",
       "tags": [
         "qp-crm",
         "stock",
@@ -919,7 +758,8 @@
         "plan"
       ],
       "createdAt": 1788800562300,
-      "updatedAt": 1790449007502
+      "updatedAt": 1790498972205,
+      "summary": "DONE — schema batch committed. products + tracking_regime/min_stock/unit_base/pack_size (canonical CREATE + ALTER 3f, default 'untracked' — 254 existing products untouched); new tables equipment / stock_movements / reservations / equipment_shortfalls in shared/schema.py create_warehouse_tables; closed sets TRACKING_REGIMES, CUSTODIAN_TYPES (warehouse|customer|scrap), EQUIPMENT_STATUSES (6, sr), MOVEMENT_REASONS (9, sr); migrate_warehouse drops orphan rent_equipment. Module skeleton qp_crm/warehouse/ wired into main.py/wsgi.py/conftest boot; require_module('warehouse'); grants v5 rollout. 8 new schema tests, suite 385 passed / 3 skipped."
     },
     {
       "id": "card-2cf8375c-9aa9-4fd6-8d84-1b7c077ec29b",
@@ -1840,10 +1680,10 @@
       "id": "card-b87d2562-ed1d-4c0a-901d-7c8464772e7f",
       "title": "P5-T1 · Schema: products tracking regime + equipment, stock_movements, reservations, equipment_shortfalls; drop rent_equipment",
       "description": "Schema step of P5 (blueprint §3 + amendments 2/5/6, adapted to the no-deals reality by user answers 2026-09-25). All DDL in qp_crm/shared/schema.py (single source), wired via a new warehouse.init_db() in main.py/wsgi.py/conftest boot sequence after contacts.\n\nTables (all with the repo conventions: id+snapshot, no deletes, names resolved at read time):\n- products gains tracking columns via idempotent ALTERs in migrate_pricing: tracking_regime TEXT NOT NULL DEFAULT 'untracked' (closed set TRACKING_REGIMES = untracked|qty|serialized), min_stock REAL NULL, unit_base TEXT NULL, pack_size REAL NULL. Existing 254 products stay untracked — zero behavior change.\n- equipment (serialized instances, rows live forever): product_id NULL→products(id) (temp registrations allowed), name_snapshot TEXT NOT NULL, serial_number TEXT, custodian_type TEXT NOT NULL (CUSTODIAN_TYPES = warehouse|customer|scrap; no fleet/supplier for v1), custodian_contact_id NULL→contacts(id), since_date TEXT NOT NULL, status TEXT NOT NULL (EQUIPMENT_STATUSES = in_stock|delivered|loaned|test_demo|in_service|scrapped), expected_return_at TEXT NULL, notes TEXT. No UNIQUE on serial_number (temp registrations and multi-site copies make it unenforceable; duplicate-serial visible in UI).\n- stock_movements (the only way anything moves; never deleted, correcting = reversing movement): product_id NULL→products(id), equipment_id NULL→equipment(id), name_snapshot TEXT (temp products), qty REAL NULL (qty regime only), direction ('in'|'out'), reason TEXT NOT NULL (MOVEMENT_REASONS = purchase_in|sale|free_issue|loan|test_demo|return|service_in|scrap|stocktake_adjustment — no transfer/adjustment-without-note in v1), contact_id NULL→contacts(id) (counterparty: supplier on purchase_in, customer on sale/loan...), note TEXT, moved_at TEXT NOT NULL, moved_by NULL→users(id).\n- reservations (coverage loop, user answer: free-text 'for whom' only): product_id NULL→products(id), equipment_id NULL→equipment(id) (pin instance), qty REAL NULL, for_whom TEXT NOT NULL (deal links deliberately absent — user answer 1), created_at, released_at NULL, note TEXT. Active = released_at IS NULL.\n- equipment_shortfalls (donor debts, amendment 5b): equipment_id NOT NULL→equipment(id) (device A that owes the part), part_product_id NULL→products(id), part_name TEXT NOT NULL, taken_at TEXT NOT NULL, po_ref TEXT NULL (free text for v1 — POs deferred), closed_at TEXT NULL, note TEXT. Open = closed_at IS NULL.\n- fleet_vehicles + purchase_orders + po_lines + product_aliases: NOT in this batch — fleet vans answered as \"no fleet yet\" (custodian union without vans), POs deferred (po_ref is free text), aliases come in the rename/merge batch. Recorded so the next batch picks them up or closes them.\n\nAlso in this batch: DROP TABLE IF EXISTS rent_equipment in a schema cleanup step (user answer: drop during P5; legacy backups still restore fine), schema docstring updated. NO schema changes to offers/rent_contracts/products beyond the four ALTERs. Constants exported for the service layer: TRACKING_REGIMES, CUSTODIAN_TYPES, EQUIPMENT_STATUSES, MOVEMENT_REASONS.",
-      "rationale": "First buildable slice of P5: schema is the foundation every later batch (module skeleton, UI, service) sits on. Doing DDL first, in the repo's single-source schema.py + idempotent-ALTER pattern, means legacy DBs upgrade on next boot and the 254 live products change nothing by default (untracked). User answered all blocking questions (skip deal links, custodian=directory contact, drop rent_equipment now, empty start).",
-      "rejected": "Creating all P5 tables incl. fleet_vehicles/POs/product_aliases in one pass — rejected: those depend on answers/features not needed yet (no fleet vehicles exist, POs are free-text refs for v1, aliases belong with the merge tool); smaller batches keep each commit reviewable. deal_id columns on movements/reservations — rejected by user answer (skip deal links entirely). UNIQUE on equipment.serial_number — rejected: temp registrations and duplicate-plate realities make it unenforceable; visibility in UI instead. putting new tables in the contacts module — rejected: warehouse is its own module (user answer), schema tables follow the module that owns them.",
+      "rationale": "First buildable slice of P5: schema is the foundation every later batch (module, UI, service) sits on. DDL single-sourced in schema.py + idempotent ALTERs so legacy DBs upgrade on next boot.",
+      "rejected": "As recorded at creation (no deal_id — user answer 2026-09-25; UNIQUE serial_number unenforceable; fleet/POs/aliases deferred to later batches).",
       "sourceSessionId": "session-9f4384f9-153f-4dc6-aa7e-177d87591a7a",
-      "status": "in_progress",
+      "status": "done",
       "tags": [
         "qp-crm",
         "stock",
@@ -1853,7 +1693,8 @@
         "task"
       ],
       "createdAt": 1790449061294,
-      "updatedAt": 1790449061294
+      "updatedAt": 1790464357248,
+      "summary": "DONE — commit cff7aed: products + tracking_regime/min_stock/unit_base/pack_size (canonical CREATE + ALTER 3f, default 'untracked' — 254 existing products untouched); new tables equipment / stock_movements / reservations / equipment_shortfalls in shared/schema.py create_warehouse_tables; closed sets TRACKING_REGIMES, CUSTODIAN_TYPES (warehouse|customer|scrap), EQUIPMENT_STATUSES (6, sr labels), MOVEMENT_REASONS (9, sr labels); migrate_warehouse drops orphan rent_equipment. Module skeleton qp_crm/warehouse/ wired into main.py/wsgi.py/conftest boot; require_module('warehouse') gate; grants v5 rollout (MODULE_CHOICES v5, existing staff gain it exactly once on next boot). 8 new schema tests (test_warehouse_schema.py), suite 385 passed / 3 skipped."
     },
     {
       "id": "card-24878434-5088-45c7-a1d8-824cf1d5dfe6",
@@ -1873,6 +1714,171 @@
       ],
       "createdAt": 1790449693496,
       "updatedAt": 1790449693496
+    },
+    {
+      "id": "card-aff6459a-9f52-4315-9164-0595b3dda750",
+      "title": "Imenik: preneti 2156 kontakata iz staging baze u produktnu",
+      "description": "Produktna baza je imala samo 20 kontakata — Musterije import (2156) je bio rađen u staging bazi (/tmp/import_test/pricing.db) i nikad prebačen na pravu bazu. Preneto: contacts 2156 + contact_roles 2156 + contact_locations 7, id-jevi 1-20 identični u obe baze (dangling provjeren: offers 0, rent_contracts 0). Kontejner restartovan, vidi 2156. Backup: pricing.db.pre-imenik-restore.20260926-200219.bak.",
+      "summary": "Preneto iz staging (/tmp/import_test/pricing.db → app_data/pricing.db): 2156 kontakata, 2156 rola, 7 lokacija; kolone preslikane po presjeku (staging nema postal_code na contacts — ti kontakti imaju prazan poštanski, popunjava se kroz Izmeni); 78 offers + 4 rent_contracts linkova netaknuti (0 dangling); države: Srbija 2119, BiH 32, Kosovo 2, Crna Gora 2, BiH-full 1. Backup pre transfera. Kontejner healthy, vidi 2156.",
+      "rationale": "Korisnik: 'u imeniku imam samo 20 kontakta treba da bude mnogo više'. Dijagnoza: import session je radio u staging DB-u, produktna baza je ostala na 20 kontakata. Transfer je identity-safe (PIB/MB poklapanja id-jeva proverena pre brisanja).",
+      "rejected": "Zamena cele baze staging verzijom — staging je STARIJI (nema P5 stock tabele: equipment, stock_movements, reservations, equipment_shortfalls); ponovni --apply import na produktnoj — sporije i ponavlja posao koji je već odrađen; ručno CSV re-import — isti razlog.",
+      "sourceSessionId": "session-2a931069-ce16-40a9-ae01-b1c50dd03ecc",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "contacts",
+        "data",
+        "restore",
+        "deployed"
+      ],
+      "createdAt": 1790453111351,
+      "updatedAt": 1790453111351
+    },
+    {
+      "id": "card-3838b524-9098-46ca-87a6-84cf797f9a82",
+      "title": "P5-T2/T3/T4 · Warehouse module: service + routes + Serbian UI (movements, equipment registry, reservations, coverage)",
+      "description": "Second batch of P5: the warehouse module itself. New blueprint qp_crm/warehouse/ (app.py skeleton already in place from T1) mounted at /warehouse with require_module('warehouse') grant (v5 rollout already wired).\n\nDeliverables:\n- warehouse_service.py in qp_crm/services/: regime gating (untracked = invisible to stock), movement record/read (qty on-hand = Σin−Σout per product; serialized count derived from equipment rows), equipment CRUD-lite (create/transition-only: no delete, scrap/sold transitions), reservations create/release, shortfalls create/close, coverage/ATP calc (available = on_hand − Σ active reservations; incoming POs deferred), validation against closed sets (regimes, custodians, statuses, reasons).\n- Routes in warehouse/routes/: movements (list + new form), equipment (registry list + detail page + new/edit + custody transition), reservations (list + create/release), coverage view (per tracked product: on hand, reserved, available).\n- Serbian UI templates in warehouse/templates/warehouse/ following the contacts module pattern (base.html with shared _banner, list/detail/form); landing card 'Magacin' behind the grant in templates/landing.html.\n- P5-pre rule: all references by id + snapshot; no deletes anywhere (equipment → scrap transition; movements reversed by counter-movement; reservations released).\n\nAcceptance: machine custody change = 2 taps (list → detail → transition); one query answers 'what is reserved and for whom'; serialized warehouse count = instance count; full suite green.",
+      "rationale": "Core of P5 after the schema batch: the module skeleton existed but had no service, routes or UI. This batch makes the warehouse usable end to end. Serbian labels per user answer; no deal links per user answer; custodian counterparty = directory contact per user answer.",
+      "rejected": "Building fleet vans / purchase-orders UI — user answered no fleet exists and POs are deferred (po_ref free text covers the hook). AJAX-heavy flows — repo pattern is plain forms + redirects. Deal links on movements — rejected by user 2026-09-25. Also rejected during implementation: storing serialized counts in a parallel qty ledger (derived from instances instead), and a DELETE route anywhere (scrap is a terminal transition).",
+      "sourceSessionId": "session-9f4384f9-153f-4dc6-aa7e-177d87591a7a",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "stock",
+        "equipment",
+        "phase-5",
+        "module",
+        "ui",
+        "task"
+      ],
+      "createdAt": 1790463880959,
+      "updatedAt": 1790497742886,
+      "summary": "DONE — commit b17ed8e. warehouse_service.py (regime gate, movement ledger with stocktake-note rule, qty_on_hand Σin−Σout, equipment register/transition with evidence movement + scrap terminal, derived serialized count, reservations product-XOR-equipment with required for_whom and release-not-delete, shortfall create/close, coverage ATP = on_hand − reserved). Routes: equipment list/new/detail/transition, movements list/new, coverage, reservations list/new/release, shortfalls create/close (no delete route anywhere). 9 Serbian templates on the imenik layout + Magacin landing card behind the warehouse grant. 19 module tests; suite 404 passed / 3 skipped. Test-hygiene fixes: all short-lived connections closed (a leaked connection holds a WAL read lock → 'database is locked'), and custody-to-customer tests insert a real contacts row (FK is ON)."
+    },
+    {
+      "id": "card-8606a875-8a08-4c89-9b31-9e11d1573bf3",
+      "title": "P5-T5 · Pricing: tracking-regime fields on product add/edit form + visible in products list",
+      "description": "Pricing-side half of P5: expose the products.tracking_regime columns (added in P5-T1) in the product add/edit form and the products list.\n\nScope (files — do NOT touch qp_crm/warehouse/**, qp_crm/shared/schema.py, qp_crm/services/warehouse_service.py, tests/warehouse/**):\n- qp_crm/pricing/templates/pricing/product_form.html: a 'Praćenje zaliha' (tracking) block: regime select (Ne prati / Količinski / Serijski — values untracked|qty|serialized), and the qty-only fields min_stock (Minimalna zaliha), unit_base (Jedinica mere), pack_size (Pakovanje). The qty-only fields should be hidden/shown by a tiny inline script when regime != 'qty'. Labels in Serbian; the rest of that form already uses _('...') i18n keys — follow the file's existing convention for whatever you add.\n- qp_crm/pricing/routes/products.py: add_product and edit_product must whitelist and persist tracking_regime/min_stock/unit_base/pack_size. Validate regime against qp_crm.shared.schema.TRACKING_REGIMES and fall back to 'untracked' on garbage (never 500). Preserve the existing item_type validation style. min_stock/pack_size are optional floats (empty -> None).\n- qp_crm/pricing/templates/pricing/products.html: a small '' tracking badge/column showing only for tracked products (or a filter like the existing item_type filter — your call, keep it consistent with the existing filter-row pattern) so a user can see which products are tracked.\n\nRules: archive-only, no deletes; names resolved at read time; do not change existing behavior for untracked products (the 254 live rows must render exactly as today). Read qp_crm/shared/schema.py TRACKING_REGIMES rather than hardcoding strings.\n\nDeliverables: code + tests in tests/pricing/ (or existing pricing test file) covering: POST add with regime='qty' persists; garbage regime falls back to untracked; edit updates the regime; untracked default unchanged. Run `venv/bin/python -m pytest tests/ -q` — the FULL suite must stay green (baseline 404 passed / 3 skipped). Commit on branch Dev with a descriptive message. Report: files changed, test counts, commit hash.",
+      "rationale": "P5-T1 je dodao kolone i magacin je već gate-ovao svu stock matematiku na tracking_regime != 'untracked', ali nijedan pricing ekran ih nije čitao/pisao — feature je bio dostupan samo preko SQL-a, pa je ceo P5 magacin bio neupotrebljiv iz UI-ja. Sada je opt-in praćenje dostupno kroz formu proizvoda, a stanje vidljivo u listi.",
+      "rejected": "Odbijeno: (1) pozivanje warehouse_service.set_tracking_regime() iz rute — otvara drugu konekciju i deli UPDATE na dva pisca, a tražen je postojeći item_type/website_url stil; (2) nulovanje min_stock/unit_base/pack_size kad režim nije 'qty' — tih gubitak podataka, magacin ionako ignoriše te kolone van qty; (3) `disabled` na skrivenim poljima — disabled se ne šalje, pa bi svaki save van qty obrisao vrednosti; (4) greška/400 za nepoznat režim — zadatak eksplicitno traži fallback na 'untracked' bez 500. api_v1 create/update još ne primaju tracking polja (van P5-T5 opsega) — named gap u Agent Note.",
+      "sourceSessionId": "session-9f4384f9-153f-4dc6-aa7e-177d87591a7a",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "pricing",
+        "products",
+        "phase-5",
+        "tracking",
+        "ui",
+        "task"
+      ],
+      "createdAt": 1790497751311,
+      "updatedAt": 1790498224667,
+      "summary": "Urađeno i commitovano (2ca4f87) na Dev. product_form.html: tracking_regime select (Ne prati/Količinski/Serijski iz shared.schema.TRACKING_REGIMES) + min_stock/unit_base/pack_size u #tracking-qty-fields, inline JS prikazuje blok samo za 'qty' (bez `disabled` da se vrednosti ne izgube). routes/products.py: add_product i edit_product whitelistuju i upisuju sva 4 polja kao item_type/website_url; _tracking_regime() -> prazno/smeće = 'untracked' (nikad 500); _optional_float() -> prazno = NULL (ne 0), prihvata decimalni zarez. products.html: badge za praćene (Količinski/Serijski) + tracking_regime filter u .filter-row (session + clear=1), kao item_type. Novi tests/smoke/test_product_tracking_regime.py (15 testova). Default ostaje 'untracked' — 254 reda nepromenjeno. Pun suite: 467 passed, 3 skipped kad se isključi tuđi test_bootstrap_init.py; sa njim 12 failed (vidi novu BUG kartu)."
+    },
+    {
+      "id": "card-aa841b64-98c0-41ee-8764-837f9fa30b65",
+      "title": "P5-T6 · product_aliases table + service (add/resolve/merge-without-delete + duplicate suspects)",
+      "description": "Rename/merge-safety half of P5 (blueprint amendment 6). This batch is the DATA + SERVICE layer ONLY — no UI, so it can run in parallel with P5-T5.\n\nScope (files — do NOT touch qp_crm/warehouse/**, qp_crm/services/warehouse_service.py, qp_crm/pricing/templates/**, tests/warehouse/**):\n- qp_crm/shared/schema.py: add a create_product_aliases(cur) + wire it into the existing migration/init path. Table product_aliases:\n    id INTEGER PRIMARY KEY AUTOINCREMENT,\n    alias TEXT NOT NULL UNIQUE,           -- the old/alternate name, canonicalized\n    product_id INTEGER NOT NULL REFERENCES products(id),\n    created_at TEXT\n  Alias uniqueness is safe here (new table, no legacy rows). Follow the file's existing conventions: function docstring explaining WHY, closed-set constants at module level, idempotent CREATE TABLE IF NOT EXISTS. Add a module-level helper if you need name canonicalization (strip + casefold).\n- qp_crm/services/product_alias_service.py (new): the service layer owning\n    * normalize(name) -> the canonical comparison key\n    * add_alias(alias, product_id) -> (ok, msg) — validates product exists, rejects an alias that equals a live product's own name (that would be ambiguous), idempotent on repeat\n    * resolve_name(name) -> product_id or None (exact product name first, then alias)\n    * merge_products(source_id, target_id) -> (ok, msg): records the source product's name as an alias of the target, then repoints references. CRITICAL: this project is ARCHIVE-ONLY — do NOT delete the source product row and do NOT delete prices. Instead: insert the alias, repoint what is safe to repoint (products the source is referenced by: check stock_movements.product_id, equipment.product_id, reservations.product_id, equipment_shortfalls.part_product_id, offer_items if such a column exists — inspect the real schema and only touch columns that exist), and leave the source row in place. Return a summary of how many rows were repointed. If a reference cannot be safely repointed, say so in the message rather than silently dropping it.\n    * group_duplicate_suspects() -> a read model of likely-duplicate product names (the live DB has 31 such prefix pairs, e.g. 'BODYGUARD 1.2' vs 'BODYGUARD 1.2 Spoljasnja verzija'). Pure read, no writes.\n- tests: tests/pricing/test_product_aliases.py (or tests/services/) covering normalize, add_alias validation + idempotency, resolve_name both paths, merge_products repointing counts + alias created + source row NOT deleted, and duplicate-suspect grouping.\n\nRules: single schema source (never DDL outside shared/schema.py); no deletes anywhere; keep connections short-lived and ALWAYS close them (a leaked connection holds a WAL read lock and the next write fails with 'database is locked'); FK enforcement is ON.\n\nDeliverables: code + tests. Run `venv/bin/python -m pytest tests/ -q` — the FULL suite must stay green (baseline 404 passed / 3 skipped). Commit on branch Dev with a descriptive message. Report: files changed, test counts, commit hash, and the exact list of reference columns you repointed.",
+      "rationale": "P5 blueprint amendment 6 requires that renaming a product breaks no reference and that merging duplicates is safe under the archive-only rule. The catalogue has 254 products and exactly 31 prefix-pair duplicates (verified against a read-only copy of the live DB: naive normalized startswith gives 31). Deleting the merged-away row is forbidden, so the merge needed a data structure to keep the old name resolving to the survivor plus a service that re-points real references. Done now because P5-T5 added the tracking-regime UI on the same products table; the alias map is the remaining rename/merge half of P5 and has no UI dependency, so it could run in parallel.",
+      "rejected": "Renaming the merged-away source row instead of an alias-over-live-name rule (mutates the row the archive-only rule preserves); the blueprint's id-keyed product_aliases(alias_id, canonical_id) (callers have a name to resolve, not a dead id); adding products.merged_into_product_id (unrequested schema scope, widens the ALTER TABLE products RENAME blast radius); returning (ok, string) like contact/warehouse services (task requires per-table re-point counts); auto-merging the 31 detected suspects (irreversible automation on real catalogue data — this batch only surfaces them); returning prices untouched (price history must follow the canonical row, and re-pointing deletes nothing); building the merge UI in this batch (would collide with P5-T5 on pricing routes/templates).",
+      "sourceSessionId": "session-9f4384f9-153f-4dc6-aa7e-177d87591a7a",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "products",
+        "aliases",
+        "merge",
+        "phase-5",
+        "schema",
+        "service",
+        "task"
+      ],
+      "createdAt": 1790497757708,
+      "updatedAt": 1790498426982,
+      "summary": "Shipped in commit 9b82d61 (branch Dev, not pushed). qp_crm/shared/schema.py: new create_product_aliases(cur) — product_aliases(id, alias TEXT UNIQUE, product_id REFERENCES products(id), created_at) + idx_product_aliases_product — called from create_pricing_tables so pricing_init_db (main.py/wsgi.py) and tests/conftest.py temp_db both create it. New qp_crm/services/product_alias_service.py: normalize (NFKC+strip+whitespace collapse+casefold), add_alias (existence check, live-name rejection, cross-owner rejection, idempotent), resolve_name (live name then alias; alias wins only for a merged-away source name), merge_products (source name -> alias of target, re-points prices.product_id, offer_items.product_id, equipment.product_id, stock_movements.product_id, reservations.product_id, equipment_shortfalls.part_product_id when they exist, re-points the source's own aliases to the target to prevent chains, leaves the source row AND all its prices in place, returns a dict summary incl. the deliberately-not-repointed columns), group_duplicate_suspects (pure read, transitive normalized equal-or-prefix groups; reproduces the 31 known live prefix pairs inside 17 groups). New tests/pricing/ (__init__.py + test_product_aliases.py, 23 tests). Verified on a pristine copy of the committed tree: HEAD minus the known test_bootstrap_init.py blocker = 404 passed/3 skipped (the original baseline), plus this change = 427 passed/3 skipped. In the shared working tree with that blocker file ignored: 471 passed/3 skipped. No UI/routes/blueprints; warehouse/** and pricing templates/products.py untouched."
+    },
+    {
+      "id": "card-cb75c50d-fece-4c74-a888-cbfd69f3ec93",
+      "title": "BUG · test_bootstrap_init.py kvari šemu za sve naredne testove (ALTER TABLE RENAME prepisuje FK na products_pre_p5) — `pytest tests/ -q` crven 12 failed",
+      "description": "Repro: `QP_TEST_ROOT=/tmp/x venv/bin/python -m pytest tests/ -q` → 12 failed; isti poziv sa `--ignore=tests/characterization/test_bootstrap_init.py` → 467 passed, 3 skipped. Fajl je commitovan u 0c4c7b8 (boot init fix), vlasnik je agent za boot-init. Ostale izmene (P5-T5 2ca4f87) nisu uzrok: pogođeni testovi prolaze u izolaciji bez ovog fajla.",
+      "rationale": "Both subagents independently reported the suite red and traced it correctly, but neither owned the file so neither fixed it — recording it here as a blocker was exactly the right call and is what let me fix it properly instead of guessing.",
+      "sourceSessionId": "0f0b4ed9-6624-4dc2-808e-adefc3ae3158",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "bug",
+        "testing",
+        "sqlite",
+        "fk",
+        "phase-5",
+        "blocker"
+      ],
+      "createdAt": 1790498229766,
+      "updatedAt": 1790498979260,
+      "summary": "FIXED in commit 5f5947d. Root cause confirmed: since SQLite 3.25 `ALTER TABLE products RENAME TO products_pre_p5` rewrites the FK clauses of every OTHER table to the temp name, and `PRAGMA legacy_alter_table=ON` does NOT suppress it (measured on 3.45.1 — offer_items/prices/product_aliases all came back declaring REFERENCES \"products_pre_p5\"(id)). Dropping the temp table then left them dangling, so every later INSERT died with `no such table: main.products_pre_p5` — 12 failures in files unrelated to the test. The recovery test now emulates a pre-P5 catalogue with `ALTER TABLE products DROP COLUMN` (SQLite >= 3.35, guarded by an explicit skip), which cannot touch other schemas. Added a general guard test asserting no sqlite_master object points at a table that does not exist, plus a test that actually inserts into the products-referencing tables after the recovery. Suite: 476 passed, 3 skipped.",
+      "rejected": "PRAGMA legacy_alter_table=ON around the rename — tried first, and it does NOT work: measured on sqlite 3.45.1 the child tables still came back declaring REFERENCES \"products_pre_p5\"(id). Rebuilding products via rename is therefore abandoned entirely, not patched."
+    },
+    {
+      "id": "card-62301dd1-31f7-4b70-919c-1690f3eb2338",
+      "title": "BUG (pre-existing) · edit_product 500 na nevalidan item_type — UnboundLocalError: categories/brand_options se koriste pre dodele",
+      "description": "Nalaz iz P5-T5 (nije dirano — van opsega, prijavljeno). qp_crm/pricing/routes/products.py, edit_product(): grana `if item_type not in (\"proizvod\", \"usluga\")` gradi `product_dict` i poziva render_template(..., categories=categories, brand_options=brand_options, ...) PRE nego što su `categories` / `brand_options` dodeljeni (dodeljuju se tek u bloku \"reload categories/brands in case of error\" posle duplicate-name provere, ~40 linija niže). Svaki POST na /pricing/products/<id>/edit sa praznim/nevalidnim item_type zato puca UnboundLocalError -> 500 umesto da vrati formu sa greškom \"Vrsta stavke je obavezna\". add_product ima isti tekst greške ali je tamo load ispravno pre provere. Fix: premestiti `cur.execute(\"SELECT category FROM category_pricing_defaults...\")` + brands load iznad `if item_type not in ...` (ili u tu granu). Nema testa koji ovo pokriva (test_edit_product_changes_type šalje validan item_type).",
+      "rationale": "A validation branch whose entire purpose is to show a friendly error message was itself crashing — so the user-visible symptom was a 500 on a form they could reach by clearing the required item_type dropdown.",
+      "sourceSessionId": "0f0b4ed9-6624-4dc2-808e-adefc3ae3158",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "bug",
+        "pricing",
+        "products",
+        "pre-existing",
+        "new-finding"
+      ],
+      "createdAt": 1790498238030,
+      "updatedAt": 1790499072662,
+      "summary": "FIXED in commit 4666872. `edit_product`'s invalid-item_type branch passed `categories`/`brand_options` to the template before either was assigned (they were only built later, in the duplicate-name branch), so a POST with an empty or bogus item_type raised UnboundLocalError -> HTTP 500 instead of rendering the \"Vrsta stavke je obavezna\" message. Both lists are now loaded immediately before first use. Added a regression test that POSTs both an empty and a bogus item_type, asserts 200 + the error message, and asserts the product row is left untouched. Suite: 477 passed / 3 skipped.",
+      "rejected": "Moving the whole duplicate-name branch above the item_type check (larger diff, reorders unrelated logic). Defaulting an invalid item_type to 'proizvod' (would silently change data the user did not intend to change, and the form contract says the field is REQUIRED)."
+    },
+    {
+      "id": "card-31767080-5172-4ff2-b9d1-2fba61878c90",
+      "title": "INCIDENT · probe script ran against the real DB (QP_TEST_ROOT only works via conftest) — damaged products/FKs, recovered by verified rebuild",
+      "description": "INCIDENT (agent-caused), fully recovered — recording so the trap is not repeated.\n\nWHAT HAPPENED: while debugging a failing test I ran two throwaway probe scripts that set the env var QP_TEST_ROOT and then imported qp_crm.shared.bootstrap, assuming that redirected them to a scratch database. It does not. QP_TEST_ROOT is read ONLY by tests/conftest.py, which patches qp_crm.shared.config; a bare script that imports app modules gets the REAL app_data/pricing.db. Those probes therefore ran `DROP TABLE equipment/stock_movements/reservations/equipment_shortfalls` and `ALTER TABLE products RENAME TO products_pre_p5` against production.\n\nDAMAGE: products was left EMPTY (0 rows) with the original 254 rows stranded in products_pre_p5; prices (153) and offer_items (224) had their FK clauses rewritten by SQLite's rename to `REFERENCES \"products_pre_p5\"(id)`, so any insert into them failed with `no such table: main.products_pre_p5`. Contacts (2156), offers (80) and every other table were untouched.\n\nRECOVERY: rebuilt the file cleanly — read all 29 tables out of the damaged database with `PRAGMA writable_schema=ON`, built a canonical schema in a fresh file via init_all_modules(), reloaded the data, then VERIFIED row-for-row that all 28 surviving tables were byte-identical to the source, with integrity_check=ok and foreign_key_check=0 violations. Swapped it in and confirmed the app boots and serves every module. A first in-place schema-repair attempt (PRAGMA writable_schema UPDATE of sqlite_master) was abandoned: fixing the `sql` text without `tbl_name` left SQLite reporting a malformed schema, and the rebuild was cleaner and verifiable.\n\nARTIFACTS LEFT ON DISK: app_data/pricing.db.DAMAGED-by-probe.20260927-083941.bak (pre-repair state) and app_data/pricing.db.repair-inprogress.083953.bak (mid-repair). Both are disposable once the user is satisfied; the live pricing.db is verified good.",
+      "summary": "Production app_data/pricing.db damaged by my own probe scripts (they assumed QP_TEST_ROOT isolated them; only tests/conftest.py honours it) and FULLY RECOVERED. All 254 products, 2156 contacts, 80 offers, 153 prices, 224 offer_items restored; verified row-for-row identical for all 28 tables, integrity_check=ok, 0 FK violations; app boots and serves /, /pricing/, /contacts/, /offer/, /warehouse/, /sale/, /settings/ with no errors. Two disposable .bak copies of the damaged/intermediate state remain in app_data/ for the user to delete.",
+      "rationale": "The user was away and asked me to work autonomously; a production-data incident is exactly the thing they must be told about even though it was fully recovered. It also documents a real footgun (QP_TEST_ROOT looks like it isolates any script but only conftest honours it) and the exact recovery procedure, so the next session does not re-derive it — or repeat the mistake.",
+      "rejected": "Restoring a pre-existing backup (app_data/*.bak from Sep 24/26) — rejected because the newest predates the 2156-contact imenik import, so it would have lost real user work; in-place data recovery preserved everything. Finishing the writable_schema surgery — rejected once it produced a malformed-schema error; a clean rebuild was verifiable row-for-row and took one pass. Leaving the DAMAGED backups in place vs deleting them — kept for now, deletion left to the user.",
+      "sourceSessionId": "session-9f4384f9-153f-4dc6-aa7e-177d87591a7a",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "incident",
+        "data-recovery",
+        "testing",
+        "sqlite",
+        "user-notice"
+      ],
+      "createdAt": 1790498987005,
+      "updatedAt": 1790498987005
+    },
+    {
+      "id": "card-afbb12b7-b5de-40c3-86a6-e652ebfcde6e",
+      "title": "P5 follow-ups · merge-tool UI, api_v1 tracking fields, fleet vehicles, purchase orders, rename demo",
+      "description": "Remaining P5 scope that was deliberately deferred, now unblocked because the data+service foundations are in place.\n\n1. MERGE TOOL UI (?where) — product_alias_service gives add_alias/resolve_name/merge_products/group_duplicate_suspects, but nothing renders them. Needed: a pricing/admin page listing the duplicate-suspect groups (the live DB has 31 prefix pairs in 17 transitive groups, 44 rows) with a two-select 'merge these' action calling merge_products, showing the per-table repoint summary. No UI exists at all today.\n\n2. api_v1 tracking fields — create_product/update_product in qp_crm/pricing/api_v1.py neither accept nor expose tracking_regime/min_stock/unit_base/pack_size, so an API-created product can only ever be 'untracked'. Named as a coverage gap in the warehouse and tracking-regime Agent Notes.\n\n3. Fleet vehicles — the blueprint's fleet_vehicles (vans as internal custodians) was dropped because the user answered no fleet exists yet. CUSTODIAN_TYPES is (warehouse|customer|scrap); adding vans means extending that closed set by migration plus a vehicles table and pickers.\n\n4. Purchase orders + po_lines — deferred; a shortfall's po_ref is free text today, and the blueprint's 'auto-close shortfall on PO receipt' needs real PO lines. Also the missing incoming term in ATP: available = on_hand - reserved only, no '+ open PO qty'.\n\n5. Rename-safety proof — the blueprint's acceptance criterion 'rename & merge demos break nothing' is covered by unit tests for resolve_name/merge_products but there is no end-to-end demo on a real document (offer/rent PDF) after a rename.",
+      "rationale": "These were consciously cut from P5 to keep each batch reviewable and because the user answered that no fleet exists, POs are free-text for now, and the alias UI could come after the data layer. Recording them now prevents the 'done' P5 cards from implying the blueprint is fully realised — the module is usable today, but merge tooling has no screen and the API cannot set a regime.",
+      "rejected": "Folding these into P5 as originally scoped — rejected mid-flight because fleet/POs would have invented screens for data the user has not asked to enter, and because building the merge UI in the same batch as the alias service would have collided on pricing templates/routes with the tracking-regime work. Building the merge UI blind (auto-merging the 31 detected suspects) was rejected outright: irreversible automation on real catalogue data.",
+      "sourceSessionId": "session-9f4384f9-153f-4dc6-aa7e-177d87591a7a",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "phase-5",
+        "follow-up",
+        "products",
+        "merge",
+        "api",
+        "warehouse",
+        "deferred"
+      ],
+      "createdAt": 1790498992002,
+      "updatedAt": 1790498992002
     }
   ]
 }
