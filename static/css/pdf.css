@@ -157,6 +157,16 @@ h3 {
     break-inside: avoid;
 }
 
+/* First item: the offer title ("Ponuda br.") and the "Stavke ponude" header
+   plus the FIRST item must always start on page 1, even when the first item's
+   description is too tall for the remaining space. Override the row-whole rule
+   for the first row only so WeasyPrint starts it on page 1 and splits it across
+   the page boundary; every later row keeps break-inside: avoid (rows-whole). */
+.items-table tr.first-item {
+    page-break-inside: auto;
+    break-inside: auto;
+}
+
 /* Totals styling */
 .totals-table {
     width: 100%;

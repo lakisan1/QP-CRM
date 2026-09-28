@@ -54,7 +54,7 @@
         </tr>
     </thead>
     {% for it in items_list %}
-    <tr>
+    <tr{% if loop.first %} class="first-item"{% endif %}>
         <td style="text-align:center;">{{ loop.index }}</td>
 
         <td style="text-align:center;">
