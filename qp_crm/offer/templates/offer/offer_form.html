@@ -844,9 +844,12 @@
                 applyGate();
                 // hidden contact_id drives the saved link (NULL = free-typed);
                 // the display select carries picked_party_ref, the real link
-                // lives in the form's hidden #picked-contact-id.
+                // lives in the form's hidden #picked-contact-id. This picker's
+                // options are RAW integer ids from directory_choices() (unlike
+                // rent's 'c<id>'-prefixed clients), so persist the id as-is;
+                // the c-strip below is defensive parity only.
                 const hidden = document.getElementById('picked-contact-id');
-                if (hidden) hidden.value = id && id.startsWith('c') ? id.slice(1) : '';
+                if (hidden) hidden.value = id ? (id.startsWith('c') ? id.slice(1) : id) : '';
                 if (!id) {  // cleared: empty the musterija fields
                     ['client_name', 'client_address', 'client_email', 'client_phone', 'client_pib', 'client_mb']
                         .forEach(n => { const el = document.getElementsByName(n)[0]; if (el) el.value = ''; });
