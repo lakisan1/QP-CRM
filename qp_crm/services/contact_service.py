@@ -137,6 +137,12 @@ def list_contacts(include_archived=False, search="", roles=None, kind=None,
     cur.execute(sql, params)
     rows = cur.fetchall()
     if not per_page:
+        # picker mode: same typo fallback when the LIKE layer is empty
+        # (pickers must find 'Cacck' too) -- fallback returns a plain list.
+        if not rows and search:
+            conn.close()
+            return _typo_fallback(search, include_archived=include_archived,
+                                  kind=kind, country=country, roles=roles)
         conn.close()
         return rows
     cur.execute(count_sql, params)
