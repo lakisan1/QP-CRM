@@ -95,12 +95,22 @@ def test_protocol_list_letters_are_unique_and_lessee_pays_damages():
 
 
 def test_menica_authorisation_asks_for_five_menica():
-    html = _templates()["menicno-ovlascenje"]
+    conn = get_db()
+    row = conn.execute("SELECT name, content_html FROM rent_templates "
+                       "WHERE slug='menicno-ovlascenje';").fetchone()
+    conn.close()
+    # Serbian: the adjective from 'menica' is 'menično' ('menično pravo');
+    # 'Meničko' is a misspelling and used to be the template name.
+    assert row["name"] == "Menično ovlašćenje"
+    html = row["content_html"]
     assert "pet (5) blanko solo menica" in html
     assert "jednu blanko solo menicu" not in html
     # five menica must not read as five times the debt: the authorisation caps
     # the total collected across all of them at the actual outstanding debt.
+    # The sentence is deliberately NOT bolded (user request).
     assert "ne može preći iznos stvarnog duga po Ugovoru" in html
+    assert "<strong>Ukupan iznos naplaćen" not in html
+    assert "<p>Ukupan iznos naplaćen" in html
 
 
 def test_advance_instruction_has_no_hard_coded_amount():
@@ -133,6 +143,33 @@ def test_new_value_statement_template_exists_and_is_ordered():
     assert "meseci ({{ period_years }}" not in html
     # the tax-safety note must stay
     assert "ne može biti isto pravno lice" in html
+    # ordered LAST: it is the end-of-rent document, not a signing-time annex
+    assert RENT_TEMPLATE_SORT_ORDER[-1] == NEW_SLUG
+
+
+def test_documents_page_lists_the_value_statement_last():
+    """The rendered documents table ends with the value statement at #11."""
+    client = _client()
+    conn = get_db()
+    conn.execute(
+        "INSERT INTO rent_contracts (contract_number, contract_date, client_name, "
+        "price, period_months) VALUES ('DOK-1', '2026-09-24', 'Dok Firma', 5000, 48);")
+    conn.commit()
+    cid = conn.execute(
+        "SELECT id FROM rent_contracts WHERE contract_number='DOK-1';").fetchone()["id"]
+    conn.close()
+
+    page = client.get(f"/rent/contracts/{cid}/documents").data.decode()
+    body = page[page.find("<tbody>"):page.find("</tbody>")]
+    names = [" ".join(re.sub(r"<[^>]+>", " ", td).split())
+             for td in re.findall(r"<td[^>]*>(.*?)</td>", body, re.S)]
+    # template rows carry their display number in the first cell; the trailing
+    # "Evidencija Uplata" row uses 📝 and is not part of the numbered run
+    order = [(names[i], names[i + 1]) for i in range(0, len(names) - 3, 4)]
+    numbered = [(n, nm) for n, nm in order if n.isdigit()]
+    assert numbered[-1] == ("11", "Izjava o vrednosti opreme"), numbered
+    # the whole numbering is a clean 1..11 run (it used to show two 3s and no 5)
+    assert [n for n, _ in numbered] == [str(i) for i in range(1, 12)], numbered
 
 
 def test_value_statement_renders_the_contract_residual():

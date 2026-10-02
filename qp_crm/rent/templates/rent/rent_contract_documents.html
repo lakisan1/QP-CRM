@@ -3,7 +3,8 @@
 {% block content %}
 <style>
 .separator-row td {
-    border-top: 2px solid var(--border-color) !important;
+    border-top: 2px solid var(--text-muted) !important;
+    border-bottom: 2px solid var(--text-muted) !important;
 }
 /* Email preset card */
 #email-preset-card { cursor: default; }
@@ -122,7 +123,7 @@
         <tbody>
         {% for t in templates %}
         {% set status = saved_slugs.get(t.slug) %}
-        <tr {% if loop.index == 7 or loop.index == 8 %}class="separator-row"{% endif %}>
+        <tr {% if t.slug in ('info-osiguranje', 'ugovor-zakup-jemac') %}class="separator-row"{% endif %}>
             <td style="color:var(--text-muted);font-size:0.85rem;">{{ loop.index if loop.index <= 3 else loop.index + 2 }}</td>
             <td style="font-weight:500;">{{ t.name }}</td>
             <td>
@@ -147,7 +148,7 @@
         {% if loop.index == 3 %}
         <!-- ── Fixed: Prilog 3 & 4 (auto-generated, no edit) ── -->
         <tr>
-            <td style="color:var(--text-muted);font-size:0.85rem;">3</td>
+            <td style="color:var(--text-muted);font-size:0.85rem;">4</td>
             <td style="font-weight:500;">Prilog 3 – Ponuda</td>
             <td>
                 <span style="background:rgba(0,122,204,0.12);color:var(--accent-primary);padding:3px 10px;border-radius:20px;font-size:0.8rem;">
@@ -160,7 +161,7 @@
             </td>
         </tr>
         <tr>
-            <td style="color:var(--text-muted);font-size:0.85rem;">4</td>
+            <td style="color:var(--text-muted);font-size:0.85rem;">5</td>
             <td style="font-weight:500;">Prilog 4 – Plan Plaćanja</td>
             <td>
                 <span style="background:rgba(0,122,204,0.12);color:var(--accent-primary);padding:3px 10px;border-radius:20px;font-size:0.8rem;">

@@ -467,14 +467,16 @@ RENT_TEMPLATE_SORT_ORDER = [
     "prilog-2-protokol",
     "menicno-ovlascenje",
     "instrukcija-avans",
+    "info-osiguranje",
+    "ugovor-zakup-jemac",
+    "zapisnik-preuzimanje",
     # Izjava o vrednosti opreme (2026-09-24): documented end-of-rent value of
     # the equipment. It is deliberately NOT in the rent contract (the buyout
     # would be a tax issue) — this separate statement records the guaranteed
     # value and states that the buyer must not be the renting legal entity.
+    # Deliberately ordered LAST (user request): it is the document issued when
+    # the rent ends, not one of the signing-time annexes.
     "izjava-vrednost-opreme",
-    "info-osiguranje",
-    "ugovor-zakup-jemac",
-    "zapisnik-preuzimanje",
 ]
 
 
@@ -493,7 +495,7 @@ DEFAULT_RENT_EMAIL = (
     "Ukoliko ste saglasni, molimo Vas da to potvrdite emailom, kako bismo Vam "
     "poštom poslali potpisane primerke ugovora koje nam na dan ugradnje opreme "
     "vraćate sa Vašim potpisom. Svaki prilog ide u 4 primerka – 2 za Vas i 2 za nas.\n\n"
-    "Molimo Vas da popunite i meničko ovlašćenje.\n\n"
+    "Molimo Vas da popunite i menično ovlašćenje.\n\n"
     "Uplatu avansa izvršite na osnovu Instrukcija za uplatu avansa, "
     "a nakon toga pratite Plan plaćanja.\n\n"
     "Srdačan pozdrav,\nMarinković-Hofmann d.o.o."
