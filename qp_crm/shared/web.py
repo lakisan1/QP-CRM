@@ -467,6 +467,11 @@ RENT_TEMPLATE_SORT_ORDER = [
     "prilog-2-protokol",
     "menicno-ovlascenje",
     "instrukcija-avans",
+    # Izjava o vrednosti opreme (2026-09-24): documented end-of-rent value of
+    # the equipment. It is deliberately NOT in the rent contract (the buyout
+    # would be a tax issue) — this separate statement records the guaranteed
+    # value and states that the buyer must not be the renting legal entity.
+    "izjava-vrednost-opreme",
     "info-osiguranje",
     "ugovor-zakup-jemac",
     "zapisnik-preuzimanje",

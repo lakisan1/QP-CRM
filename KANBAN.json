@@ -2,246 +2,6 @@
   "version": 1,
   "cards": [
     {
-      "id": "card-c3df30d1-349f-44f9-85d1-3610c95d1efa",
-      "title": "P0-T8 · Handover: commits per step, image tag, board + Agent Note",
-      "description": "Commit each task's files separately on phase-0-docker with step-numbered messages; tag image qp-crm:phase0; mark the parent Phase-0 card done with summary+rejected; write the Agent Note for dockerization decisions; leave Dev untouched.",
-      "rationale": "The parent card's handover protocol requires a tagged, rollback-able phase end state and a durable decision record so a fresh chat with zero conversation memory can continue from the board alone.",
-      "rejected": "One squash commit — defeats per-step rollback; pushing to origin — left to the user (remote push not part of the protocol, branch stays local until they decide).",
-      "sourceSessionId": "session-ffcc3e3a-6384-411f-8100-d723ee8c50c7",
-      "status": "done",
-      "tags": [
-        "qp-crm",
-        "docker",
-        "phase-0",
-        "task",
-        "handover"
-      ],
-      "createdAt": 1788448599965,
-      "updatedAt": 1788454022184,
-      "summary": "Handover protocol executed: 9 per-step commits on phase-0-docker (step-numbered messages), git tag phase-0, image tagged qp-crm:phase0, parent card closed with summary+rejected, Agent Note 'qp-crm-dockerization' written under .agents/notes/implemented/feature/. Next phase chat starts from the board."
-    },
-    {
-      "id": "card-0abb8095-fdc3-4b27-b9df-b5e083639190",
-      "title": "P1-T1 · pytest infra: branch, dev-requirements, Dockerfile test layer, .dockerignore, pytest.ini, conftest isolation, one-command run",
-      "description": "Step 1 of the Phase-1 card. Branch phase-1-tests from phase-0-docker tip (origin REACHABLE, so Dev is left untouched per instructions). dev-requirements.txt with pinned pytest; Dockerfile installs it as a separate layer so production requirements.txt stays untouched; .dockerignore must NOT exclude tests/ (blanket test_*.py rule replaced by the named root scratch scripts, tests/** re-included so golden PDF baselines ship in the image); compose image bumped to qp-crm:phase1 (qp-crm:phase0 kept as rollback tag); pytest.ini with testpaths=tests (root scratch test_*.py files must never be collected) and cache_dir=/tmp (/app is read-only for appuser); tests/conftest.py patches shared.config APP_DATA_DIR/DATABASE/IMAGE_DIR/APP_ASSETS_DIR into a throwaway temp dir BEFORE any app module is imported (every module binds those names at import time), so the suite can never touch the bind-mounted real app_data/pricing.db; session fixture replays the production init sequence (pricing_init_db → pricing_migrate_schema → offer_init_db → admin_init_db → rent_init_db) into the temp DB. ONE command documented: docker compose build app && docker compose run --rm app pytest.",
-      "rationale": "Phase-1 card requires the suite to run with one command inside Docker (host venv has no pytest and host WeasyPrint is unimportable — no libpango); import-time path isolation is the only mechanism that keeps the real production DB out of test reach.",
-      "rejected": "Compose override test service (command stops being plain `docker compose run app pytest`); bind-mounting the repo into test runs (would not exercise the shipped image); host venv runs (host WeasyPrint unimportable, no pytest installed).",
-      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
-      "status": "done",
-      "tags": [
-        "qp-crm",
-        "testing",
-        "phase-1",
-        "task"
-      ],
-      "createdAt": 1788462764435,
-      "updatedAt": 1788463565035,
-      "summary": "Branch phase-1-tests cut from phase-0 tip 867ca19 (origin REACHABLE, so Dev untouched). pytest==8.4.2 in dev-requirements.txt installed as a dedicated Dockerfile layer; .dockerignore no longer blanket-ignores test_*.py (root scratch scripts named individually, !tests/** re-includes the suite + golden baselines in the image); compose image bumped qp-crm:phase1 (qp-crm:phase0 = rollback tag); pytest.ini testpaths=tests + cache_dir=/tmp (appuser cannot write /app); tests/conftest.py patches shared.config APP_DATA_DIR/DATABASE/IMAGE_DIR/APP_ASSETS_DIR into a tempfile.mkdtemp tree BEFORE any app import (modules bind the names at import), session fixture replays pricing_init_db -> pricing_migrate_schema -> offer_init_db -> admin_init_db -> rent_init_db; tests/README.md documents the ONE command: docker compose build app && docker compose run --rm app pytest. Sanity run GREEN: 4/4 isolation-guard tests in 1.10s. Committed dd8abef."
-    },
-    {
-      "id": "card-77d520e0-fe50-4997-9522-a28fe8598713",
-      "title": "P1-T2 · Characterization: pricing apply_rounding + price_rounding_rules (UP/DOWN/NEAREST)",
-      "description": "Step 2. Pin CURRENT behavior of pricing/app.py apply_rounding(val, target) against the seeded price_rounding_rules table (admin init_rounding_rules_table defaults: limits 1000/10000/30000/999999999, steps 50/100/500/1000, method UP for both targets). Pin: val<=0 → 0; rule selection = smallest limit_val >= val; fallback to largest-limit rule when no limit >= val; no rules → value unchanged; NEAREST = Python round() (banker's rounding — round-half-even); unknown method → treated as UP (ceil); float artifacts pinned as exact literals captured from a container run.",
-      "rationale": "apply_rounding runs on every saved price/discount — a silent change here changes real invoices. Quirks (banker's rounding, 0-clamp, bracket-boundary selection) must be pinned AS-IS, not fixed, per phase discipline.",
-      "rejected": "Property-based fuzzing — characterization needs concrete literals reviewable against the price list; pytest.approx — would hide the float-exact behavior the suite exists to pin.",
-      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
-      "status": "done",
-      "tags": [
-        "qp-crm",
-        "testing",
-        "phase-1",
-        "task"
-      ],
-      "createdAt": 1788462764443,
-      "updatedAt": 1788463835593,
-      "summary": "tests/characterization/test_pricing_rounding.py: 33 pinned cases. Seeded brackets for price+discount captured exactly (0.01->50.0, 1000.01->1100.0 bracket jump, 30000.01->31000.0, 1e9->1e9 largest-rule fallback); val<=0 clamped to 0 (sign lost); NEAREST pinned as Python banker's rounding (0.5->0.0, 2.5->2.0, 3.5->4.0) — NOT Excel half-away-from-zero; unknown method -> UP fallback; target without rules -> unchanged. All green in container. Committed as 'P1 step 2'."
-    },
-    {
-      "id": "card-b16a238f-c673-424a-b3cf-12f7e48c4d5b",
-      "title": "P1-T3 · Characterization: offer recalc_totals 3-level discount cascade → VAT → gross",
-      "description": "Step 3. Pin CURRENT behavior of offer/app.py recalc_totals(offer_id) on a fixture offer: sum(line_net) → level-1 discount → special discount → third discount → VAT → gross, percentages stored as FRACTIONS in DB (form input/100 at offer/app.py:524-526,642); recalc coerces NULL/0 discount to 0.0 via `or 0.0` and writes all totals back. Pin exact float readbacks from a container run. Route URL for PDFs: /offers/<id>/pdf.",
-      "rationale": "This is the money cascade the whole offer module depends on; any Phase-2 refactor must reproduce these exact totals including the NULL-coercion quirks.",
-      "rejected": "Driving the HTTP form endpoints instead of recalc_totals — form parsing noise (audit H10 bare float()) is Phase-2 material; money mutation itself is what needed pinning.",
-      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
-      "status": "done",
-      "tags": [
-        "qp-crm",
-        "testing",
-        "phase-1",
-        "task"
-      ],
-      "createdAt": 1788462764451,
-      "updatedAt": 1788463835604,
-      "summary": "tests/characterization/test_offer_recalc.py: 6 tests pin recalc_totals exactly — cascade 29500.0 -> gross 29510.325 with the IEEE artifact total_vat == 4918.387500000001 pinned verbatim; NULL discounts behave as zero and are PERSISTED asymmetrically (special/third written back as 0.0, discount_percent/vat_percent stay NULL); item-level discount_percent ignored (only SUM(line_net) counts); unknown offer id = silent no-op; empty offer -> all-zero totals. Committed as 'P1 step 3'."
-    },
-    {
-      "id": "card-58158acc-6d60-4271-8701-e6bb2bccf750",
-      "title": "P1-T4 · Characterization: rent pmt / calculate_rent / _add_months / generate_schedule",
-      "description": "Step 4. Pin CURRENT behavior of the pure rent math: pmt (Excel PMT replication incl. rate=0 branch and pmt_type=1), calculate_rent full dict (ucesce/ucesce_pdv/ucesce_bruto, ostatak, rata_fin via pmt with pv=-(price-ucesce) fv=ostatak, osiguranje=monthly, garancija spread over months, rata_neto/pdv/bruto, zatvaranje=ucesce_bruto/months CONSTANT for every month, rata_nakon), _add_months end-of-month clamping, generate_schedule rows (0.1 admin fee + 0.2 downpayment on contract date, monthly Zakupnina rows dated LAST day of each month, bad date string → date.today() fallback). Exact float literals captured in container.",
-      "rationale": "The lease calculator replicates Excel PMT against live contracts — any drift silently changes every customer's monthly payment; the schedule shape (row numbering, date rule) feeds the printed payment plan.",
-      "rejected": "Keeping a logged fallback to contract_date or today(): the bug is non-determinism, any silent substitute keeps documents unreproducible. Route-level input validation at contract save stays Phase 3 (H10 family). Also fixed en route: stage-5 rent/routes/__init__.py omitted pdf.py so the 3 schedule/offer PDF routes were dead since the split (commit 1be2f58).",
-      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
-      "status": "done",
-      "tags": [
-        "qp-crm",
-        "testing",
-        "phase-1",
-        "task"
-      ],
-      "createdAt": 1788462764458,
-      "updatedAt": 1788464193650,
-      "summary": "generate_schedule raises ValueError on unparsable/empty contract date; both schedule PDF routes return 400 with the message. Two renders of the same contract can no longer differ. Characterization re-baselined (test_bad_date_raises_value_error) + end-to-end route tests. Commit 99b99f3; suite 127 passed."
-    },
-    {
-      "id": "card-4202b35e-7d72-445d-bbda-16ca8aefda9d",
-      "title": "P1-T5 · Characterization: shared format_amount/format_date + rent doc placeholder context/substitution",
-      "description": "Step 5. Pin shared/utils.py format_amount (European 12.312,00 style, None → '0.00', non-numeric → '', negative formatting) and format_date (4 fmt branches, unparsable/None passthrough quirks). Pin rent/_build_doc_context placeholder mapping (contract fields, fmt_date DD.MM.YYYY, format_amount on all calc values, None → '' coercion) and format_document_html (Član N → h3.clan-header, section headers → h4.section-header). The {{ key }}/{{key}} double-replace + html.escape loop in document_pdf is covered end-to-end by the golden PDF test (it lives inline in the route).",
-      "rationale": "These format every money figure and date in both PDF pipelines; placeholder mapping drift produces wrong contracts, not crashes.",
-      "rejected": "Unit-pinning the duplicated substitution loop at rent/app.py:367-389 — it is route-inline code; the golden PDF test exercises it through the production route instead (dedup is Phase-2 work, audit L4).",
-      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
-      "status": "done",
-      "tags": [
-        "qp-crm",
-        "testing",
-        "phase-1",
-        "task"
-      ],
-      "createdAt": 1788462764466,
-      "updatedAt": 1788464193663,
-      "summary": "test_formatting.py: 19 cases — format_amount (None -> '0,00', 'abc' -> '', numeric string '12.5' parsed, negatives, European grouping) and format_date (4 fmts, unknown fmt passthrough, '15-01-2026' parts silently RELABELED to '2026/01/15', garbage passthrough, None/'' -> ''). test_rent_placeholders.py: 10 cases — _build_doc_context full mapping (None -> '', fmt_date DD.MM.YYYY with passthrough, money values European-formatted) + format_document_html (lowercase Član -> h3 with dot appended, UPPERCASE ČLAN NOT matched, section-header whitelist, unknown/empty/None untouched). The {{key}} substitution loop itself is pinned end-to-end by T6 golden. Committed as 'P1 step 5'."
-    },
-    {
-      "id": "card-26dd7d52-4107-44a1-b591-583d75538b46",
-      "title": "P1-T6 · Golden-PDF tests: fixed offer + fixed rent document vs checked-in baselines",
-      "description": "Step 6. Render one fixed offer (filesystem pdf_offer.html template path — fresh fixture DB has no active_pdf_template_id) and one fixed rent document (slug ugovor-zakup, seeded from rent/rent_templates_defaults.json) through the PRODUCTION routes (/offers/<id>/pdf, /contracts/<id>/documents/<slug>/pdf) via the Flask test client, against fixed fixture rows and fixed fixture assets in APP_ASSETS_DIR (small deterministic logo/footer images checked into tests/golden/assets). Compare bytes against checked-in baselines after normalizing volatile regions (PDF /CreationDate + /ModDate, XMP timestamps, trailer /ID) — fonts are pinned in the image so everything else must be byte-identical. QP_UPDATE_GOLDEN=1 regenerates baselines (documented with the bind-mount command); any deliberate re-baseline must state the reason in the commit.",
-      "rationale": "WeasyPrint output is the hardest-to-verify surface (fonts, pagination, CSS) — byte-level golden files catch template/CSS/engine regressions that no assertion on totals can see.",
-      "rejected": "Raw byte hash without normalization (would break the moment WeasyPrint starts writing timestamps); pypdf text-only comparison (misses font/layout/pagination changes); monkeypatching WeasyPrint internals for name stability (fixed-path isolation achieves it without touching library behavior); re-baselining under full-suite DB state (fragile to any test-order change — explicit ids instead).",
-      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
-      "status": "done",
-      "tags": [
-        "qp-crm",
-        "testing",
-        "phase-1",
-        "task"
-      ],
-      "createdAt": 1788462764475,
-      "updatedAt": 1788466934135,
-      "summary": "tests/golden/test_golden_pdf.py renders one fixed offer (filesystem pdf_offer.html path) and one fixed rent document (ugovor-zakup seeded from rent_templates_defaults.json) through the production routes with the Flask test client, and byte-compares (after normalizing PDF dates/XMP/trailer /ID on both sides) against checked-in tests/golden/baselines/*.pdf, with small deterministic fixture logo/footer images in tests/golden/assets. Two determinism root-causes fixed in test plumbing: (1) random mkdtemp path -> WeasyPrint image XObject names are i+md5(URL) -> fixed /tmp/qp-crm-tests root; (2) autoincrement ids leak into PDF anchors/destinations -> explicit ids 900001/900002 in fixtures. QP_UPDATE_GOLDEN=1 rebaseline flow documented (bind-mount command in tests/README.md). Verified: 3 consecutive fresh-container full runs 96 passed, baseline md5s unchanged. Committed as 'P1 step 6'."
-    },
-    {
-      "id": "card-6066b65c-b898-4bef-96ff-e67a2288c471",
-      "title": "P1-T7 · Smoke tests: login → main pages → 200 per module (pricing/offer/rent/admin/sale/settings)",
-      "description": "Step 7. Werkzeug test client over main.application (the DispatcherMiddleware stack as actually shipped): per-module login with the DEFAULT_PASSWORDS from shared/auth.py (fresh fixture DB stores no password rows → defaults active), then GET the module root → 200 (follow redirect): /pricing/ (Price1), /offer/ (Offer1), /rent/ (Rent1), /admin/ (Admin1); sale and settings have NO auth (pin that as current behavior) → GET /sale/, /settings/ → 200; landing GET / → 200; unauthenticated GET on the four gated modules → 302 to their login pages. Plus one key subpage per module where cheap.",
-      "rationale": "Routing/auth wiring across the 6-realm Dispatcher setup is exactly what Phase 2 restructures — the smoke set is the fastest full-stack regression net for it.",
-      "rejected": "Deep form-flow tests per module (Phase-0 smoke covered those against the live stack; money logic is pinned by T2-T6); asserting page content strings (brittle against template wording, the card asks for login->200 wiring).",
-      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
-      "status": "done",
-      "tags": [
-        "qp-crm",
-        "testing",
-        "phase-1",
-        "task"
-      ],
-      "createdAt": 1788462764483,
-      "updatedAt": 1788467458561,
-      "summary": "tests/smoke/test_smoke_modules.py: 24 tests over main.application (real DispatcherMiddleware stack + werkzeug client). Pinned: landing 200; pricing/offer/rent/admin unauthenticated -> 302 to own login; login pages 200; wrong password re-renders (200) and stays locked; DEFAULT_PASSWORDS logins (Price1/Offer1/Rent1/Admin1) reach each module root 200 incl. /pricing/products, /offer/offers, /rent/contracts, /admin/; sale redirects to /sale/pricelist and serves it with NO auth; settings serves with NO auth; unknown prefix 404s. Bug found + logged as card: sale.list_sale 500s on uninitialized schema (no own init_db, unguarded global_settings read) — Phase-2 candidate, not fixed per phase discipline. Suite: 120 passed. Committed as 'P1 step 7'."
-    },
-    {
-      "id": "card-096fac1a-d1e8-4da2-a38e-f74fb0b78260",
-      "title": "P1-T8 · Phase-1 handover: full green run, bug cards, commits, image tag qp-crm:phase1, board + Agent Note",
-      "description": "Step 8. Run the complete suite green on the UNMODIFIED app via the one command; commit per step on phase-1-tests (step-numbered messages); build + tag image qp-crm:phase1 (qp-crm:phase0 kept for rollback), leave the running stack healthy; log every quirk/bug discovered during characterization as its own todo card tagged 'bug' with AUDIT_FINDINGS.md references (fixes stay OUT of this phase); close the parent Phase-1 card with summary+rejected; write the Agent Note for the test-infra decisions.",
-      "rationale": "Handover protocol from the parent card: the next phase chat must start from the board with a tagged, rollback-able end state and a durable decision record.",
-      "rejected": "Pushing to origin (stays local until the user decides — matches Phase-0 protocol); rolling the stack without verification (recreate + curl checks done instead); fixing any discovered bug in this phase.",
-      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
-      "status": "done",
-      "tags": [
-        "qp-crm",
-        "testing",
-        "phase-1",
-        "task",
-        "handover"
-      ],
-      "createdAt": 1788462764490,
-      "updatedAt": 1788467855549,
-      "summary": "Handover complete. Final verification: full suite via the documented command = 120 passed (3 consecutive fresh-container runs during T6, plus this final run); baselines byte-stable. Stack rolled to image qp-crm:phase1 (container recreated, healthy, GET / and /pricing/login -> 200); qp-crm:phase0 kept as rollback tag. Commits on phase-1-tests: dd8abef infra, 1e1a60e rounding, b71bcd1 recalc, 95aa042 rent math, adcb1d2 formatting+placeholders, f8e8e33 golden PDFs, 9a7db28 smoke, + docs commit. 5 bug cards logged (sale schema ownership; pricing rounding semantics trio; rent pmt nper=0 crash; rent schedule today() fallback; offer NULL-vs-0.0 discount persistence) — all tagged phase-2-candidate, nothing fixed per phase discipline. Agent Note written for the test-infra decisions. Production code untouched (only Dockerfile dev-requirements layer, .dockerignore, compose image tag, DOCKER.md)."
-    },
-    {
-      "id": "card-dda3d805-a124-4071-912e-f05518fcb374",
-      "title": "BUG · sale module: list_sale 500s on uninitialized schema (no own init_db, unguarded global_settings read)",
-      "description": "Discovered by the Phase-1 smoke suite (tests/smoke/test_smoke_modules.py) during a smoke-only run on the throwaway fixture DB: GET /sale/pricelist raises sqlite3.OperationalError 'no such table: global_settings' -> 500. Root pattern: sale/app.py is the only sub-app with no init_db() and list_sale (sale/app.py:87) SELECTs global_settings without try/except, so it depends on pricing's init_db having created the shared table first. wsgi.py/main.py run ALL inits at boot, so the standard deployment never sees it — but any flow that (re)creates the schema without the full init sequence (restore_db/factory_reset edge cases, future split deployments, tests) hits a 500 instead of a clean empty-state page. Phase 2 should give sale its own init or a guarded read with a sane default (24 items per page).",
-      "rationale": "Phase-1 discipline: discovered quirks get logged as bug cards, NOT fixed. This one is a cross-module schema-ownership assumption that Phase 2's 'single schema, service layer' refactor must address explicitly.",
-      "rejected": "Giving sale its own init_db: sale owns no tables -- duplicating pricing schema creation would reintroduce the two-init-paths drift the phase-2 single-schema stage just removed (L4). Ordering-based guards (run pricing init first) would leave the same hole for split deployments.",
-      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
-      "status": "done",
-      "tags": [
-        "qp-crm",
-        "bug",
-        "phase-2-candidate",
-        "sale",
-        "new-finding"
-      ],
-      "createdAt": 1788467458512,
-      "updatedAt": 1788467458512,
-      "summary": "list_sale guarded with clean empty state on bare schema (sqlite3.OperationalError -> 200, 25/page default); view_product -> existing 404. No sale init_db (sale owns no tables). Isolated bare-DB regression tests. Suite 133 passed."
-    },
-    {
-      "id": "card-aca70e04-fbae-41de-a4df-2df418bba7fb",
-      "title": "BUG · pricing rounding semantics: banker's NEAREST + val<=0 clamp to 0 + bracket-boundary jump",
-      "description": "Pinned as-is by tests/characterization/test_pricing_rounding.py. Three semantics questions for Phase 2/3 (money-touching, needs a product decision, not a blind fix): (1) NEAREST uses Python round() = banker's rounding — 0.5->0, 2.5->2, 3.5->4 — while Excel's ROUND goes half-away-from-zero (0.5->1); the rent calculator replicates Excel, so the two money paths disagree on rounding philosophy. (2) apply_rounding clamps val<=0 to 0 — a negative price/discount silently becomes 0 instead of keeping its sign. (3) Bracket selection takes the smallest limit_val >= val, so 1000.01 jumps from the 50-step bracket to the 100-step bracket — one cent above a limit changes the step. Related audit codes: L9 (fresh connection per call), L11 (floats for money).",
-      "rationale": "Phase-1 discipline: quirks get logged, not fixed. These change real invoice numbers; Phase 2 must decide the intended semantics BEFORE refactoring so the safety net can be re-pinned deliberately.",
-      "rejected": "Changing bracket selection to interval-based buckets (limit_val > val exclusive): would alter every seeded price and contradicts the admin-facing table semantics -- deferred to a product decision. Migrating pricing to Decimal end-to-end (audit L11, fresh-connection L9) stays Phase 3.",
-      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
-      "status": "done",
-      "tags": [
-        "qp-crm",
-        "bug",
-        "phase-2-candidate",
-        "pricing",
-        "new-finding"
-      ],
-      "createdAt": 1788467646702,
-      "updatedAt": 1788467646702,
-      "summary": "apply_rounding: NEAREST = half-away-from-zero (Decimal ROUND_HALF_UP, matches Excel/rent); val<=0 returns val with sign preserved; bracket selection deliberately unchanged (admin-config table semantics). Characterization re-baselined with bug-card references. Suite 131 passed."
-    },
-    {
-      "id": "card-088dd7a9-70e8-4bdd-9ca6-6199483e6dc4",
-      "title": "BUG · rent pmt/calculate_rent: ZeroDivisionError on period_months == 0 -> 500 on all contract PDFs",
-      "description": "Pinned by tests/characterization/test_rent_calc.py::test_nper_zero_raises_zero_division_error. pmt raises ZeroDivisionError in BOTH branches when nper == 0 (rate==0 branch: -(pv+fv)/nper; rate>0 branch: (factor-1)/rate -> 0), and calculate_rent passes period_months straight through, so a rent contract saved with period_months = 0 crashes /contracts/pdf/offer, /contracts/pdf/schedule and the documents pipeline with a 500. Input validation is H10-adjacent (bare numeric parsing) but the crash itself is unrecorded in AUDIT_FINDINGS.md — new finding.",
-      "rationale": "Live-contract poison input: a single bad row takes down every PDF render for that contract. Phase 2 service layer should validate period_months >= 1 at the boundary and return a clean error.",
-      "rejected": "Raising ValueError / 400-response instead: the card framed the crash as the bug; making the money functions total keeps every render deterministic without new error UX. Route-level input validation (H10 family) stays Phase 3.",
-      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
-      "status": "done",
-      "tags": [
-        "qp-crm",
-        "bug",
-        "phase-2-candidate",
-        "rent",
-        "new-finding"
-      ],
-      "createdAt": 1788467646713,
-      "updatedAt": 1788467646713,
-      "summary": "pmt returns 0.0 for nper<=0; calculate_rent garancija/zatvaranje guarded (>0 check). Zero/negative-period contracts now render zero components instead of 500 on all contract PDFs. Characterization re-baselined deliberately (test_nper_zero_returns_zero_payment + 2 regressions). Commit on phase-2-refactor; suite 123 passed."
-    },
-    {
-      "id": "card-f8759e61-7d85-4fda-89a0-acc8af12fa43",
-      "title": "BUG · rent generate_schedule: bad contract date silently falls back to date.today() (non-deterministic documents)",
-      "description": "Pinned by tests/characterization/test_rent_calc.py::test_bad_date_falls_back_to_today. generate_schedule (rent/app.py:126-132) silently substitutes date.today() when contract_date is unparsable/empty, so the printed payment plan (0.1/0.2 rows and, via the schedule PDF, the whole plan) gets DATES FROM THE DAY OF RENDERING — two renders of the same contract produce different documents. Related: H7/H6 contract-number/data hygiene family; new finding for the date path.",
-      "rationale": "Non-deterministic business documents are a correctness issue, not a style issue; Phase 2 should decide between failing loudly and persisting a parse date, and the golden/characterization net must follow whatever is chosen.",
-      "rejected": "Keeping a logged fallback to contract_date or today(): the bug is non-determinism, any silent substitute keeps documents unreproducible. Route-level input validation at contract save stays Phase 3 (H10 family). Also fixed en route: stage-5 rent/routes/__init__.py omitted pdf.py so the 3 schedule/offer PDF routes were dead since the split (commit 1be2f58).",
-      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
-      "status": "done",
-      "tags": [
-        "qp-crm",
-        "bug",
-        "phase-2-candidate",
-        "rent",
-        "new-finding"
-      ],
-      "createdAt": 1788467646724,
-      "updatedAt": 1788467646724,
-      "summary": "generate_schedule raises ValueError on unparsable/empty contract date; both schedule PDF routes return 400 with the message. Two renders of the same contract can no longer differ. Characterization re-baselined (test_bad_date_raises_value_error) + end-to-end route tests. Commit 99b99f3; suite 127 passed."
-    },
-    {
       "id": "card-9c7f744d-f6cb-4c7b-9157-f98bd5d03941",
       "title": "BUG · offer discount storage: NULL (new_offer) vs 0.0 (edit_offer) for zero percentages + asymmetric recalc write-back",
       "description": "Pinned by tests/characterization/test_offer_recalc.py::test_null_discounts_behave_as_zero_and_are_partially_persisted. new_offer (offer/app.py:590-592) stores NULL for zero discount/vat inputs, edit_offer (offer/app.py:847-849) stores 0.0 for the same input; recalc_totals then coerces NULL/0 via 'or 0.0' and writes special/third back as floats while leaving discount_percent/vat_percent NULL (offer/app.py:788-800). Net effect is benign today (both read as no-discount) but the schema carries two encodings of the same fact and the asymmetric write-back makes DB state depend on which form last touched the row. Related: L11 (floats for money), L4 (schema created by two init paths with slightly different definitions).",
@@ -1866,7 +1626,7 @@
     {
       "id": "card-dfe6b2d1-fd31-484f-b1c9-19d964301f20",
       "title": "P5-UI rework: jedinstven Magacin (ulaz/izlaz, auto S/N polja) + nova app Narudžbine (komercijala)",
-      "description": "ZAVRŠENO (deployovano ec19f03, CI success, deploy.sh healthy):\n\nBATCH A — jedinstven Magacin (magacioner): /warehouse/intake jedna forma (smer na vrhu, proizvod iz kataloga; serialized → dinamička S/N polja + žuti indikator poznatog S/N preko /warehouse/api/serial-lookup, poznavanje vraća mašinu kroz transition umesto duplog reda; register_equipment blokira dupli S/N unutar istog proizvoda case-insensitive); /warehouse/stock spojena lista stanja (qty balans ili mašine, poslednjih 5 kretanja); meni za magacionera: Stanje + Ulaz/Izlaz (Oprema/Rezervacije/Pokrivenost admin-only linkovi). 'Zabeleži i dodaj još' pamti smer/razlog/kontakt.\n\nBATCH B — /orders app Narudžbine: purchase_orders (PO-YYYY-NNN brojač, dobavljač slobodan tekst, očekivani datum, closed set ordered|partially|received|cancelled) + po_lines (proizvod ili temp naziv, qty, shortfall_id veza, received_at); receive_line automatski upisuje ulazno kretanje (magacioner NE pomera zalihu ručno) i auto-zatvara povezani dug (po_ref = broj PO); 'Treba naručiti' tabla (dugovi mašina + ispod min. stanja, Naruči pre-filira veza); grant 'orders' (MODULE_CHOICES v6, existing staff dobijaju exactly-once, može se oduzeti u Admin → Users); landing kartica dodata.\n\nCI incident: 2× exit 2 — order_service.py nikad nije commit-ovan (batch commit enumerisao fajlove ručno i preskočio svoj novi modul); dijagnostikovano fresh-clone buildom (22 collection errors reprodukovana lokalno). Fix ec19f03 + Dockerfile CACHE_BUST ostao u istoriji. Suite 510 passed / 3 skipped.",
+      "description": "ZAVRŠENO (a203197, CI success, deploy healthy 2026-09-27):\n- Komercijala app (ime po korisnikovom izboru; URL ostao /orders): 5 tabova — Narudžbine, Treba naručiti, Rezervacije, Pokrivenost, Gde je oprema (nova: koji je uređaj kod koje mušterije, searchable).\n- Rezervacije + Pokrivenost premešteni iz warehouse (rute + templejti, url_for warehouse.* → orders.*); /warehouse/reservations i /warehouse/coverage sada 404 (bez redirecta — deployovan tek juče, nema bookmark-a).\n- Magacin meni: Stanje + Ulaz/Izlaz + Oprema — bez (admin) taga, bez is_admin uslovnog menija (is_admin injekcija uklonjena iz context processora).\n- Landing: kartica preimenovana u 'Komercijala' sa opisom novog opsega.\n- Suite 514 passed / 3 skipped. CI zelen, deploy.sh healthy, produkcija verifikovana (302 na sve nove rute, 404 na starim).",
       "rationale": "Korisnik je dao konkretan UI tok i podelu uloga (magacioner vs komercijalca); potvrđeno kroz pitanja. Ovo je nova faza P5 UI reworka — velika promena UX-a i novi modul, mora biti zabeležena pre implementacije da ne izgubimo kontekst odluka.",
       "sourceSessionId": "session-983fa0e2-a9e1-4ac7-920b-eefd4a21a045",
       "status": "done",
@@ -1880,9 +1640,358 @@
         "in-flight"
       ],
       "createdAt": 1790507071439,
-      "updatedAt": 1790512608427,
-      "summary": "Deployovano: jedinstven Magacin (A) + nova app Narudžbine (B). A: /warehouse/intake (smer/proizvod/prilagođena polja: S/N po komadu sa žutim indikatorom poznatog serijskog preko serial-lookup API; qty → količina; Zabeleži / Zabeleži i dodaj još sa pamćenjem konteksta), /warehouse/stock spojeno stanje, magacionerski meni smanjen na 2 stavke + admin linkovi. B: purchase_orders/po_lines šema (PO-YYYY-NNN), order_service (create/receive_line sa auto ulaznim kretanjem + auto-zatvaranje duga sa po_ref), /orders UI (lista, treba-naručiti tabla, forma, detalj sa Stiglo), grant orders v6, landing kartica. Suite 510 passed / 3 skipped; CI incident (order_service.py uncommitted, 2× exit 2) dijagnostikovan fresh-clone reprodukcijom i rešen (ec19f03). Produkcija healthy, sve nove rute 302 (login gate).",
-      "rejected": "Odvojena app za Rezervacije — odbijen: rezervacije su komercijalna stvar ali ih korisnik nije tražio kao posebnu app; ostaju admin-only u Magacinu dok ne bude potrebe. Više fizičkih magacina (lokacije) — odbijen za ovu fazu: jedan magacin, korak 6 iz korisnikovog predloga preskočen po dogovoru; poseban posao ako zatreba. Ručni unos prijema kod magacionera — odbijen: prijem narudžbine automatski povećava zalihu (dupli unos je bio glavni rizik podeljenog modela)."
+      "updatedAt": 1790515923003,
+      "summary": "Varijanta B deployovana: Komercijala app (preimnovana iz Narudžbine) sadrži Narudžbine + Treba naručiti + Rezervacije (premeštene) + Pokrivenost (premeštena) + novu Gde je oprema tabelu (gde je koji uređaj/kod kog kupca). Magacin meni: Stanje, Ulaz/Izlaz, Oprema (bez admin taga — svi sa grantom vide registar mašina). Suite 514 passed, CI success, deploy verified.",
+      "rejected": "Zadržavanje rezervacija/pokrivenosti u Magacinu pod (admin) tagom — odbijen po korisnikovoj primedbi: to su komercijalne funkcije (interesuju prodaju, ne magacionera). Preimenovanje u 'Planiranje' — korisnik izabrao 'Komercijala' kroz pitanje. Redirectovi starih URL-ova — odbijeni: modul deployovan tek juče, nema bookmark-ova; 404 je čistiji."
+    },
+    {
+      "id": "card-8ff3f342-225c-46ad-b75b-58773011a584",
+      "title": "BUG FIX 2 · Offer PDF: naslov + „Stavke ponude\" + prva stavka moraju biti na prvoj strani",
+      "summary": "Prvi `<tr>` stavki dobija klasu `first-item` (loop.first) + CSS override `.items-table tr.first-item { break-inside: auto }`. Zakrpljeno u fajlovima (offer_body_inner.html + static/css/pdf.css, izvor istine System Defaulta) i u DB custom šablonu MarinkovicHofmann (id 3, aktivan) + refresh System Default (id 1). Verifikovano renderom P-1251 pre/posle (title/stavke/items sa strane 2 → strana 1) i dvostavnim testom (druga stavka ostaje cela).",
+      "rationale": "Kad je opis prve stavke predugačak, `break-inside: avoid` na svim redovima + `break-after: avoid` na h3 guraju naslov, zaglavlje i prvu stavku na drugu stranu (prva strana skoro prazna). Korisnik traži da prva stavka kreće na strani 1 čak i ako se seče; kasnije stavke ostaju cele.",
+      "rejected": "Odbijeno: auto na svim redovima (regresija 1acd9ba), keep-with-next na naslovu (WeasyPrint ne podržava kroz tabele), samo DB zakrpa bez fajlova (boot bi vratio bag za System Default).",
+      "sourceSessionId": "session-9eaca400-bc6c-4d74-ae70-87453a9eb162",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "offer",
+        "pdf",
+        "bug",
+        "page-break",
+        "deploy"
+      ],
+      "createdAt": 1790590980357,
+      "updatedAt": 1790590980357
+    },
+    {
+      "id": "card-8a1264f8-ad4e-46c9-81b4-10ccaf24696c",
+      "title": "BUG · Offer edit: promena musterije preko pickera gubi link (contact_id=NULL) — klijentski JS",
+      "summary": "Ispravljen JS: `hidden.value = id ? (id.startsWith('c') ? id.slice(1) : id) : ''` (čuva sirovi id). Pokrenut idempotentan link_documents_to_contacts → offer 115 ponovo vezan za kontakt 1219 (AS GAS-PROM). 19 testova prolazi. Commit 8574206 + note offer-form-picker-contact-link-lost.",
+      "rationale": "Picker JS u offer_form.html je copy-paste iz rent forme i stripa 'c' prefiks koji offer opcije nemaju (directory_choices vraća čiste id-jeve). Hidden #picked-contact-id se uvek praznio, pa se offers.contact_id nullovao pri snimanju → dropdown prazan, musterija polja sakrivena, korisnik vidi „obrisanu musteriju\" i bira u krug.",
+      "rejected": "Odbijeno: promeniti directory_choices na 'c<id>' (razbija poređenje u šablonu, int konverter i test), samo server-side popravka (server već radi — test dokazuje), auto-backfill kao zamena za JS fix (backfill popravlja podatke, ne uzrok).",
+      "sourceSessionId": "session-9eaca400-bc6c-4d74-ae70-87453a9eb162",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "offer",
+        "picker",
+        "contacts",
+        "bug",
+        "js",
+        "deploy"
+      ],
+      "createdAt": 1790591990868,
+      "updatedAt": 1790591990868
+    },
+    {
+      "id": "card-6c18409d-b646-4825-91d7-b241dff4a087",
+      "title": "Merge Dev→main + push: oba bug-fix commita u ghcr image (CI gradi na main push)",
+      "summary": "Nije urađeno — čeka merge Dev→main + push (CI push: true na main).",
+      "rationale": "Dva bug-fix commita (3e39e5f PDF first-item, 8574206 offer picker contact_id) su na Dev i LIVE samo preko lokalnog rebuild-a. ghcr.io image je i dalje star, pa bi budući `deploy.sh` (pull) vratio bag. CI gradi/pushuje image samo na push na main.",
+      "rejected": "Odbijeno da sada samostalno merge+push (javni image build) — korisnik je tražio samo restart; merge/push po ustaljenom toku radi korisnik/agent na zahtev.",
+      "sourceSessionId": "session-9eaca400-bc6c-4d74-ae70-87453a9eb162",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "deploy",
+        "ghcr",
+        "ci",
+        "merge",
+        "follow-up"
+      ],
+      "createdAt": 1790592376961,
+      "updatedAt": 1790592376961
+    },
+    {
+      "id": "card-3dd8ad26-1fac-4549-8db6-9c256e5ef436",
+      "title": "Izrada tabele uređaja (bez cena) iz svih cenovnika 2023–2026 za postepeni unos u CRM",
+      "description": "STATUS: odluke zaključane — spremno za izradu. Kompletna specifikacija zadatka: `tmp-excel/START-HERE.md` (taj fajl se daje novoj instanci).\n\n>>> ZA SLEDEĆU SESIJU / LOKALNI MODEL: pročitaj `tmp-excel/START-HERE.md` i radi po njemu. <<<\n\nZAKLJUČANE ODLUKE KORISNIKA:\n1. Opisi — HIBRID: gde izvor ima pravi opis (`mh-products-baseline-by-category.xlsx`, 528 proizvoda sa opisima) preuzmi ga; inače generiši minimalan opis iz naziva. Ništa se ne izmišlja. Kolona `Opis izvor` beleži `izvor` vs `generisan`.\n2. Duplikati — normalizuj i spoji, konzervativnim ključem (lowercase + sklonjena interpunkcija + spojeni razmaci). `Geodyna 7340` i `Geodyna 7340 S` se NE spajaju (različiti proizvodi); `Geoliner 609` = `GEOLINER 609` se spajaju. Fuzzy spajanje van obima.\n3. Obim — samo stavke koje se pojavljuju ≥ 2 puta kroz sve fajlove. Jednokratne idu u list `Singlovi (iskljuceni)`, ne u glavnu tabelu (ništa se ne briše).\n4. Format — SAMO `.xlsx`, bez `.csv`, BEZ uvoza u `pricing.db`.\n\nIZLAZ: `tmp-excel/tabela-uredjaja.xlsx`, četiri lista — `Uredjaji` (glavna), `Singlovi (iskljuceni)`, `Odbaceno` (sa razlogom), `Sumarno`. Skripta: `tmp-excel/build_table.py`.\n\nKRITIČNO: NE pozivati `ask_user_question` — sesija je pukla jer je lokalni model ~390 puta ponavljao pokvaren poziv tog alata. Ako nešto blokira, napisati običnim tekstom i stati.",
+      "rationale": "Korisnik je tražio konsolidovan katalog uređaja iz 112 Excel cenovnika/kalkulacija za postepeni ručni unos proizvoda u CRM. Odluke su bile zaključane unapred (hibridni opisi, konzervativno spajanje, ≥2 pojavljivanja u glavnoj tabeli, bez cena, samo .xlsx) — urađeno tačno po specifikaciji iz tmp-excel/START-HERE.md.",
+      "rejected": "Fuzzy spajanje varijanti (npr. „Mašina za balansiranje točkova HOFMANN GEODYNA 7340S\" vs „Geodyna 7340 S\") — van obima po §5, bolje propustiti duplikat nego pogrešno spojiti dva proizvoda. Fuzzy poklapanje sa mh-baseline opisima (samo exact-normalized ključ, 144/1262 pogodaka) — agresivnije poklapanje bi unosilo pogrešne opise. Uvoz u pricing.db i dodirivanje baze — zabranjeno odlukom §2.4. PDF/ZIP/MSG izvori — preskočeni (cene nam ne trebaju; MSG sadrži samo 8 akcijskih redova koji već postoje u Excel fajlovima).",
+      "sourceSessionId": "session-84640b09-9441-4970-b612-ae2b4722dcf6",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "katalog",
+        "cenovnici",
+        "products",
+        "done"
+      ],
+      "createdAt": 1790605309597,
+      "updatedAt": 1790609524061,
+      "summary": "Napravljen tmp-excel/build_table.py koji obrađuje 110 Excel fajlova (71 xlsx + 41 xls preko xlrd) iz priloga i proizvodi tmp-excel/tabela-uredjaja.xlsx sa 4 lista: Uredjaji (2012 stavki ≥2 pojavljivanja), Singlovi (794), Odbaceno (138: sekcijski naslovi 70, broj-bez-naziva 25, prekratko 23, samo-brojevi 20), Sumarno. Opisi hibridni: 146 iz izvora (mh-baseline), ostali generisani minimalno iz naziva; QC potvrđuje 0 URL-ova i 0 cena u opisima, max 1999 znakova."
+    },
+    {
+      "id": "card-155942c7-31a7-4bb5-9fa9-8733812ed02b",
+      "title": "Dopuna kolone Brend u tabeli uređaja (iz izvora + internet potvrde)",
+      "description": "Enrich_brands.py skripta: pravilo 1 = postojeći brend se ne dira; pravilo 2 = brend iz imena izvornog fajla (OMCN/CASCOS/JOSAM/TREAD READER→JOSAM/CAR-O-LINER/BLACKHAWK/PRO CUT/EAE/MONTY/GEODYNA/GEOLINER/HOFMANN/LIFTS/VALJCI/TERETNI/Putnički/MOTOCILI→HOFMANN, TEXA/MECLUBE/TECNOLUX/BRAIN BEE prefiksi); pravilo 3 = regex pravila po nazivu stavke (IDC5/IDC6/NAVIGATOR/CONNEX/RCCS3/Panel VAG-MERCEDES-MAN-FORD-SCANIA-IVECO→TEXA; AIRNEX/^101…/^501…/DIGITAL ADAS→BRAIN BEE; BODYGUARD/FASTLIGN/BG12/CLY/TR UK-NA→BL INOVARE; Geodyna/Monty/Geoliner/Safelane/Duolift/Variolift→HOFMANN; AGS-688/OPA-300/MGT-300/CENTRAFARI/WEARTEST/LD5/PK pedale→HOFMANN; EE-modeli→EAE; HERRMANN, COMPAC, NUSSBAUM, OMCN, CASCOS, JOSAM, CAR-O-LINER, BLACKHAWK, PRO CUT, MECLUBE, TECNOLUX, ATEQ, AUTOOL, PCE). Rezultat: 1083/2012 (53%) sa brendom, 929 prazno (generički nazivi: delovi, sonde, pantljike — brend nije bio u izvoru).",
+      "summary": "Prošao kroz svih 2012 redova glavne tabele i dopunio Brend: 142 nova dodeljena iz imena fajla + naziva stavke (HOFMANN +140, EAE +82 uk., BRAIN BEE +42 uk., OMCN +40 uk., CASCOS +27 uk., TEXA +30 uk., JOSAM +18 uk., BL INOVARE +11, COMPAC +8, HERRMANN +3...). Sporne grupe potvrđene internetom: BODYGUARD/FASTLIGN=BL Innovare, TreadReader=Josam/Snap-on, RCCS 3=Texa. Obe kopije osvežene bajt-identično.",
+      "rationale": "Korisnik je tražio da se prođe kroz celu tabelu i dopuni kolono Brend iz Izvora ili interneta. Bez ovoga bi 1341 red (67%) bio bez brenda a mnogi fajlovi SU brend-nazvani kalkulacije (OMCN 2023.xlsx = sve OMCN stavke).",
+      "rejected": "Web search plugin — ne radi (DeepSeek search endpoint greška), pa je korišćen direktan DuckDuckGo HTML fetch za potvrde. Fajl-prefiks 'BL ' kao brend-dodela — odbijeno jer BL fajlovi sadrže i John Bean stavke; preciznija su NAME pravila (BODYGUARD/FASTLIGN/BG12). 'KALKULATOR.xlsx' i 'BMW ROTARY' fajl-dodela — odbijeno (mešani sadržaj; NAME pravila pokrivaju VARIOLIFT/Geoliner). Goli T-prefiks kataloški brojevi (T2000501732) → HOFMANN — odbijeno kao neizvesno. Cosberg kao brend — odbijeno (cosberg.com = industrijska montaža, ne TP oprema; fajl je Hofmann sadržaj).",
+      "sourceSessionId": "session-642a1e68-33c3-4e05-85e6-ed8f8b456c29",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "katalog",
+        "products",
+        "brend",
+        "done"
+      ],
+      "createdAt": 1790680701517,
+      "updatedAt": 1790680731321
+    },
+    {
+      "id": "card-cae5d2bd-6d27-4806-b379-f7ee10a49530",
+      "title": "Pročistiti postojeće opise proizvoda po v2 pravilima (107 sa URL-om, 24 preko 2000 znakova, 18 sa bold naslovom)",
+      "description": "Izmereno 2026-09-28 protiv v2 pravila (257 proizvoda, svi imaju opis):\n\n- **107 opisa sadrži `URL:` ili link** — v2 to zabranjuje; URL ide u polja `website_url` / `manufacturer_url`\n- **samo 18** opisa ima bold prvu liniju (v2 zahteva `**Tip mašine PROIZVOĐAČ MODEL**`)\n- **24 opisa preko 2000 znakova** (najduži: `Geoliner 770`, 4724 znaka)\n- 51 ima `PROIZVODJAC:` red (treba 257)\n- 106 ima bullet karakteristike, 68 ima markdown tabelu\n- 0 sadrži „O proizvođaču\" (to je već očišćeno)\n\nPredloženi pristup: uklanjanje URL-ova je mehanički i bezbedno (URL se pre upisa prebaci u polje), pa to može u jednom prolazu; skraćivanje preko-2000 opisa je editorial odluka po uređaju i ide u manjim serijama uz pregled korisnika. Bold prva linija je mehanička izmena.\n\nSpecifikacija formata: `FORMAT-OPISA-MASINA.md` (kanonski dokument, §8 ima ove brojeve).",
+      "rationale": "Korisnik je tražio dokument o formatu opisa mašina; praveći ga izmerio sam koliko postojeća baza odstupa od v2 pravila. Nalaz je konkretan i veći od očekivanog — 42% opisa sadrži URL koji v2 zabranjuje, a 91% nema obavezan bold naslov. Bez kartice bi se taj dug izgubio, jer starija revizija (`product-text-rules-audit.md`) meri protiv v1 pravila (limit 1000, URL dozvoljen) pa daje drugačije i zastarele brojeve. Dokument opisuje cilj, ova kartica opisuje put od sadašnjeg stanja do njega.",
+      "rejected": "Automatsko prepisivanje svih predugačkih opisa u jednom prolazu — odbijeno (već odlučeno u ranijoj reviziji): pravila kažu „100% iz izvora\", skraćivanje znači biranje šta se izbacuje, a to je editorial odluka po uređaju koju korisnik pregleda; batch bi tiho obrisao sadržaj. Tvrda validacija u aplikaciji (blokada snimanja dok opis ne prođe v2) — odbijeno: blokiralo bi izmene 107+24 redova. Merenje protiv v1 pravila umesto v2 — odbijeno, jer je v2 aktuelni standard.",
+      "sourceSessionId": "session-84640b09-9441-4970-b612-ae2b4722dcf6",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "products",
+        "opisi",
+        "dug",
+        "v2-pravila",
+        "cleanup"
+      ],
+      "createdAt": 1790686863454,
+      "updatedAt": 1790686863454
+    },
+    {
+      "id": "card-32f78020-2c49-4a9e-849c-1ad2a0b90f20",
+      "title": "Opisi u kataloškoj tabeli: pregledati 96 predloga sa sajta + odlučiti za 1.961 red bez izvora teksta",
+      "description": "Nad `tmp-excel/tabela-uredjaja-v2.xlsx` (2.012 redova):\n\n- **96 predloga opisa sa sajta** upisano u kolonu `Predlog opisa sa sajta (pregled)` + `Predlog - sajt naslov` — treba ih pregledati i prihvatiti/odbaciti pojedinačno. Poklapanje je konzervativno (naslov sajta = neprekidna sekvenca tokena u nazivu; odbačeno ako sledi sufiks varijante), ali i dalje zahteva ljudsku proveru.\n- **36 redova** već ima nasleđen bogat opis iz CRM baze (kolona `Opis izvor` = `CRM`).\n- **15 redova** nasleđeno iz `mh-products-baseline` (`baseline`).\n- **1.961 red** nosi oznaku `Nema izvor teksta` — izvorni Exceli za njih imaju **samo naziv**, pa se bogat opis ne može izmisliti.\n\nMogući dalji koraci (odlučiti): (a) prihvatiti predloge sa sajta; (b) ručno dopisati opise za najprodavanije mašine; (c) povezati sa postojećim Car-O-Liner nivoom tako što će se za svaku familiju ručno napisati uvodni pasus koji važi za celu familiju (npr. MONTY 3300 serija) i varijante dobijaju razlike.\n\nSkripte: `tmp-excel/enrich_table.py`, `tmp-excel/site_proposals.py`. Pravila: `FORMAT-OPISA-MASINA.md` §6 i §9, `tmp-excel/START-HERE.md` §6.",
+      "rationale": "Korisnik je primetio da tabela pravi prekratke opise (primer MONTY 3300-24 ss: 2 bulleta sa golim vrednostima) i tražio da budu kao postojeći Car-O-Liner opisi u CRM. Ispostavilo se da pravilo v2 „opis samo iz naziva\" daje stubove (medijana 152 znaka), pa je standard izmenjen na v2.1 (obavezan uvodni pasus + razrađeni bulleti, cilj 800–2000 znakova). Ova kartica nosi ono što je ostalo posle automatskog dela — 96 predloga za ljudski pregled i odluku o 1.961 redu bez izvora. Bez nje bi se izgubilo i to da je plafon obogaćivanja izmeren i da nije stvar truda nego nedostatka podataka.",
+      "rejected": "Automatsko upisivanje predloga sa sajta direktno u `Opis` — odbijeno: provera je pokazala stvarne promašaje (sajt `GEODYNA 980` poklapao se sa tabelom `GEODYNA 980 L`, a `MONTY 3300` je „kupio\" i `3300-24`, i `3300-26 racing`, i `3300-24 ss`); pogrešan opis je gori od kratkog. Generisanje bogatog teksta iz znanja modela — odbijeno kao izmišljanje, protivno pravilu „sve iz izvora\". Zadržavanje v2 pravila („opis samo iz naziva\") — odbijeno, jer je upravo ono proizvelo 916 opisa ispod 150 znakova. Prepisivanje svih 2.012 redova u jednom prolazu — odbijeno: za 1.961 red ne postoji nikakav izvorni tekst, pa bi to bilo izmišljanje.",
+      "sourceSessionId": "session-84640b09-9441-4970-b612-ae2b4722dcf6",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "katalog",
+        "products",
+        "opisi",
+        "v2.1",
+        "pregled-korisnika"
+      ],
+      "createdAt": 1790687384404,
+      "updatedAt": 1790687384404
+    },
+    {
+      "id": "card-35b7f1b8-594a-46bb-a13f-e95c2dd9cd3b",
+      "title": "Imenik pretraga: fuzzy + sva polja (PIB/MB/telefon/email/adresa/notes)",
+      "description": "Imenik pretraga je sada FUZZY preko SVIH polja: display_name, ime/prezime, PIB, MB, JMBG, email, telefon, grad, ADRESA, POŠTANSKI, account, notes. SQLite norm() UDF (get_db create_function): casefold + dijakritike-stripped (ć→c) + interpunkcija-drop (@/+ ostaju) + whitespace squeeze — primenjena na obe strane (kolona u SQL-u, query term u Pythonu). Više reči = AND ('toyota zrenjaninski' sužava na 1). Trailing junk ('Beograd...', visak razmaka) nestaje u normalizaciji. Sve ?-bound.",
+      "summary": "Implementirano + deployovano: norm() UDF na svakoj konekciji (shared/db.py), haystack od 13 polja (adresa + poštanski dodati u follow-upu), AND-across-terms. LIVE: Cacak=Čačak=30, telefon sa/bez crta=1 pogodak ista firma, toyota zrenjaninski=1, poštanski 11000=7. Suite 519 passed; kontejner healthy. Napomena: norm() je UDF — raw sqlite3.connect() pozivaoci nemaju funkciju; edit-distance typo tolerant nije obuhvaćen ('Cacck' ne pogađa 'Cacak').",
+      "rationale": "Korisnički zahtev: pretraga da traži po PIB-u, MB, telefonu, emailu i svim ostalim parametrima; da ignoriše trailing junk (razmaci, tačke); i da bude fuzzy (dijakritike/interpunkcija ne smeju kvariti pogodak).",
+      "rejected": "FTS5 virtual table (druga struktura za sync pri svakom upisu; ne folduje dijakritike bez custom tokenizera; 2156 redova ne treba FTS); LOWER()-only bez dijakritika ('Cacak' bi i dalje promašio 'Čačak' — jezgro problema); Python-side filtering (kvari LIMIT/OFFSET paginaciju); trigram similarity (nije garantovan u deployed SQLite build-u; overkill).",
+      "sourceSessionId": "session-2a931069-ce16-40a9-ae01-b1c50dd03ecc",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "contacts",
+        "search",
+        "fuzzy",
+        "deployed"
+      ],
+      "createdAt": 1790934239981,
+      "updatedAt": 1790934239981
+    },
+    {
+      "id": "card-f2d5c620-aeab-4e30-a140-d5f946d1060c",
+      "title": "Analiza: Rent vs direktna prodaja — da li je rent isplativiji (realni ugovori)",
+      "summary": "KORIGOVANO (korisnik potvrdio: cena je NETO bez PDV-a; pri povraćaju oprema vredi bar 30% inicijalne vrednosti). Matematika je proverena korak po korak i TAČNA: avans 20% neto + PDV; ostatak 20% se ne amortizuje; finansira se (cena−avans); rata_fin = PMT(kamata/12, n, −(cena−avans), balon=ostatak) — standardni anuitet sa balonom; osiguranje 1,13%/god na PUNU cenu /12; garancija 5–7% jednokratno /meseci; PDV 20% na rate i avans; admin 50€ + PDV. Sa realnim povraćem: portfelj (5 ugovora, 73.049€ cena) daje rent keš 82.181,15€; dobitak vs prodaja +23.741,95 (+32,5%) pri otkupu po 20%, odnosno +31.046,85 (+42,5%) pri povraćaju opreme (30%). IRR 20,0–25,2% (otkup) i 23,3–33,6% (povraćaj). ZAKLJUČAK: rent je JASNO isplativiji od prodaje u SVIM realnim scenarijima — prethodni \"pesimistični\" scenario ne postoji jer oprema pokriva ostatak. Skripte: /tmp/rent_math_review.py, /tmp/guarantee_semantics.py.",
+      "rationale": "Korisnik je pitao da proverimo trenutnu matematiku i da li firma zarađuje više davanjem na rent nego prodajom. Analiza je rađena STVARNIM kalkulatorom qp_crm/services/rent_service.py::calculate_rent na parametrima 5 ugovora iz žive baze (cene 4.200–25.400, rokovi 24–48 meseci, avans 20%, ostatak 20%, kamata 14%, osiguranje 1,13%, garancija 5–7%).",
+      "rejected": "Poređenje po bruto tokovima (sa PDV-om) — odbijeno: PDV je neutralan (naplati se i preda državi). Poređenje samo nominalne sume bez diskontovanja — odbijeno: dodat IRR. Prvobitna pretpostavka da oprema pri povraćaju vredi 0 — OBAČENA od korisnika: oprema se vraća u magacin i ima bar 30% inicijalne vrednosti, pa je i najgori scenario pokriven samom opremom (kolateral).",
+      "sourceSessionId": "session-9b6bb521-1670-43c9-bc2c-3dd3d43f0330",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "rent",
+        "ekonomija",
+        "analiza",
+        "pricing"
+      ],
+      "createdAt": 1790943962755,
+      "updatedAt": 1790944361738
+    },
+    {
+      "id": "card-1e45b62d-aca3-4894-a867-343a8fdb47e2",
+      "title": "Garancija: provereno — koristi se kao procenat sa rezervom iznad ponude osiguranja; bez izmene",
+      "description": "ISPRAVLJENO (korisnik pojasnio 2026-09-24): garancija NIJE formula — to je cena koju svaki put dobiju od osiguranja kao ponudu. Dakle nema 'tačne godišnje stope' i pitanje 'ko je u pravu, label ili formula' je POGREŠNO postavljeno. Pravi problem je unos: korisnik dobije IZNOS u €, a polje traži PROCENAT sa oznakom '– god. (%)' (rent_contract_form.html:178; admin: 'Guarantee Rate – annual (%)', admin_rent_templates.html:104). Posledice: (a) label 'god.' navodi na pogrešnu konverziju — ako se upiše 5% misleći 'godišnje', kod naplati 5% JEDNOKRATNO i firma ostane bez razlike; (b) korisnik mora ručno da preračuna ponudu osiguranja (npr. 610 € na 12.200 € = 5%) što je izvor grešaka. VAŽNO: ako se upiše procenat koji odgovara UKUPNOJ ponudi osiguranja, obračun daje TAČAN iznos — dakle u novcu nema greške na postojećim ugovorima, problem je unos i oznaka. PREDLOG (čeka odluku): (1) obavezno preformulisati label na 'Garancija – ukupno (%)' ili '(€)', (2) bolje — dodati polje za IZNOS u € i računati `garancija_mesečno = iznos / meseci` (bez konverzije), zadržati % kao fallback za stara snimljena polja. Izmene bi obuhvatile: formu + JS recalc + calculate_rent + admin default + šablone ugovora (prikazuju mesečni iznos pa se ne menjaju).",
+      "rationale": "Korisnik je pojasnio poslovnu praksu i priložio stvarnu polisu (Globos, HOFMANN GEOLINER 660 AC) kao dokaz da je red veličine ispravan. Karta se zatvara bez izmene, ali zapis ostaje da se predlog ne ponavlja u budućim sesijama.",
+      "rejected": "Preformulisanje polja na unos u € (garancija ukupno / meseci) — ODBAČENO od korisnika: „mi koristimo to i računamo da će nam osiguranje tražiti manje od toga\". Garancija se NE unosi kao tačna ponuda osiguranja, nego kao procenat sa ugrađenom rezervom iznad očekivanog troška — pa je unos procenta namerno, a prelazak na € bi uklonio tu rezervu. Ni label nije problem u praksi jer korisnik zna šta polje znači; zadržan je postojeći kontekst ('Garancija – god. (%)').",
+      "sourceSessionId": "session-9b6bb521-1670-43c9-bc2c-3dd3d43f0330",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "rent",
+        "garancija",
+        "osiguranje",
+        "bez-izmene"
+      ],
+      "createdAt": 1790943969718,
+      "updatedAt": 1790945826526,
+      "summary": "Zatvoreno bez izmene. Dokaz iz priložene polise (Globos osiguranje, HOFMANN GEOLINER 660 AC, suma osiguranja 115.954,93 RSD, obračunata premija 1.213,54 RSD + porez 60,68 = 1.274,22 RSD, period 19.04.2026–19.04.2027): premija iznosi ~1,05% sume osiguranja godišnje — što potvrđuje da je linija 'Osiguranje' u kalkulaciji (default 1,13%/god na punu cenu) u ispravnom redu veličine i sa blagom rezervom. Polisa pokriva požar, provalnu krađu/razbojništvo i lom mašina, sa doplatkom za otkup amortizacije i franšize. Garancija (5–7%) je odvojena stavka koju firma obračunava kao rezervu iznad očekivanog troška osiguranja. Nema izmene koda."
+    },
+    {
+      "id": "card-2480865c-6ad4-472e-8553-92abb9cb0e1b",
+      "title": "Prilog 4 datumi: provereno, korisnik potvrdio da trenutno ponašanje odgovara — bez izmene",
+      "description": "ISPRAVLJEN NALAZ (korisnik pojasnio 2026-09-24): kraj ugovora JESTE definisan — u Prilogu 4 (Plan plaćanja) i kroz garantovanu cenu povraćaja od 20% inicijalne vrednosti. Prvobitni nalaz da 'nema klauzule' je POVUČEN kao netačan. PRAVI PROBLEM koji korisnik navodi: 'nemamo tačan datum u toku kreiranja ugovora, samo dogovor — zavisi od dokumenta primopredaje'. Potvrđeno u kodu: qp_crm/rent/routes/pdf.py:61 i :112 prosleđuju `c['contract_date']` u generate_schedule() — dakle Prilog 4 (i fillable verzija) datume dospeća računa od DATUMA UGOVORA. A ugovor u klauzuli 2.4 kaže da obaveza plaćanja počinje 'od momenta preuzimanja Predmeta zakupa'. Polje `delivery_date` ('Datum preuzimanja', rent_contract_form.html:91) se čuva u bazu (contracts.py:139) ali se NE KORISTI NIGDE — ni u Prilogu 4, ni u šablonima ugovora (proverom placeholdera u živim šablonima: `delivery_date` nije među korišćenima). U živoj bazi 2 od 5 ugovora ima delivery_date (id 2: 2026-07-07 vs contract_date 2026-07-10; id 3: isto), 3 nemaju. POSLEDICA: ako je primopredaja posle datuma ugovora, svi datumi dospeća u Prilogu 4 su pogrešni; i pošto tačan datum često nije poznat u trenutku kreiranja, Prilog 4 izlazi sa orijentacionim datumima. PREDLOG (čeka odluku): (a) Prilog 4 + fillable da koriste `delivery_date` kad postoji, fallback `contract_date`; (b) napomena na Prilogu 4 da su datumi orijentacioni do potvrde primopredaje; (c) opciono prikazati Datum preuzimanja u ugovoru.",
+      "rationale": "Korisnik je eksplicitno rekao da izmena ne donosi ništa i da trenutno ponašanje odgovara poslu. Kartica se zatvara da ne stoji kao otvoren predlog koji je odbijen, ali se zadržava zapis zašto je odbijen — da se ne predlaže ponovo.",
+      "rejected": "Predložena izmena (Prilog 4 da koristi `delivery_date` kao anchor + napomena o orijentacionim datumima) — ODBAČENA od korisnika: „šta dobijamo izmenom, sve već radi kako treba što se nas tiče\". Datumi su u praksi orijentacioni i to je prihvaćeno poslovno pravilo — tačan datum se rešava kroz dokument primopredaje van sistema, pa softverska izmena ne donosi ništa. Nisam menjao ni prikaz Datum preuzimanja u ugovoru (opciona stavka iz istog predloga) — isti razlog.",
+      "sourceSessionId": "session-9b6bb521-1670-43c9-bc2c-3dd3d43f0330",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "rent",
+        "prilog4",
+        "plan-placanja",
+        "delivery-date",
+        "bez-izmene"
+      ],
+      "createdAt": 1790944369391,
+      "updatedAt": 1790945820708,
+      "summary": "Zatvoreno bez izmene koda. Provera je pokazala (i dokumentovala) da: Prilog 4 računa datume dospeća iz `contract_date` (pdf.py:61,112), ugovor klauzulom 2.4 veže plaćanje za preuzimanje, a polje `delivery_date` („Datum preuzimanja\") se čuva ali se ne koristi nigde. Korisnik je potvrdio da je to prihvatljivo jer je tačan datum stvar dogovora i primopredaje van sistema. Nema izmene."
+    },
+    {
+      "id": "card-330b9670-a2e5-4cbf-a40a-715557dfa063",
+      "title": "Imenik pretraga: typo fallback (Damerau-Levenshtein ≤2) kao drugi sloj",
+      "description": "Tipfelers sloj za imenik pretragu: kad LIKE/norm() sloj (dijakritike/interpunkcija/razmaci) vrati 0 rezultata, _typo_fallback skenira kontakte i pogađa reči po Damerau-Levenshtein distance ≤2 (raniji izlazak iz petlje). Reči <4 znaka se preskaču (nema šuma), notes isključen, filteri (archived/kind/country/roles) primenjeni, paginacija kompatibilna. Bugfix u follow-upu: fallback sada radi i u picker modu (bez per_page).",
+      "summary": "Implementirano + deployovano: _damerau_levenshtein_within + _typo_fallback u contact_service; aktiviran na OBA puta (paginirani total=30 i picker 30 rezultata — bugfix commit). LIVE: Cacck → 30 pogodaka ('MON SPED' DOO iz Čačka je legitiman — grad pogađa), cacak LIKE put 117ms netaknut. Suite 519 passed; kontejner healthy. Granice: reči <4 znaka nikad fuzzy, notes bez typo-matchinga, rezultati alfabetički ne po relevance score.",
+      "rationale": "Korisnik pitao koliko je kompleksno dodati tipfelers ('Cacck' → 'Čačak'); mereno ~120ms full-scan na 2156 kontakata pa odobrio preko question prompta ('Dodaj fallback sloj'). Fallback-only dizajn: normalne pretrage ne plaćaju ništa (~85ms), sken samo pri praznom rezultatu.",
+      "rejected": "Trigram similarity (prototip na realnim podacima: sim('cacck','cacak')=0.333 — promašio tačno ono što korisnik traži); plain Levenshtein bez transpozicija (Damerau košta jedan min() branch a hvata 'teh'/'the'); always-on fuzzy u LIKE sloju (svaka pretraga bi plaćala sken); FTS5 spellfix (nije garantovan u deployed SQLite build-u, shadow tabela za održavanje).",
+      "sourceSessionId": "session-2a931069-ce16-40a9-ae01-b1c50dd03ecc",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "contacts",
+        "search",
+        "typo-tolerance",
+        "deployed"
+      ],
+      "createdAt": 1790945047826,
+      "updatedAt": 1790945047826
+    },
+    {
+      "id": "card-879cf3ce-53c8-468b-ae13-951a763d6f1a",
+      "title": "Analiza: uticaj dužine ugovora na isplativost (firma vs mušterija) + prelom fiksnog troška 298 €",
+      "description": "Korisnikovo pitanje: kako duzina ugovora utice na isplativost firme i musterije; ista masina 5.000 EUR na 1/2/3/4 godine. Nalazi (cena 5.000, avans 20%, ostatak 20%, kamata 14%/god, osiguranje 1,13%/god, garancija 5% jednokratno, admin 50): ZARADA FIRME UKUPNO raste sa duzinom (12m: 728,84 / 24m: 1.149,93 / 36m: 1.580,68 / 48m: 2.021,01) ali ZARADA PO GODINI pada (728,84 / 574,96 / 526,89 / 505,25 = 14,6% / 11,5% / 10,5% / 10,1% cene). UZROK je sastav: kamata raste sa duzinom (372 → 1.495), osiguranje linearno (56,50 → 226), ali GARANCIJA JE JEDNOKRATNA 250 EUR (5%) bez obzira na duzinu — na 1 god to je 5%/god, na 4 god samo 1,25%/god. Dakle nije samo 'vreme vracanja novca': (a) tajming, (b) ukupna zarada raste, (c) godisnji prinos pada. ODLUCUJUCI FAKTOR je fiksni trosak po ugovoru (nalazenje musterije, papirologija, primopredaja, pracenje naplate, prijem/pregled opreme): 1x4god = 2.021,01 vs 4x1god = 2.915,34, pa je PRELOM na 298,11 EUR po ugovoru — ispod toga kratki ugovori vrede, iznad toga jedan dugi ugovor vredi vise. INFLACIJA @3%: 1 god izgubi 21 EUR (2,9% zarade), 4 god 225 EUR (11,2%) — dugi ugovori gube relativno 4x vise, ali apsolutno i dalje donose vise (realno 1.796 vs 708). Rent je indeksiran u EUR (naplata u RSD po srednjem kursu NBS) pa je inflacija dinara pokrivena; steta dolazi samo od EUR inflacije. MUSTERIJA je zrcalna strana (nulti zbir): kratak ugovor = veca rata (367,88 vs 124,28) ali manje ukupno plati; dug = manja rata, vise ukupno. Skripte: /tmp/rent_duration_analysis.py, /tmp/rent_duration_overhead.py.",
+      "summary": "Analiza uticaja duzine ugovora (5.000 EUR, 1-4 godine): ukupna zarada raste sa duzinom (729-2.021 EUR), ali zarada PO GODINI pada (14,6% → 10,1% cene) jer je garancija jednokratna 250 EUR. Nije samo tajming — tri efekta. Odlucujuci faktor: fiksni trosak po ugovoru sa prelomom na 298,11 EUR (1x4god vs 4x1god). Inflacija @3% odnosi 2,9% zarade kod 1-godisnjeg i 11,2% kod 4-godisnjeg ugovora; EUR indeksacija stiti od inflacije dinara. Musterija je zrcalna strana (nulti zbir): dug ugovor = manja rata, veca ukupna cena.",
+      "rationale": "Korisnik pita strategijsko pitanje (koliko dugo davati opremu u rent) i sumnja da sva zarada moze da se pojede u inflaciji kod malih suma. Analiza daje konkretan broj (prelom 298 EUR fiksnog troska po ugovoru) koji se moze koristiti kao politika pri odlucivanju o duzini ugovora.",
+      "rejected": "Prikazivanje samo IRR-a kao mere — odbijeno kao zbunjujuce: IRR za 12 meseci ispada 31,1% jer se racuna na NETO izlozenost posle avansa (5.000 - 1.000), pa deluje napuhano; intuitivnija i postena mera je 'zarada po godini kao % cene opreme' (14,6% → 10,1%). Zanemarivanje fiksnog troska po ugovoru — odbijeno: bez njega ispada da su kratki ugovori uvek bolji (2.915 vs 2.021), a prelom na 298 EUR pokazuje da to nije tacno za malu opremu.",
+      "sourceSessionId": "session-9b6bb521-1670-43c9-bc2c-3dd3d43f0330",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "rent",
+        "ekonomija",
+        "analiza",
+        "duzina-ugovora",
+        "inflacija"
+      ],
+      "createdAt": 1790946322045,
+      "updatedAt": 1790946322045
+    },
+    {
+      "id": "card-c21a160e-2d67-46f1-8ade-b8828ce5f5ac",
+      "title": "Tabela i formula trajanja renta: cena -> min/max meseci za ratu 200-1000 EUR",
+      "description": "Korisnikova praksa: mala oprema = kratak period, velika = dugacak, da rata ostane u opsegu 200-1000 EUR/mes; max 4 godine. PROVERA: praksa se matematicki slaze. Izvedena je ZATVORENA FORMULA (greska 0,000% u odnosu na calculate_rent): rata_BRUTO = cena x k(N), gde je k(N) = 0,0028 x (4 - q)/(1 - q) + 0,00113 + 0,06/N i q = 1,0116667^(-N). Izvod: rata_fin/cena = 0,2r(4-q)/(1-q) sa r=0,14/12 i q=(1+r)^-N; osiguranje/cena = 0,0113/12; garancija/cena = 0,05/N; sve x1,2 zbog PDV. BRZA FORMULA za procenu: meseci ~= cena / zeljena_rata (tacna do ~25.000 EUR). TABELA (cena -> MIN/MAX meseci, rata, prinos god): 1000 -> 1/4m (792/204 EUR, 132%/39%); 2000 -> 2/8m (800/212, 55%/20%); 3000 -> 3/13m (809/206, 36%/15%); 5000 -> 5/24m (825/205, 23%/12%); 6000 -> 5/31m (990/202, 23%/11%); 8000 -> 7/47m (962/202); 10000 -> 9/48m (953/249, 16%/10%); 15000 -> 14/48m; 20000 -> 19/48m; 25000 -> 25/48m; 30000 -> 32/48m; 35000 -> 39/48m; 40000 -> 48/48m (994). GRANICA: 40.233 EUR je najveca cena koja na 48 meseci ostaje <=1000 EUR/mes sa avansom 20%; iznad toga treba veci avans ili duze od 4 god. UPOZORENJE ZA MALE SUME: apsolutna zarada je mala (1000 EUR opreme kroz 4m = 131 EUR; 2000 EUR kroz 8m = 266 EUR), pa fiksni trosak po ugovoru od ~300 EUR pojede ceo posao — ispod ~2500-3000 EUR cene oprema ne moze da nosi taj trosak. Skripte: /tmp/rent_practice_table.py, /tmp/rent_duration_table.py.",
+      "summary": "Izvedena zatvorena formula (tacna do 0,000%): rata_bruto = cena x [0,0028 x (4-q)/(1-q) + 0,00113 + 0,06/N], q = 1,0116667^(-N). Brza procena: meseci ~= cena / zeljena_rata. Tabela cena -> min/max trajanje za ratu 200-1000 EUR za 16 cena od 1.000 do 40.000 EUR, sa prinosom po godini. Granica 40.233 EUR za 4-godisnji ugovor. Upozorenje: ispod ~3.000 EUR cene oprema ne pokriva fiksni trosak po ugovoru (~300 EUR).",
+      "rationale": "Korisnik je trazio konkretan nacin da za svaku cenu opreme zna min/max trajanje da rata ostane u 200-1000 EUR — ovo je operativni alat za svakodnevno kalkulisanje ponuda, a izvedena formula omogucava da se tabela prosiri na bilo koju cenu bez pokretanja koda.",
+      "rejected": "Numericko fitovanje k(N) aproksimacijom (power-law) — odbijeno: izvod iz samih formula daje TACNU zatvorenu formu (greska 0,000%), pa aproksimacija nije potrebna. Duzi rok od 48 meseci za skupe masine — odbijeno po korisnikovoj odluci (rizik). Podizanje gornje granice rate iznad 1000 EUR za skupe masine — odbijeno: korisnik je definisao opseg; za cene >40.233 EUR resenje je veci avans, ne visa rata.",
+      "sourceSessionId": "session-9b6bb521-1670-43c9-bc2c-3dd3d43f0330",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "rent",
+        "ekonomija",
+        "tabela-trajanja",
+        "formula",
+        "pricing"
+      ],
+      "createdAt": 1790947348602,
+      "updatedAt": 1790947348602
+    },
+    {
+      "id": "card-13856ac9-35c8-4c3b-a6e9-c7ee72a7c43b",
+      "title": "Ekonomski kriterijum za dužinu ugovora: marginalni prinos ~8,5%/god + prelomni fiksni trošak ~6% cene",
+      "description": "Korisnik je odbacio opseg 200-1000 EUR/mes kao proizvoljan i trazio PRAVI ekonomski kriterijum za duzinu ugovora. NALAZ: marginalni prinos svake DODATNE godine trajanja je ~8,3-8,8% i prakticno je KONSTANTAN — nezavisan i od cene opreme (1.000 EUR -> 8,8%/god; 25.000 EUR -> 8,8%/god) i od trajanja. Razlog: prva godina nosi JEDNOKRATNE naknade (garancija 5% + admin 50 EUR) pa daje 14-29%/god; svaka sledeca godina nosi samo kamatu (14%/god na opadajuci dug) + osiguranje (1,13%/god na punu cenu) = ~8,5%/god. POSLEDICA: prosecan prinos pada sa duzinom (za 4.900 EUR: 6m 20,9% -> 48m 10,1%), ali marginalni ne pada. Zato, BEZ TRENJA, uvek je najisplativije NAJK RACE trajanje. Duze se isplati samo zbog dva trenja: F = fiksni trosak jednog ugovora i I = meseci praznog hoda izmedju ugovora. PRELOMNI F (uz I=0), tj. vrednost pri kojoj se duzi rok izjednacava sa kraćim: za 1.000 EUR: 12v24=102, 24v48=96, 12v48=100; za 2.000: 153/142/149; za 4.900: 303/274/293; za 10.000: 565/508/546; za 25.000: 1339/1194/1291; za 40.000: 2112/1881/2035. To je ~5-6% vrednosti opreme (za male ~10%). PRAVILO: ako te jedan ugovor kosta VISE od tog broja -> duzi rok; ako MANJE -> kraci. MALE VREDNOSTI: apsolutna zarada je sicušna (1.000 EUR kroz 48m = 444 EUR; minus 300 EUR troska = 144 EUR kroz 4 god = 3,6%/god) pa fiksni trosak pojede sve — mali predmeti traze DUZE rokove ILI ih ne treba raditi. VELIKE: fiksni trosak zanemarljiv -> kraci rokovi (25.000 EUR na 6m = 16,9%/god vs 48m = 8,5%/god), ALI kroz prazan hod (tesko plasirati veliku masinu) duzi rok se brani. Korisnikov primer 4.900 EUR / 48m / 88 EUR: sa standardnim parametrima 48m daje 121,79 EUR bruto (101,49 neto); 88 EUR bruto = 86 meseci; 88,54 EUR NETO je tacno na 60 meseci. Skripta: /tmp/rent_economic_optimum.py.",
+      "summary": "Definisan pravi ekonomski kriterijum: marginalni prinos svake dodatne godine je ~8,5%/god (konstantan, nezavisan od cene), jer prva godina nosi jednokratne naknade, a svaka sledeca samo kamatu+osiguranje. Zato bez trenja uvek vredi najkrace trajanje. Duze se opravdava samo fiksnim trosKom po ugovoru (F) i praznim hodom (I); prelomni F je ~5-6% vrednosti opreme (tabela za 6 cena). Mali predmeti su strukturno neisplativi (fiksni trosak pojede zaradu) i traze duze rokove, veliki traze krace — suprotno trenutnoj praksi, osim sto prazan hod kod velikih masina vraca duze rokove.",
+      "rationale": "Korisnik eksplicitno odbacuje proizvoljne granice rate i trazi ekonomski smisao; ovo daje kriterijum koji se moze primeniti na svaku cenu i trajanje bez izmisljenih brojeva, i pokazuje zasto je njegova intuicija (malo-kratko, veliko-dugo) delimicno tacna ali iz pogresnog razloga.",
+      "rejected": "Opseg 200-1000 EUR/mes kao kriterijum odluke — ODBACEN od korisnika i potvrdjen kao pogresan: to je ogranicenje kupovne moci (prodajno), ne ekonomski kriterijum. Racunanje optimalnog trajanja kao 'gde je ukupna zarada najveca' — odbijeno: ukupna zarada je uvek najveca na 48m (monotono raste), pa taj kriterijum uvek vraca 48 meseci i ne odlucuje nista. Koriscenje IRR-a kao jedine mere — odbijeno: IRR na 6m ispada 20-30% jer se racuna na neto izlozenost posle avansa, pa deluje napuhano; marginalni prinos po dodatnoj godini je intuitivniji i stabilniji.",
+      "sourceSessionId": "session-9b6bb521-1670-43c9-bc2c-3dd3d43f0330",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "rent",
+        "ekonomija",
+        "analiza",
+        "duzina-ugovora",
+        "kriterijum"
+      ],
+      "createdAt": 1790947609626,
+      "updatedAt": 1790947609626
+    },
+    {
+      "id": "card-c46866de-5ca7-4a2e-b51b-898ab0eb6233",
+      "title": "ODGOVORENO · Mušterija plaća 83,39 € — zarada = dodaci − avans; kratki ugovori su gubitak vs prodaja",
+      "description": "KORISNIKOVA NAPOMENA (2026-09-24): u ugovoru 011026 bruto rata je 104,39 EUR ali posle mesecnog 'zatvaranja avansa' iznosi 83,39 EUR; ugovor definise da se avans koristi kao garancija za prekid i da se vraca musteriji kroz umanjenje rate, a na kraju je cela vrednost avansa vracena musteriji. Kod TO VEC racuna i prikazuje: qp_crm/services/rent_service.py::calculate_rent vraca `zatvaranje = ucesce_bruto/N` i `rata_nakon = rata_bruto - zatvaranje`, a `generate_schedule` ih stavlja u Prilog 4 kao kolone 'Zatvaranje Avansa' i 'Suma nakon zatv. avansa'. ALI moja analiza isplativosti je koristila rata_bruto (104,39) kao mesecni prihod firme i tretirala avans kao zadrzan — nikad nisam modelirao mesecni povracaj. DVE INTERPRETACIJE: (F) musterija placa punu ratu 104,39 + avans + ostatak; '83' je samo informativna kolona -> zarada na 011026 = 1.705,65 EUR (40,6% cene, 10,1%/god). (R) musterija placa avans pa 83,39 mesecno (avans joj se vraca kroz umanjenje) + ostatak -> zarada = 865,65 EUR (20,6% cene, 5,1%/god). Razlika je tacno avans (840 neto). PROVERA ZDRAVOG RAZUMA: ako je R tacna, kratki ugovori su GUBITAS (5.000 EUR na 12m = -271 EUR; 1.000 EUR na 12m = -14 EUR), sto ne moze biti poslovni model sa 14% kamatom; po F su svi pozitivni. Zato F izgleda tacno, ali MORA korisnik da potvrdi. PREKID NA POLA UGOVORA (011026, 24. mesec): firma je naplatila 840 + 24x86,99 = 2.928 neto, zadrzava nezatvoreni avans 420 neto i dobija uredjaj nazad; ako uredjaj vredi 50% (2.100) ukupno 5.028 vs 4.200 => +828. To je skoro isto kao pun ugovor po interpretaciji R (866) a upola manje od F (1.706) — znaci garancija iz avansa je mnogo vaznija ako je R tacna. Portfelj: F = +23.742 EUR (+32,5%), R = +9.132 EUR (+12,5%). Skripta: /tmp/rent_avans_check.py.",
+      "rationale": "Korisnik je potvrdio 83,39 EUR, cime je nedoumica resena i cela ekonomska analiza mora da se koriguje naniže.",
+      "rejected": "Interpretacija F (musterija placa punu ratu 104,39, avans se zadrzava) — ODBAČENA od korisnika: musterija placa 83,39. Time pada i moja ranija procena portfelja od +23.742 EUR (+32,5%) — bila je pogrešna jer je avans tretiran kao prihod firme.",
+      "sourceSessionId": "session-9b6bb521-1670-43c9-bc2c-3dd3d43f0330",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "rent",
+        "avans",
+        "odgovoreno",
+        "ekonomija",
+        "pricing"
+      ],
+      "createdAt": 1790948206665,
+      "updatedAt": 1790948596451,
+      "summary": "ODGOVOR: musterija za ugovor 011026 placa 83,39 EUR/mes (rata_bruto 104,39 minus zatvaranje avansa 21,00), sto je reading R. Posledica po isplativost: zarada firme = kamata + osiguranje + garancija + admin − AVANS. Portfelj (5 ugovora, 73.049 EUR) daje +8.624 EUR (+11,8%), NE +23.742 EUR (+32,5%) kako sam ranije pogresno izracunao (razlika = avans 14.610 EUR). Prelom isplativosti vs prodaja (uz pretpostavku da se oprema na kraju realizuje po 20%): rent donosi zaradu tek od ~15-21. meseca (1,2-1,8 god); kratki ugovori (6-18m) su GUBITAK vs prodaja (npr. 5.000 EUR na 12m = −271 EUR). Najslabiji ugovor u portfelju je 010826 (25.400 EUR, 24m): samo +558 EUR = 2,2% kroz 2 godine. Skripta: /tmp/rent_final_economics.py."
+    },
+    {
+      "id": "card-ac77984b-a6de-4f7b-9baf-b18d9837a8a2",
+      "title": "Propusti u rent dokumentaciji: hard-kodiran broj ugovora u Prilogu 2, 1 vs 5 menica, pogrešan iznos u instrukciji za avans",
+      "description": "Pregledom svih 8 šablona dokumenata u rent_templates + Priloga 3/4 (generisani PDF) nađeni konkretni propusti u dokumentaciji:\n(1) Prilog 2 (Protokol) član 1: HARD-KODIRAN broj ugovora „Ugovora o dugoročnom zakupu br. 001/2023\" — treba {{ contract_number }}; svaki protokol tvrdi da pripada ugovoru 001/2023.\n(2) KOLIZIJA: Ugovor član 10.1 traži PET (5) blanko solo menica, a Menično ovlašćenje kaže „Predajemo Vam jednu blanko solo menicu\". Zapisnik o preuzimanju (sačuvan primer, AUTO CENTAR MASTERS) navodi 5 serijskih brojeva menica (AD7448500, AD7448494, AD7448493, AD7448492, AD7448491) — dakle praksa je 5, tekst ovlašćenja je pogrešan.\n(3) Instrukcija za uplatu avansa: red „Iznos: 100.100,1000 RSD\" je hard-kodiran i NE prikazuje stvarni avans (za 011026 treba ~118.000 RSD). Iznos u EUR ({{ ucesce_bruto_fmt }}) je tačan, ali RSD red je pogrešan.\n(4) Prilog 1 (Zapisnik o primopredaji): 6 slotova za opremu (Model/Proizvođač/Serijski broj/OPIS) su prazne linije — sistem NE popunjava model opreme iz ugovora; datum i vreme primopredaje su prazne linije iako ugovor ima delivery_date/delivery_time koji se čuvaju u bazi.\n(5) Prilog 2: zamena uloga — „Zakupodavac je dužan da nadoknadi celokupnu vrednost štete koju je pretrpeo Zakupodavac\" (treba Zakupac); član 3 ima dva stavka „b.\", član 2 dva stavka „f.\"; „utvruđuje\" (tipfeler); naslov „Obaveze Zakupodavca\" stoji iznad tabele stanja.\n(6) Neujednačen naziv: glavni ugovor je „Ugovor o zakupu opreme\", a svi prilozi ga zovu „Ugovor o dugoročnom zakupu\".\n(7) Ugovor član 2.3 navodi bruto zakupninu 104,39 EUR, a mušterija plaća 83,39 (razlika = zatvaranje avansa iz 13.2). Veza između te dve odredbe nije eksplicitna — čitalac može da razume da plaća 104,39 plus da se avans zatvara.\n(8) U ugovoru NEMA opcije otkupa (član 12.1 nalaže vraćanje opreme) — što je namerno zbog poreskog rizika, ali onda prodaja po 20% nema nikakav dokument u sistemu.",
+      "rationale": "Korisnik je tražio ocenu sistema nakon čitanja ugovora i svih priloga; ovi propusti su konkretni, popravljivi i utiču na pravnu valjanost i na poverenje mušterije (pogotovo hard-kodiran broj ugovora i pogrešan iznos u instrukciji za uplatu).",
+      "rejected": "Nisam sam menjao šablone dokumenata — odbijeno: tekst ugovora je pravni dokument i korisnik ga uređuje kroz /admin/rent/templates; System Default šabloni se reseeduju pri bootu pa bi izmena u kodu ili bila pregažena ili bi tiho promenila pravni tekst. Prvo odluka korisnika koji nalaz da se menja, pa izmena.",
+      "sourceSessionId": "session-9b6bb521-1670-43c9-bc2c-3dd3d43f0330",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "rent",
+        "dokumenti",
+        "ugovor",
+        "bug",
+        "pravno",
+        "prilozi"
+      ],
+      "createdAt": 1790948605581,
+      "updatedAt": 1790948605581
+    },
+    {
+      "id": "card-258fcbe7-1ae0-4c15-8134-090c290eb432",
+      "title": "R-D1 · Ispravke rent šablona: broj ugovora u Prilogu 2, 5 menica, prazan RSD iznos, uloge i numeracija, naziv",
+      "description": "Korisnikove odluke (2026-09-24) po nalazima iz pregleda dokumentacije: (1) Prilog 2 čl. 1 — hard-kodiran „br. 001/2023\" zameniti sa {{ contract_number }}; (2) Menično ovlašćenje — „jednu\" → „pet (5)\" menica (praksa je 5, potvrđeno zapisnikom sa 5 serijskih brojeva); (3) Instrukcija za avans — hard-kodiran RSD iznos (100.100,1000 u živoj bazi, 824.817,7368 u JSON-u) ostaviti prazan jer se kurs zna tek na dan uplate (ugovor kaže „po srednjem kursu NBS na dan uplate\"); (4) Prilog 1 datum/vreme primopredaje — NAMERNO prazno (upisuju na terenu), BEZ IZMENE; (5) Prilog 2 — popraviti zamenu uloga (Zakupodavac→Zakupac), prenumerisati duple oznake (čl. 2: drugi „f\"→h, h→i, i→j; čl. 3: drugi „b\"→c), tipfeler „utvruđuje\"→„utvrđuje\"; (6) naziv „Ugovor o dugoročnom zakupu\" → „Ugovor o zakupu opreme\" u svim prilozima (4 mesta); (7) Ugovor čl. 2.3 — dodati neutralnu vezu sa čl. 13.2 („Mesečna obaveza plaćanja umanjuje se za iznos mesečnog zatvaranja avansa iz člana 13.2\"), bez promene pravne suštine. Menja se i qp_crm/rent/rent_templates_defaults.json (za nove baze) i živa baza.",
+      "rationale": "Korisnik je eksplicitno odobrio ovih 6 ispravki nakon pregleda ugovora i priloga; nalazi su konkretni i popravljivi, a najozbiljniji (pogrešan broj ugovora u Prilogu 2 i pogrešan iznos u instrukciji za uplatu) direktno štete pravnoj vrednosti dokumenata.",
+      "rejected": "Automatizacija RSD iznosa u instrukciji za avans — odbijeno: ugovor definiše plaćanje po srednjem kursu NBS na dan uplate, pa tačan RSD iznos nije poznat u trenutku kreiranja ugovora; ispravno je ostaviti prazno polje. Popunjavanje datuma/vremena primopredaje u Prilogu 1 — odbijeno od korisnika: popunjava se ručno na terenu zbog izmena posle štampe.",
+      "sourceSessionId": "session-9b6bb521-1670-43c9-bc2c-3dd3d43f0330",
+      "status": "in_progress",
+      "tags": [
+        "qp-crm",
+        "rent",
+        "dokumenti",
+        "ugovor",
+        "bug",
+        "pravno",
+        "task"
+      ],
+      "createdAt": 1790951958665,
+      "updatedAt": 1790951958665
     }
   ]
 }

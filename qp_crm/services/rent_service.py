@@ -147,6 +147,14 @@ def _build_doc_context(contract: dict, calc: dict) -> dict:
         except Exception:
             return s or ""
 
+    # Izjava o vrednosti opreme (2026-09-24): the guaranteed buyout value at
+    # the end of the rent equals the contract's residual (salvage) value.
+    # VAT follows the contract's own vat_percent, defaulting to 20.
+    _months = contract.get("period_months") or 0
+    _vat = contract.get("vat_percent")
+    _vat = 20.0 if _vat is None else float(_vat)
+    _ostatak = calc["ostatak"]
+
     return {
         # Contract
         "contract_number":      contract.get("contract_number") or "",
@@ -179,6 +187,15 @@ def _build_doc_context(contract: dict, calc: dict) -> dict:
         "ostatak_fmt":          fa(calc["ostatak"]),
         "osiguranje_fmt":       fa(calc["osiguranje"]),
         "garancija_fmt":        fa(calc["garancija"]),
+
+        # Izjava o vrednosti opreme: guaranteed end-of-rent value (net / VAT /
+        # gross) + the term expressed in years. Used by the
+        # 'izjava-vrednost-opreme' template.
+        "ostatak_pdv_fmt":      fa(_ostatak * _vat / 100.0),
+        "ostatak_bruto_fmt":    fa(_ostatak * (1 + _vat / 100.0)),
+        "vat_percent":          (str(int(_vat)) if _vat == int(_vat) else str(_vat)),
+        "period_years":         (str(_months // 12) if _months and _months % 12 == 0
+                                 else f"{_months / 12:.1f}" if _months else ""),
     }
 
 
