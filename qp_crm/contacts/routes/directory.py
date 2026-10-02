@@ -265,3 +265,33 @@ def edit_contact_location(location_id):
         return redirect(url_for("contacts.view_contact",
                                 contact_id=row["contact_id"]))
     return redirect(url_for("contacts.list_contacts"))
+
+
+# ---------------------------------------------------------------------------
+# Duplikati (T3, user request 2026-10-02): skener + merge + brisanje
+# ---------------------------------------------------------------------------
+
+@bp.route("/contacts/duplicates")
+def duplicates():
+    groups = contact_service.find_duplicate_groups()
+    return render_template(
+        "contacts/duplicates.html",
+        groups=groups,
+    )
+
+
+@bp.route("/contacts/merge", methods=["POST"])
+def merge_contacts():
+    keep_id = request.form.get("keep_id", type=int)
+    drop_id = request.form.get("drop_id", type=int)
+    ok, message = contact_service.merge_contacts(keep_id, drop_id)
+    flash(message, "success" if ok else "error")
+    return redirect(url_for("contacts.duplicates"))
+
+
+@bp.route("/contacts/duplicates/delete", methods=["POST"])
+def delete_duplicate():
+    contact_id = request.form.get("contact_id", type=int)
+    ok, message = contact_service.delete_duplicate(contact_id)
+    flash(message, "success" if ok else "error")
+    return redirect(url_for("contacts.duplicates"))

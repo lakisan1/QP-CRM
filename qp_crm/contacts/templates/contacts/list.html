@@ -9,7 +9,12 @@
    the New button + count pill row first, THEN the filter bar inside a
    .card (gray background), then the table card. #}
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-    <a href="{{ url_for('contacts.new_contact') }}" class="btn btn-success">+ Novi kontakt</a>
+    <div style="display:flex;gap:10px;">
+        <a href="{{ url_for('contacts.new_contact') }}" class="btn btn-success">+ Novi kontakt</a>
+        {# Skener duplikata (user request 2026-10-02): predlozi spajanja
+           ili dodavanja adrese + ručno brisanje duplikata. #}
+        <a href="{{ url_for('contacts.duplicates') }}" class="btn btn-warning">Skeniraj duplikate</a>
+    </div>
     <span style="background:var(--accent-primary);color:white;padding:4px 14px;border-radius:20px;font-weight:bold;">
         {{ total_count }} kontakata
     </span>

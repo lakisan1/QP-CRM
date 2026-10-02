@@ -267,6 +267,34 @@ def get_contact(contact_id):
     return row
 
 
+def _registry_conflict(conn, pib, mb, exclude_id=None):
+    """First conflicting contact for a PIB/MB value, or None (T4, user
+    request 2026-10-02: 'pib i mb su jedinstveni — dve musterije ne mogu
+    da imaju isti pib ni mb'). Empty/NULL values never conflict. Returns
+    (contact_id, display_name, which_field) for the error message.
+    """
+    cur = conn.cursor()
+    for field, value in (("pib", (pib or "").strip()), ("mb", (mb or "").strip())):
+        if not value:
+            continue
+        if exclude_id is not None:
+            cur.execute(
+                f"SELECT id, display_name FROM contacts WHERE {field} = ? "
+                "AND id != ? AND archived = 0 LIMIT 1;",
+                (value, exclude_id),
+            )
+        else:
+            cur.execute(
+                f"SELECT id, display_name FROM contacts WHERE {field} = ? "
+                "AND archived = 0 LIMIT 1;",
+                (value,),
+            )
+        hit = cur.fetchone()
+        if hit is not None:
+            return hit["id"], hit["display_name"], field.upper()
+    return None
+
+
 def create_contact(display_name, kind="company", roles=(), fields=None):
     """Create a directory entry. Returns (ok, id_or_message).
 
@@ -284,6 +312,15 @@ def create_contact(display_name, kind="company", roles=(), fields=None):
 
     conn = get_db()
     cur = conn.cursor()
+    # T4 (user request 2026-10-02): PIB/MB su jedinstveni u aktivnom
+    # imeniku — odbij unos sa jasnom porukom umesto da nastane duplikat.
+    conflict = _registry_conflict(conn, fields.get("pib"), fields.get("mb"))
+    if conflict is not None:
+        conn.close()
+        other_id, other_name, field = conflict
+        return False, (f"{field} već postoji u imeniku: "
+                       f"{other_name} (kontakt {other_id}). "
+                       "Dve musterije ne mogu imati isti PIB/MB.")
     cur.execute(
         """
         INSERT INTO contacts (kind, display_name, first_name, last_name, jmbg,
@@ -343,6 +380,17 @@ def update_contact(contact_id, display_name, kind=None, roles=None, fields=None)
         conn.close()
         return False, "Kontakt nije pronađen."
     new_kind = kind if kind in _VALID_KINDS else row["kind"]
+
+    # T4 (user request 2026-10-02): PIB/MB jedinstveni — izmena ne sme
+    # pokupiti tuđi registarski broj (svoj id se isključuje).
+    conflict = _registry_conflict(conn, fields.get("pib"), fields.get("mb"),
+                                  exclude_id=contact_id)
+    if conflict is not None:
+        conn.close()
+        other_id, other_name, field = conflict
+        return False, (f"{field} već postoji u imeniku: "
+                       f"{other_name} (kontakt {other_id}). "
+                       "Dve musterije ne mogu imati isti PIB/MB.")
 
     writable = tuple(_CONTACT_FIELDS)
     assignments, params = ["display_name = ?", "kind = ?"], [display_name, new_kind]
@@ -707,8 +755,178 @@ def linked_documents(contact_id):
 
 
 # ---------------------------------------------------------------------------
-# legacy-document backfill (musterija-first era): link existing documents
+# duplicate scanner (T3, user request 2026-10-02): predlozi spajanja ili
+# dodavanja adrese kao lokacije + ručno brisanje duplikata
 # ---------------------------------------------------------------------------
+
+def find_duplicate_groups():
+    """Duplicate suspects across the ACTIVE directory, grouped.
+
+    Sigurni duplikat = isti PIB, ILI isti MB uz sličan naziv (containment
+    nakon dijakritičnog folda), ILI isti normalizovan naziv. Sumnjivac =
+    isti MB uz nepovezana imena (izvorna greška: dve firme dele registarski
+    broj) — NE sme auto-merge, korisnik odlučuje.
+
+    Returns list of dicts:
+      {kind: 'pib'|'mb'|'name', confident: bool, contacts: [row dicts]}
+    """
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT id, display_name, pib, mb, city, billing_address, email, phone "
+        "FROM contacts WHERE archived = 0 ORDER BY display_name COLLATE NOCASE;"
+    )
+    rows = cur.fetchall()
+    conn.close()
+
+    def fold(s):
+        s = " ".join((s or "").split()).casefold()
+        s = "".join(c for c in unicodedata.normalize("NFD", s)
+                    if unicodedata.category(c) != "Mn")
+        return s
+
+    def similar(n1, n2):
+        f1, f2 = fold(n1), fold(n2)
+        return bool(f1) and bool(f2) and (f1 in f2 or f2 in f1)
+
+    by_pib, by_mb, by_name = {}, {}, {}
+    groups = []
+
+    def add_group(kind, confident, a, b):
+        pair = tuple(sorted((a["id"], b["id"])))
+        for g in groups:
+            if tuple(sorted((c["id"] for c in g["contacts"]))) == pair:
+                if confident and not g["confident"]:
+                    g["confident"] = True
+                    g["kind"] = kind
+                return
+        groups.append({
+            "kind": kind,
+            "confident": confident,
+            "contacts": [dict(a), dict(b)],
+        })
+
+    for r in rows:
+        if r["pib"] and r["pib"].strip():
+            k = r["pib"].strip()
+            if k in by_pib:
+                add_group("pib", True, by_pib[k], r)
+            else:
+                by_pib[k] = r
+        if r["mb"] and r["mb"].strip():
+            k = r["mb"].strip()
+            if k in by_mb:
+                add_group("mb", similar(by_mb[k]["display_name"], r["display_name"]),
+                          by_mb[k], r)
+            else:
+                by_mb[k] = r
+        nk = fold(r["display_name"])
+        if nk:
+            if nk in by_name:
+                add_group("name", True, by_name[nk], r)
+            else:
+                by_name[nk] = r
+
+    groups.sort(key=lambda g: (not g["confident"], g["kind"]))
+    return groups
+
+
+def merge_contacts(keep_id, drop_id):
+    """Merge drop_id INTO keep_id (T3). The drop row is DELETED — user
+    explicitly approved deletion of duplicates ('za brisanje duplikata'),
+    overriding the no-delete convention for this exact flow only.
+
+    Moves to keep: roles (union), locations (re-parented), document links
+    (offers.contact_id / rent_contracts.contact_id), user link when keep
+    has none. Snapshot fields on issued documents are NOT touched.
+    Returns (ok, message).
+    """
+    if keep_id == drop_id:
+        return False, "Ne može se spojiti kontakt sa samim sobom."
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM contacts WHERE id IN (?, ?);", (keep_id, drop_id))
+    found = {r["id"] for r in cur.fetchall()}
+    if len(found) != 2:
+        conn.close()
+        return False, "Jedan od kontakata ne postoji."
+
+    # roles: union into keep
+    cur.execute("SELECT role FROM contact_roles WHERE contact_id = ?;", (drop_id,))
+    for r in cur.fetchall():
+        cur.execute(
+            "INSERT OR IGNORE INTO contact_roles (contact_id, role) VALUES (?, ?);",
+            (keep_id, r["role"]),
+        )
+    # locations: re-parent extras to keep (main address lives on the row)
+    cur.execute(
+        "UPDATE contact_locations SET contact_id = ? WHERE contact_id = ?;",
+        (keep_id, drop_id),
+    )
+    # documents: re-link live consumers
+    cur.execute("UPDATE offers SET contact_id = ? WHERE contact_id = ?;",
+                (keep_id, drop_id))
+    cur.execute("UPDATE rent_contracts SET contact_id = ? WHERE contact_id = ?;",
+                (keep_id, drop_id))
+    # account link only when target has none (1 account <-> 1 contact)
+    cur.execute(
+        """
+        UPDATE contacts SET user_id =
+          COALESCE((SELECT user_id FROM contacts WHERE id = :keep),
+                   (SELECT user_id FROM contacts WHERE id = :drop))
+        WHERE id = :keep;
+        """,
+        {"keep": keep_id, "drop": drop_id},
+    )
+    # merge note on the keeper records where the data came from
+    cur.execute("SELECT display_name FROM contacts WHERE id = ?;", (drop_id,))
+    dropped_name = cur.fetchone()["display_name"]
+    note_line = f"[Spojeno iz: {dropped_name}]"
+    cur.execute("SELECT notes FROM contacts WHERE id = ?;", (keep_id,))
+    existing_notes = cur.fetchone()["notes"] or ""
+    if note_line not in existing_notes:
+        new_notes = ((existing_notes + "\n" + note_line).strip()
+                     if existing_notes else note_line)
+        cur.execute("UPDATE contacts SET notes = ? WHERE id = ?;",
+                    (new_notes, keep_id))
+    # finally delete the duplicate row itself (+ its roles; locations moved)
+    cur.execute("DELETE FROM contact_roles WHERE contact_id = ?;", (drop_id,))
+    cur.execute("DELETE FROM contacts WHERE id = ?;", (drop_id,))
+    conn.commit()
+    conn.close()
+    return True, f"Spojeno: {dropped_name} → kontakt {keep_id}."
+
+
+def delete_duplicate(contact_id):
+    """Delete one duplicate row outright. Allowed ONLY when the row has no
+    document links — those must be MERGED instead so no document loses its
+    party. Returns (ok, message).
+    """
+    conn = get_db()
+    cur = conn.cursor()
+    n_offers = cur.execute(
+        "SELECT COUNT(*) FROM offers WHERE contact_id = ?", (contact_id,)
+    ).fetchone()[0]
+    n_rent = cur.execute(
+        "SELECT COUNT(*) FROM rent_contracts WHERE contact_id = ?", (contact_id,)
+    ).fetchone()[0]
+    if n_offers or n_rent:
+        conn.close()
+        return False, ("Kontakt ima povezane dokumente — koristi SPOJI "
+                       "da dokumenti pređu na preostali kontakt.")
+    row_ = cur.execute(
+        "SELECT display_name FROM contacts WHERE id = ?", (contact_id,)
+    ).fetchone()
+    if row_ is None:
+        conn.close()
+        return False, "Kontakt ne postoji."
+    name_ = row_["display_name"]
+    cur.execute("DELETE FROM contact_roles WHERE contact_id = ?;", (contact_id,))
+    cur.execute("DELETE FROM contact_locations WHERE contact_id = ?;", (contact_id,))
+    cur.execute("DELETE FROM contacts WHERE id = ?;", (contact_id,))
+    conn.commit()
+    conn.close()
+    return True, f"Obrisan duplikat: {name_}."
 
 def _contact_indexes(cur):
     """PIB / MB / normalized-name indexes over ACTIVE directory contacts.

@@ -1,0 +1,77 @@
+{% extends "contacts/base.html" %}
+{% block title %}Duplikati — Imenik{% endblock %}
+
+{% block content %}
+<h1>Skeniraj duplikate</h1>
+<p style="color: var(--text-muted);">
+    Skener traži musterije koje dele isti <strong>PIB</strong>, isti <strong>matični broj</strong>
+    ili isti naziv. Za svaki par imaš dve opcije:
+    <strong>SPOJI</strong> (drugi kontakt se briše, a njegove uloge, lokacije i dokumenti
+    prelaze na preostali) ili <strong>Zadrži oba</strong> (ako su zapravo različite musterije —
+    npr. dva objekta; onda drugoj dodaj adresu kroz Izmeni).
+</p>
+<p>
+    <a href="{{ url_for('contacts.list_contacts') }}" class="btn">← Nazad na imenik</a>
+    <a href="{{ url_for('contacts.duplicates') }}" class="btn">↻ Ponovo skeniraj</a>
+</p>
+
+{% if not groups %}
+<div class="card">
+    <h2>Nema duplikata</h2>
+    <p style="color: var(--text-muted);">Sken je prošao kroz sve aktivne kontakte — nijedan par ne deli PIB, matični broj ili naziv.</p>
+</div>
+{% endif %}
+
+{% for g in groups %}
+<div class="card">
+    <h2>
+        {% if g.confident %}
+        <span style="color: var(--danger, #c0392b);">Siguran duplikat</span>
+        {% else %}
+        Sumnjiv par (isti matični broj, različita imena)
+        {% endif %}
+        <small style="color: var(--text-muted); text-transform: none; letter-spacing: 0;">
+            — po {{ 'PIB-u' if g.kind == 'pib' else ('matičnom broju' if g.kind == 'mb' else 'nazivu') }}
+        </small>
+    </h2>
+    <table class="larg-table">
+        <tr>
+            <th scope="col">Kontakt</th>
+            <th scope="col">PIB</th>
+            <th scope="col">MB</th>
+            <th scope="col">Grad / Adresa</th>
+            <th scope="col">Kontakt</th>
+            <th scope="col"></th>
+        </tr>
+        {% for c in g.contacts %}
+        <tr>
+            <td><a href="{{ url_for('contacts.view_contact', contact_id=c.id) }}">{{ c.display_name }}</a></td>
+            <td>{{ c.pib or '—' }}</td>
+            <td>{{ c.mb or '—' }}</td>
+            <td>{{ c.city or '—' }}{% if c.billing_address %} / {{ c.billing_address }}{% endif %}</td>
+            <td>{{ c.email or '—' }}{% if c.phone %} / {{ c.phone }}{% endif %}</td>
+            <td></td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% set a = g.contacts[0] %}
+    {% set b = g.contacts[1] %}
+    {# SPOJI form: keep = prvi red (alfabetički prvi), drop = drugi. Korisnik
+       vidi šta se dešava kroz confirm dijalog; merge prebacuje dokumente. #}
+    <form method="post" action="{{ url_for('contacts.merge_contacts') }}"
+          onsubmit="return confirm('SPOJITI: „{{ b.display_name }}” u „{{ a.display_name }}”? Drugi kontakt se BRIŠE, a njegove uloge, lokacije i dokumenti prelaze na preostali.');"
+          style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px;">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="keep_id" value="{{ a.id }}">
+        <input type="hidden" name="drop_id" value="{{ b.id }}">
+        <button type="submit" class="btn btn-warning">Spoji „{{ b.display_name | truncate(30) }}” u „{{ a.display_name | truncate(30) }}”</button>
+    </form>
+    {% if not g.confident %}
+    <small style="color: var(--text-muted); display: block; margin-top: 6px;">
+        Oprez: ova dva kontakta dele matični broj ali imena nisu slična — mogu biti dve stvarno različite musterije
+        (greška u izvoru). Ako su različite, zadrži oba i ispravi MB kroz Izmeni.
+    </small>
+    {% endif %}
+</div>
+{% endfor %}
+{% endblock %}
