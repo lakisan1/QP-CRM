@@ -142,7 +142,106 @@ def list_contacts(include_archived=False, search="", roles=None, kind=None,
     cur.execute(count_sql, params)
     total = cur.fetchone()[0]
     conn.close()
+    if total == 0 and search:
+        # LIKE layer empty -> typo fallback (2026-09-24 user request):
+        # Damerau-Levenshtein <= 2 per word over the same haystack fields,
+        # same filters (archived/kind/country/roles) applied in Python.
+        rows = _typo_fallback(search, include_archived=include_archived,
+                              kind=kind, country=country, roles=roles)
+        total = len(rows)
     return rows, total
+
+
+# ---------------------------------------------------------------------------
+# typo fallback (2026-09-24 user request: 'Cacck' should hit 'Čačak')
+
+def _damerau_levenshtein_within(a, b, max_dist):
+    """Damerau-Levenshtein (OSA) distance with an early exit: returns
+    max_dist+1 as soon as the distance provably exceeds max_dist. Words
+    shorter than 4 chars are never compared (a 1-char difference in a
+    3-letter word is half the word — noise, not a typo)."""
+    la, lb = len(a), len(b)
+    if la < 4 or lb < 4 or abs(la - lb) > max_dist:
+        return max_dist + 1
+    prev2 = None
+    prev = list(range(lb + 1))
+    for i in range(1, la + 1):
+        cur = [i] + [0] * lb
+        best_row = cur[0]
+        for j in range(1, lb + 1):
+            cost = 0 if a[i - 1] == b[j - 1] else 1
+            v = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost)
+            if i > 1 and j > 1 and a[i - 1] == b[j - 2] and a[i - 2] == b[j - 1]:
+                v = min(v, prev2[j - 2] + 1)  # transposition ('teh' <-> 'the')
+            cur[j] = v
+            best_row = min(best_row, v)
+        if best_row > max_dist:
+            return max_dist + 1
+        prev2, prev = prev, cur
+    return prev[lb]
+
+
+_TYPO_FIELDS = ("display_name", "first_name", "last_name", "pib", "mb",
+                "jmbg", "email", "phone", "city", "billing_address",
+                "postal_code", "account")
+
+
+def _typo_fallback(search, include_archived=False, kind=None, country=None,
+                   roles=None):
+    """Whole-table scan matching query words by edit distance <= 2.
+
+    Runs ONLY when the LIKE layer returned zero rows (so the ~100 ms scan
+    never taxes normal searches). Same field set as the LIKE haystack
+    minus notes (free text is too noisy for edit-distance matching).
+    Roles filter applies via roles_of per candidate — candidates are few.
+    Returns rows ordered alphabetically (same shape as list_contacts).
+    """
+    terms = [t for t in _search_norm(search).split() if t]
+    if not terms:
+        return []
+    conn = get_db()
+    cur = conn.cursor()
+    sql = "SELECT * FROM contacts WHERE archived = ?"
+    params: list = [0 if not include_archived else include_archived]
+    if kind in _VALID_KINDS:
+        sql += " AND kind = ?"
+        params.append(kind)
+    if country:
+        sql += " AND country = ?"
+        params.append(country)
+    cur.execute(sql + ";", params)
+    candidates = cur.fetchall()
+    conn.close()
+
+    wanted_roles = {r for r in (roles or []) if r in _VALID_ROLES}
+    hits = []
+    for row in candidates:
+        # every term must fuzzy-hit SOME field of this contact (AND)
+        matched_all = True
+        for t in terms:
+            hit = False
+            for field in _TYPO_FIELDS:
+                value = row[field]
+                if not value:
+                    continue
+                # numbers/emails: substring-ish tolerance via distance on
+                # the whole value; names/cities: word-level
+                words = _search_norm(value).split()
+                if any(_damerau_levenshtein_within(t, w, 2) <= 2 for w in words):
+                    hit = True
+                    break
+            if not hit:
+                matched_all = False
+                break
+        if not matched_all:
+            continue
+        if wanted_roles:
+            row_roles = set(roles_of(row["id"]))
+            if not wanted_roles & row_roles:
+                continue
+        hits.append(row)
+    hits.sort(key=lambda r: r["display_name"].casefold())
+    return hits
 
 
 def get_contact(contact_id):
