@@ -98,6 +98,9 @@ def test_menica_authorisation_asks_for_five_menica():
     html = _templates()["menicno-ovlascenje"]
     assert "pet (5) blanko solo menica" in html
     assert "jednu blanko solo menicu" not in html
+    # five menica must not read as five times the debt: the authorisation caps
+    # the total collected across all of them at the actual outstanding debt.
+    assert "ne može preći iznos stvarnog duga po Ugovoru" in html
 
 
 def test_advance_instruction_has_no_hard_coded_amount():
@@ -121,8 +124,13 @@ def test_new_value_statement_template_exists_and_is_ordered():
     html = tpl[NEW_SLUG]
     assert "IZJAVA O VREDNOSTI OPREME" in html
     for ph in ("{{ ostatak_fmt }}", "{{ ostatak_pdv_fmt }}",
-               "{{ ostatak_bruto_fmt }}", "{{ period_years }}", "{{ vat_percent }}"):
+               "{{ ostatak_bruto_fmt }}", "{{ period_years }}", "{{ vat_percent }}",
+               "{{ period_months }}", "{{ equipment_model }}"):
         assert ph in html, ph
+    # the term is stated in months only (the parenthetical year count was
+    # redundant — the years already appear in the table heading)
+    assert "meseci redovnog" in html
+    assert "meseci ({{ period_years }}" not in html
     # the tax-safety note must stay
     assert "ne može biti isto pravno lice" in html
 
