@@ -2,25 +2,6 @@
   "version": 1,
   "cards": [
     {
-      "id": "card-9c7f744d-f6cb-4c7b-9157-f98bd5d03941",
-      "title": "BUG · offer discount storage: NULL (new_offer) vs 0.0 (edit_offer) for zero percentages + asymmetric recalc write-back",
-      "description": "Pinned by tests/characterization/test_offer_recalc.py::test_null_discounts_behave_as_zero_and_are_partially_persisted. new_offer (offer/app.py:590-592) stores NULL for zero discount/vat inputs, edit_offer (offer/app.py:847-849) stores 0.0 for the same input; recalc_totals then coerces NULL/0 via 'or 0.0' and writes special/third back as floats while leaving discount_percent/vat_percent NULL (offer/app.py:788-800). Net effect is benign today (both read as no-discount) but the schema carries two encodings of the same fact and the asymmetric write-back makes DB state depend on which form last touched the row. Related: L11 (floats for money), L4 (schema created by two init paths with slightly different definitions).",
-      "rationale": "Phase 2's single-schema/service-layer work needs the canonical encoding decided (NOT NULL DEFAULT 0.0 everywhere or explicit NULL semantics) before data migration; the pinned test will be re-baselined with that decision.",
-      "rejected": "One-time data migration (UPDATE offers SET ... WHERE IS NULL in migrate_offer_tables): legacy rows are already read as zero everywhere (\"or 0.0\"), recalc now normalizes them lazily on every recalculation -- a blanket migration would be a schema change beyond the bug scope. Decimal-based money storage stays Phase 3 (L11).",
-      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
-      "status": "done",
-      "tags": [
-        "qp-crm",
-        "bug",
-        "phase-2-candidate",
-        "offer",
-        "new-finding"
-      ],
-      "createdAt": 1788467646733,
-      "updatedAt": 1788467646733,
-      "summary": "recalc_totals now writes back all four percentage columns coerced to 0.0 (single encoding of no-discount). Probe showed new_offer/edit_offer already store 0.0; the live asymmetry was the recalc write-back. New route-level regression file + deliberate re-baseline of the partial-persistence pin. Suite 131 passed."
-    },
-    {
       "id": "card-e15eaa44-b3ca-4c38-aa60-7f34ebc53613",
       "title": "P2 stage 1 — single app + blueprints, no DispatcherMiddleware",
       "summary": "Six Flask instances collapsed into one app (qp_crm/main.py) registering api_v1(/api/v1), settings, sale, pricing, offer, rent, admin blueprints with unchanged prefixes; DispatcherMiddleware deleted; one qp_session cookie + QP_SECRET_KEY; per-module auth flags kept (pricing/offer/rent/admin_authenticated).",
@@ -1954,44 +1935,42 @@
       "summary": "ODGOVOR: musterija za ugovor 011026 placa 83,39 EUR/mes (rata_bruto 104,39 minus zatvaranje avansa 21,00), sto je reading R. Posledica po isplativost: zarada firme = kamata + osiguranje + garancija + admin − AVANS. Portfelj (5 ugovora, 73.049 EUR) daje +8.624 EUR (+11,8%), NE +23.742 EUR (+32,5%) kako sam ranije pogresno izracunao (razlika = avans 14.610 EUR). Prelom isplativosti vs prodaja (uz pretpostavku da se oprema na kraju realizuje po 20%): rent donosi zaradu tek od ~15-21. meseca (1,2-1,8 god); kratki ugovori (6-18m) su GUBITAK vs prodaja (npr. 5.000 EUR na 12m = −271 EUR). Najslabiji ugovor u portfelju je 010826 (25.400 EUR, 24m): samo +558 EUR = 2,2% kroz 2 godine. Skripta: /tmp/rent_final_economics.py."
     },
     {
-      "id": "card-ac77984b-a6de-4f7b-9baf-b18d9837a8a2",
-      "title": "Propusti u rent dokumentaciji: hard-kodiran broj ugovora u Prilogu 2, 1 vs 5 menica, pogrešan iznos u instrukciji za avans",
-      "description": "Pregledom svih 8 šablona dokumenata u rent_templates + Priloga 3/4 (generisani PDF) nađeni konkretni propusti u dokumentaciji:\n(1) Prilog 2 (Protokol) član 1: HARD-KODIRAN broj ugovora „Ugovora o dugoročnom zakupu br. 001/2023\" — treba {{ contract_number }}; svaki protokol tvrdi da pripada ugovoru 001/2023.\n(2) KOLIZIJA: Ugovor član 10.1 traži PET (5) blanko solo menica, a Menično ovlašćenje kaže „Predajemo Vam jednu blanko solo menicu\". Zapisnik o preuzimanju (sačuvan primer, AUTO CENTAR MASTERS) navodi 5 serijskih brojeva menica (AD7448500, AD7448494, AD7448493, AD7448492, AD7448491) — dakle praksa je 5, tekst ovlašćenja je pogrešan.\n(3) Instrukcija za uplatu avansa: red „Iznos: 100.100,1000 RSD\" je hard-kodiran i NE prikazuje stvarni avans (za 011026 treba ~118.000 RSD). Iznos u EUR ({{ ucesce_bruto_fmt }}) je tačan, ali RSD red je pogrešan.\n(4) Prilog 1 (Zapisnik o primopredaji): 6 slotova za opremu (Model/Proizvođač/Serijski broj/OPIS) su prazne linije — sistem NE popunjava model opreme iz ugovora; datum i vreme primopredaje su prazne linije iako ugovor ima delivery_date/delivery_time koji se čuvaju u bazi.\n(5) Prilog 2: zamena uloga — „Zakupodavac je dužan da nadoknadi celokupnu vrednost štete koju je pretrpeo Zakupodavac\" (treba Zakupac); član 3 ima dva stavka „b.\", član 2 dva stavka „f.\"; „utvruđuje\" (tipfeler); naslov „Obaveze Zakupodavca\" stoji iznad tabele stanja.\n(6) Neujednačen naziv: glavni ugovor je „Ugovor o zakupu opreme\", a svi prilozi ga zovu „Ugovor o dugoročnom zakupu\".\n(7) Ugovor član 2.3 navodi bruto zakupninu 104,39 EUR, a mušterija plaća 83,39 (razlika = zatvaranje avansa iz 13.2). Veza između te dve odredbe nije eksplicitna — čitalac može da razume da plaća 104,39 plus da se avans zatvara.\n(8) U ugovoru NEMA opcije otkupa (član 12.1 nalaže vraćanje opreme) — što je namerno zbog poreskog rizika, ali onda prodaja po 20% nema nikakav dokument u sistemu.",
-      "rationale": "Korisnik je tražio ocenu sistema nakon čitanja ugovora i svih priloga; ovi propusti su konkretni, popravljivi i utiču na pravnu valjanost i na poverenje mušterije (pogotovo hard-kodiran broj ugovora i pogrešan iznos u instrukciji za uplatu).",
-      "rejected": "Nisam sam menjao šablone dokumenata — odbijeno: tekst ugovora je pravni dokument i korisnik ga uređuje kroz /admin/rent/templates; System Default šabloni se reseeduju pri bootu pa bi izmena u kodu ili bila pregažena ili bi tiho promenila pravni tekst. Prvo odluka korisnika koji nalaz da se menja, pa izmena.",
-      "sourceSessionId": "session-9b6bb521-1670-43c9-bc2c-3dd3d43f0330",
-      "status": "todo",
-      "tags": [
-        "qp-crm",
-        "rent",
-        "dokumenti",
-        "ugovor",
-        "bug",
-        "pravno",
-        "prilozi"
-      ],
-      "createdAt": 1790948605581,
-      "updatedAt": 1790948605581
-    },
-    {
       "id": "card-258fcbe7-1ae0-4c15-8134-090c290eb432",
       "title": "R-D1 · Ispravke rent šablona: broj ugovora u Prilogu 2, 5 menica, prazan RSD iznos, uloge i numeracija, naziv",
       "description": "Korisnikove odluke (2026-09-24) po nalazima iz pregleda dokumentacije: (1) Prilog 2 čl. 1 — hard-kodiran „br. 001/2023\" zameniti sa {{ contract_number }}; (2) Menično ovlašćenje — „jednu\" → „pet (5)\" menica (praksa je 5, potvrđeno zapisnikom sa 5 serijskih brojeva); (3) Instrukcija za avans — hard-kodiran RSD iznos (100.100,1000 u živoj bazi, 824.817,7368 u JSON-u) ostaviti prazan jer se kurs zna tek na dan uplate (ugovor kaže „po srednjem kursu NBS na dan uplate\"); (4) Prilog 1 datum/vreme primopredaje — NAMERNO prazno (upisuju na terenu), BEZ IZMENE; (5) Prilog 2 — popraviti zamenu uloga (Zakupodavac→Zakupac), prenumerisati duple oznake (čl. 2: drugi „f\"→h, h→i, i→j; čl. 3: drugi „b\"→c), tipfeler „utvruđuje\"→„utvrđuje\"; (6) naziv „Ugovor o dugoročnom zakupu\" → „Ugovor o zakupu opreme\" u svim prilozima (4 mesta); (7) Ugovor čl. 2.3 — dodati neutralnu vezu sa čl. 13.2 („Mesečna obaveza plaćanja umanjuje se za iznos mesečnog zatvaranja avansa iz člana 13.2\"), bez promene pravne suštine. Menja se i qp_crm/rent/rent_templates_defaults.json (za nove baze) i živa baza.",
-      "rationale": "Korisnik je eksplicitno odobrio ovih 6 ispravki nakon pregleda ugovora i priloga; nalazi su konkretni i popravljivi, a najozbiljniji (pogrešan broj ugovora u Prilogu 2 i pogrešan iznos u instrukciji za uplatu) direktno štete pravnoj vrednosti dokumenata.",
-      "rejected": "Automatizacija RSD iznosa u instrukciji za avans — odbijeno: ugovor definiše plaćanje po srednjem kursu NBS na dan uplate, pa tačan RSD iznos nije poznat u trenutku kreiranja ugovora; ispravno je ostaviti prazno polje. Popunjavanje datuma/vremena primopredaje u Prilogu 1 — odbijeno od korisnika: popunjava se ručno na terenu zbog izmena posle štampe.",
+      "rationale": "Korisnik je odobrio svih šest ispravki nakon pregleda ugovora i priloga, a novi dokument je tražio sam (poslao predložak u .docx) da bi otkupna vrednost opreme postojala napismeno van ugovora.",
+      "rejected": "Automatizacija RSD iznosa u Instrukciji za avans — odbijeno: ugovor (čl. 5.3/13.1) definiše plaćanje po srednjem kursu NBS na dan uplate, pa iznos nije poznat u trenutku kreiranja; polje je ostavljeno prazno za ručni upis. Popunjavanje datuma/vremena primopredaje i modela opreme u Prilogu 1 — odbijeno od korisnika: popunjava se ručno na terenu jer može doći do izmena posle štampe. Dodavanje opcije otkupa u ugovor — odbijeno od korisnika: nije finansijska institucija i otkup na pravno lice nosi rizik utaje poreza; otkup ostaje van ugovora, a novi dokument ga prati kao evidenciju.",
       "sourceSessionId": "session-9b6bb521-1670-43c9-bc2c-3dd3d43f0330",
-      "status": "in_progress",
+      "status": "done",
       "tags": [
         "qp-crm",
         "rent",
         "dokumenti",
         "ugovor",
-        "bug",
-        "pravno",
-        "task"
+        "deployed",
+        "ispravljeno"
       ],
       "createdAt": 1790951958665,
-      "updatedAt": 1790951958665
+      "updatedAt": 1790953462655,
+      "summary": "Izvršeno i verifikovano na živoj instanci (commit-ovi 0a32fe6, 8866896, 4ee316d; kontejner rebuildovan). (1) Prilog 2 čl. 1 koristi {{ contract_number }} (bilo hard-kodirano „br. 001/2023\"). (2) Menično ovlašćenje: „jednu\" → „pet (5) blanko solo menica\" + polje za serijske brojeve + rečenica „Ukupan iznos naplaćen po svim menicama iz ovog ovlašćenja ne može preći iznos stvarnog duga po Ugovoru\" (bez bolda). (3) Instrukcija za avans bez hard-kodiranog RSD iznosa — prazna linija (kurs NBS se zna tek na dan uplate; automatizacija NIJE potrebna). (4) Prilog 2: uloge popravljene (Zakupac nadoknađuje štetu), oznake stavki jedinstvene (čl.2 a–j, čl.3 a–c), tipfeler „utvrđuje\". (5) Svi prilozi zovu dokument „Ugovor o zakupu opreme\". (6) Ugovor čl. 2.3: neutralna unakrsna referenca na čl. 13.2. Prilog 1 NAMERNO nedirán (datum/vreme/model se pišu na terenu). PRAVOPIS: ime šablona „Meničko\" → „Menično\" (od menice; „menično pravo\") u JSON-u i bazi, 3 hard-kodirana email preseta + sačuvani global_settings.rent_email_preset. NOVO: `izjava-vrednost-opreme` — garantovana otkupna vrednost iz ostatka vrednosti ugovora (neto/PDV/bruto) + napomena da kupac ne može biti isto pravno lice; placeholderi `ostatak_pdv_fmt`, `ostatak_bruto_fmt`, `period_years`, `vat_percent`; premeštena na KRAJ liste → prikazuje se kao #11 (izdaje se na kraju renta). Stranica dokumenata: razdvajači vezani za slug umesto loop.index + gornja i donja ivica; numeracija ispravljena u čist niz 1–11 (Prilog 3/4 redovi su bili hard-kodirani 3 i 4 → dve trojke, nema petice). Provereno na živo: tabela 1–11 sa Izjavom na 11, „Menično ovlašćenje\", razdvajači na redovima 8 i 9. Testovi: tests/characterization/test_rent_documents.py (10), full suite 529 passed."
+    },
+    {
+      "id": "card-5f24f43f-8231-4798-9996-dc8cc579c2e6",
+      "title": "QP · Kontakti: rent/ponuda dugmad + linkovi dokumenata + skener duplikata + jedinstven PIB/MB",
+      "description": "4 korisnička zadatka (2026-10-02), raditi redom: 1) detail kontaktu: dugmad 'Novi rent ugovor' + 'Nova ponuda' (preusmeravaju na formu sa pre-selektovanom musterijom). 2) Povezani dokumenti: nazivi dokumenata kao klik-linkovi na dokument. 3) Na vrhu liste kontakata: 'Skeniraj duplikate' — predlozi spajanja (merge) ili dodavanja adrese kao lokacije + brisanje duplikata. 4) Nakon svakog: commit; na kraju merge Dev→tabela.",
+      "rationale": "Korisnikov zahtev u 4 tačke; svaka je poseban UI/service komad. Redosled: 1-2 su mali UI dodaci na detail stranicu, 3 je najveći posao (merge servis), 4 je validacija pri unosu koja sprečava duplikate na izvoru.",
+      "sourceSessionId": "session-2a931069-ce16-40a9-ae01-b1c50dd03ecc",
+      "status": "todo",
+      "tags": [
+        "qp",
+        "contacts",
+        "rent",
+        "offer",
+        "merge",
+        "uniqueness"
+      ],
+      "createdAt": 1790954358090,
+      "updatedAt": 1790954358090
     }
   ]
 }

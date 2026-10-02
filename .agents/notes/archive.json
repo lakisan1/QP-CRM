@@ -232,6 +232,265 @@
       "createdAt": 1788448599958,
       "updatedAt": 1788454328298,
       "summary": "All 6 smoke items PASS — verified in TWO independent runs. (1) /api/v1/health → {success:true} + Docker healthcheck healthy in ~7s. (2) Logins admin/pricing/offer/rent (Admin1/Price1/Offer1/Rent1) → dashboards render. (3) Product via API + prices via UI (run1 final 14500.00/disc 13790.00; run2 final 14900.00/disc 14155.00). (4) Offer PDFs SMOKE-2026-001 + SMOKE-2026-002: %PDF-1.7, ~386KB each. (5) Rent doc PDFs Prilog_4_Plan_Placanja_010926/020926.pdf: %PDF-1.7, ~44.5KB — WeasyPrint renders in-container. (6) /admin/backup_db: 221,184 bytes, SQLite magic. deploy.sh exercised end-to-end twice incl. one failure+fix cycle (mode-600 COPY → chmod a+rX fix, 867ca19). TEST DATA NOW IN DB (runs 1+2): 2 price rows on product 1, offers SMOKE-2026-001/002 (+1 item each), 2 rent clients, 2 equipment, 2 contracts (010926, 020926) — user should delete/ignore before real use."
+    },
+    {
+      "id": "card-c3df30d1-349f-44f9-85d1-3610c95d1efa",
+      "title": "P0-T8 · Handover: commits per step, image tag, board + Agent Note",
+      "description": "Commit each task's files separately on phase-0-docker with step-numbered messages; tag image qp-crm:phase0; mark the parent Phase-0 card done with summary+rejected; write the Agent Note for dockerization decisions; leave Dev untouched.",
+      "rationale": "The parent card's handover protocol requires a tagged, rollback-able phase end state and a durable decision record so a fresh chat with zero conversation memory can continue from the board alone.",
+      "rejected": "One squash commit — defeats per-step rollback; pushing to origin — left to the user (remote push not part of the protocol, branch stays local until they decide).",
+      "sourceSessionId": "session-ffcc3e3a-6384-411f-8100-d723ee8c50c7",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "docker",
+        "phase-0",
+        "task",
+        "handover"
+      ],
+      "createdAt": 1788448599965,
+      "updatedAt": 1788454022184,
+      "summary": "Handover protocol executed: 9 per-step commits on phase-0-docker (step-numbered messages), git tag phase-0, image tagged qp-crm:phase0, parent card closed with summary+rejected, Agent Note 'qp-crm-dockerization' written under .agents/notes/implemented/feature/. Next phase chat starts from the board."
+    },
+    {
+      "id": "card-0abb8095-fdc3-4b27-b9df-b5e083639190",
+      "title": "P1-T1 · pytest infra: branch, dev-requirements, Dockerfile test layer, .dockerignore, pytest.ini, conftest isolation, one-command run",
+      "description": "Step 1 of the Phase-1 card. Branch phase-1-tests from phase-0-docker tip (origin REACHABLE, so Dev is left untouched per instructions). dev-requirements.txt with pinned pytest; Dockerfile installs it as a separate layer so production requirements.txt stays untouched; .dockerignore must NOT exclude tests/ (blanket test_*.py rule replaced by the named root scratch scripts, tests/** re-included so golden PDF baselines ship in the image); compose image bumped to qp-crm:phase1 (qp-crm:phase0 kept as rollback tag); pytest.ini with testpaths=tests (root scratch test_*.py files must never be collected) and cache_dir=/tmp (/app is read-only for appuser); tests/conftest.py patches shared.config APP_DATA_DIR/DATABASE/IMAGE_DIR/APP_ASSETS_DIR into a throwaway temp dir BEFORE any app module is imported (every module binds those names at import time), so the suite can never touch the bind-mounted real app_data/pricing.db; session fixture replays the production init sequence (pricing_init_db → pricing_migrate_schema → offer_init_db → admin_init_db → rent_init_db) into the temp DB. ONE command documented: docker compose build app && docker compose run --rm app pytest.",
+      "rationale": "Phase-1 card requires the suite to run with one command inside Docker (host venv has no pytest and host WeasyPrint is unimportable — no libpango); import-time path isolation is the only mechanism that keeps the real production DB out of test reach.",
+      "rejected": "Compose override test service (command stops being plain `docker compose run app pytest`); bind-mounting the repo into test runs (would not exercise the shipped image); host venv runs (host WeasyPrint unimportable, no pytest installed).",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "testing",
+        "phase-1",
+        "task"
+      ],
+      "createdAt": 1788462764435,
+      "updatedAt": 1788463565035,
+      "summary": "Branch phase-1-tests cut from phase-0 tip 867ca19 (origin REACHABLE, so Dev untouched). pytest==8.4.2 in dev-requirements.txt installed as a dedicated Dockerfile layer; .dockerignore no longer blanket-ignores test_*.py (root scratch scripts named individually, !tests/** re-includes the suite + golden baselines in the image); compose image bumped qp-crm:phase1 (qp-crm:phase0 = rollback tag); pytest.ini testpaths=tests + cache_dir=/tmp (appuser cannot write /app); tests/conftest.py patches shared.config APP_DATA_DIR/DATABASE/IMAGE_DIR/APP_ASSETS_DIR into a tempfile.mkdtemp tree BEFORE any app import (modules bind the names at import), session fixture replays pricing_init_db -> pricing_migrate_schema -> offer_init_db -> admin_init_db -> rent_init_db; tests/README.md documents the ONE command: docker compose build app && docker compose run --rm app pytest. Sanity run GREEN: 4/4 isolation-guard tests in 1.10s. Committed dd8abef."
+    },
+    {
+      "id": "card-77d520e0-fe50-4997-9522-a28fe8598713",
+      "title": "P1-T2 · Characterization: pricing apply_rounding + price_rounding_rules (UP/DOWN/NEAREST)",
+      "description": "Step 2. Pin CURRENT behavior of pricing/app.py apply_rounding(val, target) against the seeded price_rounding_rules table (admin init_rounding_rules_table defaults: limits 1000/10000/30000/999999999, steps 50/100/500/1000, method UP for both targets). Pin: val<=0 → 0; rule selection = smallest limit_val >= val; fallback to largest-limit rule when no limit >= val; no rules → value unchanged; NEAREST = Python round() (banker's rounding — round-half-even); unknown method → treated as UP (ceil); float artifacts pinned as exact literals captured from a container run.",
+      "rationale": "apply_rounding runs on every saved price/discount — a silent change here changes real invoices. Quirks (banker's rounding, 0-clamp, bracket-boundary selection) must be pinned AS-IS, not fixed, per phase discipline.",
+      "rejected": "Property-based fuzzing — characterization needs concrete literals reviewable against the price list; pytest.approx — would hide the float-exact behavior the suite exists to pin.",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "testing",
+        "phase-1",
+        "task"
+      ],
+      "createdAt": 1788462764443,
+      "updatedAt": 1788463835593,
+      "summary": "tests/characterization/test_pricing_rounding.py: 33 pinned cases. Seeded brackets for price+discount captured exactly (0.01->50.0, 1000.01->1100.0 bracket jump, 30000.01->31000.0, 1e9->1e9 largest-rule fallback); val<=0 clamped to 0 (sign lost); NEAREST pinned as Python banker's rounding (0.5->0.0, 2.5->2.0, 3.5->4.0) — NOT Excel half-away-from-zero; unknown method -> UP fallback; target without rules -> unchanged. All green in container. Committed as 'P1 step 2'."
+    },
+    {
+      "id": "card-b16a238f-c673-424a-b3cf-12f7e48c4d5b",
+      "title": "P1-T3 · Characterization: offer recalc_totals 3-level discount cascade → VAT → gross",
+      "description": "Step 3. Pin CURRENT behavior of offer/app.py recalc_totals(offer_id) on a fixture offer: sum(line_net) → level-1 discount → special discount → third discount → VAT → gross, percentages stored as FRACTIONS in DB (form input/100 at offer/app.py:524-526,642); recalc coerces NULL/0 discount to 0.0 via `or 0.0` and writes all totals back. Pin exact float readbacks from a container run. Route URL for PDFs: /offers/<id>/pdf.",
+      "rationale": "This is the money cascade the whole offer module depends on; any Phase-2 refactor must reproduce these exact totals including the NULL-coercion quirks.",
+      "rejected": "Driving the HTTP form endpoints instead of recalc_totals — form parsing noise (audit H10 bare float()) is Phase-2 material; money mutation itself is what needed pinning.",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "testing",
+        "phase-1",
+        "task"
+      ],
+      "createdAt": 1788462764451,
+      "updatedAt": 1788463835604,
+      "summary": "tests/characterization/test_offer_recalc.py: 6 tests pin recalc_totals exactly — cascade 29500.0 -> gross 29510.325 with the IEEE artifact total_vat == 4918.387500000001 pinned verbatim; NULL discounts behave as zero and are PERSISTED asymmetrically (special/third written back as 0.0, discount_percent/vat_percent stay NULL); item-level discount_percent ignored (only SUM(line_net) counts); unknown offer id = silent no-op; empty offer -> all-zero totals. Committed as 'P1 step 3'."
+    },
+    {
+      "id": "card-58158acc-6d60-4271-8701-e6bb2bccf750",
+      "title": "P1-T4 · Characterization: rent pmt / calculate_rent / _add_months / generate_schedule",
+      "description": "Step 4. Pin CURRENT behavior of the pure rent math: pmt (Excel PMT replication incl. rate=0 branch and pmt_type=1), calculate_rent full dict (ucesce/ucesce_pdv/ucesce_bruto, ostatak, rata_fin via pmt with pv=-(price-ucesce) fv=ostatak, osiguranje=monthly, garancija spread over months, rata_neto/pdv/bruto, zatvaranje=ucesce_bruto/months CONSTANT for every month, rata_nakon), _add_months end-of-month clamping, generate_schedule rows (0.1 admin fee + 0.2 downpayment on contract date, monthly Zakupnina rows dated LAST day of each month, bad date string → date.today() fallback). Exact float literals captured in container.",
+      "rationale": "The lease calculator replicates Excel PMT against live contracts — any drift silently changes every customer's monthly payment; the schedule shape (row numbering, date rule) feeds the printed payment plan.",
+      "rejected": "Keeping a logged fallback to contract_date or today(): the bug is non-determinism, any silent substitute keeps documents unreproducible. Route-level input validation at contract save stays Phase 3 (H10 family). Also fixed en route: stage-5 rent/routes/__init__.py omitted pdf.py so the 3 schedule/offer PDF routes were dead since the split (commit 1be2f58).",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "testing",
+        "phase-1",
+        "task"
+      ],
+      "createdAt": 1788462764458,
+      "updatedAt": 1788464193650,
+      "summary": "generate_schedule raises ValueError on unparsable/empty contract date; both schedule PDF routes return 400 with the message. Two renders of the same contract can no longer differ. Characterization re-baselined (test_bad_date_raises_value_error) + end-to-end route tests. Commit 99b99f3; suite 127 passed."
+    },
+    {
+      "id": "card-4202b35e-7d72-445d-bbda-16ca8aefda9d",
+      "title": "P1-T5 · Characterization: shared format_amount/format_date + rent doc placeholder context/substitution",
+      "description": "Step 5. Pin shared/utils.py format_amount (European 12.312,00 style, None → '0.00', non-numeric → '', negative formatting) and format_date (4 fmt branches, unparsable/None passthrough quirks). Pin rent/_build_doc_context placeholder mapping (contract fields, fmt_date DD.MM.YYYY, format_amount on all calc values, None → '' coercion) and format_document_html (Član N → h3.clan-header, section headers → h4.section-header). The {{ key }}/{{key}} double-replace + html.escape loop in document_pdf is covered end-to-end by the golden PDF test (it lives inline in the route).",
+      "rationale": "These format every money figure and date in both PDF pipelines; placeholder mapping drift produces wrong contracts, not crashes.",
+      "rejected": "Unit-pinning the duplicated substitution loop at rent/app.py:367-389 — it is route-inline code; the golden PDF test exercises it through the production route instead (dedup is Phase-2 work, audit L4).",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "testing",
+        "phase-1",
+        "task"
+      ],
+      "createdAt": 1788462764466,
+      "updatedAt": 1788464193663,
+      "summary": "test_formatting.py: 19 cases — format_amount (None -> '0,00', 'abc' -> '', numeric string '12.5' parsed, negatives, European grouping) and format_date (4 fmts, unknown fmt passthrough, '15-01-2026' parts silently RELABELED to '2026/01/15', garbage passthrough, None/'' -> ''). test_rent_placeholders.py: 10 cases — _build_doc_context full mapping (None -> '', fmt_date DD.MM.YYYY with passthrough, money values European-formatted) + format_document_html (lowercase Član -> h3 with dot appended, UPPERCASE ČLAN NOT matched, section-header whitelist, unknown/empty/None untouched). The {{key}} substitution loop itself is pinned end-to-end by T6 golden. Committed as 'P1 step 5'."
+    },
+    {
+      "id": "card-26dd7d52-4107-44a1-b591-583d75538b46",
+      "title": "P1-T6 · Golden-PDF tests: fixed offer + fixed rent document vs checked-in baselines",
+      "description": "Step 6. Render one fixed offer (filesystem pdf_offer.html template path — fresh fixture DB has no active_pdf_template_id) and one fixed rent document (slug ugovor-zakup, seeded from rent/rent_templates_defaults.json) through the PRODUCTION routes (/offers/<id>/pdf, /contracts/<id>/documents/<slug>/pdf) via the Flask test client, against fixed fixture rows and fixed fixture assets in APP_ASSETS_DIR (small deterministic logo/footer images checked into tests/golden/assets). Compare bytes against checked-in baselines after normalizing volatile regions (PDF /CreationDate + /ModDate, XMP timestamps, trailer /ID) — fonts are pinned in the image so everything else must be byte-identical. QP_UPDATE_GOLDEN=1 regenerates baselines (documented with the bind-mount command); any deliberate re-baseline must state the reason in the commit.",
+      "rationale": "WeasyPrint output is the hardest-to-verify surface (fonts, pagination, CSS) — byte-level golden files catch template/CSS/engine regressions that no assertion on totals can see.",
+      "rejected": "Raw byte hash without normalization (would break the moment WeasyPrint starts writing timestamps); pypdf text-only comparison (misses font/layout/pagination changes); monkeypatching WeasyPrint internals for name stability (fixed-path isolation achieves it without touching library behavior); re-baselining under full-suite DB state (fragile to any test-order change — explicit ids instead).",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "testing",
+        "phase-1",
+        "task"
+      ],
+      "createdAt": 1788462764475,
+      "updatedAt": 1788466934135,
+      "summary": "tests/golden/test_golden_pdf.py renders one fixed offer (filesystem pdf_offer.html path) and one fixed rent document (ugovor-zakup seeded from rent_templates_defaults.json) through the production routes with the Flask test client, and byte-compares (after normalizing PDF dates/XMP/trailer /ID on both sides) against checked-in tests/golden/baselines/*.pdf, with small deterministic fixture logo/footer images in tests/golden/assets. Two determinism root-causes fixed in test plumbing: (1) random mkdtemp path -> WeasyPrint image XObject names are i+md5(URL) -> fixed /tmp/qp-crm-tests root; (2) autoincrement ids leak into PDF anchors/destinations -> explicit ids 900001/900002 in fixtures. QP_UPDATE_GOLDEN=1 rebaseline flow documented (bind-mount command in tests/README.md). Verified: 3 consecutive fresh-container full runs 96 passed, baseline md5s unchanged. Committed as 'P1 step 6'."
+    },
+    {
+      "id": "card-6066b65c-b898-4bef-96ff-e67a2288c471",
+      "title": "P1-T7 · Smoke tests: login → main pages → 200 per module (pricing/offer/rent/admin/sale/settings)",
+      "description": "Step 7. Werkzeug test client over main.application (the DispatcherMiddleware stack as actually shipped): per-module login with the DEFAULT_PASSWORDS from shared/auth.py (fresh fixture DB stores no password rows → defaults active), then GET the module root → 200 (follow redirect): /pricing/ (Price1), /offer/ (Offer1), /rent/ (Rent1), /admin/ (Admin1); sale and settings have NO auth (pin that as current behavior) → GET /sale/, /settings/ → 200; landing GET / → 200; unauthenticated GET on the four gated modules → 302 to their login pages. Plus one key subpage per module where cheap.",
+      "rationale": "Routing/auth wiring across the 6-realm Dispatcher setup is exactly what Phase 2 restructures — the smoke set is the fastest full-stack regression net for it.",
+      "rejected": "Deep form-flow tests per module (Phase-0 smoke covered those against the live stack; money logic is pinned by T2-T6); asserting page content strings (brittle against template wording, the card asks for login->200 wiring).",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "testing",
+        "phase-1",
+        "task"
+      ],
+      "createdAt": 1788462764483,
+      "updatedAt": 1788467458561,
+      "summary": "tests/smoke/test_smoke_modules.py: 24 tests over main.application (real DispatcherMiddleware stack + werkzeug client). Pinned: landing 200; pricing/offer/rent/admin unauthenticated -> 302 to own login; login pages 200; wrong password re-renders (200) and stays locked; DEFAULT_PASSWORDS logins (Price1/Offer1/Rent1/Admin1) reach each module root 200 incl. /pricing/products, /offer/offers, /rent/contracts, /admin/; sale redirects to /sale/pricelist and serves it with NO auth; settings serves with NO auth; unknown prefix 404s. Bug found + logged as card: sale.list_sale 500s on uninitialized schema (no own init_db, unguarded global_settings read) — Phase-2 candidate, not fixed per phase discipline. Suite: 120 passed. Committed as 'P1 step 7'."
+    },
+    {
+      "id": "card-096fac1a-d1e8-4da2-a38e-f74fb0b78260",
+      "title": "P1-T8 · Phase-1 handover: full green run, bug cards, commits, image tag qp-crm:phase1, board + Agent Note",
+      "description": "Step 8. Run the complete suite green on the UNMODIFIED app via the one command; commit per step on phase-1-tests (step-numbered messages); build + tag image qp-crm:phase1 (qp-crm:phase0 kept for rollback), leave the running stack healthy; log every quirk/bug discovered during characterization as its own todo card tagged 'bug' with AUDIT_FINDINGS.md references (fixes stay OUT of this phase); close the parent Phase-1 card with summary+rejected; write the Agent Note for the test-infra decisions.",
+      "rationale": "Handover protocol from the parent card: the next phase chat must start from the board with a tagged, rollback-able end state and a durable decision record.",
+      "rejected": "Pushing to origin (stays local until the user decides — matches Phase-0 protocol); rolling the stack without verification (recreate + curl checks done instead); fixing any discovered bug in this phase.",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "testing",
+        "phase-1",
+        "task",
+        "handover"
+      ],
+      "createdAt": 1788462764490,
+      "updatedAt": 1788467855549,
+      "summary": "Handover complete. Final verification: full suite via the documented command = 120 passed (3 consecutive fresh-container runs during T6, plus this final run); baselines byte-stable. Stack rolled to image qp-crm:phase1 (container recreated, healthy, GET / and /pricing/login -> 200); qp-crm:phase0 kept as rollback tag. Commits on phase-1-tests: dd8abef infra, 1e1a60e rounding, b71bcd1 recalc, 95aa042 rent math, adcb1d2 formatting+placeholders, f8e8e33 golden PDFs, 9a7db28 smoke, + docs commit. 5 bug cards logged (sale schema ownership; pricing rounding semantics trio; rent pmt nper=0 crash; rent schedule today() fallback; offer NULL-vs-0.0 discount persistence) — all tagged phase-2-candidate, nothing fixed per phase discipline. Agent Note written for the test-infra decisions. Production code untouched (only Dockerfile dev-requirements layer, .dockerignore, compose image tag, DOCKER.md)."
+    },
+    {
+      "id": "card-dda3d805-a124-4071-912e-f05518fcb374",
+      "title": "BUG · sale module: list_sale 500s on uninitialized schema (no own init_db, unguarded global_settings read)",
+      "description": "Discovered by the Phase-1 smoke suite (tests/smoke/test_smoke_modules.py) during a smoke-only run on the throwaway fixture DB: GET /sale/pricelist raises sqlite3.OperationalError 'no such table: global_settings' -> 500. Root pattern: sale/app.py is the only sub-app with no init_db() and list_sale (sale/app.py:87) SELECTs global_settings without try/except, so it depends on pricing's init_db having created the shared table first. wsgi.py/main.py run ALL inits at boot, so the standard deployment never sees it — but any flow that (re)creates the schema without the full init sequence (restore_db/factory_reset edge cases, future split deployments, tests) hits a 500 instead of a clean empty-state page. Phase 2 should give sale its own init or a guarded read with a sane default (24 items per page).",
+      "rationale": "Phase-1 discipline: discovered quirks get logged as bug cards, NOT fixed. This one is a cross-module schema-ownership assumption that Phase 2's 'single schema, service layer' refactor must address explicitly.",
+      "rejected": "Giving sale its own init_db: sale owns no tables -- duplicating pricing schema creation would reintroduce the two-init-paths drift the phase-2 single-schema stage just removed (L4). Ordering-based guards (run pricing init first) would leave the same hole for split deployments.",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "bug",
+        "phase-2-candidate",
+        "sale",
+        "new-finding"
+      ],
+      "createdAt": 1788467458512,
+      "updatedAt": 1788467458512,
+      "summary": "list_sale guarded with clean empty state on bare schema (sqlite3.OperationalError -> 200, 25/page default); view_product -> existing 404. No sale init_db (sale owns no tables). Isolated bare-DB regression tests. Suite 133 passed."
+    },
+    {
+      "id": "card-aca70e04-fbae-41de-a4df-2df418bba7fb",
+      "title": "BUG · pricing rounding semantics: banker's NEAREST + val<=0 clamp to 0 + bracket-boundary jump",
+      "description": "Pinned as-is by tests/characterization/test_pricing_rounding.py. Three semantics questions for Phase 2/3 (money-touching, needs a product decision, not a blind fix): (1) NEAREST uses Python round() = banker's rounding — 0.5->0, 2.5->2, 3.5->4 — while Excel's ROUND goes half-away-from-zero (0.5->1); the rent calculator replicates Excel, so the two money paths disagree on rounding philosophy. (2) apply_rounding clamps val<=0 to 0 — a negative price/discount silently becomes 0 instead of keeping its sign. (3) Bracket selection takes the smallest limit_val >= val, so 1000.01 jumps from the 50-step bracket to the 100-step bracket — one cent above a limit changes the step. Related audit codes: L9 (fresh connection per call), L11 (floats for money).",
+      "rationale": "Phase-1 discipline: quirks get logged, not fixed. These change real invoice numbers; Phase 2 must decide the intended semantics BEFORE refactoring so the safety net can be re-pinned deliberately.",
+      "rejected": "Changing bracket selection to interval-based buckets (limit_val > val exclusive): would alter every seeded price and contradicts the admin-facing table semantics -- deferred to a product decision. Migrating pricing to Decimal end-to-end (audit L11, fresh-connection L9) stays Phase 3.",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "bug",
+        "phase-2-candidate",
+        "pricing",
+        "new-finding"
+      ],
+      "createdAt": 1788467646702,
+      "updatedAt": 1788467646702,
+      "summary": "apply_rounding: NEAREST = half-away-from-zero (Decimal ROUND_HALF_UP, matches Excel/rent); val<=0 returns val with sign preserved; bracket selection deliberately unchanged (admin-config table semantics). Characterization re-baselined with bug-card references. Suite 131 passed."
+    },
+    {
+      "id": "card-088dd7a9-70e8-4bdd-9ca6-6199483e6dc4",
+      "title": "BUG · rent pmt/calculate_rent: ZeroDivisionError on period_months == 0 -> 500 on all contract PDFs",
+      "description": "Pinned by tests/characterization/test_rent_calc.py::test_nper_zero_raises_zero_division_error. pmt raises ZeroDivisionError in BOTH branches when nper == 0 (rate==0 branch: -(pv+fv)/nper; rate>0 branch: (factor-1)/rate -> 0), and calculate_rent passes period_months straight through, so a rent contract saved with period_months = 0 crashes /contracts/pdf/offer, /contracts/pdf/schedule and the documents pipeline with a 500. Input validation is H10-adjacent (bare numeric parsing) but the crash itself is unrecorded in AUDIT_FINDINGS.md — new finding.",
+      "rationale": "Live-contract poison input: a single bad row takes down every PDF render for that contract. Phase 2 service layer should validate period_months >= 1 at the boundary and return a clean error.",
+      "rejected": "Raising ValueError / 400-response instead: the card framed the crash as the bug; making the money functions total keeps every render deterministic without new error UX. Route-level input validation (H10 family) stays Phase 3.",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "bug",
+        "phase-2-candidate",
+        "rent",
+        "new-finding"
+      ],
+      "createdAt": 1788467646713,
+      "updatedAt": 1788467646713,
+      "summary": "pmt returns 0.0 for nper<=0; calculate_rent garancija/zatvaranje guarded (>0 check). Zero/negative-period contracts now render zero components instead of 500 on all contract PDFs. Characterization re-baselined deliberately (test_nper_zero_returns_zero_payment + 2 regressions). Commit on phase-2-refactor; suite 123 passed."
+    },
+    {
+      "id": "card-f8759e61-7d85-4fda-89a0-acc8af12fa43",
+      "title": "BUG · rent generate_schedule: bad contract date silently falls back to date.today() (non-deterministic documents)",
+      "description": "Pinned by tests/characterization/test_rent_calc.py::test_bad_date_falls_back_to_today. generate_schedule (rent/app.py:126-132) silently substitutes date.today() when contract_date is unparsable/empty, so the printed payment plan (0.1/0.2 rows and, via the schedule PDF, the whole plan) gets DATES FROM THE DAY OF RENDERING — two renders of the same contract produce different documents. Related: H7/H6 contract-number/data hygiene family; new finding for the date path.",
+      "rationale": "Non-deterministic business documents are a correctness issue, not a style issue; Phase 2 should decide between failing loudly and persisting a parse date, and the golden/characterization net must follow whatever is chosen.",
+      "rejected": "Keeping a logged fallback to contract_date or today(): the bug is non-determinism, any silent substitute keeps documents unreproducible. Route-level input validation at contract save stays Phase 3 (H10 family). Also fixed en route: stage-5 rent/routes/__init__.py omitted pdf.py so the 3 schedule/offer PDF routes were dead since the split (commit 1be2f58).",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "bug",
+        "phase-2-candidate",
+        "rent",
+        "new-finding"
+      ],
+      "createdAt": 1788467646724,
+      "updatedAt": 1788467646724,
+      "summary": "generate_schedule raises ValueError on unparsable/empty contract date; both schedule PDF routes return 400 with the message. Two renders of the same contract can no longer differ. Characterization re-baselined (test_bad_date_raises_value_error) + end-to-end route tests. Commit 99b99f3; suite 127 passed."
+    },
+    {
+      "id": "card-9c7f744d-f6cb-4c7b-9157-f98bd5d03941",
+      "title": "BUG · offer discount storage: NULL (new_offer) vs 0.0 (edit_offer) for zero percentages + asymmetric recalc write-back",
+      "description": "Pinned by tests/characterization/test_offer_recalc.py::test_null_discounts_behave_as_zero_and_are_partially_persisted. new_offer (offer/app.py:590-592) stores NULL for zero discount/vat inputs, edit_offer (offer/app.py:847-849) stores 0.0 for the same input; recalc_totals then coerces NULL/0 via 'or 0.0' and writes special/third back as floats while leaving discount_percent/vat_percent NULL (offer/app.py:788-800). Net effect is benign today (both read as no-discount) but the schema carries two encodings of the same fact and the asymmetric write-back makes DB state depend on which form last touched the row. Related: L11 (floats for money), L4 (schema created by two init paths with slightly different definitions).",
+      "rationale": "Phase 2's single-schema/service-layer work needs the canonical encoding decided (NOT NULL DEFAULT 0.0 everywhere or explicit NULL semantics) before data migration; the pinned test will be re-baselined with that decision.",
+      "rejected": "One-time data migration (UPDATE offers SET ... WHERE IS NULL in migrate_offer_tables): legacy rows are already read as zero everywhere (\"or 0.0\"), recalc now normalizes them lazily on every recalculation -- a blanket migration would be a schema change beyond the bug scope. Decimal-based money storage stays Phase 3 (L11).",
+      "sourceSessionId": "session-e4aeaa15-efcb-42b6-9762-0af63715f68f",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "bug",
+        "phase-2-candidate",
+        "offer",
+        "new-finding"
+      ],
+      "createdAt": 1788467646733,
+      "updatedAt": 1788467646733,
+      "summary": "recalc_totals now writes back all four percentage columns coerced to 0.0 (single encoding of no-discount). Probe showed new_offer/edit_offer already store 0.0; the live asymmetry was the recalc write-back. New route-level regression file + deliberate re-baseline of the partial-persistence pin. Suite 131 passed."
     }
   ]
 }
