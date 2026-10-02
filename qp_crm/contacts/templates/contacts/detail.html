@@ -7,6 +7,11 @@
 
 <div style="display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;">
     <a href="{{ url_for('contacts.edit_contact', contact_id=contact.id) }}" class="btn btn-primary">Izmeni</a>
+    {# Novi dokument za ovu musteriju (user request 2026-10-02): otvara
+       formu sa pre-selektovanom musterijom — ponuda preko ?contact_id=
+       prefilla, rent preko ?client=c<id> preselekcije. #}
+    <a href="{{ url_for('offer.new_offer', contact_id=contact.id) }}" class="btn btn-success">+ Nova ponuda</a>
+    <a href="{{ url_for('rent.new_contract', client='c' ~ contact.id) }}" class="btn btn-success">+ Novi rent ugovor</a>
 </div>
 
 <div class="card">
@@ -135,7 +140,7 @@
         {% for d in documents %}
         <tr>
             <td>{{ 'Ponuda' if d.doc_type == 'offer' else 'Ugovor o zakupu' }}</td>
-            <td>{{ d.doc_number or d.url_id or d.id }}</td>
+            <td>{% if d.url %}<a href="{{ d.url }}">{{ d.doc_number or d.url_id or d.id }}</a>{% else %}{{ d.doc_number or d.url_id or d.id }}{% endif %}</td>
             <td>{{ format_date(d.doc_date) if d.doc_date else '—' }}</td>
             <td>{{ d.title_hint or '—' }}</td>
         </tr>

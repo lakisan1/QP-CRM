@@ -689,8 +689,20 @@ def linked_documents(contact_id):
         """,
         (contact_id, contact_id),
     )
-    rows = cur.fetchall()
+    rows = [dict(r) for r in cur.fetchall()]
     conn.close()
+    # Klikabilni linkovi (user request 2026-10-02): naziv dokumenta u
+    # imeniku vodi pravo na dokument — ponuda na edit stranicu (tamo je
+    # i PDF/view), ugovor na edit formu. URL se slaže ovde da template
+    # ostane čist; prefiksi su dvostruki (bp prefix + route prefix,
+    # npr. /offer/offers/... i /rent/contracts/...).
+    for r in rows:
+        if r["doc_type"] == "offer":
+            r["url"] = f"/offer/offers/{r['id']}/edit"
+        elif r["doc_type"] == "rent_contract":
+            r["url"] = f"/rent/contracts/edit/{r['id']}"
+        else:
+            r["url"] = None
     return rows
 
 

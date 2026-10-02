@@ -115,6 +115,12 @@ def _contract_form(contract_id):
         cur.execute("SELECT * FROM rent_contracts WHERE id=?;", (contract_id,))
         contract = cur.fetchone()
 
+    # Pre-selected musterija (user request 2026-10-02): the directory's
+    # "Novi rent ugovor" action links here with ?client=c<id>; the picker
+    # starts with that contact chosen (autofill JS then populates the
+    # snapshot fields exactly as a manual pick would).
+    preselect_client = request.args.get("client", "").strip()
+
     if request.method == "POST":
         c_number = request.form.get("contract_number", "").strip()
         c_date = request.form.get("contract_date") or date.today().isoformat()
@@ -176,6 +182,7 @@ def _contract_form(contract_id):
     return render_template("rent/rent_contract_form.html",
                            contract=contract,
                            clients=clients,
+                           preselect_client=preselect_client,
                            contract_statuses=CONTRACT_STATUSES,
                            status_default=STATUS_DEFAULT,
                            today=date.today().isoformat(),

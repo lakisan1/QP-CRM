@@ -61,7 +61,7 @@ details > summary::-webkit-details-marker { display:none; }
     <select id="clientSelect" class="searchable-select" style="margin-bottom:0;">
         <option value="">-- Izaberi klijenta --</option>
         {% for cl in clients %}
-        <option value="{{ cl.id }}" {% if contract and contract.client_name == cl.name %}selected{% endif %}>{{ cl.name }}</option>
+        <option value="{{ cl.id }}" {% if (contract and contract.client_name == cl.name) or (not contract and preselect_client == cl.id) %}selected{% endif %}>{{ cl.name }}</option>
         {% endfor %}
     </select>
     </label>
@@ -371,6 +371,17 @@ document.getElementById('clientSelect').addEventListener('change',function(){
 });
 
 recalc();
+
+// Pre-selected musterija (user request 2026-10-02): when the form opens
+// with ?client=c<id> from the directory's "Novi rent ugovor" button, fire
+// the SAME autofill path a manual pick uses, so snapshot fields populate
+// without a second click.
+(function () {
+    var sel = document.getElementById('clientSelect');
+    if (sel && sel.value && !document.getElementById('client_name').value) {
+        sel.dispatchEvent(new Event('change'));
+    }
+})();
 
 // ── Delete modal (R-T5: delete moved from the list into this form) ──
 var _deleteUrl = null;
