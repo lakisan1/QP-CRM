@@ -22,6 +22,9 @@ The directory is the ONLY party registry (user decision 2026-09-16: the
 deals-spine customers tables were removed). Every module -- rent, offers,
 future poslovi/radni nalozi -- reads parties from here.
 """
+import re
+import unicodedata
+
 from qp_crm.shared.db import get_db
 
 from qp_crm.shared.schema import CONTACT_KINDS, CONTACT_ROLES
@@ -41,6 +44,20 @@ _CONTACT_FIELDS = (
 def _utcnow_iso():
     from datetime import datetime, timezone
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def _search_norm(s):
+    """Python twin of the SQL norm() function (shared/db.py) — used to
+    NORMALIZE THE QUERY TERMS before they go into LIKE ? patterns. The
+    column side is normalized in SQL by norm(); both sides must fold the
+    same way or 'Cacak' would never hit 'Čačak'.
+    """
+    s = " ".join((s or "").split()).casefold()
+    s = "".join(c for c in unicodedata.normalize("NFD", s)
+                if unicodedata.category(c) != "Mn")
+    s = re.sub(r"[^\w\s@+]", "", s)  # drop punctuation, keep @/+ for email/phone
+    s = " ".join(s.split())
+    return s.strip(" .,-")
 
 
 def list_contacts(include_archived=False, search="", roles=None, kind=None,
@@ -85,12 +102,24 @@ def list_contacts(include_archived=False, search="", roles=None, kind=None,
         clauses.append("c.country = ?")
         params.append(country)
     if search:
-        clauses.append(
-            "(c.display_name LIKE ? OR c.first_name LIKE ? OR c.last_name LIKE ? "
-            "OR c.pib LIKE ? OR c.mb LIKE ? OR c.jmbg LIKE ? OR c.email LIKE ? "
-            "OR c.phone LIKE ? OR c.city LIKE ?)")
-        like = f"%{search}%"
-        params += [like] * 9
+        terms = [t for t in _search_norm(search).split() if t]
+        if terms:
+            # one haystack expression per field; each term must hit SOME
+            # field (AND across terms). LIKE with ? params only — no user
+            # text is ever interpolated into SQL.
+            haystacks = [
+                "norm(c.display_name)", "norm(c.first_name)",
+                "norm(c.last_name)", "norm(c.pib)", "norm(c.mb)",
+                "norm(c.jmbg)", "norm(c.email)", "norm(c.phone)",
+                "norm(c.city)", "norm(c.account)", "norm(c.notes)",
+            ]
+            term_clauses = []
+            for t in terms:
+                like = f"%{t}%"
+                term_clauses.append("(" + " OR ".join(
+                    f"{h} LIKE ?" for h in haystacks) + ")")
+                params += [like] * len(haystacks)
+            clauses.append("(" + " AND ".join(term_clauses) + ")")
     if clauses:
         where = " WHERE " + " AND ".join(clauses)
         sql += where
