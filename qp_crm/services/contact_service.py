@@ -69,8 +69,12 @@ def list_contacts(include_archived=False, search="", roles=None, kind=None,
     kind:    None = all; 'company' | 'person'.
     country: None = all; exact match on contacts.country (dropdown values
              come from the shared countries list, so exact == case-true).
-    Search matches display_name, first/last, pib, mb, jmbg, email, phone,
-    city -- the fields a receptionist actually types.
+    Search is FUZZY over display_name, first/last, pib, mb, jmbg, email,
+    phone, city, billing_address, postal_code, account AND notes (2026-09-24
+    user request): diacritics-folded + casefolded both sides, trailing junk
+    ('Beograd...', spaces) ignored, punctuation-insensitive for phone/
+    account digits. Each whitespace-separated word must hit somewhere
+    (AND), so 'toyota zrenjaninski' narrows instead of OR-ing wide.
 
     page/per_page: when per_page is given, returns
     (rows, total_count) with LIMIT/OFFSET pushed into SQL -- the 2000+
@@ -111,7 +115,8 @@ def list_contacts(include_archived=False, search="", roles=None, kind=None,
                 "norm(c.display_name)", "norm(c.first_name)",
                 "norm(c.last_name)", "norm(c.pib)", "norm(c.mb)",
                 "norm(c.jmbg)", "norm(c.email)", "norm(c.phone)",
-                "norm(c.city)", "norm(c.account)", "norm(c.notes)",
+                "norm(c.city)", "norm(c.billing_address)",
+                "norm(c.postal_code)", "norm(c.account)", "norm(c.notes)",
             ]
             term_clauses = []
             for t in terms:
