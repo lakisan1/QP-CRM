@@ -1,0 +1,18 @@
+# Agent Note: product-text-rules-audit
+
+Status: implemented
+
+## Problem
+
+The user shared their written product-content rules doc (pravila-tekst-proizvoda.md, used with skill mh-add-product-from-website for importing from autoservisnaoprema.com) and an actual offer PDF (E-Taksi Ponuda3 A), asking: what would I change in the rules, what would I change in existing products, and why — based on how offers actually render.
+
+## Decision
+
+Audit of all 256 products against pravila-tekst-proizvoda.md v2026-09-28 (read-only analysis, no DB writes): 86 descriptions exceed the 1000-char max (worst: Geoliner 770 #261 at 4724; Monty family alone has 23 over-limit); 150 have no URL line at all (legacy EAE/Geodyna/Car-O-Liner imports predating the rule); 19 SMARTSAFE rows carry a forbidden 'O PROIZVOĐAČU' section, 11 of them ending in a literal 'Danas...' truncation artifact; 62 have no markdown at all (plain text renders unformatted in offers); 9 use '-spec' dash lines that markdown does not render as lists; 16 have an unbolded 'TEHNICKE KARAKTERISTIKE:' header; V4400 COMMANDER (#279) after Lazar's own edit carries two URLs (site + johnbean.com) breaking the exactly-one-URL rule and two broken bullets ('* **EZ-Toe...' with unclosed bold that renders literal asterisks). The attached E-Taksi Ponuda3 A PDF (offer 112) demonstrates the offer impact: LT150R prints 'O PROIZVOĐAČU' filler instead of device specs, Geodyna 7340 P prints as an unformatted wall of text, MONTY item spans most of a page. Proposed rules amendments: (1) offer-context length cap — one offer line ≤ ~half A4 page, so cap ~600 chars for machines sold through offers vs 1000 catalog-only; (2) table allowed also for OBIM ISPORUKE lists and for spec bullets when source has labeled values embedded in bullets (E25 case); (3) O PROIZVOĐAČU ban already exists but needs a cleanup batch for the 19 SMARTSAFE rows; (4) dash-bullet normalization '-x' → '* x'; (5) exactly-one-URL rule needs an explicit 'manufacturer URL never in description' note (johnbean.com case); (6) stale-snapshot policy: offer_items.item_description is a snapshot — offers do NOT auto-update when product desc changes; re-pick or edit the line.
+## Alternatives considered
+
+**Auto-rewriting all 86 over-limit descriptions in one batch** — rejected: rules §3 say "100% iz izvora"; shortening means choosing what to drop, which is editorial judgment per device, and the user reviews each — a batch would silently delete source content. **Making the 1000-char limit a hard app validation** — rejected: it would block editing existing rows until 86 are fixed; a soft target with the audit report is the honest state. **Syncing all 36 stale offer snapshots to current descriptions** — rejected: snapshots are per-offer documents; some staleness is intentional (user edits offer text ad hoc, e.g. items 460/462 differ by whitespace edits); blanket-sync would overwrite manual offer edits. **Dropping the John Bean manufacturer URL from 279** — user's own addition; flagged in chat, not removed.
+## Consequences
+
+Nothing in the DB was changed this turn — this is an analysis + rules proposal; the user decides which amendments to adopt and whether I then run the cleanup batches. The audit numbers move as the user edits (they already reworked offers 114/115 items and product 279 today). The rules doc lives outside this workspace (BookStack + skill), so amendments must be applied there by Lazar or via the skill repo; I can only enforce them when adding products myself. The 'Danas...' truncation fix needs the full manufacturer text from smart-safe.eu or LAUNCH sources — not available on autoservisnaoprema.com itself, so those 11 descs can't be completed from the primary source alone.
+

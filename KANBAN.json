@@ -2,38 +2,6 @@
   "version": 1,
   "cards": [
     {
-      "id": "card-e15eaa44-b3ca-4c38-aa60-7f34ebc53613",
-      "title": "P2 stage 1 — single app + blueprints, no DispatcherMiddleware",
-      "summary": "Six Flask instances collapsed into one app (qp_crm/main.py) registering api_v1(/api/v1), settings, sale, pricing, offer, rent, admin blueprints with unchanged prefixes; DispatcherMiddleware deleted; one qp_session cookie + QP_SECRET_KEY; per-module auth flags kept (pricing/offer/rent/admin_authenticated).",
-      "rationale": "First P2 stage: multiple app instances meant six secret configs, no shared session, and template-filter registration races. One app is the precondition for every later stage.",
-      "sourceSessionId": "session-b5194f0d-71bf-4dc4-93d4-5af6afd8700b",
-      "status": "done",
-      "tags": [
-        "qp-crm",
-        "refactor",
-        "phase-2"
-      ],
-      "createdAt": 1788490540134,
-      "updatedAt": 1788490540134,
-      "rejected": "Keeping DispatcherMiddleware with shared secret config: still six template namespaces and six wsgi entry points; consolidation without the middleware deletion would have preserved the drift it exists to fix."
-    },
-    {
-      "id": "card-67bd3118-5302-4f11-90ae-0b6293d41ffa",
-      "title": "P2 stage 2 — dedupe helpers into shared/web.py",
-      "summary": "Duplicated helpers consolidated into qp_crm/shared/web.py: get_theme/get_date_format/format_date_filter/fix_markdown_lists/render_markdown/make_auth_hook(session_flag, login_endpoint, exempt_endpoints)/register_product_image/save_product_image(+download_image_from_url with caller-supplied EN/SR errors)/fetch_mandatory_fields/fetch_rent_defaults/sort_rent_templates/DEFAULT_RENT_EMAIL*. format_date/md registered once app-wide in main.py.",
-      "rationale": "Six copies of the same helpers had drifted (error strings, sort orders); one shared module is the base for the routes split and the service layer.",
-      "sourceSessionId": "session-b5194f0d-71bf-4dc4-93d4-5af6afd8700b",
-      "status": "done",
-      "tags": [
-        "qp-crm",
-        "refactor",
-        "phase-2"
-      ],
-      "createdAt": 1788490540154,
-      "updatedAt": 1788490540154,
-      "rejected": "A utils Mixin / flask Blueprint-level helpers: mixins hide dependencies and make per-module auth flags awkward; plain functions with explicit imports keep call sites greppable."
-    },
-    {
       "id": "card-5534e480-7fb2-4f56-9411-53db26bafdbb",
       "title": "P2 stage 3 — single schema source in shared/schema.py",
       "summary": "Single DDL source qp_crm/shared/schema.py: create_pricing/offer/admin/rent_tables (canonical supersets incl. client_pib/client_mb/discount_percent in CREATE; REAL price_rounding_rules columns) + add_column_if_missing + migrate_pricing (guarded UNIQUE idx_products_name_unique COLLATE NOCASE + legacy-UNIQUE prices rebuild) + migrate_offer/rent_tables. All five init/migrate entry points route through it.",
@@ -1957,20 +1925,45 @@
     {
       "id": "card-5f24f43f-8231-4798-9996-dc8cc579c2e6",
       "title": "QP · Kontakti: rent/ponuda dugmad + linkovi dokumenata + skener duplikata + jedinstven PIB/MB",
-      "description": "4 korisnička zadatka (2026-10-02), raditi redom: 1) detail kontaktu: dugmad 'Novi rent ugovor' + 'Nova ponuda' (preusmeravaju na formu sa pre-selektovanom musterijom). 2) Povezani dokumenti: nazivi dokumenata kao klik-linkovi na dokument. 3) Na vrhu liste kontakata: 'Skeniraj duplikate' — predlozi spajanja (merge) ili dodavanja adrese kao lokacije + brisanje duplikata. 4) Nakon svakog: commit; na kraju merge Dev→tabela.",
-      "rationale": "Korisnikov zahtev u 4 tačke; svaka je poseban UI/service komad. Redosled: 1-2 su mali UI dodaci na detail stranicu, 3 je najveći posao (merge servis), 4 je validacija pri unosu koja sprečava duplikate na izvoru.",
+      "description": "4 korisnička zadatka (2026-10-02) — SVI ZAVRŠENI + merge Dev→main + push (f58ee74). 1) Detail: dugmad '+ Nova ponuda' (?contact_id prefill) i '+ Novi rent ugovor' (?client=c<id> preselect + JS autofill dispatch). 2) Povezani dokumenti: broj kao klik-link (/offer/offers/<id>/edit, /rent/contracts/edit/<id>). 3) 'Skeniraj duplikate' na vrhu liste → /contacts/contacts/duplicates: sigurni parovi (isti PIB / MB+slično ime / isti naziv) i sumnjivci (isti MB, različita imena); SPOJI merge (union uloga, re-parent lokacija+dokumenata, merge-note, drop red briše se) ili zadrži oba; delete samo bez dokumenata. 4) PIB/MB jedinstveni: _registry_conflict u create/update odbija duplikat sa porukom u formi.",
+      "rationale": "Korisnički zahtev u 4 tačke; svaki završen posebnim commitom (51b2c17 T1+T2, ad98331 T3+T4), pa merge Dev→main + push origin (CI gradi image).",
       "sourceSessionId": "session-2a931069-ce16-40a9-ae01-b1c50dd03ecc",
-      "status": "todo",
+      "status": "done",
       "tags": [
-        "qp",
+        "qp-crm",
         "contacts",
         "rent",
         "offer",
         "merge",
-        "uniqueness"
+        "uniqueness",
+        "deployed",
+        "merged"
       ],
       "createdAt": 1790954358090,
-      "updatedAt": 1790954358090
+      "updatedAt": 1790965171473,
+      "summary": "Sve 4 stavke implementirane, deployovane i LIVE verifikovane (dugmad na detail, linkovi dokumenata 200, duplicates stranica prikazuje Emil Frey/GUMATRAK sumnjivac-par, T4 odbija isti PIB). Suite 529 passed. Merge Dev→main + push urađen (f58ee74) — CI gradi novi image. Kontejner healthy.",
+      "rejected": "UNIQUE index na PIB/MB — postojeći legitimni MB-kolizioni par (Emil Frey/GUMATRAK iz uvoza) bi blokirao upise; auto-merge bez potvrde — brisanje je destruktivno; soft-delete duplikata — arhivirani duplikat bi se vraćao u skeneru."
+    },
+    {
+      "id": "card-9015ec34-f26d-49cc-a599-5368344318ec",
+      "title": "Admin -> About tab: verzija + runtime info (+ otblokiran main od Okt 2)",
+      "description": "Admin -> About tab (commiti 5f5cfb2, 3d73a4d, b80a2bd, c9c2469): nova read-only /admin/about stranica — poslednji link u admin nav-u (sad 8 linkova). Kartice: Version (APP_VERSION iz shared/config.py — single source of truth, sad 1.1.0; build commit iz QP_BUILD_COMMIT — novi Dockerfile ARG/ENV koji CI injectuje kao build-args; image tag iz backups/last-deployed-tag), Runtime (Python, SQLite WAL + size), Data at a glance (brojevi usera/proizvoda/ponuda/ugovora/kontakata), Where things live (update-safe folderi), Links. USPUT OTBLOKIRAN main: CI bio CRVEN od Okt 2 — R-D3 commit (8866896) menjao rent PDF bez re-baseline-a golden PDF-a → image job nikad nije pushovao, GHCR latest stajao na Sep 27 buildu! Re-baseline urađen u pinned image-u (QP_UPDATE_GOLDEN=1), text-diff verifikovan = tačno R-D3 rečenica. NOVI compose mount ./backups:/app/backups — quick backupi sad PREŽIVLJAVAJU recreate + About vidi deploy record; CI trebao pre-create backups/ uid 1000 na runner-u (c9c2469 fix). Suite 537 green, CI zelen, lokalna instanca na sha-c9c2469 image-u, About živ: version 1.1.0 + commit + image tag sve prikazuje.",
+      "summary": "About tab živ: verzija 1.1.0 + build commit + image tag prikazani na /admin/about. Usput: re-baseline rent golden PDF-a (main bio crven od Okt 2!), compose mount za backups/ (quick backupi sada preživljavaju recreate), CI fix za ownership. Lokalna instanca na najnovijem image-u (sha-c9c2469).",
+      "rationale": "Korisnik tražio About/info tab sa informacijama o softveru uključujući trenutnu verziju. Nijedna verzija konstanta nije postojala u app-u; image tag je bio nevidljiv kontejneru (host-side fajl). Usput otkriven i rešen ozbiljan problem: main crven od Okt 2 → GHCR image zastareo mesec dana.",
+      "rejected": "Čitati verziju iz git taga runtime — odbijeno: kontejner nema .git. docker inspect iz kontejnera — odbijeno: docker socket u kontejneru je security anti-pattern; deploy.sh već piše tag u fajl koji se sad mountuje. Hardcode verzije u template/dashboard karticu — odbijeno: dva izvora istine driftuju; config.py je jedini izvor, About jedini prikaz. Auto-check \"nova verzija dostupna\" protiv GHCR — namerno NE (follow-up): About pokazuje šta JE pokrenuto, ne šta MOŽE.",
+      "sourceSessionId": "session-fb211a2a-4513-4aa7-95b5-2bc97bc7f9d8",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "about-tab",
+        "version",
+        "ui",
+        "ci",
+        "golden-pdf",
+        "deploy"
+      ],
+      "createdAt": 1793545079540,
+      "updatedAt": 1793545079540
     }
   ]
 }

@@ -491,6 +491,38 @@
       "createdAt": 1788467646733,
       "updatedAt": 1788467646733,
       "summary": "recalc_totals now writes back all four percentage columns coerced to 0.0 (single encoding of no-discount). Probe showed new_offer/edit_offer already store 0.0; the live asymmetry was the recalc write-back. New route-level regression file + deliberate re-baseline of the partial-persistence pin. Suite 131 passed."
+    },
+    {
+      "id": "card-e15eaa44-b3ca-4c38-aa60-7f34ebc53613",
+      "title": "P2 stage 1 — single app + blueprints, no DispatcherMiddleware",
+      "summary": "Six Flask instances collapsed into one app (qp_crm/main.py) registering api_v1(/api/v1), settings, sale, pricing, offer, rent, admin blueprints with unchanged prefixes; DispatcherMiddleware deleted; one qp_session cookie + QP_SECRET_KEY; per-module auth flags kept (pricing/offer/rent/admin_authenticated).",
+      "rationale": "First P2 stage: multiple app instances meant six secret configs, no shared session, and template-filter registration races. One app is the precondition for every later stage.",
+      "sourceSessionId": "session-b5194f0d-71bf-4dc4-93d4-5af6afd8700b",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "refactor",
+        "phase-2"
+      ],
+      "createdAt": 1788490540134,
+      "updatedAt": 1788490540134,
+      "rejected": "Keeping DispatcherMiddleware with shared secret config: still six template namespaces and six wsgi entry points; consolidation without the middleware deletion would have preserved the drift it exists to fix."
+    },
+    {
+      "id": "card-67bd3118-5302-4f11-90ae-0b6293d41ffa",
+      "title": "P2 stage 2 — dedupe helpers into shared/web.py",
+      "summary": "Duplicated helpers consolidated into qp_crm/shared/web.py: get_theme/get_date_format/format_date_filter/fix_markdown_lists/render_markdown/make_auth_hook(session_flag, login_endpoint, exempt_endpoints)/register_product_image/save_product_image(+download_image_from_url with caller-supplied EN/SR errors)/fetch_mandatory_fields/fetch_rent_defaults/sort_rent_templates/DEFAULT_RENT_EMAIL*. format_date/md registered once app-wide in main.py.",
+      "rationale": "Six copies of the same helpers had drifted (error strings, sort orders); one shared module is the base for the routes split and the service layer.",
+      "sourceSessionId": "session-b5194f0d-71bf-4dc4-93d4-5af6afd8700b",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "refactor",
+        "phase-2"
+      ],
+      "createdAt": 1788490540154,
+      "updatedAt": 1788490540154,
+      "rejected": "A utils Mixin / flask Blueprint-level helpers: mixins hide dependencies and make per-module auth flags awkward; plain functions with explicit imports keep call sites greppable."
     }
   ]
 }

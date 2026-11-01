@@ -1,0 +1,16 @@
+# Agent Note: local-model-question-loop-handoff
+
+Status: implemented
+
+## Problem
+
+The local model (`local-glm/GLM-5.3-Flash-EXL3`) entered a degenerate repetition loop while trying to ask the user four clarifying questions about the QP-CRM device-catalogue job. Its `ask_user_question` calls arrived with malformed arguments — duplicated `id`/`options` keys and escaped-unicode key text (e.g. `"\u0044\u0075\u0070\u006c\u0069\u006b\u0061\u0074\u0069"` instead of `"Duplikati"`) — so the harness correctly rejected each one with `invalid arguments: "questions" must be an array`. Instead of changing strategy, the model re-sent the same broken call roughly 390 times, which stalled the session until the user switched to `deepseek-official/deepseek-v4-flash`. Nothing in the workspace was damaged; the damage was to progress, and the risk is that any resumed session on the local model re-enters the same loop.
+
+## Decision
+
+The mitigation is a workspace-level convention, not a code change: for clarifying rounds in this workspace, questions are asked as plain chat text and STOOD ON — one attempt, no retry loop. `ask_user_question` is not used for the device-table questions. Recovery artifacts carry the state: `tmp-excel/HANDOFF.md` (10 sections) holds the full resume context — pending questions verbatim, the proposed defaults, verified environment facts (`openpyxl 3.1.2` works; `xlrd` only via `PYTHONPATH=/tmp/xlrd-extract/usr/lib/python3/dist-packages`; no pip, no sqlite3 CLI), what is already computed (`structure-dump.txt` 1644 lines, `existing-products.txt` 257 names), the junk-filter list, the DB/text conventions with pointers to `qp_crm/shared/schema.py` and `.agents/rules/product-text-rules-v2.md`, and the next-step outline. Board card `card-3dd8ad26-1fac-4549-8db6-9c256e5ef436` (tag `blokirano-pitanjima`, `handoff`) repeats the anti-loop rule in its description, so the next session sees it even without opening the file. Negative guarantee: no code, schema, config or DB was changed — `pricing.db`, the CRM app and the attachments are untouched; nothing was built or imported. The build itself stays blocked until the user answers all four questions, per their explicit instruction.
+
+## Consequences
+
+Cost: one wasted session (~390 discarded tool calls) and a manual model switch by the user; the clarifying round had to be restarted as plain chat text. Bought: a durable, cheap recovery path — any model (local or cloud) can now resume the catalogue job by reading one file, and the loop cannot re-trigger because the tool call that caused it is explicitly forbidden in both the handoff file and the board card. Follow-up obligation: §3 of `tmp-excel/HANDOFF.md` and the board card description must stay in sync — when the user answers, both are stale and must be updated before the build starts. Coverage gap: this convention is documented only for this workspace; nothing in the global `~/.dsh/AGENTS.md` prevents the same loop in other workspaces with the local model. Also not fixed: the underlying serialization weakness that made the local model emit escaped-unicode keys is a model-side defect and is NOT addressed here — the mitigation only removes the *trigger*, so a future session asking a fresh multi-question round through `ask_user_question` can still loop.
+
