@@ -59,6 +59,16 @@ jobs:
                   f.write(f"{k}={secrets.token_hex(32)}\n")
           EOF
 
+      # compose now bind-mounts ./backups -> /app/backups (quick backups +
+      # the deploy record must survive recreate). On the runner the folder
+      # does not exist yet, so docker would create it ROOT-owned and the
+      # container's appuser (uid 1000) could not write — pre-create it with
+      # the right ownership, exactly like the bind-mount dirs on a server.
+      - name: Pre-create backups/ with appuser ownership
+        run: |
+          mkdir -p backups
+          sudo chown 1000:1000 backups
+
       - name: Build image
         run: docker compose build app
 
