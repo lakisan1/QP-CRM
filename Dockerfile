@@ -24,6 +24,12 @@ ENV TZ=Europe/Belgrade \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
+# Build-time git commit — CI passes it (build-args in ci.yml), the Admin ->
+# About page shows it as the exact build the image contains. Empty default
+# keeps local `docker compose build` honest (About shows "dev build").
+ARG QP_BUILD_COMMIT=""
+ENV QP_BUILD_COMMIT=${QP_BUILD_COMMIT}
+
 WORKDIR /app
 
 # Dependencies first: this layer only rebuilds when requirements.txt changes.

@@ -208,6 +208,7 @@ ADMIN_SUBPAGES = (
     "/admin/users",
     "/admin/api_keys",
     "/admin/rent/templates",
+    "/admin/about",
 )
 
 
@@ -226,13 +227,13 @@ def test_admin_gated_routes_reachable_after_login(admin_client, path):
 
 @pytest.mark.parametrize("path", ADMIN_SUBPAGES)
 def test_admin_pages_share_one_full_header(admin_client, path):
-    """Every admin page renders the SAME nav: all seven links + Home, and no
+    """Every admin page renders the SAME nav: all eight links + Home, and no
     logout button (logout lives in the settings app now)."""
     page = admin_client.get(path)
     assert page.status_code == 200, path
     html = page.data.decode()
     for link in ("/admin/", "/admin/backup", "/admin/pdf_templates", "/admin/rounding_rules",
-                 "/admin/users", "/admin/api_keys", "/admin/rent/templates"):
+                 "/admin/users", "/admin/api_keys", "/admin/rent/templates", "/admin/about"):
         assert link in html, f"{path}: missing nav link {link}"
     assert ">Home</a>" in html, f"{path}: missing Home link"
     assert "Logout" not in html, f"{path}: header logout button is gone"

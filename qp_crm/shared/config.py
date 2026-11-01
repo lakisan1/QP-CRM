@@ -36,6 +36,17 @@ APP_ASSETS_DIR = os.path.join(BASE_DIR, "app_assets")
 # these files contain password hashes.
 BACKUP_DIR = os.path.join(BASE_DIR, "backups")
 
+# ---------- Version (Admin -> About tab) ----------
+# Single source of truth for the app version. Bump on every release tag
+# (v1.1.0 -> 1.1.0). The Admin -> About page shows this plus the build
+# commit (QP_BUILD_COMMIT, injected at image build time by CI) and the
+# running image tag (backups/last-deployed-tag, written by deploy.sh).
+APP_VERSION = "1.1.0"
+
+# Build-time git commit — set by CI/Dockerfile as a build arg; empty in
+# bare-metal/dev runs (the About page then shows "dev build").
+APP_BUILD_COMMIT = os.environ.get("QP_BUILD_COMMIT", "")
+
 # ---------- Website sync (Sajt <-> CRM product sync) ----------
 # Public WP REST API for autoservisnaoprema.com (no auth keys needed).
 # Sync is EXCLUSIVELY manual - triggered only by clicking the button in the UI.

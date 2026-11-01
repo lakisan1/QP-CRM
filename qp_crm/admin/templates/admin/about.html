@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="{{ theme|default('dark') }}">
+
+<head>
+    <meta charset="UTF-8">
+    <title>About — QP-CRM</title>
+    <link rel="icon" type="image/png" href="/app_assets/favicon.png">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+</head>
+
+<body>
+    {% set active = 'about' %}{% include 'admin/_nav.html' %}
+
+    <div class="container" style="max-width: 900px;">
+        <h1>About QP-CRM</h1>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: -8px;">
+            Software version and runtime information — what is actually running right now.
+        </p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ 'success' if category == 'success' else ('warning' if category == 'warning' else 'error') }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <!-- Version -->
+        <div class="card">
+            <h3>Version</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                    <td style="padding: 8px 0; color: var(--text-muted); width: 40%;">Software version</td>
+                    <td style="padding: 8px 0; font-weight: 700; font-size: 1.1rem;">v{{ app_version }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0; color: var(--text-muted);">Build commit</td>
+                    <td style="padding: 8px 0;">
+                        {% if build_commit %}
+                            <code>{{ build_commit }}</code>
+                        {% else %}
+                            <span style="color: var(--text-muted);">dev build (not from a Docker image)</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0; color: var(--text-muted);">Running image</td>
+                    <td style="padding: 8px 0;">
+                        {% if image_tag %}
+                            <code>{{ image_tag }}</code>
+                        {% else %}
+                            <span style="color: var(--text-muted);">bare-metal / local run (no deploy record)</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            </table>
+            <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 10px;">
+                Updates come from
+                <a href="https://github.com/lakisan1/QP-CRM/releases" target="_blank" rel="noopener">github.com/lakisan1/QP-CRM/releases</a> —
+                see UPDATE.md for the update procedure.
+            </p>
+        </div>
+
+        <!-- Runtime -->
+        <div class="card">
+            <h3>Runtime</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                    <td style="padding: 8px 0; color: var(--text-muted); width: 40%;">Python</td>
+                    <td style="padding: 8px 0;"><code>{{ python_version }}</code></td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0; color: var(--text-muted);">Database</td>
+                    <td style="padding: 8px 0;">{{ db_engine }} — {{ db_size_mb }} MB</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Data at a glance -->
+        <div class="card">
+            <h3>Data at a glance</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                {% for label, value in counts.items() %}
+                <tr>
+                    <td style="padding: 8px 0; color: var(--text-muted); width: 40%;">{{ label }}</td>
+                    <td style="padding: 8px 0; font-weight: 600;">{{ value }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+
+        <!-- Where things live -->
+        <div class="card">
+            <h3>Where things live (update-safe)</h3>
+            <p style="color: var(--text-muted); font-size: 0.85rem;">
+                All mutable data is bind-mounted OUTSIDE the Docker image — updates replace code only,
+                never data.
+            </p>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr><td style="padding: 6px 0;"><code>app_data/</code></td><td style="color: var(--text-muted);">database (pricing.db)</td></tr>
+                <tr><td style="padding: 6px 0;"><code>app_data/product_images/</code></td><td style="color: var(--text-muted);">product images</td></tr>
+                <tr><td style="padding: 6px 0;"><code>app_assets/</code></td><td style="color: var(--text-muted);">logo, favicon, PDF assets</td></tr>
+                <tr><td style="padding: 6px 0;"><code>backups/</code></td><td style="color: var(--text-muted);">quick backups + pre-deploy restore points</td></tr>
+            </table>
+        </div>
+
+        <!-- Links -->
+        <div class="card">
+            <h3>Links</h3>
+            <ul style="line-height: 2;">
+                <li><a href="https://github.com/lakisan1/QP-CRM" target="_blank" rel="noopener">Source repository (GitHub)</a></li>
+                <li><a href="{{ url_for('admin.backup_page') }}">Backup &amp; restore points</a> — before any manual intervention</li>
+            </ul>
+        </div>
+    </div>
+
+</body>
+
+</html>
+
