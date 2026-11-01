@@ -57,6 +57,13 @@ services:
       # Logo upload writes into static/img — without this mount the uploaded
       # logo is lost on the next rebuild (image layers are ephemeral).
       - ./static/img:/app/static/img
+      # backups/ — quick backups from the Admin -> Backup tab AND the
+      # deploy-record the Admin -> About tab reads (backups/last-deployed-tag,
+      # written by deploy.sh on the host). Without this mount the container
+      # sees only its own ephemeral /app/backups from the image layer: quick
+      # backups would vanish on recreate and About could not show the
+      # running image tag.
+      - ./backups:/app/backups
     restart: unless-stopped
     healthcheck:
       # python:3.12-slim ships no curl/wget — poll with the stdlib instead.
