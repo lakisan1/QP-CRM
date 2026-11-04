@@ -573,6 +573,23 @@
       "updatedAt": 1788490540209,
       "summary": "pricing/routes/{core,products,catalog,prices}, offer/routes/{core,offers,pdf}, rent/routes/{core,contracts,documents,catalogs,pdf}, admin/routes/{core,settings,presets,backup,pdf_templates,rounding,rent_templates} (api_key routes in settings.py). Pattern: route files import from ..app (bp + helpers); app.py bottoms out with 'from . import routes'. Standalone dev: python -m qp_crm.<module>.app.",
       "rejected": "Splitting by HTTP verb or by auth level: neither matches how changes actually cluster (a feature touches form+list+pdf together); a follow-up bug in this stage showed the import-check risk — rent/routes/__init__.py must list every route module or its routes silently vanish (fixed by the bad-date regression tests)."
+    },
+    {
+      "id": "card-d2ac53b9-7ad8-410d-b306-d04b04d86443",
+      "title": "P2 stage 5 (admin) — split admin/app.py into admin/routes/* domain modules",
+      "summary": "Created admin/routes/ package (__init__.py + core, settings, presets, pdf_templates, backup, rounding, rent_templates; 1109 lines total) holding all 29 @bp.route functions byte-verbatim; admin/app.py cut from 1296 to 186 lines (keeps bp, before_request hook, 4 init fns, generate_full_backup_zip, ends with `from . import routes`). Verified: AST-parse, 29-decorator tally (0 left in app.py), route multiset identical to HEAD, per-module name coverage (no undefined/unused), verbatim-tail diff vs git HEAD, import smoke test registering the blueprint (29 endpoints, identical URL rules, auth hook present). api_key_generate/api_key_revoke placed in settings.py (missing from the task's per-module list but required by the 29-route invariant). Full pytest/docker run not done here (venv lacks `markdown`; runtime verification belongs to the docker env).",
+      "rationale": "Stage 5 requires per-domain route modules with zero behavior change; admin was the module assigned to this task in an already-green codebase, so the split had to be byte-verbatim to keep the Phase-1 test safety net valid.",
+      "rejected": "Moving generate_full_backup_zip() into routes/backup.py — rejected to keep non-route helpers in app.py per plan and to avoid breaking `from admin.app import` consumers (main.py, wsgi.py, tests). Pruning now-unused imports from app.py — rejected, the plan requires everything else left exactly as is.",
+      "sourceSessionId": "7dc540f4-8ace-4a40-b82f-80f0ea50060a",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "refactor",
+        "phase-2",
+        "admin"
+      ],
+      "createdAt": 1788500849905,
+      "updatedAt": 1788500849905
     }
   ]
 }

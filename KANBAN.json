@@ -2,23 +2,6 @@
   "version": 1,
   "cards": [
     {
-      "id": "card-d2ac53b9-7ad8-410d-b306-d04b04d86443",
-      "title": "P2 stage 5 (admin) — split admin/app.py into admin/routes/* domain modules",
-      "summary": "Created admin/routes/ package (__init__.py + core, settings, presets, pdf_templates, backup, rounding, rent_templates; 1109 lines total) holding all 29 @bp.route functions byte-verbatim; admin/app.py cut from 1296 to 186 lines (keeps bp, before_request hook, 4 init fns, generate_full_backup_zip, ends with `from . import routes`). Verified: AST-parse, 29-decorator tally (0 left in app.py), route multiset identical to HEAD, per-module name coverage (no undefined/unused), verbatim-tail diff vs git HEAD, import smoke test registering the blueprint (29 endpoints, identical URL rules, auth hook present). api_key_generate/api_key_revoke placed in settings.py (missing from the task's per-module list but required by the 29-route invariant). Full pytest/docker run not done here (venv lacks `markdown`; runtime verification belongs to the docker env).",
-      "rationale": "Stage 5 requires per-domain route modules with zero behavior change; admin was the module assigned to this task in an already-green codebase, so the split had to be byte-verbatim to keep the Phase-1 test safety net valid.",
-      "rejected": "Moving generate_full_backup_zip() into routes/backup.py — rejected to keep non-route helpers in app.py per plan and to avoid breaking `from admin.app import` consumers (main.py, wsgi.py, tests). Pruning now-unused imports from app.py — rejected, the plan requires everything else left exactly as is.",
-      "sourceSessionId": "7dc540f4-8ace-4a40-b82f-80f0ea50060a",
-      "status": "done",
-      "tags": [
-        "qp-crm",
-        "refactor",
-        "phase-2",
-        "admin"
-      ],
-      "createdAt": 1788500849905,
-      "updatedAt": 1788500849905
-    },
-    {
       "id": "card-4b199c3a-5749-43e5-aa09-1ca87554d2ce",
       "title": "P2 stage 6b — move app code into qp_crm/ package, delete sys.path hacks, rewrite imports",
       "description": "git mv (history preserved) of main.py, wsgi.py, shared/, services/, pricing/, offer/, rent/, admin/, sale/, settings/ into qp_crm/ + new qp_crm/__init__.py. Imports rewritten to qp_crm.* everywhere (app code + tests, module-level AND lazy function-level). Repo root keeps templates/, static/, app_data/, app_assets/, tests/, Docker files — docker-compose bind mounts and URLs unchanged.",
@@ -1954,6 +1937,28 @@
       "createdAt": 1793804313301,
       "updatedAt": 1793805262341,
       "summary": "Ispravljeno + testirano + na git (v1.1.2). (1) new_offer: `_offer_form_settings(cur)` je jedan izvor konteksta za GET i oba re-rendera (duplikat + obavezna polja) — UnboundLocalError `current_language` više ne postoji; preserved_offer je jedan dict BEZ `id`, a šablonovi edit-only blokovi su pod `{% if offer and offer.id %}` (h1, PDF dugmad, artikli, scroll key, reorder URL) → nema više UndefinedError 500. (2) `_is_ajax_header_save()` (X-Requested-With): background save dobija 200 {\"ok\": true} ili 409 {\"ok\": false, \"error\"}; običan submit zadržava 302 + session poruku. offer_form.html `saveHeaderQuietly()` šalje header, parsira JSON i prikazuje grešku, pa tek onda submituje kliknutu formu. (3) Ime ponude je obavezno i serverski (new + edit), prazno se nikad ne upisuje; duplikat poruka ista na oba puta. (4) Gate je samo new-offer wizard: `data-existing-offer` → postojeća ponuda se nikad ne zaključava (pointer-events), musterija-rest se ne skriva — legacy contact_id NULL ponude (#15 P-1034, #91 P-1197 AutoBeli) su opet izmenjive, ime uključeno. (5) Bonus: offer/app.py je imao DVE funkcije inject_helpers (starija izgubila dekorator) → theme + enable_product_discount se opet injektuju. Testovi: tests/characterization/test_offer_name_save.py (11) — 500→200 duplikat sa sačuvanim imenom i izborom mušterije, obavezna polja, prazno ime, JSON 200/409, header-save-pa-dodaj-stavku. Ceo suite 548 passed, 3 golden skip na hostu (CI ih vrti u image-u). APP_VERSION 1.1.2."
+    },
+    {
+      "id": "card-a987e578-1e79-4d9a-9e50-20ad12f0f7ff",
+      "title": "BUG · Ponude: BR./redni broj stavki se kvari posle duplikata i dodavanja — renumber + jednokratni repair",
+      "description": "Uzrok: offers/offer_items.line_order se koristi i kao ključ redosleda i kao prikazani \"BR./Rb.\". Bio je append-only (MAX+1 pri dodavanju, bez renumber-a pri brisanju) i duplicate ga je kopirao verbatim → svaki ciklus add/delete ostavlja rupe, a svaka kopija ih nasleđuje. U živoj bazi 16/83 ponuda je imalo ne-kontinualne redne brojeve (P-1061 1,8,17,25; P-1100 1,2,9,16,17,18,25,26 i kopije P-1100-1/P-1100-2 sa istim rupama; P-1018 do 50). Dodatno: update_item_order je numerisao samo pristigle id-jeve, pa je stale drag-and-drop lista (druga kartica) mogla da upiše isti redni broj dvaput. Popravljeno: renumber_offer_items() posle add/delete/duplicate; duplicate upisuje enumerate 1..n; update_item_order numeriše SVE stavke (pristigle pa ostatak); normalize_offer_item_orders() jednokratni idempotentni repair iz offer.init_db (boot i restore); prikaz BR. je sada loop.index (forma + view; PDF je i bio). Usput: Offers/Templates toggle se više ne ignoriše kad je aktivan filter \"Artikal\". Testovi: tests/characterization/test_offer_item_ordinals.py (9). Repair verifikovan na kopiji žive baze: 16 ponuda popravljeno, nijedan red se nije pomerio. Ceo suite 557 passed, 3 golden skip na hostu. APP_VERSION 1.1.3.",
+      "summary": "Ispravljeno, testirano i poslato na git (v1.1.3). (1) `renumber_offer_items(cur, offer_id)` u qp_crm/services/offer_service.py — 1..n po redosledu (line_order, id) koji svi čitaoci već koriste, pa se relativni redosled ne menja. (2) Poziva se posle add_item i delete_item, a duplicate_offer upisuje sopstveni enumerate 1..n (izvor se čita ORDER BY line_order, id) → kopija nikad ne nasleđuje rupe/duplikate. (3) `update_item_order` numeriše SVE stavke: pristigle id-jeve po redosledu iz POST-a, pa ostatak po trenutnom redu — stale/parcijalna lista više ne može da napravi duplikate. (4) `normalize_offer_item_orders(cur)` — jednokratni idempotentni repair svih ponuda, zvan iz offer.init_db() (boot, wsgi, conftest, Admin→Backup restore); guard query posle prvog prolaza vraća 0. (5) Prikaz \"BR.\" je pozicija: offer_form.html `.row-index` i offer_view.html koriste loop.index (PDF je i bio loop.index/Rb.). (6) Usput nađeno u listi: filter \"Artikal\" je ignorisao Offers/Templates toggle — sada primenjuje o.is_template. Testovi tests/characterization/test_offer_item_ordinals.py (9): add na rupičastu ponudu, delete srednje stavke, duplikat u izvornom redu, stale reorder bez duplikata, idempotentni normalize, offer.init_db repair, dupli ordinali, prikaz pozicije u formi i view-u, templates toggle pod filterom. Repair verifikovan na kopiji žive baze: 16/83 ponuda popravljeno, nijedan red se nije pomerio, 0 preostalih rupa. Suite 557 passed / 3 golden skip na hostu.",
+      "rationale": "Korisnički report 2026-11-04: \"Kad se napravi duplikat ponude ili kad se dodaju novi artikli BR. redni broj u ponudi se nekad pokvari.\" Broj se koristi kao redosled i kao prikaz, pa rupe u njemu nisu samo kozmetika — menjaju redosled u PDF-u i onemogućavaju pouzdan drag-and-drop. Popravka mora i da sanira postojeće dokumente (16 ponuda u živoj bazi), jer korisnik vidi pogrešan broj upravo na njima.",
+      "rejected": "Odbačeno: renumber samo pri reorder-u (rupe nastaju iz delete+MAX+1, ostale bi); samo prikaz loop.index bez popravke podataka (line_order bi i dalje rastao, kopije nasleđivale rupe, a sorte/export po line_order ostaje pokvaren); repair u shared/schema.py (schema je DDL izvor, ne meša se sa podacima); ROW_NUMBER na čitanju (verzija SQLite-a + podaci ostaju prljavi); oslanjanje na to da će svaka ponuda biti otvorena i sačuvana (16 ponuda bi ostalo pogrešno).",
+      "sourceSessionId": "session-aa993495-13d7-4ecd-b8ab-3c6baa1fe714",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "bug",
+        "offer",
+        "items",
+        "line_order",
+        "ordinal",
+        "duplicate",
+        "repair"
+      ],
+      "createdAt": 1793807825707,
+      "updatedAt": 1793807825707
     }
   ]
 }
