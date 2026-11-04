@@ -49,11 +49,16 @@ def init_db():
     The canonical offers/offer_items definitions are the offer supersets;
     the legacy-DB ALTERs (kept idempotent) run afterwards."""
     from qp_crm.shared.schema import create_offer_tables, migrate_offer_tables
+    from qp_crm.services.offer_service import normalize_offer_item_orders
 
     conn = get_db()
     cur = conn.cursor()
     create_offer_tables(cur)
     migrate_offer_tables(cur)
+    # Idempotent data repair: item ordinals ("BR./Rb.") that older add/delete
+    # cycles and duplicates left with holes (e.g. 1, 8, 17, 25) are closed up
+    # to 1..n in the order every reader already shows. No-op once fixed.
+    normalize_offer_item_orders(cur)
     conn.commit()
     conn.close()
 

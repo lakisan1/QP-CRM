@@ -75,7 +75,7 @@
         <tbody>
             {% for it in items %}
             <tr>
-                <td style="text-align: center;">{{ it.line_order }}</td>
+                <td style="text-align: center;">{{ loop.index }}</td>
                 <td style="text-align: center;">
                     {% if it.item_photo_path %}
                     <img src="{{ url_for('offer.product_image', filename=it.item_photo_path) }}" style="max-width: 100px;">

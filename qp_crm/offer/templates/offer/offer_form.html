@@ -426,7 +426,7 @@
                             <button type="submit" class="btn btn-danger btn-sm">Delete</button>
                         </form>
                     </td>
-                    <td style="text-align: center;" class="row-index">{{ it.line_order }}</td>
+                    <td style="text-align: center;" class="row-index">{{ loop.index }}</td>
                     <td style="text-align: center;">
                         {% if it.item_photo_path %}
                         <img src="{{ url_for('offer.product_image', filename=it.item_photo_path) }}"

@@ -5,6 +5,7 @@ from flask import jsonify, redirect, render_template, request, session, url_for
 
 from ..app import bp, get_country_list, get_db, get_mandatory_fields, recalc_totals
 from qp_crm.services import contact_service
+from qp_crm.services.offer_service import renumber_offer_items
 from qp_crm.shared.auth import get_db as _get_db
 
 
@@ -166,6 +167,12 @@ def list_offers():
         # Add item filter
         clauses.append("oi.product_id = ?")
         params.append(item_filter)
+
+        # The Offers/Templates toggle applies here too: it used to be
+        # ignored whenever an item filter was active, so the templates tab
+        # listed ordinary offers (and vice versa).
+        clauses.append("o.is_template = ?")
+        params.append(1 if view == "templates" else 0)
 
         if search_term:
             clauses.append("(o.client_name LIKE ? OR o.offer_number LIKE ?)")
@@ -669,6 +676,9 @@ def edit_offer(offer_id):
                 item_name, item_description, item_photo_path,
                 quantity, unit_price, discount_percent, line_net
             ))
+            # MAX+1 appends after the largest historical ordinal; closing the
+            # gaps keeps the displayed "BR." 1..n (see offer_service).
+            renumber_offer_items(cur, offer_id)
             conn.commit()
 
             # totals in DB
@@ -709,6 +719,7 @@ def edit_offer(offer_id):
         elif action == "delete_item":
             item_id = int(request.form.get("item_id"))
             cur.execute("DELETE FROM offer_items WHERE id = ? AND offer_id = ?;", (item_id, offer_id))
+            renumber_offer_items(cur, offer_id)
             conn.commit()
             recalc_totals(offer_id)
 
@@ -939,10 +950,15 @@ def duplicate_offer(offer_id):
     ))
     new_offer_id = cur.lastrowid
 
-    # 3. Copy items
-    cur.execute("SELECT * FROM offer_items WHERE offer_id = ? ORDER BY line_order;", (offer_id,))
+    # 3. Copy items. The copy gets its own contiguous 1..n ordinals: the
+    # source line_order values may carry holes from older add/delete cycles
+    # (the duplicate used to inherit them verbatim, so "BR." looked broken
+    # again on every copy) or even repeat them.
+    cur.execute(
+        "SELECT * FROM offer_items WHERE offer_id = ? ORDER BY line_order, id;",
+        (offer_id,))
     items = cur.fetchall()
-    for item in items:
+    for position, item in enumerate(items, start=1):
         cur.execute("""
             INSERT INTO offer_items (
                 offer_id, product_id, line_order,
@@ -951,7 +967,7 @@ def duplicate_offer(offer_id):
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """, (
-            new_offer_id, item["product_id"], item["line_order"],
+            new_offer_id, item["product_id"], position,
             item["item_name"], item["item_description"], item["item_photo_path"],
             item["quantity"], item["unit_price"], item["discount_percent"], item["line_net"]
         ))
@@ -978,7 +994,16 @@ def delete_offer(offer_id):
 
 @bp.route("/offers/<int:offer_id>/reorder", methods=["POST"])
 def update_item_order(offer_id):
-    data = request.json
+    """Persist the drag-and-drop order of an offer's items.
+
+    The JS posts the ids of the rows it rendered. A stale page (an item was
+    added or deleted in another tab) may post a partial list, and the old
+    code wrote 1..k only for those ids -- the rows it did not know about kept
+    their old ordinals, producing duplicates/gaps ("BR." broken). The posted
+    ids now go first in their posted order and EVERY remaining item of the
+    offer follows in its current order, so the result is always 1..n.
+    """
+    data = request.get_json(silent=True) or {}
     item_ids = data.get("item_ids", [])
     if not item_ids:
         return jsonify({"success": False, "message": "No item IDs provided"}), 400
@@ -986,12 +1011,25 @@ def update_item_order(offer_id):
     conn = get_db()
     cur = conn.cursor()
     try:
-        for idx, item_id in enumerate(item_ids, start=1):
+        cur.execute(
+            "SELECT id FROM offer_items WHERE offer_id = ? ORDER BY line_order, id;",
+            (offer_id,))
+        existing = [row[0] for row in cur.fetchall()]
+        wanted = []
+        for raw in item_ids:
+            try:
+                item_id = int(raw)
+            except (TypeError, ValueError):
+                continue
+            if item_id in existing and item_id not in wanted:
+                wanted.append(item_id)
+        ordered = wanted + [item_id for item_id in existing if item_id not in wanted]
+        for position, item_id in enumerate(ordered, start=1):
             cur.execute("""
                 UPDATE offer_items
                 SET line_order = ?
                 WHERE id = ? AND offer_id = ?;
-            """, (idx, item_id, offer_id))
+            """, (position, item_id, offer_id))
         conn.commit()
     except Exception as e:
         conn.rollback()
