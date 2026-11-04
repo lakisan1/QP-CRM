@@ -2,56 +2,6 @@
   "version": 1,
   "cards": [
     {
-      "id": "card-5534e480-7fb2-4f56-9411-53db26bafdbb",
-      "title": "P2 stage 3 — single schema source in shared/schema.py",
-      "summary": "Single DDL source qp_crm/shared/schema.py: create_pricing/offer/admin/rent_tables (canonical supersets incl. client_pib/client_mb/discount_percent in CREATE; REAL price_rounding_rules columns) + add_column_if_missing + migrate_pricing (guarded UNIQUE idx_products_name_unique COLLATE NOCASE + legacy-UNIQUE prices rebuild) + migrate_offer/rent_tables. All five init/migrate entry points route through it.",
-      "rationale": "Two init paths had slightly different table definitions (audit L4) — the canonical-superset DDL removes drift between fresh and migrated DBs.",
-      "sourceSessionId": "session-b5194f0d-71bf-4dc4-93d4-5af6afd8700b",
-      "status": "done",
-      "tags": [
-        "qp-crm",
-        "refactor",
-        "phase-2"
-      ],
-      "createdAt": 1788490540174,
-      "updatedAt": 1788490540174,
-      "rejected": "Raw .sql schema files: string templates lose the guarded idempotent-migration helpers (add_column_if_missing) and dialect nuances (COLLATE NOCASE, partial indexes) that python can express precisely."
-    },
-    {
-      "id": "card-268765af-736b-4b8a-ae81-48fd291cbf0a",
-      "title": "P2 stage 4 — service layer + sandboxed Jinja (audit C4 closed)",
-      "summary": "Pure calculation/business logic extracted to qp_crm/services/: pricing_service.apply_rounding, offer_service.recalc_totals, rent_service (pmt/_add_months/calculate_rent/generate_schedule/_build_doc_context/format_document_html), pdf_service.render_db_template_parts with jinja2.sandbox.SandboxedEnvironment (autoescape=True, filters copied from app jinja_env, pinned globals) — closing audit C4 (DB-template SSTI). Rent document rendering stays literal string substitution (no Jinja surface).",
-      "rationale": "Money logic was embedded in 1.2–1.8k-line route files, untestable without HTTP; DB-stored templates rendered with the full app Jinja env = arbitrary code execution via admin UI (C4).",
-      "sourceSessionId": "session-b5194f0d-71bf-4dc4-93d4-5af6afd8700b",
-      "status": "done",
-      "tags": [
-        "qp-crm",
-        "refactor",
-        "phase-2",
-        "security"
-      ],
-      "createdAt": 1788490540191,
-      "updatedAt": 1788490540191,
-      "rejected": "Jinja with disabled autoescape + strip filters for speed: reopens C4; sandbox autoescape measured no significant PDF-render slowdown in the golden tests."
-    },
-    {
-      "id": "card-a25422b1-a4c4-4bd8-97f6-dc766b232b48",
-      "title": "P2 stage 5 — split route files into per-domain modules",
-      "description": "Four parallel subagents split pricing (19 routes → core/products/catalog/prices), offer (14 → core/offers/pdf), rent (20 → core/contracts/documents/catalogs), admin (29 → core/settings/presets/pdf_templates/backup/rounding/rent_templates). Route bodies move verbatim; routes import bp + helpers from ../app; app.py registers via `from . import routes` at the bottom. Zero behavior change; suite green per module commit.",
-      "rationale": "1.2–1.8k-line route files were unmaintainable and blocked review; per-domain modules map to the feature areas and set up the qp_crm/ package move.",
-      "sourceSessionId": "session-b5194f0d-71bf-4dc4-93d4-5af6afd8700b",
-      "status": "done",
-      "tags": [
-        "qp-crm",
-        "refactor",
-        "phase-2"
-      ],
-      "createdAt": 1788490540209,
-      "updatedAt": 1788490540209,
-      "summary": "pricing/routes/{core,products,catalog,prices}, offer/routes/{core,offers,pdf}, rent/routes/{core,contracts,documents,catalogs,pdf}, admin/routes/{core,settings,presets,backup,pdf_templates,rounding,rent_templates} (api_key routes in settings.py). Pattern: route files import from ..app (bp + helpers); app.py bottoms out with 'from . import routes'. Standalone dev: python -m qp_crm.<module>.app.",
-      "rejected": "Splitting by HTTP verb or by auth level: neither matches how changes actually cluster (a feature touches form+list+pdf together); a follow-up bug in this stage showed the import-check risk — rent/routes/__init__.py must list every route module or its routes silently vanish (fixed by the bad-date regression tests)."
-    },
-    {
       "id": "card-d2ac53b9-7ad8-410d-b306-d04b04d86443",
       "title": "P2 stage 5 (admin) — split admin/app.py into admin/routes/* domain modules",
       "summary": "Created admin/routes/ package (__init__.py + core, settings, presets, pdf_templates, backup, rounding, rent_templates; 1109 lines total) holding all 29 @bp.route functions byte-verbatim; admin/app.py cut from 1296 to 186 lines (keeps bp, before_request hook, 4 init fns, generate_full_backup_zip, ends with `from . import routes`). Verified: AST-parse, 29-decorator tally (0 left in app.py), route multiset identical to HEAD, per-module name coverage (no undefined/unused), verbatim-tail diff vs git HEAD, import smoke test registering the blueprint (29 endpoints, identical URL rules, auth hook present). api_key_generate/api_key_revoke placed in settings.py (missing from the task's per-module list but required by the 29-route invariant). Full pytest/docker run not done here (venv lacks `markdown`; runtime verification belongs to the docker env).",
@@ -1635,11 +1585,11 @@
     {
       "id": "card-6c18409d-b646-4825-91d7-b241dff4a087",
       "title": "Merge Dev→main + push: oba bug-fix commita u ghcr image (CI gradi na main push)",
-      "summary": "Nije urađeno — čeka merge Dev→main + push (CI push: true na main).",
-      "rationale": "Dva bug-fix commita (3e39e5f PDF first-item, 8574206 offer picker contact_id) su na Dev i LIVE samo preko lokalnog rebuild-a. ghcr.io image je i dalje star, pa bi budući `deploy.sh` (pull) vratio bag. CI gradi/pushuje image samo na push na main.",
-      "rejected": "Odbijeno da sada samostalno merge+push (javni image build) — korisnik je tražio samo restart; merge/push po ustaljenom toku radi korisnik/agent na zahtev.",
+      "summary": "Zatvoreno kroz release v1.1.1 (4494814): Dev→main merge (ff) + tag v1.1.1 + GitHub Release objava + CI zelen + image pushovan na ghcr.io (digest sha256:83edcb99) + lokalna instanca update-ovana (pre-deploy backup backups/pre-deploy-20261102-073858.db, healthy t+7s, About sada pokazuje 1.1.1 / build 4494814). Oba bug-fix commita (offer PDF page-break, offer picker contact_id) su u image-u — bila su u Dev-u od ranije i ušla su kroz isti merge.",
+      "rationale": "Kartica je čekala da oba bug-fix commita uđu u ghcr image; release v1.1.1 je to sproveo do kraja (merge, tag, objava, CI, image, deploy).",
+      "rejected": "Poseban merge samo za ta dva commita — nepotrebno: Dev je već bio ispred main-a za ceo niz promena, pa ih je jedan ff merge odveo zajedno sa ostatkom.",
       "sourceSessionId": "session-9eaca400-bc6c-4d74-ae70-87453a9eb162",
-      "status": "todo",
+      "status": "done",
       "tags": [
         "qp-crm",
         "deploy",
@@ -1649,7 +1599,7 @@
         "follow-up"
       ],
       "createdAt": 1790592376961,
-      "updatedAt": 1790592376961
+      "updatedAt": 1793605229745
     },
     {
       "id": "card-3dd8ad26-1fac-4549-8db6-9c256e5ef436",
@@ -1964,6 +1914,46 @@
       ],
       "createdAt": 1793545079540,
       "updatedAt": 1793545079540
+    },
+    {
+      "id": "card-28f54fab-bb5f-41db-98a7-1302acfb1452",
+      "title": "Release v1.1.1 do kraja: GitHub objava + update lokalne instance",
+      "description": "Posle zahteva \"stavi na git ovu verziju + 1.1.1\": (1) commitovan nekomitovan notes/board (4eef618), (2) APP_VERSION 1.1.0→1.1.1 (4494814), (3) ff merge Dev→main + push, (4) anotiran tag v1.1.1 na 4494814 + push. OSTALO NEDOVRŠENO u tom trenutku (korisnik prijavio \"vidi šta je problem\"): GitHub RELEASE objava za v1.1.1 nije postojala (samo tag) i lokalna instanca je radila stari image (c9c2469 build) pa je About pokazivao 1.1.0. Sada oba rešena: release objavljen preko REST API-ja (token iz git kredencijala) sa engleskim release notes (About tab, imenik, dokumenti, magacin/narudžbine, backup/deploy) i lokalna instanca update-ovana (pull ghcr latest digest sha256:83edcb99 → pre-deploy backup backups/pre-deploy-20261102-073858.db → recreate → healthy t+7s → APP_VERSION 1.1.1, build 4494814, image tag zabeležen).",
+      "summary": "Release v1.1.1 kompletiran: git commit + tag + ff merge na main + CI zelen (4494814) + GitHub Release objava + GHCR image (digest sha256:83edcb99) + lokalna instanca update-ovana i verifikovana (About pokazuje 1.1.1 / build 4494814 / image tag sha-4494814...). Usput rešena i dva tranzijentna docker pull timeout-a (DNS + i/o timeout na ghcr.io) — treći pokušaj prošao.",
+      "rationale": "Korisnik je tražio da verzija sa About tabom ide na git kao 1.1.1; posle toga je prijavio problem — ispostavilo se da su ostala dva koraka: GitHub release objava (kao i kod v1.1.0, tag ≠ release) i update same lokalne instance (image je bio pushovan na GHCR ali nikad pull-ovan).",
+      "rejected": "gh CLI za release — nije ulogovan (traži interaktivan login). Ručno preko web UI — korisnik nije za računarom. Preskakanje lokalnog update-a (\"radi i stari image\") — ne: cela poenta About taba je da pokaže TAČNU verziju, a prikazivao je 1.1.0 dok je 1.1.1 već bila tagovana.",
+      "sourceSessionId": "session-fb211a2a-4513-4aa7-95b5-2bc97bc7f9d8",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "release",
+        "v1.1.1",
+        "github",
+        "deploy",
+        "ghcr"
+      ],
+      "createdAt": 1793605237888,
+      "updatedAt": 1793605237888
+    },
+    {
+      "id": "card-bc71ad99-e4a3-43b5-af49-2e6811e05384",
+      "title": "BUG · Ponude: ime ponude se ne snima — 500 na postojeće ime + tiha odbačena izmena imena",
+      "description": "KOREN 1 (server, 500): qp_crm/offer/routes/offers.py:387-392 — branch za duplikat imena u new_offer() prosleđuje current_language=current_language u render_template, a current_language se dodeljuje SAMO u branch-u za obavezna polja (l.310) i u GET-u (l.461). Rezultat: UnboundLocalError → HTTP 500, ponuda se NE kreira. Živo podešavanje allow_duplicate_names='false' → svaki install (i svež sa NULL redom u global_settings, jer fallback = False) ima ovo na svako poklapanje imena. Repro: /offer/offers/new, ime koje već postoji (npr. P-1251) → Save → 500. Uveden u 6bfa4d0 (P5-unification 2026-09-17), nema testa.\n\nKOREN 2 (stacked, isti re-render): preserved_offer u oba branch-a nema ključ `id`, a šablon u edit-modu (`{% if offer %}`) radi url_for('offer.offer_pdf', offer_id=offer.id) (offer_form.html:269) → UndefinedError → 500. Dokazano na branch-u za obavezna polja (req_client_email=true bez emaila → 500 umesto „Email is required.\"). Dakle i posle dodavanja current_language duplikat bi pao; oba branch-a moraju da dobiju `error`/`error_message` i da šablon ne uđe u edit-mod blokove (ili id u dict + guard).\n\nKOREN 3 (klijent, tih gubitak imena):\n- offer_form.html:585-607 — pre „Dodaj u ponudu\" (i pre promene filtera/brisanja stavke) JS fetch POST-uje celo zaglavlje i uspeh meri sa response.ok. Server odbijanje (duplikat) je 302→200 → JS misli da je sačuvano; poruka je u session error_message koju šablon POP-uje u bačenom odgovoru → korisnik nikad ne vidi grešku, stavka se doda, stranica se vrati sa STARIM imenom.\n- isti fetch ne prolazi HTML5 `required`: ako se ime obriše pa klikne „Dodaj u ponudu\", UPDATE offers SET offer_number='' prođe (server nema proveru) → ponuda ostaje bez imena (u listi se prikaže id).\n- musterija-gate (offer_form.html:829-841) stavlja pointer-events:none na ceo #offer-main-card dok contact_id nije izabran → na ponudama sa contact_id NULL (u bazi: #15 P-1034, #91 P-1197 AutoBeli) polje imena i dugme „Sacuvaj podatke\" se ne mogu kliknuti; isto važi za svež /offers/new pre izbora mušterije, iako ime ponude ne zavisi od mušterije.\n\nDATA: app_data/pricing.db (2026-11-03) — allow_duplicate_names='false', 0 praznih imena, imena jedinstvena; 2 reda sa contact_id NULL.",
+      "rationale": "Korisnik je tražio da prođem kroz logiku imena ponude i popravim ako nađem problem: nađen je 500 na duplikat imena (putanja gde se ime snima), drugi skriveni 500 u istom re-renderu, tihi gubitak odbačene izmene imena preko background save-a, i zaključan header na legacy ponudama bez contact_id. Popravke su morale zajedno: samo current_language bi i dalje padalo na offer.id; samo server ne bi rešio tihi fetch; samo JS ne bi rešio 500.",
+      "rejected": "Odbačeno: poseban JSON endpoint za header save (duplira parsiranje/validaciju/write update_header-a); detekcija greške skeniranjem 302 odgovora/HTML-a (krhko, session poruka se pop-uje u bačenom re-renderu); samo HTML `required` za ime (fetch + programski submit ga zaobilaze); otključavanje samo polja imena CSS izuzetkom (datum/napomene/save dugme i dalje mrtvi, a client polja ostaju skrivena); case-insensitive duplikati (menja semantiku bez zahteva).",
+      "sourceSessionId": "session-aa993495-13d7-4ecd-b8ab-3c6baa1fe714",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "bug",
+        "offer",
+        "name",
+        "500",
+        "js"
+      ],
+      "createdAt": 1793804313301,
+      "updatedAt": 1793805262341,
+      "summary": "Ispravljeno + testirano + na git (v1.1.2). (1) new_offer: `_offer_form_settings(cur)` je jedan izvor konteksta za GET i oba re-rendera (duplikat + obavezna polja) — UnboundLocalError `current_language` više ne postoji; preserved_offer je jedan dict BEZ `id`, a šablonovi edit-only blokovi su pod `{% if offer and offer.id %}` (h1, PDF dugmad, artikli, scroll key, reorder URL) → nema više UndefinedError 500. (2) `_is_ajax_header_save()` (X-Requested-With): background save dobija 200 {\"ok\": true} ili 409 {\"ok\": false, \"error\"}; običan submit zadržava 302 + session poruku. offer_form.html `saveHeaderQuietly()` šalje header, parsira JSON i prikazuje grešku, pa tek onda submituje kliknutu formu. (3) Ime ponude je obavezno i serverski (new + edit), prazno se nikad ne upisuje; duplikat poruka ista na oba puta. (4) Gate je samo new-offer wizard: `data-existing-offer` → postojeća ponuda se nikad ne zaključava (pointer-events), musterija-rest se ne skriva — legacy contact_id NULL ponude (#15 P-1034, #91 P-1197 AutoBeli) su opet izmenjive, ime uključeno. (5) Bonus: offer/app.py je imao DVE funkcije inject_helpers (starija izgubila dekorator) → theme + enable_product_discount se opet injektuju. Testovi: tests/characterization/test_offer_name_save.py (11) — 500→200 duplikat sa sačuvanim imenom i izborom mušterije, obavezna polja, prazno ime, JSON 200/409, header-save-pa-dodaj-stavku. Ceo suite 548 passed, 3 golden skip na hostu (CI ih vrti u image-u). APP_VERSION 1.1.2."
     }
   ]
 }

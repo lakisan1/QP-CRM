@@ -523,6 +523,56 @@
       "createdAt": 1788490540154,
       "updatedAt": 1788490540154,
       "rejected": "A utils Mixin / flask Blueprint-level helpers: mixins hide dependencies and make per-module auth flags awkward; plain functions with explicit imports keep call sites greppable."
+    },
+    {
+      "id": "card-5534e480-7fb2-4f56-9411-53db26bafdbb",
+      "title": "P2 stage 3 — single schema source in shared/schema.py",
+      "summary": "Single DDL source qp_crm/shared/schema.py: create_pricing/offer/admin/rent_tables (canonical supersets incl. client_pib/client_mb/discount_percent in CREATE; REAL price_rounding_rules columns) + add_column_if_missing + migrate_pricing (guarded UNIQUE idx_products_name_unique COLLATE NOCASE + legacy-UNIQUE prices rebuild) + migrate_offer/rent_tables. All five init/migrate entry points route through it.",
+      "rationale": "Two init paths had slightly different table definitions (audit L4) — the canonical-superset DDL removes drift between fresh and migrated DBs.",
+      "sourceSessionId": "session-b5194f0d-71bf-4dc4-93d4-5af6afd8700b",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "refactor",
+        "phase-2"
+      ],
+      "createdAt": 1788490540174,
+      "updatedAt": 1788490540174,
+      "rejected": "Raw .sql schema files: string templates lose the guarded idempotent-migration helpers (add_column_if_missing) and dialect nuances (COLLATE NOCASE, partial indexes) that python can express precisely."
+    },
+    {
+      "id": "card-268765af-736b-4b8a-ae81-48fd291cbf0a",
+      "title": "P2 stage 4 — service layer + sandboxed Jinja (audit C4 closed)",
+      "summary": "Pure calculation/business logic extracted to qp_crm/services/: pricing_service.apply_rounding, offer_service.recalc_totals, rent_service (pmt/_add_months/calculate_rent/generate_schedule/_build_doc_context/format_document_html), pdf_service.render_db_template_parts with jinja2.sandbox.SandboxedEnvironment (autoescape=True, filters copied from app jinja_env, pinned globals) — closing audit C4 (DB-template SSTI). Rent document rendering stays literal string substitution (no Jinja surface).",
+      "rationale": "Money logic was embedded in 1.2–1.8k-line route files, untestable without HTTP; DB-stored templates rendered with the full app Jinja env = arbitrary code execution via admin UI (C4).",
+      "sourceSessionId": "session-b5194f0d-71bf-4dc4-93d4-5af6afd8700b",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "refactor",
+        "phase-2",
+        "security"
+      ],
+      "createdAt": 1788490540191,
+      "updatedAt": 1788490540191,
+      "rejected": "Jinja with disabled autoescape + strip filters for speed: reopens C4; sandbox autoescape measured no significant PDF-render slowdown in the golden tests."
+    },
+    {
+      "id": "card-a25422b1-a4c4-4bd8-97f6-dc766b232b48",
+      "title": "P2 stage 5 — split route files into per-domain modules",
+      "description": "Four parallel subagents split pricing (19 routes → core/products/catalog/prices), offer (14 → core/offers/pdf), rent (20 → core/contracts/documents/catalogs), admin (29 → core/settings/presets/pdf_templates/backup/rounding/rent_templates). Route bodies move verbatim; routes import bp + helpers from ../app; app.py registers via `from . import routes` at the bottom. Zero behavior change; suite green per module commit.",
+      "rationale": "1.2–1.8k-line route files were unmaintainable and blocked review; per-domain modules map to the feature areas and set up the qp_crm/ package move.",
+      "sourceSessionId": "session-b5194f0d-71bf-4dc4-93d4-5af6afd8700b",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "refactor",
+        "phase-2"
+      ],
+      "createdAt": 1788490540209,
+      "updatedAt": 1788490540209,
+      "summary": "pricing/routes/{core,products,catalog,prices}, offer/routes/{core,offers,pdf}, rent/routes/{core,contracts,documents,catalogs,pdf}, admin/routes/{core,settings,presets,backup,pdf_templates,rounding,rent_templates} (api_key routes in settings.py). Pattern: route files import from ..app (bp + helpers); app.py bottoms out with 'from . import routes'. Standalone dev: python -m qp_crm.<module>.app.",
+      "rejected": "Splitting by HTTP verb or by auth level: neither matches how changes actually cluster (a feature touches form+list+pdf together); a follow-up bug in this stage showed the import-check risk — rent/routes/__init__.py must list every route module or its routes silently vanish (fixed by the bad-date regression tests)."
     }
   ]
 }
