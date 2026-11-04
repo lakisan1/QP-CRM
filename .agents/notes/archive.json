@@ -590,6 +590,24 @@
       ],
       "createdAt": 1788500849905,
       "updatedAt": 1788500849905
+    },
+    {
+      "id": "card-4b199c3a-5749-43e5-aa09-1ca87554d2ce",
+      "title": "P2 stage 6b — move app code into qp_crm/ package, delete sys.path hacks, rewrite imports",
+      "description": "git mv (history preserved) of main.py, wsgi.py, shared/, services/, pricing/, offer/, rent/, admin/, sale/, settings/ into qp_crm/ + new qp_crm/__init__.py. Imports rewritten to qp_crm.* everywhere (app code + tests, module-level AND lazy function-level). Repo root keeps templates/, static/, app_data/, app_assets/, tests/, Docker files — docker-compose bind mounts and URLs unchanged.",
+      "summary": "Moved all app code under qp_crm/ via git mv (93 paths: 69 byte-identical, 24 with import edits); rewrote 124 old-form imports (71 from shared.*, 4 from services.*, 35 cross-module, 6 import shared.*, 7 main, 1 bare from services import); deleted 8 sys.path hack blocks; re-anchored BASE_DIR (3 dirnames), main.py template_folder (BASE_DIR/templates), admin System-Default PDF seeding (PACKAGE_DIR + STATIC_DIR), rent legacy DOCX_DIR (BASE_DIR); Dockerfile CMD -> qp_crm.wsgi:application; run_apps.sh/restart_app.sh -> python -m qp_crm.main. Docker suite: 121 passed.",
+      "rationale": "Phase 2 stage 6b: proper package layout kills the last sys.path hacks and makes imports unambiguous before Phase 3. BASE_DIR must keep resolving to the repo root because docker-compose bind-mounts ./app_data, ./app_assets, ./static/img at fixed container paths.",
+      "rejected": "Adding __init__.py to pricing/offer/admin/settings (they were namespace dirs pre-move and keep working as nested namespace subpackages inside the regular qp_crm package — no need). Moving templates/, static/, app_data/ into the package (rejected: breaks compose bind mounts and shared/config BASE_DIR anchoring). sys.modules aliasing old top-level names for backward compat (rejected: dead weight, zero external consumers).",
+      "sourceSessionId": "a852caa0-f331-4fb7-9b87-a8e4bf636157",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "refactor",
+        "phase-2",
+        "stage-6b"
+      ],
+      "createdAt": 1788505252168,
+      "updatedAt": 1788505252168
     }
   ]
 }

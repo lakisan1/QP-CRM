@@ -2,24 +2,6 @@
   "version": 1,
   "cards": [
     {
-      "id": "card-4b199c3a-5749-43e5-aa09-1ca87554d2ce",
-      "title": "P2 stage 6b — move app code into qp_crm/ package, delete sys.path hacks, rewrite imports",
-      "description": "git mv (history preserved) of main.py, wsgi.py, shared/, services/, pricing/, offer/, rent/, admin/, sale/, settings/ into qp_crm/ + new qp_crm/__init__.py. Imports rewritten to qp_crm.* everywhere (app code + tests, module-level AND lazy function-level). Repo root keeps templates/, static/, app_data/, app_assets/, tests/, Docker files — docker-compose bind mounts and URLs unchanged.",
-      "summary": "Moved all app code under qp_crm/ via git mv (93 paths: 69 byte-identical, 24 with import edits); rewrote 124 old-form imports (71 from shared.*, 4 from services.*, 35 cross-module, 6 import shared.*, 7 main, 1 bare from services import); deleted 8 sys.path hack blocks; re-anchored BASE_DIR (3 dirnames), main.py template_folder (BASE_DIR/templates), admin System-Default PDF seeding (PACKAGE_DIR + STATIC_DIR), rent legacy DOCX_DIR (BASE_DIR); Dockerfile CMD -> qp_crm.wsgi:application; run_apps.sh/restart_app.sh -> python -m qp_crm.main. Docker suite: 121 passed.",
-      "rationale": "Phase 2 stage 6b: proper package layout kills the last sys.path hacks and makes imports unambiguous before Phase 3. BASE_DIR must keep resolving to the repo root because docker-compose bind-mounts ./app_data, ./app_assets, ./static/img at fixed container paths.",
-      "rejected": "Adding __init__.py to pricing/offer/admin/settings (they were namespace dirs pre-move and keep working as nested namespace subpackages inside the regular qp_crm package — no need). Moving templates/, static/, app_data/ into the package (rejected: breaks compose bind mounts and shared/config BASE_DIR anchoring). sys.modules aliasing old top-level names for backward compat (rejected: dead weight, zero external consumers).",
-      "sourceSessionId": "a852caa0-f331-4fb7-9b87-a8e4bf636157",
-      "status": "done",
-      "tags": [
-        "qp-crm",
-        "refactor",
-        "phase-2",
-        "stage-6b"
-      ],
-      "createdAt": 1788505252168,
-      "updatedAt": 1788505252168
-    },
-    {
       "id": "card-b77b2116-eb97-47de-9874-6f00422c3a56",
       "title": "Per-user app access (Admin -> Users): which apps each user may open",
       "description": "User request after the phase-3 handover: drop the blanket staff-sees-everything model; the admin controls per user which business apps (pricing/offer/rent) they can open, from the admin panel.",
@@ -1959,6 +1941,28 @@
       ],
       "createdAt": 1793807825707,
       "updatedAt": 1793807825707
+    },
+    {
+      "id": "card-4b086aaf-aada-4c31-9203-75697c1c4dc6",
+      "title": "BUG · Ponude: posle drag & drop-a BR. se pokvari do refresha (ugnežđene tabele iz opisa)",
+      "description": "Posle 1.1.3 (brojevi 1..n) ostao je simptom: „ako zamenim mesta uređajima pokvari se do refresha\". Uzrok: opis stavke se renderuje kao markdown (render_markdown, ekstenzija 'extra'), a kataloški opisi sadrže tabele („| Parametar | Specifikacija |\") → unutar ćelije opisa postoji pravi <table><tr>. Sortable onEnd je radio `itemsBody.querySelectorAll('tr')` i brojao i te ugnježdene redove kad upisuje .row-index = index+1, a u reorder payload je gurao i `undefined` id-jeve. Server je posle reorder-a ispravno renumberisao stavke (zato F5 vrati 1..n). Popravka: selektor `tr[data-id]` (samo item redovi nose data-id); server netaknut. Test: test_drag_renumber_ignores_nested_description_table_rows (3 stavke + 2 reda spec tabele = 5 <tr> u #items-body; strana sadrži `querySelectorAll('tr[data-id]')`, ne sadrži stari poziv). Suite 558 passed / 3 golden skip. APP_VERSION 1.1.4.",
+      "summary": "Ispravljeno u offer_form.html: Sortable onEnd sada broji i šalje samo item redove (`itemsBody.querySelectorAll('tr[data-id]')`), pa ugnježdeni `<tr>` redovi iz markdown tabela u opisu stavke ne kvare prikaz. Uzrok: `render_markdown` (ekstenzija `extra`) pretvara kataloške „| Parametar | Specifikacija |\" tabele u pravi `<table><tr>` unutar ćelije opisa; stari `querySelectorAll('tr')` ih je brojao (BR. skakao) i slao `undefined` u reorder payload. Server je i dalje numerisao ispravno, zato je F5 vraćao 1..n. Test: `test_drag_renumber_ignores_nested_description_table_rows` (proverava da #items-body stvarno ima 5 <tr> za 3 stavke + 2 reda tabele, i da strana koristi `tr[data-id]` a ne stari poziv). Ceo suite: 558 passed, 3 golden skip na hostu. APP_VERSION 1.1.4. Ostalo: commit + merge na main + push (CI gradi image) i deploy.",
+      "rationale": "Korisnik je posle deploya 1.1.3 prijavio da brojevi i dalje „puknu\" posle drag & drop-a do refresha. To je klijentski bug (selektori redova), a ne podaci — repair iz 1.1.3 je ispravan i ostaje. Bez popravke svaki drag na ponudama sa tabelama u opisu (a to je većina kataloških opisa) prikazuje pogrešne BR. brojeve do F5.",
+      "rejected": "Odbačeno: `:scope > tr` (ispravno, ali `tr[data-id]` izražava pravi invariant — samo item redovi imaju identitet); zabrana/uklanjanje markdown tabela iz opisa (menja kataloški format i PDF); reload/refetch posle svakog drop-a (jank koji je drag trebalo da izbegne); server-side re-render brojeva iz reorder odgovora (over-engineering za dva broja).",
+      "sourceSessionId": "session-aa993495-13d7-4ecd-b8ab-3c6baa1fe714",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "bug",
+        "offer",
+        "items",
+        "drag-drop",
+        "sortable",
+        "markdown",
+        "ordinal"
+      ],
+      "createdAt": 1793811183451,
+      "updatedAt": 1793811183451
     }
   ]
 }
