@@ -268,3 +268,39 @@ def test_item_filter_respects_the_templates_toggle():
     tpl_page = client.get(f"/offer/offers?item={product_id}&view=templates").data.decode()
     assert "FILTER-TPL" in tpl_page
     assert "FILTER-PLAIN" not in tpl_page
+
+
+# ---------------------------------------------------------------------------
+# drag-and-drop: markdown TABLES inside item descriptions are nested <tr>
+# ---------------------------------------------------------------------------
+
+def test_drag_renumber_ignores_nested_description_table_rows():
+    """The item description is rendered as markdown ('extra' extension), so a
+    product spec table becomes a real <table><tr> inside the item row. The
+    drag handler used a bare querySelectorAll('tr') and counted those nested
+    rows -- after a drag the visible "BR." numbers jumped until a refresh
+    recomputed them on the server (user report 2026-11-04)."""
+    client = login_client(app.test_client(), "offer")
+    offer_id = _offer()
+    _item(offer_id, "A", 1)
+    table_item = _item(offer_id, "B", 2)
+    _item(offer_id, "C", 3)
+    conn = get_db()
+    conn.execute(
+        "UPDATE offer_items SET item_description = ? WHERE id = ?",
+        ("| Parametar | Specifikacija |\n|---|---|\n| Sistem | Android 9 |\n"
+         "| RAM | 4 GB |", table_item))
+    conn.commit()
+    conn.close()
+
+    page = client.get(f"/offer/offers/{offer_id}/edit").data.decode()
+
+    # hazard: the description table puts extra <tr> inside the items body
+    body_start = page.index('id="items-body"')
+    body_end = page.index("</tbody>", body_start)
+    rows_in_body = re.findall(r"<tr\b", page[body_start:body_end])
+    assert len(rows_in_body) == 3 + 2  # 3 items + 2 spec-table rows
+
+    # fix: the reorder handler only walks item rows (they carry data-id)
+    assert "querySelectorAll('tr[data-id]')" in page
+    assert "querySelectorAll('tr').forEach" not in page

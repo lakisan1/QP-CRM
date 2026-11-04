@@ -774,7 +774,15 @@
                 animation: 150,
                 onEnd: function () {
                     const itemIds = [];
-                    itemsBody.querySelectorAll('tr').forEach((tr, index) => {
+                    // ONLY the item rows: a product description may contain a
+                    // markdown TABLE (the 'extra' markdown extension renders a
+                    // real <table><tr> inside the description cell), so a bare
+                    // querySelectorAll('tr') counted those nested rows too --
+                    // the visible "BR." numbers then jumped right after a drag
+                    // and only a page refresh (server loop.index) fixed them
+                    // (user report 2026-11-04). Every item row carries
+                    // data-id; nested description rows never do.
+                    itemsBody.querySelectorAll('tr[data-id]').forEach((tr, index) => {
                         itemIds.push(tr.dataset.id);
                         // Update visual row index
                         const idxCell = tr.querySelector('.row-index');
