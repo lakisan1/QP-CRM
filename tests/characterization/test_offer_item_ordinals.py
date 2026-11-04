@@ -230,11 +230,11 @@ def test_edit_form_and_view_print_the_position():
     assert row_indexes == ["1", "2", "3"]
 
     view = client.get(f"/offer/offers/{offer_id}/view").data.decode()
-    # the view table's first column is <td ...>{{ loop.index }}</td>, so the
+    # the view table row starts with <td ...>{{ loop.index }}</td>, so the
     # rows print 1,2,3 even though line_order is 1,8,17
     view_indexes = re.findall(
-        r'<td style="text-align: center;">(\d+)</td>', view)
-    assert view_indexes[:3] == ["1", "2", "3"]
+        r'<tr>\s*<td style="text-align: center;">(\d+)</td>', view)
+    assert view_indexes == ["1", "2", "3"]
 
 
 # ---------------------------------------------------------------------------
