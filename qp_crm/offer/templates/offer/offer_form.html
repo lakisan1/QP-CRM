@@ -1,6 +1,6 @@
 {% extends "offer/base.html" %}
 {% block content %}
-<h1>{% if offer %}Izmeni ponudu{% else %}New offer{% endif %}</h1>
+<h1>{% if offer and offer.id %}Izmeni ponudu{% else %}New offer{% endif %}</h1>
 
 {# ── Musterija-first (P5-unification): step 1 sits ABOVE the form grid, so
    picking/creating the musterija is literally the first thing on the page.
@@ -25,7 +25,7 @@
     <small id="musterija-hint" style="display: block; margin-top: 8px; color: var(--text-muted);">Prvo izaberite postojeću musteriju ili je dodajte u Imenik — preostala polja se automatski popune.</small>
 </div>
 
-<div class="card" id="offer-main-card">
+<div class="card" id="offer-main-card" data-existing-offer="{{ 1 if offer and offer.id else 0 }}">
     <form method="post">
         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="action" value="update_header">
@@ -265,7 +265,7 @@
         <div class="form-actions"
             style="margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 20px; display: flex; gap: 15px;">
             <button type="submit" class="btn btn-success">Sacuvaj podatke</button>
-            {% if offer %}
+            {% if offer and offer.id %}
             <a href="{{ url_for('offer.offer_pdf', offer_id=offer.id) }}" id="btn-print-pdf" class="btn btn-primary"
                 target="_blank">Print
                 PDF</a>
@@ -278,7 +278,7 @@
     </form>
 </div>
 
-{% if offer %}
+{% if offer and offer.id %}
 <div class="grid-2-col-asymmetric" style="margin-top: 30px;">
     <!-- LEFT: Add item form -->
     <div class="offer-items-form">
@@ -554,7 +554,7 @@
         }
 
         // --- Scroll Position Persistence ---
-        const scrollKey = "offer_form_scroll_" + "{{ offer.id }}";
+        const scrollKey = "offer_form_scroll_" + "{{ offer.id if offer and offer.id else 'new' }}";
         if (sessionStorage.getItem(scrollKey)) {
             window.scrollTo(0, parseInt(sessionStorage.getItem(scrollKey)));
             sessionStorage.removeItem(scrollKey);
@@ -563,6 +563,32 @@
         // Save scroll position on form submissions AND input changes (for auto-submitting filters)
         function saveScroll() {
             sessionStorage.setItem(scrollKey, window.scrollY);
+        }
+
+        // Background header save, used before any OTHER form on the page
+        // submits (add/delete item, product filter change). The server
+        // answers X-Requested-With requests with JSON (200 {ok:true} or
+        // 409 {ok:false,error}) instead of the 302 + re-render used for a
+        // normal submit -- fetch follows redirects, so a rejected header
+        // (duplicate or empty offer name) used to look like a success and
+        // the name change was silently dropped (user report 2026-11-04).
+        function saveHeaderQuietly() {
+            if (!form) return Promise.resolve(true);
+            const formData = new FormData(form);
+            return fetch(window.location.href, {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            }).then(response =>
+                response.json().catch(() => null).then(payload => {
+                    if (!response.ok || !payload || payload.ok !== true) {
+                        throw new Error((payload && payload.error) ||
+                            "Greška pri snimanju zaglavlja ponude.");
+                    }
+                    hasUnsavedChanges = false;
+                    return true;
+                })
+            );
         }
 
         document.querySelectorAll('form').forEach(f => {
@@ -574,30 +600,17 @@
                         const isMainSubmission = this.hasAttribute('data-submit-pending');
                         if (!isMainSubmission) {
                             this.setAttribute('data-submit-pending', 'true');
-                            
+
                             // Save scroll position
                             saveScroll();
 
-                            // Create an invisible iframe or use fetch to submit header quietly, then submit this form
-                            // But easiest is to append this form's data to the main form and submit main form
-                            // Or submit main form async, then this form
-                            
-                            const formData = new FormData(form);
-                            // We need to submit the main form via fetch, then submit this form normally
-                            fetch(window.location.href, {
-                                method: 'POST',
-                                body: formData
-                            }).then(response => {
-                                if (response.ok) {
-                                    hasUnsavedChanges = false;
-                                    this.submit();
-                                } else {
-                                    alert("Greška pri snimanju zaglavlja ponude.");
-                                    this.removeAttribute('data-submit-pending');
-                                }
+                            // Save the header first; only continue with the
+                            // clicked form once the server accepted it.
+                            saveHeaderQuietly().then(() => {
+                                this.submit();
                             }).catch(err => {
                                 console.error(err);
-                                alert("Greška u mrežnoj komunikaciji pri snimanju zaglavlja.");
+                                alert(err.message || "Greška pri snimanju zaglavlja ponude.");
                                 this.removeAttribute('data-submit-pending');
                             });
                         }
@@ -619,20 +632,11 @@
                             // Save scroll position
                             saveScroll();
 
-                            const formData = new FormData(form);
-                            fetch(window.location.href, {
-                                method: 'POST',
-                                body: formData
-                            }).then(response => {
-                                if (response.ok) {
-                                    hasUnsavedChanges = false;
-                                    f.submit();
-                                } else {
-                                    alert("Greška pri snimanju zaglavlja ponude.");
-                                }
+                            saveHeaderQuietly().then(() => {
+                                f.submit();
                             }).catch(err => {
                                 console.error(err);
-                                alert("Greška u mrežnoj komunikaciji pri snimanju zaglavlja.");
+                                alert(err.message || "Greška pri snimanju zaglavlja ponude.");
                             });
                         } else {
                             saveScroll();
@@ -777,7 +781,7 @@
                         if (idxCell) idxCell.textContent = index + 1;
                     });
 
-                    fetch("{{ url_for('offer.update_item_order', offer_id=offer.id) if offer else '#' }}", {
+                    fetch("{{ url_for('offer.update_item_order', offer_id=offer.id) if offer and offer.id else '#' }}", {
                         method: "POST",
                         headers: { "Content-Type": "application/json", "X-CSRF-Token": "{{ csrf_token() }}" },
                         body: JSON.stringify({ item_ids: itemIds })
@@ -826,16 +830,27 @@
             const musterijaRest = document.getElementById('musterija-rest');
             const mainCard = document.getElementById('offer-main-card');
             const hint = document.getElementById('musterija-hint');
+            // Gating is a NEW-offer wizard step ("pick the customer first").
+            // An EXISTING offer is never gated: its name/date/notes must stay
+            // editable even when the row carries no directory link yet
+            // (legacy free-typed offers, contact_id NULL) — otherwise the
+            // whole header, including the offer name, is pointer-events:none
+            // and cannot be saved at all (user report 2026-11-04).
+            const existingOffer = Boolean(mainCard && mainCard.dataset.existingOffer === '1');
             const applyGate = () => {
-                const picked = Boolean(contactSelect.value);
+                const picked = existingOffer || Boolean(contactSelect.value);
                 if (musterijaRest) musterijaRest.style.display = picked ? '' : 'none';
                 if (mainCard) { mainCard.style.opacity = picked ? '1' : '0.35';
                                 mainCard.style.pointerEvents = picked ? 'auto' : 'none';
                                 mainCard.style.filter = picked ? 'none' : 'grayscale(0.6)'; }
                 if (hint) {
-                    hint.textContent = picked
-                        ? 'Musterija izabrana — polja ispod su popunjena iz Imenika (možete ih izmeniti, snimak se čuva uz dokument).'
-                        : 'Prvo izaberite postojeću musteriju ili je dodajte u Imenik — preostala polja se automatski popune.';
+                    if (existingOffer && !contactSelect.value) {
+                        hint.textContent = 'Ponuda je sačuvana sa slobodno unetom mušterijom. Polja možete menjati; izborom musterije iz Imenika povezujete ponudu sa imenikom.';
+                    } else {
+                        hint.textContent = picked
+                            ? 'Musterija izabrana — polja ispod su popunjena iz Imenika (možete ih izmeniti, snimak se čuva uz dokument).'
+                            : 'Prvo izaberite postojeću musteriju ili je dodajte u Imenik — preostala polja se automatski popune.';
+                    }
                 }
             };
             applyGate();

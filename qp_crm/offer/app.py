@@ -58,15 +58,6 @@ def init_db():
     conn.close()
 
 
-def inject_helpers():
-    return dict(
-        format_amount=format_amount,
-        theme=get_theme(),
-        enable_product_discount=get_enable_product_discount()
-    )
-
-register_product_image(bp)
-
 def get_enable_product_discount():
     """Fetch the enable_product_discount setting."""
     conn = get_db()
@@ -84,12 +75,27 @@ def get_mandatory_fields():
     conn.close()
     return settings
 
+register_product_image(bp)
+
+
 @bp.context_processor
 def inject_helpers():
+    """Template globals for every offer screen.
+
+    ONE registered context processor. Until 2026-11-04 this module carried
+    TWO functions named inject_helpers: the older one (theme +
+    enable_product_discount) had lost its @bp.context_processor decorator, so
+    templates rendered `enable_product_discount` as undefined -- the
+    per-item discount column stayed hidden even when Admin -> Settings
+    enabled it -- and `theme` always fell back to the template default. Both
+    are back, together with the date-format-aware helpers.
+    """
     fmt = get_date_format()
     return dict(
         format_amount=format_amount,
-        format_date=lambda d: format_date(d, fmt)
+        format_date=lambda d: format_date(d, fmt),
+        theme=get_theme(),
+        enable_product_discount=get_enable_product_discount(),
     )
 
 # Phase 2 stage 5: route groups live in offer/routes/; importing them

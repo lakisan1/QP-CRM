@@ -18,6 +18,65 @@ def _directory_party_choices():
     return contact_service.directory_choices()
 
 
+def _is_ajax_header_save():
+    """True for the offer form's background header save.
+
+    offer_form.html saves the header with fetch() before it submits another
+    form (add item / delete item / product-filter change). Those calls must
+    NOT get the 302 + re-render error handling used by a normal browser
+    submit: fetch follows the redirect, sees 200 and the JS concludes the
+    header was saved. That silently dropped a rejected name change (user
+    report 2026-11-04: "ime ponude se ne snima"). AJAX callers get JSON with
+    a real HTTP error status instead, so the form can show the message.
+    """
+    return request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
+
+def _offer_form_settings(cur):
+    """Everything the offer form needs from the DB/global settings.
+
+    ONE source for the GET render and for the two re-renders after a failed
+    save (mandatory-field errors, duplicate offer name). Both re-renders used
+    to hand the template only a subset: the duplicate branch never bound
+    ``current_language`` (UnboundLocalError -> HTTP 500) and did not pass
+    ``presets_by_cat``/``mandatory_fields``, so a duplicate offer name
+    answered 500 instead of explaining the problem.
+
+    Returns a dict of template variables plus ``defaults`` (preset contents
+    marked is_default, consumed by the new-offer defaults).
+    """
+
+    def _setting(key, fallback):
+        cur.execute("SELECT value FROM global_settings WHERE key = ?;", (key,))
+        row = cur.fetchone()
+        return row["value"] if row else fallback
+
+    cur.execute("SELECT * FROM text_presets ORDER BY name ASC;")
+    presets_by_cat = {'delivery': [], 'payment': [], 'note': [], 'extra': []}
+    defaults = {}
+    for p in cur.fetchall():
+        if p['category'] in presets_by_cat:
+            presets_by_cat[p['category']].append(p)
+        if p['is_default']:
+            defaults[p['category']] = p['content']
+
+    return dict(
+        presets_by_cat=presets_by_cat,
+        defaults=defaults,
+        email_offer_subject=_setting("email_offer_subject", "Ponuda br. {offer_number}"),
+        email_offer_body=_setting(
+            "email_offer_body",
+            "Postovani,\n\nU prilogu vam saljemo ponudu br. {offer_number}.\n\nSrdacan pozdrav,\nVas Tim"),
+        current_language=_setting("language", "en"),
+        default_vat_percent=float(_setting("default_vat_percent", 20.0)),
+        default_validity_days=int(_setting("default_validity_days", 10)),
+        default_country=_setting("default_country", "Srbija"),
+        mandatory_fields=get_mandatory_fields(),
+        countries=get_country_list(),
+        party_choices=_directory_party_choices(),
+    )
+
+
 @bp.route("/offers")
 def list_offers():
     # Check if we should clear filters
@@ -268,9 +327,15 @@ def new_offer():
         napomena = (request.form.get("napomena") or "").strip()
         is_template = 1 if request.form.get("is_template") else 0
 
-        # Validate mandatory fields
+        # Server-side validation. The offer name lives in offers.offer_number
+        # and the form marks it `required`, but the background header save
+        # (fetch) and an empty duplicate both bypass HTML validation, and an
+        # empty name must never be written (the list then falls back to the
+        # numeric id -- user report 2026-11-04).
         mandatory = get_mandatory_fields()
         errors = []
+        if not offer_number:
+            errors.append("Offer name is required.")
         if mandatory.get('req_client_address') and not client_address:
             errors.append("Address is required.")
         if mandatory.get('req_client_email') and not client_email:
@@ -282,99 +347,23 @@ def new_offer():
         if mandatory.get('req_client_mb') and not client_mb:
             errors.append("MB is required.")
 
-        if errors:
-            # Re-render with error
-             # Fetch default presets if they exist
-            conn = get_db()
-            cur = conn.cursor()
-            cur.execute("SELECT category, content FROM text_presets WHERE is_default = 1;")
-            default_rows = cur.fetchall()
-            
-            # Fetch all presets for dropdowns
-            cur.execute("SELECT * FROM text_presets ORDER BY name ASC;")
-            all_presets = cur.fetchall()
-            presets_by_cat = {'delivery': [], 'payment': [], 'note': [], 'extra': []}
-            for p in all_presets:
-                if p['category'] in presets_by_cat:
-                    presets_by_cat[p['category']].append(p)
-            cur.execute("SELECT value FROM global_settings WHERE key = 'email_offer_subject';")
-            row = cur.fetchone()
-            email_offer_subject = row["value"] if row else "Ponuda br. {offer_number}"
-
-            cur.execute("SELECT value FROM global_settings WHERE key = 'email_offer_body';")
-            row = cur.fetchone()
-            email_offer_body = row["value"] if row else "Postovani,\n\nU prilogu vam saljemo ponudu br. {offer_number}.\n\nSrdacan pozdrav,\nVas Tim"
-
-            cur.execute("SELECT value FROM global_settings WHERE key = 'language';")
-            row = cur.fetchone()
-            current_language = row["value"] if row else "en"
-            
-            conn.close()
-
-            preserved_offer = {
-                "offer_number": offer_number,
-                "date": date_str,
-                "client_name": client_name,
-                "client_address": client_address,
-                "client_email": client_email,
-                "client_phone": client_phone,
-                "client_pib": client_pib,
-                "client_mb": client_mb,
-                "currency": currency,
-                "exchange_rate": exchange_rate,
-                "discount_percent": discount_percent_input / 100.0 if discount_percent_input else None, 
-                "special_discount_percent": special_discount_percent_input / 100.0 if special_discount_percent_input else None, 
-                "third_discount_percent": third_discount_percent_input / 100.0 if third_discount_percent_input else None,
-                "vat_percent": vat_percent_input / 100.0 if vat_percent_input else None,
-                "payment_terms": payment_terms,
-                "delivery_terms": delivery_terms,
-                "validity_days": validity_days,
-                "notes": notes,
-                "napomena": napomena,
-                "country": country
-            }
-            return render_template("offer/offer_form.html", offer=preserved_offer, today=date.today().isoformat(),
-                                   error=" ".join(errors), mandatory_fields=mandatory, presets_by_cat=presets_by_cat,
-                                   countries=get_country_list(),
-                                   email_offer_subject=email_offer_subject, email_offer_body=email_offer_body,
-                                   current_language=current_language,
-                                   party_choices=_directory_party_choices(),
-                                   selected_contact_id=None)
-
-        conn = get_db()
-        cur = conn.cursor()
-        # Validate duplicates if not allowed
-        cur.execute("SELECT value FROM global_settings WHERE key = 'allow_duplicate_names';")
-        row_dup = cur.fetchone()
-        allow_dup = row_dup["value"] == "true" if row_dup else False
-        
-        if not allow_dup:
-            cur.execute("SELECT id FROM offers WHERE offer_number = ?;", (offer_number,))
-            existing = cur.fetchone()
-            if existing:
-                cur.execute("SELECT value FROM global_settings WHERE key = 'email_offer_subject';")
-                row = cur.fetchone()
-                email_offer_subject = row["value"] if row else "Ponuda br. {offer_number}"
-
-                cur.execute("SELECT value FROM global_settings WHERE key = 'email_offer_body';")
-                row = cur.fetchone()
-                email_offer_body = row["value"] if row else "Postovani,\n\nU prilogu vam saljemo ponudu br. {offer_number}.\n\nSrdacan pozdrav,\nVas Tim"
-
-                conn.close()
-                # Construct a dict to preserve inputs
-                preserved_offer = {
-                    "offer_number": offer_number,
-                    "date": date_str,
-                    "client_name": client_name,
-                    "client_address": client_address,
-                    "client_email": client_email,
-                    "client_phone": client_phone,
-                    "client_pib": client_pib,
-                    "client_mb": client_mb,
+        # Values that must survive a failed save (validation error or a
+        # duplicate name). Deliberately NO "id": this is not a saved offer,
+        # so the template's edit-only blocks (items, PDF link, reorder URL)
+        # are guarded with `offer and offer.id`.
+        preserved_offer = {
+            "offer_number": offer_number,
+            "date": date_str,
+            "client_name": client_name,
+            "client_address": client_address,
+            "client_email": client_email,
+            "client_phone": client_phone,
+            "client_pib": client_pib,
+            "client_mb": client_mb,
             "currency": currency,
             "exchange_rate": exchange_rate,
-            "discount_percent": discount_percent_input / 100.0 if discount_percent_input else None, 
-            "special_discount_percent": special_discount_percent_input / 100.0 if special_discount_percent_input else None, 
+            "discount_percent": discount_percent_input / 100.0 if discount_percent_input else None,
+            "special_discount_percent": special_discount_percent_input / 100.0 if special_discount_percent_input else None,
             "third_discount_percent": third_discount_percent_input / 100.0 if third_discount_percent_input else None,
             "vat_percent": vat_percent_input / 100.0 if vat_percent_input else None,
             "payment_terms": payment_terms,
@@ -382,14 +371,45 @@ def new_offer():
             "validity_days": validity_days,
             "notes": notes,
             "napomena": napomena,
-            "country": country
+            "country": country,
+            "is_template": is_template,
         }
-                return render_template("offer/offer_form.html", offer=preserved_offer, today=date.today().isoformat(),
-                                       email_offer_subject=email_offer_subject, email_offer_body=email_offer_body,
-                                       countries=get_country_list(),
-                                       current_language=current_language,
-                                       party_choices=_directory_party_choices(),
-                                       selected_contact_id=None)
+
+        if errors:
+            conn = get_db()
+            cur = conn.cursor()
+            form_ctx = _offer_form_settings(cur)
+            conn.close()
+            return render_template("offer/offer_form.html", offer=preserved_offer,
+                                   today=date.today().isoformat(),
+                                   error=" ".join(errors),
+                                   selected_contact_id=contact_id,
+                                   prefill={},
+                                   **form_ctx)
+
+        conn = get_db()
+        cur = conn.cursor()
+        # Validate duplicates if not allowed
+        cur.execute("SELECT value FROM global_settings WHERE key = 'allow_duplicate_names';")
+        row_dup = cur.fetchone()
+        allow_dup = row_dup["value"] == "true" if row_dup else False
+
+        if not allow_dup:
+            cur.execute("SELECT id FROM offers WHERE offer_number = ?;", (offer_number,))
+            if cur.fetchone():
+                # Same context as any other form render: the duplicate
+                # branch used to reference current_language before it was
+                # bound and to omit presets_by_cat/mandatory_fields, which
+                # made this path answer HTTP 500 instead of explaining why
+                # the save did not happen.
+                form_ctx = _offer_form_settings(cur)
+                conn.close()
+                return render_template("offer/offer_form.html", offer=preserved_offer,
+                                       today=date.today().isoformat(),
+                                       error="Offer name already exists. Duplicate offer names are disabled in Admin -> Settings.",
+                                       selected_contact_id=contact_id,
+                                       prefill={},
+                                       **form_ctx)
 
         cur.execute("""
             INSERT INTO offers (
@@ -420,75 +440,23 @@ def new_offer():
         return redirect(url_for("offer.edit_offer", offer_id=offer_id))
 
     # GET
-    # Fetch default presets if they exist
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("SELECT category, content FROM text_presets WHERE is_default = 1;")
-    default_rows = cur.fetchall()
-    
-    # Fetch all presets for dropdowns
-    cur.execute("SELECT * FROM text_presets ORDER BY name ASC;")
-    all_presets = cur.fetchall()
-    presets_by_cat = {'delivery': [], 'payment': [], 'note': [], 'extra': []}
-    for p in all_presets:
-        if p['category'] in presets_by_cat:
-            presets_by_cat[p['category']].append(p)
-
-    # Fetch default VAT and Validity from global_settings
-    cur.execute("SELECT value FROM global_settings WHERE key = 'default_vat_percent';")
-    row = cur.fetchone()
-    default_vat_percent = float(row["value"]) if row else 20.0
-
-    cur.execute("SELECT value FROM global_settings WHERE key = 'default_validity_days';")
-    row = cur.fetchone()
-    default_validity_days = int(row["value"]) if row else 10
-
-    cur.execute("SELECT value FROM global_settings WHERE key = 'default_country';")
-    row = cur.fetchone()
-    default_country = row["value"] if row else "Srbija"
-
-    # Fetch email templates
-    cur.execute("SELECT value FROM global_settings WHERE key = 'email_offer_subject';")
-    row = cur.fetchone()
-    email_offer_subject = row["value"] if row else "Ponuda br. {offer_number}"
-
-    cur.execute("SELECT value FROM global_settings WHERE key = 'email_offer_body';")
-    row = cur.fetchone()
-    email_offer_body = row["value"] if row else "Postovani,\n\nU prilogu vam saljemo ponudu br. {offer_number}.\n\nSrdacan pozdrav,\nVas Tim"
-
-    cur.execute("SELECT value FROM global_settings WHERE key = 'language';")
-    row = cur.fetchone()
-    current_language = row["value"] if row else "en"
-
+    form_ctx = _offer_form_settings(cur)
+    defaults = form_ctx.pop("defaults")
     conn.close()
 
-    defaults = {r['category']: r['content'] for r in default_rows}
-    
     # These are the default values if no preset is set to default
-    default_delivery = defaults.get('delivery', '')
-    default_napomena = defaults.get('note', '')
-    default_extra = defaults.get('extra', '')
-    default_payment = defaults.get('payment', '')
-
     return render_template("offer/offer_form.html",
                            offer=None,
                            today=date.today().isoformat(),
-                           default_delivery=default_delivery,
-                           default_napomena=default_napomena,
-                           default_extra=default_extra,
-                           default_payment=default_payment,
-                           default_vat_percent=default_vat_percent,
-                           default_validity_days=default_validity_days,
-                           default_country=default_country,
-                           countries=get_country_list(),
-                           presets_by_cat=presets_by_cat,
-                           mandatory_fields=get_mandatory_fields(),
-                           email_offer_subject=email_offer_subject,
-                           email_offer_body=email_offer_body,
-                           current_language=current_language,
-                           party_choices=_directory_party_choices(),
+                           default_delivery=defaults.get('delivery', ''),
+                           default_napomena=defaults.get('note', ''),
+                           default_extra=defaults.get('extra', ''),
+                           default_payment=defaults.get('payment', ''),
                            selected_contact_id=prefill_contact_id,
-                           prefill=prefill)
+                           prefill=prefill,
+                           **form_ctx)
 
 
 
@@ -548,9 +516,12 @@ def edit_offer(offer_id):
 
             new_contact_id = request.form.get("contact_id", type=int) or None
 
-            # Validate mandatory fields
+            # Validate mandatory fields (and the offer name, which the form
+            # marks required but the background fetch-save bypasses).
             mandatory = get_mandatory_fields()
             errors = []
+            if not offer_number:
+                errors.append("Offer name is required.")
             if mandatory.get('req_client_address') and not client_address:
                 errors.append("Address is required.")
             if mandatory.get('req_client_email') and not client_email:
@@ -563,21 +534,33 @@ def edit_offer(offer_id):
                 errors.append("MB is required.")
 
             if errors:
-                session["error_message"] = " ".join(errors)
+                message = " ".join(errors)
+                if _is_ajax_header_save():
+                    # The form's background save must SEE the rejection:
+                    # otherwise fetch follows the redirect, gets 200 and the
+                    # JS goes on to submit the next form with the name
+                    # silently unsaved.
+                    conn.close()
+                    return jsonify({"ok": False, "error": message}), 409
+                conn.close()
+                session["error_message"] = message
                 return redirect(url_for("offer.edit_offer", offer_id=offer_id))
 
             # Validate duplicates if not allowed
             cur.execute("SELECT value FROM global_settings WHERE key = 'allow_duplicate_names';")
             row_dup = cur.fetchone()
             allow_dup = row_dup["value"] == "true" if row_dup else False
-            
+
             if not allow_dup:
                 cur.execute("SELECT id FROM offers WHERE offer_number = ? AND id != ?;", (offer_number, offer_id))
-                existing = cur.fetchone()
-                if existing:
+                if cur.fetchone():
+                    message = "Offer name already exists. Duplicate offer names are disabled in Admin -> Settings."
+                    if _is_ajax_header_save():
+                        conn.close()
+                        return jsonify({"ok": False, "error": message}), 409
                     conn.close()
                     # For edit, we must use session to persist error across redirect
-                    session["error_message"] = "Duplicate Offer Number not allowed."
+                    session["error_message"] = message
                     return redirect(url_for("offer.edit_offer", offer_id=offer_id))
 
             cur.execute("""
@@ -609,6 +592,12 @@ def edit_offer(offer_id):
                     (new_contact_id, offer_id))
                 conn2.commit()
                 conn2.close()
+
+            if _is_ajax_header_save():
+                # Background save finished: the JS now submits the form the
+                # user actually clicked (add item / delete / filter).
+                conn.close()
+                return jsonify({"ok": True})
 
         elif action == "add_item":
             product_id = request.form.get("product_id")
