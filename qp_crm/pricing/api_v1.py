@@ -59,6 +59,11 @@ def require_api_key(f):
                 return jsonify({"success": False, "error": "Invalid API key."}), 403
             g.api_key_kind = identity[0]
             g.api_key_username = identity[1]
+            g.api_key_user_id = identity[2]
+            # Audit context (P-6): attribute data writes to the KEY HOLDER.
+            g.audit_user_id = identity[2]
+            g.audit_username = identity[1]
+            g.audit_source = "api"
             if identity[0] == "user-denied":
                 # The key hashes to a revoked key / deactivated holder: refuse,
                 # but still audit it with the holder's username (security signal).
@@ -82,6 +87,10 @@ def require_api_key(f):
             return jsonify({"success": False, "error": "Your account has no pricing app access."}), 403
         g.api_key_kind = "user"
         g.api_key_username = user["username"]
+        # Same-origin session fallback: attribute to the session user (web).
+        g.audit_user_id = user["id"]
+        g.audit_username = user["username"]
+        g.audit_source = "web"
         return f(*args, **kwargs)
     return decorated
 

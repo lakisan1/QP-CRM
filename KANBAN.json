@@ -1141,13 +1141,15 @@
     },
     {
       "id": "card-b64efea5-e8a0-46dc-9df5-881e833abfc8",
-      "title": "P-6 User logs",
-      "summary": "Log za svaku izmenu poslovnih dokumenata Po useru i datum+vreme npr:\n- Imenik, ponude, rent, magacin, price...\n--Ko je dodao\n--Ko je izmenio i sa\n--Spisak svih izmena",
-      "rationale": "Da znamo ko je sta uradio kako bi znali koga da pitamo ako nismo sigurni zasto je nesto tako",
-      "status": "todo",
-      "tags": [],
+      "title": "P-6 User logs — globalni SQLite-trigger audit (ko + kad, bez difa) · implementirano",
+      "summary": "Implementirano (2026-11-06): audit_log tabela + AFTER INSERT/UPDATE/DELETE trigeri na svim poslovnim tabelama (blacklist: users, api_keys, user_modules, global_settings, site_products, api_audit, login_audit, audit_log isključeni). Per-connection korisnik u get_db() (UDF audit_user_id/username/source/now), before_request populate_audit_context (web), require_api_key (API → source='api', vlasnik ključa). Admin → „Istorija izmena\" (/admin/audit): filteri korisnik/tabela/akcija/izvor/datum + paginacija 50. Beleži created/updated/deleted, source web|api|system, ts UTC (prikaz Europe/Belgrade). Testovi tests/test_audit.py (5). Full suite: 578 passed, 3 skipped.",
+      "rationale": "Arhitektura to omogućava čisto: jedan SQLite DB (app_data/pricing.db), jedan get_db() chokepoint (217 poziva, svi moduli importuju iz shared.db; samo backup.py zaobilazi za backup/restore) i jedan schema.py. Triger pokriva SVE module i buduće module automatski, bez diranja ~20 route/service fajlova — ne može se zaobići budućim bagom u ruti i nema drift-a.",
+      "status": "done",
+      "tags": ["qp-crm", "audit", "user-logs", "p-6", "sqlite", "trigger"],
       "createdAt": 1790448866173,
-      "updatedAt": 1790448866173
+      "updatedAt": 1793973208672,
+      "description": "Zahtev (potvrđen 2026-11-06): vodi se evidencija KO i KAD je kreirao/izmenio zapise po modulima (cene proizvoda, ponude, rent, magacin, svi moduli). NIJE potreban dif (šta je menjano) — samo osoba + datum/vreme, puna istorija (append-only). BRISANJE se TAKOĐE beleži (potvrđeno).\n\nODLUKE 2026-11-06: korisnik hteo samo informaciju — implementacija OODLOŽENA do naknadnog \"kreni\".\n\nAPI pokrivenost (2026-11-06): /api/v1 piše kroz isti get_db() (potvrđeno u api_v1.py) → trigeri se pale i na API upise (create/update/delete product, price, brand, category...). Pripisuje se VLASNIKU per-user ključa (nema globalnog ključa, svaki ključ → nalog), preko g.api_key_user_id (dodati 1 liniju u require_api_key, sad se pamti samo username). Opciono: kolona source (web|api) u audit_log. Crna lista mora da sadrži i api_keys (last_used se menja na SVAKI API poziv → šum).\n\nDIZAJN (dopuna): BLACKLIST pristup — trigere praviti na SVE tabele iz sqlite_master na kraju init_all_modules() (posle svih init_db), OSIM crne liste: audit_log, api_audit, login_audit, api_keys, global_settings, site_products (+ sqlite_% interne). Posledica: NOVI modul = automatski u monitoringu, 0 dodatnog posla, pod uslovom da sledi postojeći obrazac (create_X_tables u schema.py + init_db() u bootstrap pre audit koraka). Whitelist odbačen (zahteva ručno dodavanje po tabeli → lako se zaboravi).\n\nPREPORUKA (globalno, jedno mesto): SQLite AFTER INSERT/UPDATE/DELETE triger na poslovnim tabelama → jedan `audit_log` red (table_name, row_id, action, user_id, username, ts_utc). Korisnik se ubacuje per-konekcijom u get_db() (shared/db.py) preko TEMP tabele _audit_ctx ili create_function('audit_user'...), čita se iz Flask g (before_request iz session user_id/username + require_api_key za API). UI: Admin → Istorija izmena (filter po korisniku/tabeli/datumu, read-only). Rizik nizak; jedino obavezno: proći ceo test suite + proveriti da backup/restore (.backup() API ne pali trigere).",
+      "rejected": "Modul-po-modul (created_by/updated_by kolone + upis u svakoj ruti/servisu): odbačeno — (1) kolone čuvaju samo POSLEDNJEG urednika, ne \"celu istoriju\"; (2) dotaklo bi 20+ fajlova, lako se propusti neka putanja, a svaki novi modul mora da pamti da doda upis (drift). Retroaktivna atribucija starih izmena je nemoguća (podatak ne postoji) — istorija kreće od deploya."
     },
     {
       "id": "card-b87d2562-ed1d-4c0a-901d-7c8464772e7f",

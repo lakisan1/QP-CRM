@@ -28,6 +28,7 @@ This page contains a comprehensive list of all the features implemented in the Q
 - **Integrated File Management Utility**: Execute cleanups to automatically prune orphaned product images and keep server assets trim.
 - **Unified Accounts & Access Control**: One login for the whole app instead of per-app passwords — two roles (`admin` / `staff`), with per-module grants for staff (pricing / offer / rent / sale) ticked in Admin → Users while admins bypass the grants; every password change (including your own) is admin-managed in Admin → Users; CSRF tokens protect every state-changing form and AJAX request; per-user API keys with an audit log are issued in Admin → API Keys.
 - **Rent Template Administration**: Edit master HTML templates for all rental document types, manage email preset subject and body text with placeholder support, and configure default financial parameters (interest rate, insurance, guarantee, VAT, downpayment, salvage value, period).
+- **Audit Log (Istorija izmena)**: Every create/update/delete across all modules (products & prices, offers, rent, warehouse, contacts, orders) is recorded with the acting user, timestamp, action and source (web / API / system) — viewable and filterable in Admin → Istorija izmena.
 
 ## 📦 Rent Module (Equipment Leasing)
 - **Contract Lifecycle Management**: Create, edit, and track rental contracts with full client details, equipment lists, delivery dates, and payment terms.

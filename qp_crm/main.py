@@ -122,7 +122,11 @@ app.register_blueprint(orders_bp, url_prefix="/orders")
 # settings, sale, pricing, offer, rent, admin) must carry the session token
 # (form field or X-CSRF-Token header). api_v1 is exempt: it authenticates via
 # the Bearer header, not ambient cookies.
-from qp_crm.shared.web import check_csrf, csrf_token
+from qp_crm.shared.web import check_csrf, csrf_token, populate_audit_context
+# Audit context (P-6 User logs): stamp the acting user onto Flask g BEFORE
+# any view runs, so get_db() can hand it to the audit triggers. Runs first
+# (registration order = execution order for before_request).
+app.before_request(populate_audit_context)
 app.before_request(check_csrf)
 
 @app.route("/")

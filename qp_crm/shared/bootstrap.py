@@ -70,3 +70,18 @@ def init_all_modules():
     # orders last: purchase_orders/po_lines reference products AND
     # equipment_shortfalls (warehouse tables must exist first).
     orders_init_db()
+
+    # Audit (P-6 User logs): create the audit_log table + AFTER-* triggers
+    # LAST, after every module table exists, so (a) the triggers can
+    # reference them and (b) bootstrap seeds/migrations are NOT attributed
+    # as user actions. Idempotent (CREATE ... IF NOT EXISTS), so it is safe
+    # to re-run after a restore too.
+    from qp_crm.shared.db import get_db
+    from qp_crm.shared.schema import create_audit_tables, create_audit_triggers
+
+    conn = get_db()
+    cur = conn.cursor()
+    create_audit_tables(cur)
+    create_audit_triggers(cur)
+    conn.commit()
+    conn.close()

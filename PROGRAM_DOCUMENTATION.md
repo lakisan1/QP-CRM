@@ -143,6 +143,17 @@ iz `global_settings` su pri Phase 3 migrirane u `users` redove i obrisane.
   `global_settings.api_key` red (radi detekcije prilikom restore-a starog
   backup-a), ali taj ključ **ne autentifikuje ništa**; `generate_api_key()`
   raise-uje `NotImplementedError`, `revoke_api_key()` briše mrtvi red.
+- **Globalni audit (P-6 User logs, 2026-11-06):** `audit_log` tabela +
+  `AFTER INSERT/UPDATE/DELETE` trigeri na svim poslovnim tabelama (blacklist
+  u `shared/schema.py`: `users`, `api_keys`, `user_modules`, `global_settings`,
+  `site_products` i same log tabele su isključene). Akter se ubacuje
+  per-konekcijom u `get_db()` (UDF `audit_user_id/username/source/now`):
+  web preko `populate_audit_context` (before_request iz sesije), API preko
+  `require_api_key` (vlasnik per-user ključa, `source='api'`), van zahteva
+  `NULL/'system'`. Beleži `created`/`updated`/`deleted` + `row_id` + UTC `ts`;
+  pregled na `Admin → Istorija izmena` (`/admin/audit`). Novi modul se
+  automatski uključuje (trigeri se generišu iz `sqlite_master` na kraju
+  `init_all_modules()`).
 
 ### 2.4 `shared/utils.py` — Pomoćne funkcije i prevodi
 

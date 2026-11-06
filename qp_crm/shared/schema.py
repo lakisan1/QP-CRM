@@ -1085,3 +1085,138 @@ def migrate_warehouse(cur):
     P5 schema cleanup: the retired rent_equipment orphan table is dropped
     from legacy DBs (fresh ones never had it — R-T8, 2026-09-24)."""
     cur.execute("DROP TABLE IF EXISTS rent_equipment;")
+
+
+# ---------------------------------------------------------------------------
+# Audit log (P-6 User logs, 2026-11-06)
+# ---------------------------------------------------------------------------
+# ONE append-only audit_log table + AFTER INSERT/UPDATE/DELETE triggers on
+# every business table. The user only wants WHO + WHEN (+ created/modified/
+# deleted), not a value diff, so each trigger writes a single row with the
+# acting user and a UTC timestamp. The acting user is injected per-connection
+# by get_db() (see shared/db.py) via the scalar functions audit_user_id(),
+# audit_username(), audit_source() and audit_now(); outside a request they
+# return NULL/'system'.
+
+# Tables that must NOT be audited: the log itself (recursion), the two
+# existing log tables, and high-churn/technical tables (api_keys.last_used
+# updates on every API call, users.last_login on every login, user_modules
+# seed churn, global_settings config keys, site_products WP-sync snapshot).
+AUDIT_EXCLUDE_TABLES = frozenset({
+    "audit_log",
+    "api_audit",
+    "login_audit",
+    "api_keys",
+    "users",
+    "user_modules",
+    "global_settings",
+    "site_products",
+})
+
+
+def create_audit_tables(cur):
+    """The audit_log table + indexes (append-only, never pruned)."""
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS audit_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            table_name TEXT NOT NULL,
+            row_id INTEGER,               -- NULL for tables without an id column
+            action TEXT NOT NULL,         -- 'created' | 'updated' | 'deleted'
+            user_id INTEGER,              -- NULL = system / bootstrap / unknown
+            username TEXT,                -- NULL = system
+            source TEXT NOT NULL DEFAULT 'web',  -- 'web' | 'api' | 'system'
+            record_label TEXT,            -- human label of the row at write time
+            ts TEXT NOT NULL              -- UTC ISO 8601 (+00:00)
+        );
+    """)
+    # Live databases created before record_label existed get the column here.
+    add_column_if_missing(cur, "audit_log", "record_label TEXT")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_audit_log_ts ON audit_log(ts);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_audit_log_user ON audit_log(user_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_audit_log_table ON audit_log(table_name);")
+
+
+def _quote_ident(name):
+    """Double-quote a SQLite identifier (names come from our own schema)."""
+    return '"' + name.replace('"', '""') + '"'
+
+
+# Column names tried (in order) as the human label for a table's audit row.
+# Chosen generically so a NEW module's table with a `name`/`number` column is
+# labelled automatically with zero extra mapping.
+AUDIT_LABEL_COLUMNS = (
+    "name", "offer_number", "contract_number", "display_name", "name_snapshot",
+    "item_name", "alias", "po_number", "for_whom", "part_name", "category",
+    "serial_number", "username", "slug",
+)
+
+# Child tables whose useful label is a PARENT row (a subquery), not any
+# column on the row itself. `{alias}` is NEW (INSERT/UPDATE) or OLD (DELETE).
+AUDIT_LABEL_EXPR = {
+    "prices": "(SELECT name FROM products WHERE id = {alias}.product_id)",
+}
+
+
+def _label_expr(name, alias, cols):
+    """The SQL expression for a table's human label, or 'NULL'."""
+    if name in AUDIT_LABEL_EXPR:
+        return AUDIT_LABEL_EXPR[name].format(alias=alias)
+    for col in AUDIT_LABEL_COLUMNS:
+        if col in cols:
+            return f"{alias}.{col}"
+    return "NULL"
+
+
+def create_audit_triggers(cur):
+    """Create AFTER INSERT/UPDATE/DELETE triggers on every table NOT in
+    AUDIT_EXCLUDE_TABLES. Enumerated from sqlite_master at boot (blacklist
+    approach), so a NEW module's tables are audited automatically as long as
+    they are created before this step (the last one in init_all_modules).
+
+    Existing audit_* triggers are dropped first: CREATE IF NOT EXISTS alone
+    would leave STALE trigger bodies behind when the body changes (e.g. when
+    record_label was added)."""
+    existing = [
+        r[0] for r in cur.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'trigger' AND name GLOB 'audit_*';"
+        ).fetchall()
+    ]
+    for trig in existing:
+        cur.execute(f"DROP TRIGGER IF EXISTS {_quote_ident(trig)};")
+
+    names = [
+        r[0] for r in cur.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%';"
+        ).fetchall()
+    ]
+    for name in names:
+        if name in AUDIT_EXCLUDE_TABLES:
+            continue
+        cols = [
+            r[1] for r in cur.execute(f"PRAGMA table_info({_quote_ident(name)});").fetchall()
+        ]
+        has_id = "id" in cols
+        ident = _quote_ident(name)
+        safe_name = name.replace("'", "''")  # for the string literal
+        # One AFTER trigger per action; row_id = NEW.id/OLD.id where the
+        # table has an id column, else NULL (config tables keyed by TEXT).
+        for suffix, timing, alias, action in (
+            ("ins", "INSERT", "NEW", "created"),
+            ("upd", "UPDATE", "NEW", "updated"),
+            ("del", "DELETE", "OLD", "deleted"),
+        ):
+            row_id_expr = f"{alias}.id" if has_id else "NULL"
+            label_expr = _label_expr(name, alias, cols)
+            label_sql = f"substr({label_expr}, 1, 120)" if label_expr != "NULL" else "NULL"
+            cur.execute(
+                f"""
+                CREATE TRIGGER IF NOT EXISTS audit_{name}_{suffix}
+                AFTER {timing} ON {ident}
+                FOR EACH ROW
+                BEGIN
+                    INSERT INTO audit_log (table_name, row_id, action, user_id, username, source, record_label, ts)
+                    VALUES ('{safe_name}', {row_id_expr}, '{action}',
+                            audit_user_id(), audit_username(), audit_source(), {label_sql}, audit_now());
+                END;
+                """
+            )

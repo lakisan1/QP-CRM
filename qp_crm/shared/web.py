@@ -19,7 +19,7 @@ import os
 import re
 
 import markdown
-from flask import abort, redirect, request, send_from_directory, session, url_for
+from flask import abort, g, redirect, request, send_from_directory, session, url_for
 
 from qp_crm.shared.config import IMAGE_DIR
 from qp_crm.shared.db import get_db
@@ -170,6 +170,22 @@ def check_csrf():
     if not session_token or not supplied or not secrets.compare_digest(supplied, session_token):
         return "CSRF token mismatch", 400
     return None
+
+
+# ---------- audit context (P-6 User logs) ----------
+
+def populate_audit_context():
+    """App-level before_request: stamp the acting user onto Flask g so that
+    get_db() can hand it to the audit triggers. The session identity
+    (user_id/username) is set by the unified login. api_v1 overrides
+    g.audit_* with the per-user API key holder inside require_api_key (the
+    Bearer branch) — it runs after this hook, so it wins. Requests with no
+    identity (anonymous, API without session) leave g unset -> 'system'."""
+    user_id = session.get("user_id")
+    if user_id is not None:
+        g.audit_user_id = user_id
+        g.audit_username = session.get("username")
+        g.audit_source = "web"
 
 
 # ---------- unified auth (Phase 3) ----------

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="{{ theme|default('dark') }}">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Istorija izmena</title>
+    <link rel="icon" type="image/png" href="/app_assets/favicon.png">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <style>
+        .badge {
+            display: inline-block;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: .72rem;
+            text-transform: uppercase;
+            letter-spacing: .4px;
+        }
+        .badge-created { background: var(--accent-success); color: #fff; }
+        .badge-updated { background: var(--accent-primary); color: #fff; }
+        .badge-deleted { background: var(--accent-danger); color: #fff; }
+        .badge-source { background: var(--bg-input); color: var(--text-muted); }
+        .filter-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 12px;
+            align-items: end;
+        }
+        .pagination { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
+    </style>
+</head>
+
+<body>
+    {% set active = 'audit' %}{% include 'admin/_nav.html' %}
+
+    <div class="container" style="max-width: 1300px;">
+        <h1>Istorija izmena</h1>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: -8px;">
+            Ko je i kada kreirao, izmenio ili obrisao zapis (svi moduli: proizvodi i cene, ponude,
+            rent, magacin, narudžbine, imenik…). Beleži se iz aplikacije i preko API-ja.
+            Istorija počinje od uvođenja ove funkcije — starije izmene nisu dostupne.
+        </p>
+
+        <div class="card">
+            <form method="GET" action="{{ url_for('admin.audit_log_page') }}">
+                <div class="filter-grid">
+                    <div>
+                        <label>Korisnik</label>
+                        <select name="user_id">
+                            <option value="">— svi —</option>
+                            {% for u in users %}
+                            <option value="{{ u.id }}" {{ 'selected' if filters.user_id == u.id }}>
+                                {{ u.username }}{% if not u.is_active %} (neaktivan){% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label>Tabela</label>
+                        <select name="table">
+                            <option value="">— sve —</option>
+                            {% for t in tables %}
+                            <option value="{{ t }}" {{ 'selected' if filters.table == t }}>
+                                {{ table_labels.get(t, t) }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label>Akcija</label>
+                        <select name="action">
+                            <option value="">— sve —</option>
+                            {% for a, label in action_labels.items() %}
+                            <option value="{{ a }}" {{ 'selected' if filters.action == a }}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label>Izvor</label>
+                        <select name="source">
+                            <option value="">— svi —</option>
+                            {% for s, label in source_labels.items() %}
+                            <option value="{{ s }}" {{ 'selected' if filters.source == s }}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label>Od</label>
+                        <input type="date" name="from" value="{{ filters['from'] }}">
+                    </div>
+                    <div>
+                        <label>Do</label>
+                        <input type="date" name="to" value="{{ filters['to'] }}">
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: center; white-space: nowrap;">
+                        <button type="submit" class="btn btn-primary">Filtriraj</button>
+                        <a class="btn btn-secondary" href="{{ url_for('admin.audit_log_page') }}">Poništi</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="card">
+            <h3>{{ total }} zapisa</h3>
+            <table class="preset-table" style="width: 100%;">
+                <thead>
+                    <tr>
+                        <th>Vreme</th>
+                        <th>Korisnik</th>
+                        <th>Tabela</th>
+                        <th>Zapis</th>
+                        <th>Akcija</th>
+                        <th>Izvor</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for e in entries %}
+                    <tr>
+                        <td>{{ e.ts_local }}</td>
+                        <td><strong>{{ e.username }}</strong></td>
+                        <td>{{ e.table_label }}</td>
+                        <td>
+                            {% if e.record_label %}{{ e.record_label }}
+                            {% elif e.row_id is not none %}#{{ e.row_id }}
+                            {% else %}—{% endif %}
+                        </td>
+                        <td><span class="badge badge-{{ e.action }}">{{ e.action_label }}</span></td>
+                        <td><span class="badge badge-source">{{ e.source_label }}</span></td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" style="color: var(--text-muted);">Nema zabeleženih izmena.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            {% if pages > 1 %}
+            <div class="pagination">
+                {% if page > 1 %}
+                <a class="btn btn-sm btn-secondary" href="{{ url_for('admin.audit_log_page') }}?{{ pagination_qs }}&page={{ page - 1 }}">‹ Noviji</a>
+                {% endif %}
+                <span style="color: var(--text-muted);">Strana {{ page }} / {{ pages }}</span>
+                {% if page < pages %}
+                <a class="btn btn-sm btn-secondary" href="{{ url_for('admin.audit_log_page') }}?{{ pagination_qs }}&page={{ page + 1 }}">Stariji ›</a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+
+</html>
