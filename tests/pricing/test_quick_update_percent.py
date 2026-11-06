@@ -93,6 +93,10 @@ def test_quick_update_page_has_the_percent_input(client):
         html = client.get("/pricing/products/quick_update").data.decode()
         assert 'name="base_price_percent"' in html
         assert 'placeholder="&plusmn; %"' in html
+        # Visual follow-up (2026-11-06): no side label, field spans the cell.
+        assert '% change' not in html
+        i = html.find('name="base_price_percent"')
+        assert 'width: 100%' in html[i:i + 400]
     finally:
         _drop(product_id)
 

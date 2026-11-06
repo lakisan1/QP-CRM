@@ -187,7 +187,6 @@ TRANSLATIONS = {
         'Profit (Final Price)': 'Profit (Konačna cena)',
         'Purchase Price': 'Nabavna cena',
         'Quick Price Update': 'Brzo Ažuriranje Cena',
-        '% change': 'promena %',
         'Percent change of the purchase price': 'Procenat promene nabavne cene',
         'Percent change of the purchase price (e.g. -7 or +7)':
             'Procenat promene nabavne cene (npr. -7 ili +7)',

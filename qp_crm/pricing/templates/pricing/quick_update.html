@@ -105,15 +105,13 @@
                        from the stored price (live, by the page JS) and again
                        server-side on Save, so the result does not depend on
                        the browser. Editing the absolute field manually
-                       clears this percent again. #}
-                    <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
-                        <input type="number" step="0.01" name="base_price_percent"
-                            class="quick-base-percent" placeholder="&plusmn; %" inputmode="decimal"
-                            title="{{ _('Percent change of the purchase price (e.g. -7 or +7)') }}"
-                            aria-label="{{ _('Percent change of the purchase price') }}"
-                            style="width: 70px; box-sizing: border-box;">
-                        <small style="color: var(--text-muted);">{{ _('% change') }}</small>
-                    </div>
+                       clears this percent again. The field spans the whole
+                       cell (no side label) — the ±% placeholder is enough. #}
+                    <input type="number" step="0.01" name="base_price_percent"
+                        class="quick-base-percent" placeholder="&plusmn; %" inputmode="decimal"
+                        title="{{ _('Percent change of the purchase price (e.g. -7 or +7)') }}"
+                        aria-label="{{ _('Percent change of the purchase price') }}"
+                        style="width: 100%; box-sizing: border-box; margin-top: 4px;">
                 </td>
                 <td>
                     <input type="number" step="0.01" name="extras" value="{{ p.latest_extras or 0 }}"
