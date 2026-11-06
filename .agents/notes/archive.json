@@ -671,6 +671,17 @@
       "rationale": "Why: each admin template carries its own copy-pasted nav that drifted over time (Users/API Keys/Rent Šabloni missing on some subpages), so the admin app looks broken depending on which page you are on. Root fix is one shared nav include used by every admin template so the header cannot drift again.",
       "summary": "做了什么：created qp_crm/admin/templates/admin/_nav.html (one shared header: Dashboard, PDF Templates, Rounding Rules, Users, API Keys, Rent Šabloni + Home link, no logout) and replaced the drifted copy-pasted navs in all 7 admin templates with `{% set active = ... %}{% include 'admin/_nav.html' %}` (pdf_template_edit keeps its 'Edit: <name>' breadcrumb via nav_extra). Smoke tests assert the full identical header on every admin subpage incl. the editor.",
       "rejected": "放弃了什么：patching the missing Users/API Keys/Rent Šabloni links into each template's existing nav — that is the exact copy-paste drift that caused the bug and would drift again; a Jinja macro with args was also skipped in favor of the include+set idiom the codebase already uses."
+    },
+    {
+      "id": "card-c85eefa5-e7a9-4120-8b77-8bc953459a3c",
+      "title": "http://192.168.1.34:5000/admin/rent/templates ne radi samo vodi u krug na http://192.168.1.34:5000/login?next=/admin/",
+      "status": "done",
+      "tags": [],
+      "createdAt": 1788621277778,
+      "updatedAt": 1788647556428,
+      "rationale": "Why: /admin/rent/templates bounces even a logged-in admin into an endless /login?next=/admin/ circle because the route still checks the pre-Phase-3 admin_authenticated session flag that unified login never sets. The real gate is the blueprint-level require_role(\"admin\") hook, so the stale per-route checks must be removed to restore access.",
+      "summary": "做了什么：removed the stale per-route session['admin_authenticated'] checks (pre-Phase-3 flag unified login never sets) from admin/routes/rent_templates.py and admin/routes/backup.py — the blueprint-level require_role(\"admin\") hook is the only gate now, so /admin/rent/templates, /admin/backup_db and /admin/backup_full render for a logged-in admin instead of looping to /login?next=/admin/. Covered by 3 new smoke assertions (tests/smoke/test_smoke_modules.py, 45 passed).",
+      "rejected": "放弃了什么：re-seeding the admin_authenticated flag in the routes instead of deleting the checks — it would have kept two auth gates in sync for a flag that Phase 3's unified login made permanently false; require_role is the single source of truth now."
     }
   ]
 }

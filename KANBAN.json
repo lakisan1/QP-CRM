@@ -2,17 +2,6 @@
   "version": 1,
   "cards": [
     {
-      "id": "card-c85eefa5-e7a9-4120-8b77-8bc953459a3c",
-      "title": "http://192.168.1.34:5000/admin/rent/templates ne radi samo vodi u krug na http://192.168.1.34:5000/login?next=/admin/",
-      "status": "done",
-      "tags": [],
-      "createdAt": 1788621277778,
-      "updatedAt": 1788647556428,
-      "rationale": "Why: /admin/rent/templates bounces even a logged-in admin into an endless /login?next=/admin/ circle because the route still checks the pre-Phase-3 admin_authenticated session flag that unified login never sets. The real gate is the blueprint-level require_role(\"admin\") hook, so the stale per-route checks must be removed to restore access.",
-      "summary": "做了什么：removed the stale per-route session['admin_authenticated'] checks (pre-Phase-3 flag unified login never sets) from admin/routes/rent_templates.py and admin/routes/backup.py — the blueprint-level require_role(\"admin\") hook is the only gate now, so /admin/rent/templates, /admin/backup_db and /admin/backup_full render for a logged-in admin instead of looping to /login?next=/admin/. Covered by 3 new smoke assertions (tests/smoke/test_smoke_modules.py, 45 passed).",
-      "rejected": "放弃了什么：re-seeding the admin_authenticated flag in the routes instead of deleting the checks — it would have kept two auth gates in sync for a flag that Phase 3's unified login made permanently false; require_role is the single source of truth now."
-    },
-    {
       "id": "card-0b636a36-eb93-45e7-b2b5-402d7c140dcf",
       "title": "Remove the logout button from the header and move it to the setings app",
       "status": "done",
@@ -1979,8 +1968,8 @@
     },
     {
       "id": "card-f14cc0bf-7d1e-44c0-a787-809a7a94e4cf",
-      "title": "Produkcija: pokrenuti ./deploy.sh na serveru za image v1.1.5 (sha-59ee8c6)",
-      "rationale": "Image v1.1.5 je u GHCR, ali produkcijski kontejner na qp.hofmann-srbija.rs treba da povuče novi image. Novi CI build za vizuelni follow-up je 59ee8c6 (isti 1.1.5, GHCR latest + sha-59ee8c6); sa ove mašine produkcija nije dostupna, pa deploy pokreće korisnik na serveru ili watchtower.",
+      "title": "Produkcija: pokrenuti ./deploy.sh na serveru za image v1.1.5 (sha-fbbbc3a)",
+      "rationale": "Image za sve današnje izmene je u GHCR (v1.1.5, najnoviji CI build sha-fbbbc3a — uključuje Users sekciju, API admin fix, Quick Update %, full-width polje i „Dodaj u CRM\" → edit). Produkcijski kontejner na qp.hofmann-srbija.rs treba da povuče `latest`; sa ove mašine (192.168.1.34) produkcija nije dostupna, pa deploy pokreće korisnik na serveru ili watchtower.",
       "rejected": "Nije urađeno sa ove mašine jer qp.hofmann-srbija.rs nije na ovom hostu (About: build commit c06939c, dev build na LAN instanci) i nema pristupa tom serveru. Alternativa „sačekaj da watchtower sam povuče\" — nije potvrđeno da watchtower postoji na produkciji.",
       "sourceSessionId": "session-e7d84fff-6efb-4de5-93b4-3e58df526436",
       "status": "todo",
@@ -1993,7 +1982,27 @@
         "user-action"
       ],
       "createdAt": 1793960300023,
-      "updatedAt": 1793961700322
+      "updatedAt": 1793964036951
+    },
+    {
+      "id": "card-8ddf6fe8-bcb1-4260-9802-60a5dc976b12",
+      "title": "Product Sync: „Dodaj u CRM\" čuva proizvod i otvara edit formu",
+      "summary": "api_v1.sync_add_product sada u odgovoru vraća `data.edit_url` = url_for('pricing.edit_product', product_id=new_id). product_sync.html success handler zatvara modal i radi window.location.href = edit_url (fallback na /pricing/products/<id>/edit); greške ostaju u modalu. Novi testovi tests/pricing/test_sync_add_product.py (2): API vraća edit_url i ciljna edit strana je 200 + 1:1 site link; šablon sadrži redirect. Full suite 570 passed / 3 skipped. Commit fbbbc3a; CI success; GHCR latest osvežen; lokalna instanca pull-ovala image (md5 šablona = repo) i live provereno: product_sync 200 sa edit_url/redirect, edit strana 200, /api/v1/products 200.",
+      "rationale": "Korisnikov zahtev (06.11.2026): na product_sync strani, kad se u modalu „Dodaj u CRM\" sačuva proizvod, aplikacija treba da ga odmah otvori u edit formi — do sada se samo vraćalo na tabelu poređenja i proizvod se morao tražiti u listi. Produkcija (qp.hofmann-srbija.rs) je na GHCR image-u, pa je posle izmene urađen main push + CI.",
+      "rejected": "Ručno sastavljanje edit URL-a u JS-u („/pricing/products/\"+id+\"/edit\") — odbijeno: ruta bi se duplirala u šablonu i tiho pokvarila pri preimenovanju; API vraća `edit_url` preko url_for. Prikaz flash poruke pa redirect na tabelu — korisnik je tražio direktan ulazak u edit. Direktno kreiranje iz modala bez linka na sajt — postojeće 1:1 povezivanje je zadržano.",
+      "sourceSessionId": "session-e7d84fff-6efb-4de5-93b4-3e58df526436",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "pricing",
+        "product-sync",
+        "ui",
+        "api",
+        "feature",
+        "deployed"
+      ],
+      "createdAt": 1793964033566,
+      "updatedAt": 1793964033566
     }
   ]
 }
