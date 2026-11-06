@@ -682,6 +682,17 @@
       "rationale": "Why: /admin/rent/templates bounces even a logged-in admin into an endless /login?next=/admin/ circle because the route still checks the pre-Phase-3 admin_authenticated session flag that unified login never sets. The real gate is the blueprint-level require_role(\"admin\") hook, so the stale per-route checks must be removed to restore access.",
       "summary": "做了什么：removed the stale per-route session['admin_authenticated'] checks (pre-Phase-3 flag unified login never sets) from admin/routes/rent_templates.py and admin/routes/backup.py — the blueprint-level require_role(\"admin\") hook is the only gate now, so /admin/rent/templates, /admin/backup_db and /admin/backup_full render for a logged-in admin instead of looping to /login?next=/admin/. Covered by 3 new smoke assertions (tests/smoke/test_smoke_modules.py, 45 passed).",
       "rejected": "放弃了什么：re-seeding the admin_authenticated flag in the routes instead of deleting the checks — it would have kept two auth gates in sync for a flag that Phase 3's unified login made permanently false; require_role is the single source of truth now."
+    },
+    {
+      "id": "card-0b636a36-eb93-45e7-b2b5-402d7c140dcf",
+      "title": "Remove the logout button from the header and move it to the setings app",
+      "status": "done",
+      "tags": [],
+      "createdAt": 1788621337937,
+      "updatedAt": 1788647603853,
+      "rationale": "Why: the red Logout button sits in the header of every page (accidental clicks, wasted header space) and logout is now a single unified /logout anyway. Moving it into the /settings app keeps one quiet logout spot for the whole stack, matching the pricing/offer settings pages that already carry a logout button.",
+      "summary": "做了什么：removed the Logout/Odjava buttons from every page header (admin shared nav, pricing/base.html, offer/base.html, rent/base.html) and added one Logout card to the /settings app routing through the unified /logout (auth.logout), styled like the logout cards the pricing/offer in-app settings pages already had. Smoke tests assert no danger button in any app header and /logout present on /settings.",
+      "rejected": "放弃了什么：hiding the settings Logout for anonymous visitors — /settings is public and a logout click when logged out just redirects to /login, so state-dependent styling buys nothing; also kept the logout cards on pricing/offer's own settings pages since they are in-page controls, not header buttons."
     }
   ]
 }

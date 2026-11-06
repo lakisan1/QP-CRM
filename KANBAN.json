@@ -2,17 +2,6 @@
   "version": 1,
   "cards": [
     {
-      "id": "card-0b636a36-eb93-45e7-b2b5-402d7c140dcf",
-      "title": "Remove the logout button from the header and move it to the setings app",
-      "status": "done",
-      "tags": [],
-      "createdAt": 1788621337937,
-      "updatedAt": 1788647603853,
-      "rationale": "Why: the red Logout button sits in the header of every page (accidental clicks, wasted header space) and logout is now a single unified /logout anyway. Moving it into the /settings app keeps one quiet logout spot for the whole stack, matching the pricing/offer settings pages that already carry a logout button.",
-      "summary": "做了什么：removed the Logout/Odjava buttons from every page header (admin shared nav, pricing/base.html, offer/base.html, rent/base.html) and added one Logout card to the /settings app routing through the unified /logout (auth.logout), styled like the logout cards the pricing/offer in-app settings pages already had. Smoke tests assert no danger button in any app header and /logout present on /settings.",
-      "rejected": "放弃了什么：hiding the settings Logout for anonymous visitors — /settings is public and a logout click when logged out just redirects to /login, so state-dependent styling buys nothing; also kept the logout cards on pricing/offer's own settings pages since they are in-page controls, not header buttons."
-    },
-    {
       "id": "card-2bd37e98-ee45-419f-9f86-af456a18cc7f",
       "title": "The Landing page button in the header shuld be named home",
       "status": "done",
@@ -1968,8 +1957,8 @@
     },
     {
       "id": "card-f14cc0bf-7d1e-44c0-a787-809a7a94e4cf",
-      "title": "Produkcija: pokrenuti ./deploy.sh na serveru za image v1.1.5 (sha-f4d388b)",
-      "rationale": "Image za sve današnje izmene je u GHCR (v1.1.5, najnoviji CI build sha-f4d388b — Users sekcija, API admin fix, Quick Update %, full-width polje, „Dodaj u CRM\" → edit + obavezni brend/kategorija). Produkcijski kontejner na qp.hofmann-srbija.rs treba da povuče `latest`; sa ove mašine (192.168.1.34) produkcija nije dostupna, pa deploy pokreće korisnik na serveru ili watchtower.",
+      "title": "Produkcija: pokrenuti ./deploy.sh na serveru za image v1.1.5 (sha-35cf020)",
+      "rationale": "Image za sve današnje izmene je u GHCR (v1.1.5, najnoviji CI build sha-35cf020 — Users sekcija, API admin fix, Quick Update %, full-width polje, „Dodaj u CRM\" → edit + obavezni brend/kategorija, „Poveži\" pretraga). Produkcijski kontejner na qp.hofmann-srbija.rs treba da povuče `latest`; sa ove mašine (192.168.1.34) produkcija nije dostupna, pa deploy pokreće korisnik na serveru ili watchtower.",
       "rejected": "Nije urađeno sa ove mašine jer qp.hofmann-srbija.rs nije na ovom hostu (About: build commit c06939c, dev build na LAN instanci) i nema pristupa tom serveru. Alternativa „sačekaj da watchtower sam povuče\" — nije potvrđeno da watchtower postoji na produkciji.",
       "sourceSessionId": "session-e7d84fff-6efb-4de5-93b4-3e58df526436",
       "status": "todo",
@@ -1982,7 +1971,7 @@
         "user-action"
       ],
       "createdAt": 1793960300023,
-      "updatedAt": 1793968251631
+      "updatedAt": 1793969971115
     },
     {
       "id": "card-8ddf6fe8-bcb1-4260-9802-60a5dc976b12",
@@ -2023,6 +2012,26 @@
       ],
       "createdAt": 1793964131422,
       "updatedAt": 1793964131422
+    },
+    {
+      "id": "card-9a4b5e7e-2820-4b4c-b030-cd1e7c0ac8b2",
+      "title": "BUG · Product Sync „Poveži\": pretraga CRM proizvoda ne vraća rezultate",
+      "summary": "product_sync.html::loadCRMForLink — TomSelect remote load sada koristi ispravan single-arg ugovor `callback(data.map(...))` umesto jQuery-UI `callback(null, data...)`. Uzrok: TomSelect prosleđuje options niz kao JEDINI argument u setupOptions; null je davao prazan dropdown bez greške. Reprodukovano jsdom-om sa TomSelect 2.2.2 (0 vs 2 opcije), a live HTML stranice sa realnim TomSelect-om i stub API-jem sada prikazuje 2 opcije za unos „ATEQ\". Regresioni test pinuje oblik poziva. Full suite 573 passed / 3 skipped. Commit 35cf020 (Dev + main, CI success); lokalna instanca pull-ovala image i verifikovana.",
+      "rationale": "Korisnik je prijavio da u modalu „Poveži sa CRM proizvodom\" na product_sync strani pretraga ne radi, pa ne može da poveže sajt proizvod sa postojećim CRM proizvodom. Ispravka je morala da bude u JS callback-u prema TomSelect API-ju; verifikovano jsdom reprodukcijom + live HTML proverom.",
+      "rejected": "Zamena TomSelect-a običnim inputom ili lokalno filtriranje celog kataloga — nepotrebno, remote load je postojao i skalira; problem je bio u potpisu callback-a. Browser test u pytest suite-u — CI image nema node/jsdom; zato suite pinuje oblik poziva, a ponašanje verifikovano jednokratnim jsdom skriptom.",
+      "sourceSessionId": "session-e7d84fff-6efb-4de5-93b4-3e58df526436",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "pricing",
+        "product-sync",
+        "bug",
+        "tomselect",
+        "js",
+        "deployed"
+      ],
+      "createdAt": 1793969960006,
+      "updatedAt": 1793969960006
     }
   ]
 }
