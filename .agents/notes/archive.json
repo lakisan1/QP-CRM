@@ -693,6 +693,17 @@
       "rationale": "Why: the red Logout button sits in the header of every page (accidental clicks, wasted header space) and logout is now a single unified /logout anyway. Moving it into the /settings app keeps one quiet logout spot for the whole stack, matching the pricing/offer settings pages that already carry a logout button.",
       "summary": "做了什么：removed the Logout/Odjava buttons from every page header (admin shared nav, pricing/base.html, offer/base.html, rent/base.html) and added one Logout card to the /settings app routing through the unified /logout (auth.logout), styled like the logout cards the pricing/offer in-app settings pages already had. Smoke tests assert no danger button in any app header and /logout present on /settings.",
       "rejected": "放弃了什么：hiding the settings Logout for anonymous visitors — /settings is public and a logout click when logged out just redirects to /login, so state-dependent styling buys nothing; also kept the logout cards on pricing/offer's own settings pages since they are in-page controls, not header buttons."
+    },
+    {
+      "id": "card-2bd37e98-ee45-419f-9f86-af456a18cc7f",
+      "title": "The Landing page button in the header shuld be named home",
+      "status": "done",
+      "tags": [],
+      "createdAt": 1788621358347,
+      "updatedAt": 1788649234929,
+      "rationale": "Why: the link back to the app menu is labeled \"Landing Page\" (developer jargon that confused users). Renaming it to \"Home\" names the thing by what it does; the Serbian translation ('Početna strana') is added for the new key so language switching keeps working.",
+      "summary": "做了什么：every header now links the app menu as Home — admin shared nav, pricing/offer/sale base templates (`_('Home')`), settings page; sr translation 'Home' → 'Početna strana' added in shared/utils.py and the dead 'Landing Page' key dropped. Rent keeps its Serbian 'Početna' (same meaning/link). Smoke tests assert '>Home</a>' and the absence of 'Landing Page'.",
+      "rejected": "放弃了什么：renaming rent's 'Početna' to English 'Home' — rent is the Serbian-language UI and Početna already means Home; forcing English there would have been inconsistent with the rest of that header."
     }
   ]
 }

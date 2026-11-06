@@ -2,17 +2,6 @@
   "version": 1,
   "cards": [
     {
-      "id": "card-2bd37e98-ee45-419f-9f86-af456a18cc7f",
-      "title": "The Landing page button in the header shuld be named home",
-      "status": "done",
-      "tags": [],
-      "createdAt": 1788621358347,
-      "updatedAt": 1788649234929,
-      "rationale": "Why: the link back to the app menu is labeled \"Landing Page\" (developer jargon that confused users). Renaming it to \"Home\" names the thing by what it does; the Serbian translation ('Početna strana') is added for the new key so language switching keeps working.",
-      "summary": "做了什么：every header now links the app menu as Home — admin shared nav, pricing/offer/sale base templates (`_('Home')`), settings page; sr translation 'Home' → 'Početna strana' added in shared/utils.py and the dead 'Landing Page' key dropped. Rent keeps its Serbian 'Početna' (same meaning/link). Smoke tests assert '>Home</a>' and the absence of 'Landing Page'.",
-      "rejected": "放弃了什么：renaming rent's 'Početna' to English 'Home' — rent is the Serbian-language UI and Početna already means Home; forcing English there would have been inconsistent with the rest of that header."
-    },
-    {
       "id": "card-e8249127-d925-41e8-97c4-1552887ddd01",
       "title": "PRE-EXISTING suite failures (not from header/logout work): 2 auth tests vs uncommitted change-password-removal WIP + 3 golden-PDF host-font diffs",
       "description": "Detail: (1) tests/auth/test_first_login_flow.py::test_seeded_staff_logs_straight_in_no_forced_change — POSTs /change-password expecting 404, but after unified login the session CSRF token is wiped and nothing re-mints it before the POST, so check_csrf answers 400 (the test's own comment even documents the 400 path). (2) tests/auth/test_user_management.py::test_create_staff_user_forces_first_login_change — asserts must_change_password == 1, the exact behavior the uncommitted WIP (auth/app.py, shared/web.py, admin/routes/users.py, deleted auth/templates/auth/account_password.html — all still uncommitted in the working tree) removed (\"password changes live exclusively in Admin -> Users\"); test is stale WIP. (3-5) tests/golden/* — baselines are byte-exact against the docker image's pinned fonts-dejavu-core; host WeasyPrint renders differ from byte 54. Fix path: finish/commit the auth WIP and update or delete the two tests; run golden tests only inside docker (docker compose run --rm app pytest), never re-baseline on host.",
@@ -1957,8 +1946,8 @@
     },
     {
       "id": "card-f14cc0bf-7d1e-44c0-a787-809a7a94e4cf",
-      "title": "Produkcija: pokrenuti ./deploy.sh na serveru za image v1.1.5 (sha-35cf020)",
-      "rationale": "Image za sve današnje izmene je u GHCR (v1.1.5, najnoviji CI build sha-35cf020 — Users sekcija, API admin fix, Quick Update %, full-width polje, „Dodaj u CRM\" → edit + obavezni brend/kategorija, „Poveži\" pretraga). Produkcijski kontejner na qp.hofmann-srbija.rs treba da povuče `latest`; sa ove mašine (192.168.1.34) produkcija nije dostupna, pa deploy pokreće korisnik na serveru ili watchtower.",
+      "title": "Produkcija: pokrenuti ./deploy.sh na serveru za image v1.1.7 (sha-397149a)",
+      "rationale": "Sve današnje izmene su objavljene kao v1.1.7 (main@397149a) i image je u GHCR (`latest` + sha-397149a). Produkcijski kontejner na qp.hofmann-srbija.rs treba da povuče `latest`; sa ove mašine (192.168.1.34) produkcija nije dostupna, pa deploy pokreće korisnik na serveru ili watchtower.",
       "rejected": "Nije urađeno sa ove mašine jer qp.hofmann-srbija.rs nije na ovom hostu (About: build commit c06939c, dev build na LAN instanci) i nema pristupa tom serveru. Alternativa „sačekaj da watchtower sam povuče\" — nije potvrđeno da watchtower postoji na produkciji.",
       "sourceSessionId": "session-e7d84fff-6efb-4de5-93b4-3e58df526436",
       "status": "todo",
@@ -1971,7 +1960,7 @@
         "user-action"
       ],
       "createdAt": 1793960300023,
-      "updatedAt": 1793969971115
+      "updatedAt": 1793970800033
     },
     {
       "id": "card-8ddf6fe8-bcb1-4260-9802-60a5dc976b12",
@@ -2032,6 +2021,26 @@
       ],
       "createdAt": 1793969960006,
       "updatedAt": 1793969960006
+    },
+    {
+      "id": "card-f7257aa2-4bda-4b23-bb1d-ceff89692b05",
+      "title": "Release v1.1.7: bump + main push + CI image + tag + GitHub Release",
+      "summary": "APP_VERSION 1.1.5→1.1.7 (qp_crm/shared/config.py), commit 397149a; Dev pushovan; main fast-forwardovan na 397149a; anotiran tag v1.1.7 pushovan; GitHub Release v1.1.7 objavljen (https://github.com/lakisan1/QP-CRM/releases/tag/v1.1.7). CI run na main@397149a success (pytest + coverage + image); GHCR latest i sha-397149a osveženi. Lokalna instanca pull-ovala image: About sada pokazuje v1.1.7 / build 397149a6a649, healthcheck healthy; verifikovano i da su sve izmene u image-u (sync: callback(data.map...) + required brend/kategorija; quick_update: percent polja).",
+      "rationale": "Korisnik je tražio da sve današnje izmene budu objavljene kao verzija 1.1.7 (1.1.5 je već bio objavljen, a posle njega su ušle još izmene: „Dodaj u CRM\" → edit + obavezni brend/kategorija, i fix pretrage u „Poveži\" modalu). Release kanal je main push → CI → GHCR image; tag + GitHub Release prate istorijsku praksu (v1.1.0, v1.1.1, v1.1.5).",
+      "rejected": "Ostati na 1.1.5 i samo push-ovati sha build — korisnik je izričito tražio 1.1.7. Verzija 1.1.6 — nije korišćena nigde (nema taga/commita); preskočena je po korisnikovoj oznaci 1.1.7. Merge commit u main — main je bio direktni predak, pa je urađen fast-forward (isti sha).",
+      "sourceSessionId": "session-e7d84fff-6efb-4de5-93b4-3e58df526436",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "release",
+        "v1.1.7",
+        "deploy",
+        "ghcr",
+        "ci",
+        "tag"
+      ],
+      "createdAt": 1793970796231,
+      "updatedAt": 1793970796231
     }
   ]
 }
