@@ -353,10 +353,26 @@ def quick_update_save(product_id):
     # 1. Get new inputs
     new_base_price = float(request.form.get("base_price") or 0)
     new_extras = float(request.form.get("extras") or 0)
-    
+
+    # Optional PERCENT adjustment of the purchase price (user request
+    # 2026-11-06): "+7" / "-7" means the CURRENT stored base price +/- 7%.
+    # Applied server-side (not only by the page JS) so the saved result never
+    # depends on the browser: while a valid percent is present the absolute
+    # base_price field is ignored and the new base is computed from the
+    # latest stored price. An unparsable value falls back to the absolute
+    # field instead of rejecting the row.
+    raw_percent = (request.form.get("base_price_percent") or "").strip()
+    percent_delta = None
+    if raw_percent:
+        try:
+            percent_delta = float(raw_percent)
+        except ValueError:
+            percent_delta = None
+
     # 2. Get existing latest price for coefficients
     cur.execute("SELECT * FROM prices WHERE product_id = ? ORDER BY date DESC, id DESC LIMIT 1;", (product_id,))
     latest_price = cur.fetchone()
+
     
     # Defaults
     import_percent = 0.0
@@ -393,6 +409,13 @@ def quick_update_save(product_id):
                 instalation = cat_def["instalation"] or 0
                 traning = cat_def["traning"] or 0
                 other = cat_def["other"] or 0
+
+    # Percent adjustment of the purchase price (see the parse above): only
+    # meaningful when a stored price exists to adjust. A -100 % (or more)
+    # adjustment clamps to 0 instead of producing a negative purchase price.
+    if percent_delta is not None and latest_price is not None:
+        stored_base = float(latest_price["base_price"] or 0)
+        new_base_price = round(max(0.0, stored_base * (1.0 + percent_delta / 100.0)), 2)
 
     # 3. Calculate new totals
     base_total = new_base_price + new_extras

@@ -98,7 +98,22 @@
 
                 <td>
                     <input type="number" step="0.01" name="base_price" value="{{ p.latest_base_price or 0 }}"
-                        style="width: 100%; box-sizing: border-box;">
+                        data-stored="{{ p.latest_base_price or 0 }}"
+                        class="quick-base-price" style="width: 100%; box-sizing: border-box;">
+                    {# Percentage shortcut (user request 2026-11-06): type +7 or
+                       -7 here and the purchase price above is recalculated
+                       from the stored price (live, by the page JS) and again
+                       server-side on Save, so the result does not depend on
+                       the browser. Editing the absolute field manually
+                       clears this percent again. #}
+                    <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
+                        <input type="number" step="0.01" name="base_price_percent"
+                            class="quick-base-percent" placeholder="&plusmn; %" inputmode="decimal"
+                            title="{{ _('Percent change of the purchase price (e.g. -7 or +7)') }}"
+                            aria-label="{{ _('Percent change of the purchase price') }}"
+                            style="width: 70px; box-sizing: border-box;">
+                        <small style="color: var(--text-muted);">{{ _('% change') }}</small>
+                    </div>
                 </td>
                 <td>
                     <input type="number" step="0.01" name="extras" value="{{ p.latest_extras or 0 }}"
@@ -127,4 +142,44 @@
         class="btn btn-secondary">Next &raquo;</a>
         {% endif %}
 </div>
+
+<script>
+    // Percent shortcut for the purchase price (user request 2026-11-06):
+    // typing +7 / -7 recomputes the absolute base_price field live from the
+    // stored price (data-stored); the server repeats the calculation on Save
+    // so the saved value never depends on the browser. Editing the absolute
+    // field manually clears the pending percent and re-anchors it to the
+    // typed number (so +7 twice does not compound).
+    document.addEventListener('input', function (event) {
+        var el = event.target;
+        if (!el.matches || !el.matches('input[name="base_price"], input[name="base_price_percent"]')) {
+            return;
+        }
+        var row = el.closest('tr');
+        if (!row) { return; }
+        var base = row.querySelector('input[name="base_price"]');
+        var pct = row.querySelector('input[name="base_price_percent"]');
+        if (!base || !pct) { return; }
+        if (el === pct) {
+            var stored = parseFloat(base.getAttribute('data-stored'));
+            if (!isFinite(stored)) { return; }
+            var raw = pct.value.trim();
+            if (raw === '') {
+                base.value = stored.toFixed(2);
+                return;
+            }
+            var p = parseFloat(raw);
+            if (!isFinite(p)) {
+                base.value = stored.toFixed(2);
+                return;
+            }
+            var next = stored * (1 + p / 100);
+            if (next < 0) { next = 0; }
+            base.value = next.toFixed(2);
+        } else {
+            pct.value = '';
+            base.setAttribute('data-stored', base.value);
+        }
+    });
+</script>
 {% endblock %}
