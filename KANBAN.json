@@ -1968,8 +1968,8 @@
     },
     {
       "id": "card-f14cc0bf-7d1e-44c0-a787-809a7a94e4cf",
-      "title": "Produkcija: pokrenuti ./deploy.sh na serveru za image v1.1.5 (sha-fbbbc3a)",
-      "rationale": "Image za sve današnje izmene je u GHCR (v1.1.5, najnoviji CI build sha-fbbbc3a — uključuje Users sekciju, API admin fix, Quick Update %, full-width polje i „Dodaj u CRM\" → edit). Produkcijski kontejner na qp.hofmann-srbija.rs treba da povuče `latest`; sa ove mašine (192.168.1.34) produkcija nije dostupna, pa deploy pokreće korisnik na serveru ili watchtower.",
+      "title": "Produkcija: pokrenuti ./deploy.sh na serveru za image v1.1.5 (sha-f4d388b)",
+      "rationale": "Image za sve današnje izmene je u GHCR (v1.1.5, najnoviji CI build sha-f4d388b — Users sekcija, API admin fix, Quick Update %, full-width polje, „Dodaj u CRM\" → edit + obavezni brend/kategorija). Produkcijski kontejner na qp.hofmann-srbija.rs treba da povuče `latest`; sa ove mašine (192.168.1.34) produkcija nije dostupna, pa deploy pokreće korisnik na serveru ili watchtower.",
       "rejected": "Nije urađeno sa ove mašine jer qp.hofmann-srbija.rs nije na ovom hostu (About: build commit c06939c, dev build na LAN instanci) i nema pristupa tom serveru. Alternativa „sačekaj da watchtower sam povuče\" — nije potvrđeno da watchtower postoji na produkciji.",
       "sourceSessionId": "session-e7d84fff-6efb-4de5-93b4-3e58df526436",
       "status": "todo",
@@ -1982,12 +1982,12 @@
         "user-action"
       ],
       "createdAt": 1793960300023,
-      "updatedAt": 1793964036951
+      "updatedAt": 1793968251631
     },
     {
       "id": "card-8ddf6fe8-bcb1-4260-9802-60a5dc976b12",
-      "title": "Product Sync: „Dodaj u CRM\" čuva proizvod i otvara edit formu",
-      "summary": "api_v1.sync_add_product sada u odgovoru vraća `data.edit_url` = url_for('pricing.edit_product', product_id=new_id). product_sync.html success handler zatvara modal i radi window.location.href = edit_url (fallback na /pricing/products/<id>/edit); greške ostaju u modalu. Novi testovi tests/pricing/test_sync_add_product.py (2): API vraća edit_url i ciljna edit strana je 200 + 1:1 site link; šablon sadrži redirect. Full suite 570 passed / 3 skipped. Commit fbbbc3a; CI success; GHCR latest osvežen; lokalna instanca pull-ovala image (md5 šablona = repo) i live provereno: product_sync 200 sa edit_url/redirect, edit strana 200, /api/v1/products 200.",
+      "title": "Product Sync: „Dodaj u CRM\" → edit forma + obavezni brend i kategorija",
+      "summary": "api_v1.sync_add_product sada u odgovoru vraća `data.edit_url` = url_for('pricing.edit_product', product_id=new_id). product_sync.html success handler zatvara modal i radi window.location.href = edit_url (fallback na /pricing/products/<id>/edit); greške ostaju u modalu. Naknadni zahtev istog dana: brend i kategorija su OBAVEZNI u tom dijalogu — labele sa crvenom zvezdicom, select-i `required` sa placeholderom „— izaberi brend/kategoriju —\", JS odbija prazno pre requesta (sr poruke), a server trim-uje i vraća 400 „Brand is required.\" / „Category is required.\" pre upisa. Opseg ograničen na sync endpoint; generička forma i /api/v1/products nepromenjeni. Testovi tests/pricing/test_sync_add_product.py (4): edit_url + edit strana 200 + 1:1 link i sačuvani brend/kategorija, odbijanje bez brenda, odbijanje bez kategorije (red se ne kreira), JS/HTML ugovor. Full suite 572 passed / 3 skipped. Commits fbbbc3a + f4d388b; CI success; GHCR latest osvežen; lokalna instanca pull-ovala image i live provereno: product_sync 200 sa required poljima, live POST bez brenda → 400 bez kreiranja.",
       "rationale": "Korisnikov zahtev (06.11.2026): na product_sync strani, kad se u modalu „Dodaj u CRM\" sačuva proizvod, aplikacija treba da ga odmah otvori u edit formi — do sada se samo vraćalo na tabelu poređenja i proizvod se morao tražiti u listi. Produkcija (qp.hofmann-srbija.rs) je na GHCR image-u, pa je posle izmene urađen main push + CI.",
       "rejected": "Ručno sastavljanje edit URL-a u JS-u („/pricing/products/\"+id+\"/edit\") — odbijeno: ruta bi se duplirala u šablonu i tiho pokvarila pri preimenovanju; API vraća `edit_url` preko url_for. Prikaz flash poruke pa redirect na tabelu — korisnik je tražio direktan ulazak u edit. Direktno kreiranje iz modala bez linka na sajt — postojeće 1:1 povezivanje je zadržano.",
       "sourceSessionId": "session-e7d84fff-6efb-4de5-93b4-3e58df526436",
@@ -1998,11 +1998,31 @@
         "product-sync",
         "ui",
         "api",
+        "validation",
         "feature",
         "deployed"
       ],
       "createdAt": 1793964033566,
-      "updatedAt": 1793964033566
+      "updatedAt": 1793968251601
+    },
+    {
+      "id": "card-1f4040ba-a26d-4efd-8510-8af807297fda",
+      "title": "TEMP proizvodi — provera kako rade i zašto se ne vide u cenovniku (bez izmena)",
+      "description": "Provera (bez izmena koda) na zahtev korisnika 2026-11-06: „ne vidim ih u cenovniku\".\n\nKAKO RADI (provereno test-klijentom):\n- TEMP forma je u ponudi → sekcija Artikli → „Dodavanje novog proizvoda (TEMP)\" (samo na edit strani ponude, unutar `{% if offer and offer.id %}`).\n- POST action=create_temp_product → INSERT u products: brand='TEMP', category='TEMP', item_type='proizvod', tracking_regime='untracked', description; BEZ reda u prices.\n- Redirect na /offer/offers/<id>/edit?product_id=N → „Dodaj u ponudu\" forma preselektovana i popunjena (ime/opis), cena prazna. Dugme „Kreiraj i dodaj\" NE dodaje stavku u ponudu — samo kreira proizvod i pripremi formu.\n- Ako ime već postoji (COLLATE NOCASE) → novi proizvod se NE kreira, server tiho vrati postojeći id (nema poruke).\n- U listama se vidi: /pricing/products (LEFT JOIN), /sale/pricelist (Cenovnik/PriceList, LEFT JOIN) — red postoji, ćelije cene su prazne.\n\nZAŠTO SE NE VIDI:\n- nema prices red → cena prazna;\n- filteri se pamte u sesiji (brand/category/search) — sa aktivnim filterom TEMP (brand TEMP) se ne prikazuje; na offer strani sa brand filterom TEMP opcija nije u dropdownu i preselekcija tiho padne (provereno);\n- paginacija 25/str + sort po imenu → može biti daleko; filter brand=TEMP (nema u category dropdownu jer kategorije dolaze iz category_pricing_defaults);\n- lokalna baza trenutno nema nijedan TEMP proizvod (258 proizvoda, svi sa brendom; poslednji id 280 je katalog) → TEMP je pravljen na drugoj instanci ili je ime već postojalo pa je urađen reuse.\n\nKAKO DO CENE: Pricing → Quick Update (ili Product List → proizvod → Cene) → upiše base_price/extras → quick_update_save pravi prices red (bez istorije koristi category defaults; za TEMP nema defaults → koeficijenti 0). Posle toga cena se vidi u Cenovniku.\n\nNALAZI ZA ODLUKU (nisu popravljani): (a) „Kreiraj i dodaj\" ne dodaje stavku; (b) tihi reuse imena; (c) Cancel na confirm-u ne otkazuje ako postoje nesačuvane izmene zaglavlja (async save nastavi i pošalje formu); (d) TEMP nije u brands/category_pricing_defaults pa edit forme proizvoda ne mogu da prikažu TEMP brend/kategoriju (select required) — Quick Update je bezbedan put za cenu; (e) nema automatskog prenosa cene iz stavke ponude u prices.",
+      "rationale": "Korisnik radi sa TEMP proizvodima i ne vidi ih u cenovniku; tražio je proveru ponašanja bez izmena. Kartica čuva nalaze i tačan lanac ponašanja da se popravke (ako ih zatraži) rade sa dokazima, bez ponovnog kopanja. Za sada nema izmena koda — status je todo dok korisnik ne odluči.",
+      "sourceSessionId": "session-aa993495-13d7-4ecd-b8ab-3c6baa1fe714",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "offer",
+        "products",
+        "temp",
+        "pricelist",
+        "investigation",
+        "no-code-change"
+      ],
+      "createdAt": 1793964131422,
+      "updatedAt": 1793964131422
     }
   ]
 }
