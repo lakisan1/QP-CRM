@@ -136,7 +136,10 @@ access** checkboxes (pricing / offer / rent / sale), an **Active** toggle, a
 here** (the old self-service "My password" page is removed): the admin sets
 a working password directly via the row's *New password* field, including
 their own. Grants are re-checked on every request, so revoking an app hits
-the user on their next click. Admins open every app.
+the user on their next click. Admins open every app. The page splits
+**Active users** from a dimmed **Deactivated users** section at the bottom
+(deactivated rows carry a DEACTIVATED badge); accounts are deactivated,
+never deleted, and the row's Active toggle + Save brings one back.
 
 Security posture since Phase 3: passwords stored only as werkzeug scrypt
 hashes (legacy plaintext is rehashed transparently at first login); CSRF

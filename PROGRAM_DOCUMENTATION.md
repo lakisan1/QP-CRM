@@ -107,6 +107,13 @@ iz `global_settings` su pri Phase 3 migrirane u `users` redove i obrisane.
   POSLEDNJEG aktivnog admina. Admin postavlja novu lozinku DIREKTNO (opciono
   "New password" polje u save formi) — bez prinudne promene na sledećem
   loginu; sopstvena lozinka se menja u svom redu (mini-forma).
+  Stranica je podeljena na **Active users** i **Deactivated users** sekciju
+  (user request 2026-11-06): deaktivirani redovi su zatamnjeni
+  (`tr.user-row-inactive`) i nose „DEACTIVATED" bedž, u odvojenoj kartici na
+  dnu; nalozi se NIKAD ne brišu (čuva se evidencija ko je šta radio), a
+  reaktivacija je isti `Active` checkbox + Save. Admin redovi takođe imaju
+  Active toggle (bez app checkbox-ova) da bi deaktivirani drugi admin mogao
+  da se vrati; sopstveni red ga nema.
 - **Per-user app access (`user_modules` tabela + `require_module` u
   `shared/web.py`):** kojim MODULIMA staff korisnik sme da pristupi
   (pricing/offer/rent/sale checkbox-ovi po korisniku u Admin → Users; sale je

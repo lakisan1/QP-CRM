@@ -2,23 +2,6 @@
   "version": 1,
   "cards": [
     {
-      "id": "card-b77b2116-eb97-47de-9874-6f00422c3a56",
-      "title": "Per-user app access (Admin -> Users): which apps each user may open",
-      "description": "User request after the phase-3 handover: drop the blanket staff-sees-everything model; the admin controls per user which business apps (pricing/offer/rent) they can open, from the admin panel.",
-      "rationale": "Owner asked for admin-panel control of which apps each user may open, replacing the blanket staff-sees-everything phase-3 model, without reintroducing per-app passwords.",
-      "rejected": "Separate per-app passwords (the pre-phase-3 problem, explicitly not wanted back); a JSON/CSV modules column (junction table is FK-enforced and extends to Phase-4 modules by appending to MODULE_CHOICES); caching grants in the session (per-request re-read keeps revocation instant); role-per-module combos like 'offer-only role' (roles stay admin/staff binary, grants carry the per-user nuance).",
-      "sourceSessionId": "session-4ca59a53-7afb-4d0d-85e0-276e1d187fdb",
-      "status": "done",
-      "tags": [
-        "qp-crm",
-        "auth",
-        "users"
-      ],
-      "createdAt": 1788546342560,
-      "updatedAt": 1788546685919,
-      "summary": "Shipped and deployed (commit 94ee464, image rebuilt, container recreated, grants live): user_modules table (UNIQUE(user_id,module)), users.modules_set marker, shared/web.py require_module(module) gate on pricing/offer/rent blueprints (re-reads grants per request; admin role bypasses), Admin -> Users UI with pricing/offer/rent checkboxes per staff row (own-password confirmed POST /admin/users/<id>/modules) and pre-checked boxes on the create form; one-time boot migration seed_default_user_modules grants existing staff all three apps (marker prevents re-granting deliberately emptied sets); factory reset re-seeds users+grants via the init_users_table contract; role gate is now binary admin/not-admin. 7 new tests in tests/auth/test_module_access.py, suite 225 passed."
-    },
-    {
       "id": "card-a414556c-6b98-4817-8841-6176f21b8897",
       "title": "Landing page: login required + access-filtered app menu",
       "description": "User follow-up: anonymous visitors must see only the login page (never the app menu), and the menu should reflect per-user app access.",
@@ -1963,6 +1946,42 @@
       ],
       "createdAt": 1793811183451,
       "updatedAt": 1793811183451
+    },
+    {
+      "id": "card-dba95ee8-f7e4-434b-8225-007d0e665816",
+      "title": "Admin → Users: deaktivirani nalozi u sivom, odvojenom delu stranice",
+      "rationale": "Korisnik je tražio da se deaktivirani korisnici jasno razlikuju (sivi ILI odvojen deo — izabrao oba) i da se potvrdi da se nalozi ne prave sami. Kod za seeding je već bio admin-only (4f3a2a1), pa je preostali deo zahteva bio UI vidljivost + objašnjenje porekla starih naloga.",
+      "rejected": "Brisanje starih naloga i delete dugme — korisnik odbio (evidencija ko je šta radio); deploy preko Dev→main + CI + deploy.sh — izabran lokalni rebuild za ovaj put; samo jedan od dva vizuelna signala — korisnik izabrao oba.",
+      "sourceSessionId": "session-e7d84fff-6efb-4de5-93b4-3e58df526436",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "admin",
+        "users",
+        "ui",
+        "deactivation"
+      ],
+      "createdAt": 1793956877047,
+      "updatedAt": 1793957426874,
+      "summary": "Urađeno: /admin/users ruta deli naloge na active_users/inactive_users; users.html ima dve kartice („Active users\" i „Deactivated users\") sa istim markupom reda — deaktivirani redovi su zatamnjeni (tr.user-row-inactive, opacity .5 / hover .85, leva siva ivica) i nose uppercase DEACTIVATED bedž; sekcija objašnjava da se nalozi nikad ne brišu i da se reaktivacija radi kroz Active + Save. Admin redovi sada imaju Active toggle (bez app checkbox-ova) da bi deaktivirani drugi admin mogao da se vrati; sopstveni red nema active/role kontrole. Nema delete rute/dugmeta. Regresioni testovi: deaktivirani nalog izlazi iz aktivne tabele i pada u zatamnjeni red sa bedžom, reaktivacija ga vraća; admin red nosi Active toggle. Ceo suite 560 passed / 3 skipped. Live: DB backup u backups/pricing.db.pre-users-ui.20261106-092639.db, lokalni docker compose build + up -d (korisnikov izbor), kontejner healthy, md5 šablona u kontejneru = repo, HTTP provera sa privremeno deaktiviranim pdf_probe potvrdila odvojenu/zatamnjenu sekciju pa je nalog vraćen u aktivno. Docs ažurirani (DOCKER.md, PROGRAM_DOCUMENTATION.md) + Agent Note feature/2026-11-06-admin-users-deactivated-section."
+    },
+    {
+      "id": "card-a4a4c030-389f-4aba-9f91-65e3ebd8224d",
+      "title": "Merge Dev→main + CI build + pull-deploy (posle lokalnog rebuild-a Users izmene)",
+      "rationale": "Za ovu izmenu je, po korisnikovom izboru, urađen LOKALNI docker compose build + up -d (bez Dev→main i CI). Time je live :5000 na image-u iz Dev stabla, ali GHCR :latest i dalje pokazuje na stariji main. Svaki sledeći `./deploy.sh` (pull-deploy) zamenio bi lokalni image GHCR-ovim i tiho vratio stariji kod — uključujući Admin → Users izmenu i ostale Dev popravke. Zato treba na vreme spojiti Dev→main, pustiti CI da izgradi i prođe pytest, pa jednom pull-deploy-om uskladiti sve.",
+      "rejected": "Neposredni merge Dev→main sada (posle lokalnog rebuild-a) — nije urađeno jer je korisnik za ovaj put izabrao samo lokalni rebuild; CI bi trajao duže i pokrenuo release granicu bez njegove odluke. Alternativa „ostaviti kako jeste\" odbijena jer pull-deploy kasnije vraća stariji image bez ikakvog upozorenja.",
+      "sourceSessionId": "session-e7d84fff-6efb-4de5-93b4-3e58df526436",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "deploy",
+        "ghcr",
+        "ci",
+        "follow-up",
+        "user-action"
+      ],
+      "createdAt": 1793957433661,
+      "updatedAt": 1793957433661
     }
   ]
 }
