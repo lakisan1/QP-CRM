@@ -42,6 +42,11 @@ def require_api_key(f):
        are same-origin GETs/JSON POSTs issued by first-party JS (the CSRF
        shield has always exempted api_v1 endpoints).
 
+       Admin-role users bypass the grant check exactly like the web
+       require_module() gate does (they open every app): without this an
+       admin on /pricing/products/product_sync got 403 "Your account has
+       no pricing app access." on every /api/v1/sync/* call.
+
     Everything else is 401 (no credentials) / 403 (bad credentials).
     """
     @wraps(f)
@@ -70,7 +75,10 @@ def require_api_key(f):
         user = get_user_by_id(user_id)
         if user is None:
             return jsonify({"success": False, "error": "Session user is inactive. Log in again."}), 403
-        if not user_has_module(user_id, "pricing"):
+        # Admins bypass the per-user app grant (superset), same as the web
+        # require_module() gate -- the product_sync page is reachable for
+        # them, so its /api/v1/sync/* calls must work too.
+        if user["role"] != "admin" and not user_has_module(user_id, "pricing"):
             return jsonify({"success": False, "error": "Your account has no pricing app access."}), 403
         g.api_key_kind = "user"
         g.api_key_username = user["username"]

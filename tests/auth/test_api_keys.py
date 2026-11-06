@@ -195,6 +195,31 @@ def test_api_v1_session_fallback_for_logged_in_pricing_user():
     assert anon.get("/api/v1/products").status_code == 401
 
 
+def test_api_v1_session_fallback_admin_bypasses_app_grant():
+    """Admin role is a superset, exactly like the web require_module gate:
+    /pricing/products/product_sync renders for an admin and its page JS calls
+    /api/v1/sync/* with the session, so the API must not demand the pricing
+    grant from an admin (reported bug: 403 "Your account has no pricing app
+    access." on that page while logged in as admin)."""
+    admin = login_client(app.test_client(), "admin")
+
+    # The admin holds NO explicit pricing grant row — the bypass is by role.
+    conn = get_db()
+    admin_id = conn.execute("SELECT id FROM users WHERE username='admin'").fetchone()["id"]
+    conn.execute("DELETE FROM user_modules WHERE user_id = ?;", (admin_id,))
+    conn.commit()
+    conn.close()
+
+    resp = admin.get("/api/v1/products")
+    assert resp.status_code == 200
+    row = _last_audit()
+    assert row["kind"] == "user" and row["username"] == "admin" and row["status"] == 200
+
+    # The page that exposed the bug and the exact call its JS makes first.
+    assert admin.get("/pricing/products/product_sync").status_code == 200
+    assert admin.get("/api/v1/sync/table").status_code == 200
+
+
 # ----------------------------------------------------------------- admin UI
 
 def _post(client, path, data):
