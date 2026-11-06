@@ -2,24 +2,6 @@
   "version": 1,
   "cards": [
     {
-      "id": "card-2971e762-d3b3-4266-9017-2f19ebcaf8eb",
-      "title": "Users page: one Save per user + sale joins per-user app access",
-      "description": "User follow-up with screenshot: the Users page had four password fields + four buttons per row (deactivate/role/reset/access) — replace with ONE password + ONE Save per user; also make the sale app per-user controllable.",
-      "summary": "Commit 0821e0... deployed and verified live: /admin/users/<id>/save combines apps+active+role+optional new password behind one own-password confirm; row UI uses one <form> with HTML5 form= attributes so all cells submit together. Sale gated with require_module('sale'), legacy /sale/login + /sale/logout redirects added, landing card filtered; versioned seed (MODULE_INTRODUCED, users.modules_set = seed version) granted sale to existing staff exactly once. Fixed get_user_by_id to accept include_inactive so deactivated users can be reactivated through the save route. Suite 230 passed.",
-      "rationale": "Cluttered UI made row actions error-prone (four confirm-password fields per user), and sale was still public despite the per-user access model.",
-      "rejected": "Separate save buttons per option (that was the complaint); one giant form spanning <td>s via invalid HTML (used the form= attribute instead); re-granting all modules on version bump (would resurrect deliberately revoked grants — MODULE_INTRODUCED grants only modules introduced after the row's last seed version).",
-      "sourceSessionId": "session-4ca59a53-7afb-4d0d-85e0-276e1d187fdb",
-      "status": "done",
-      "tags": [
-        "qp-crm",
-        "auth",
-        "users",
-        "sale"
-      ],
-      "createdAt": 1788614452661,
-      "updatedAt": 1788614452661
-    },
-    {
       "id": "card-9ca66811-c52e-4cf0-9278-a5b315ed58c4",
       "title": "kad se ode na http://192.168.1.34:5000/admin/ u headeru imam sve opcije ali ako odem u /admin/pdf_templates ili bilo koju drugu pod stranicu header je drugaciji fale opcije poput api key, users nisu u headeru treba da bude sve isto u celoj admin aplikaciji",
       "status": "done",
@@ -1985,6 +1967,25 @@
       ],
       "createdAt": 1793957808742,
       "updatedAt": 1793957808742
+    },
+    {
+      "id": "card-3992dd4f-6f2e-4831-b666-7b5f63d7d0a9",
+      "title": "Quick Update: procenat za nabavnu cenu (+7 / -7)",
+      "summary": "quick_update.html: ispod base_price polja malo „± %\" polje; JS uživo preračuna base_price iz sačuvane cene (data-stored), ručna izmena apsolutnog polja briše procenat i re-anchors. quick_update_save: server primenjuje procenat (validan base_price_percent ignoriše posted base_price; nova baza = latest base_price*(1+p/100), round 2, clamp ≥0; neparsabilan → fallback na apsolutno polje; -150% → 0). sr prevodi. 7 testova (tests/pricing/test_quick_update_percent.py): +7/-7, stored-vs-posted, manual, invalid fallback, clamp, UI polje. Full suite 568 passed / 3 skipped. Commit 15689fc (Dev); lokalni rebuild + restart, :5000 verifikovan.",
+      "rationale": "Korisnikov zahtev (06.11.2026): na /pricing/products/quick_update pored ručnog unosa nabavne cene treba da postoji i procenat (+/-7%) koji automatski preračuna nabavnu cenu, kao što se sada radi ručno. Produkcija (qp.hofmann-srbija.rs) radi iz GHCR image-a main@c06939c, a ovaj host (192.168.1.34) je LAN instanca — provereno je da produkcija još nema ni ranije današnje izmene (About: commit c06939c), pa je potreban i pravi release da bi se videlo na domenu.",
+      "rejected": "Računanje procenta samo u JavaScript-u (ne bi radilo bez JS-a i rezultat bi zavisio od browsera) — zato server ponavlja račun. Procent na finalnu/maloprodajnu cenu — korisnik je tražio nabavnu. Više procenata zaredom sa kompoundovanjem — JS re-anchors na unetu vrednost pa +7 dvaput nije 14,97% nego 7% na poslednju vrednost. Bulk „primeni na sve\" — nije traženo; ostaje per-red.",
+      "sourceSessionId": "session-e7d84fff-6efb-4de5-93b4-3e58df526436",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "pricing",
+        "quick-update",
+        "percent",
+        "feature",
+        "deployed-local"
+      ],
+      "createdAt": 1793959857135,
+      "updatedAt": 1793959857135
     }
   ]
 }
