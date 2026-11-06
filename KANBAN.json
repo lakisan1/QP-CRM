@@ -1961,9 +1961,9 @@
     {
       "id": "card-3992dd4f-6f2e-4831-b666-7b5f63d7d0a9",
       "title": "Quick Update: procenat za nabavnu cenu (+7 / -7)",
-      "summary": "quick_update.html: ispod base_price polja malo „± %\" polje; JS uživo preračuna base_price iz sačuvane cene (data-stored), ručna izmena apsolutnog polja briše procenat i re-anchors. quick_update_save: server primenjuje procenat (validan base_price_percent ignoriše posted base_price; nova baza = latest base_price*(1+p/100), round 2, clamp ≥0; neparsabilan → fallback na apsolutno polje; -150% → 0). sr prevodi. 7 testova (tests/pricing/test_quick_update_percent.py): +7/-7, stored-vs-posted, manual, invalid fallback, clamp, UI polje. Full suite 568 passed / 3 skipped. Commit 15689fc (Dev); lokalni rebuild + restart, :5000 verifikovan.",
-      "rationale": "Korisnikov zahtev (06.11.2026): na /pricing/products/quick_update pored ručnog unosa nabavne cene treba da postoji i procenat (+/-7%) koji automatski preračuna nabavnu cenu, kao što se sada radi ručno. Produkcija (qp.hofmann-srbija.rs) radi iz GHCR image-a main@c06939c, a ovaj host (192.168.1.34) je LAN instanca — provereno je da produkcija još nema ni ranije današnje izmene (About: commit c06939c), pa je potreban i pravi release da bi se videlo na domenu.",
-      "rejected": "Računanje procenta samo u JavaScript-u (ne bi radilo bez JS-a i rezultat bi zavisio od browsera) — zato server ponavlja račun. Procent na finalnu/maloprodajnu cenu — korisnik je tražio nabavnu. Više procenata zaredom sa kompoundovanjem — JS re-anchors na unetu vrednost pa +7 dvaput nije 14,97% nego 7% na poslednju vrednost. Bulk „primeni na sve\" — nije traženo; ostaje per-red.",
+      "summary": "quick_update.html: ispod base_price polja polje „± %\"; JS uživo preračuna base_price iz sačuvane cene (data-stored), ručna izmena apsolutnog polja briše procenat i re-anchors. quick_update_save: server primenjuje procenat (validan base_price_percent ignoriše posted base_price; nova baza = latest base_price*(1+p/100), round 2, clamp ≥0; neparsabilan → fallback na apsolutno polje; -150% → 0). sr prevodi. 7 testova (tests/pricing/test_quick_update_percent.py): +7/-7, stored-vs-posted, manual, invalid fallback, clamp, UI polje. Full suite 568 passed / 3 skipped. Commit 15689fc (Dev); release v1.1.5 (88a29f5) + CI. Vizuelni follow-up (isti dan): izbačena „% change\" oznaka pored polja i polje razvučeno na 100% širine ćelije (izgled kao Purchase Price polje iznad), test pinuje odsustvo oznake i width:100%; commit 59ee8c6, CI success, GHCR latest osvežen; lokalna instanca pull-ovala taj image i verifikovana (md5 šablona = repo, live HTML bez „% change\").",
+      "rationale": "Korisnikov zahtev (06.11.2026): na /pricing/products/quick_update pored ručnog unosa nabavne cene treba da postoji i procenat (+/-7%) koji automatski preračuna nabavnu cenu; potom je traženo da se oznaka „% change\" izbaci i samo polje produži (vizuelno lepše) uz zadržanu verziju 1.1.5. Produkcija (qp.hofmann-srbija.rs) radi iz GHCR image-a na odvojenom serveru — release kanal je main push + CI.",
+      "rejected": "Računanje procenta samo u JavaScript-u (ne bi radilo bez JS-a) — zato server ponavlja račun. Procent na finalnu/maloprodajnu cenu — korisnik je tražio nabavnu. Kompoundovanje uzastopnih procenata — JS re-anchors. Bulk „primeni na sve\" — nije traženo. Za vizuelni deo: zadržana oznaka sa manjim/većim fontom umesto uklanjanja — korisnik je izričito tražio da se tekst izbaci; sužavanje ćelije umesto full-width polja — traženo je da polje bude duže, pa je ono razvučeno na punu širinu.",
       "sourceSessionId": "session-e7d84fff-6efb-4de5-93b4-3e58df526436",
       "status": "done",
       "tags": [
@@ -1975,12 +1975,12 @@
         "deployed-local"
       ],
       "createdAt": 1793959857135,
-      "updatedAt": 1793959857135
+      "updatedAt": 1793961700292
     },
     {
       "id": "card-f14cc0bf-7d1e-44c0-a787-809a7a94e4cf",
-      "title": "Produkcija: pokrenuti ./deploy.sh na serveru za image v1.1.5 (sha-88a29f5)",
-      "rationale": "Image v1.1.5 (latest + sha-88a29f5) je u GHCR, ali produkcijski kontejner na qp.hofmann-srbija.rs treba da povuče novi image. Sa ove mašine (192.168.1.34) produkcija nije dostupna (nema SSH pristupa; domain rešava na 91.150.97.178), pa deploy mora da pokrene korisnik na serveru ili ga (ako je uključen) odradi watchtower.",
+      "title": "Produkcija: pokrenuti ./deploy.sh na serveru za image v1.1.5 (sha-59ee8c6)",
+      "rationale": "Image v1.1.5 je u GHCR, ali produkcijski kontejner na qp.hofmann-srbija.rs treba da povuče novi image. Novi CI build za vizuelni follow-up je 59ee8c6 (isti 1.1.5, GHCR latest + sha-59ee8c6); sa ove mašine produkcija nije dostupna, pa deploy pokreće korisnik na serveru ili watchtower.",
       "rejected": "Nije urađeno sa ove mašine jer qp.hofmann-srbija.rs nije na ovom hostu (About: build commit c06939c, dev build na LAN instanci) i nema pristupa tom serveru. Alternativa „sačekaj da watchtower sam povuče\" — nije potvrđeno da watchtower postoji na produkciji.",
       "sourceSessionId": "session-e7d84fff-6efb-4de5-93b4-3e58df526436",
       "status": "todo",
@@ -1993,7 +1993,7 @@
         "user-action"
       ],
       "createdAt": 1793960300023,
-      "updatedAt": 1793960300023
+      "updatedAt": 1793961700322
     }
   ]
 }
