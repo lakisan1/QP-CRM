@@ -2,17 +2,6 @@
   "version": 1,
   "cards": [
     {
-      "id": "card-9ca66811-c52e-4cf0-9278-a5b315ed58c4",
-      "title": "kad se ode na http://192.168.1.34:5000/admin/ u headeru imam sve opcije ali ako odem u /admin/pdf_templates ili bilo koju drugu pod stranicu header je drugaciji fale opcije poput api key, users nisu u headeru treba da bude sve isto u celoj admin aplikaciji",
-      "status": "done",
-      "tags": [],
-      "createdAt": 1788621242713,
-      "updatedAt": 1788647556449,
-      "rationale": "Why: each admin template carries its own copy-pasted nav that drifted over time (Users/API Keys/Rent Šabloni missing on some subpages), so the admin app looks broken depending on which page you are on. Root fix is one shared nav include used by every admin template so the header cannot drift again.",
-      "summary": "做了什么：created qp_crm/admin/templates/admin/_nav.html (one shared header: Dashboard, PDF Templates, Rounding Rules, Users, API Keys, Rent Šabloni + Home link, no logout) and replaced the drifted copy-pasted navs in all 7 admin templates with `{% set active = ... %}{% include 'admin/_nav.html' %}` (pdf_template_edit keeps its 'Edit: <name>' breadcrumb via nav_extra). Smoke tests assert the full identical header on every admin subpage incl. the editor.",
-      "rejected": "放弃了什么：patching the missing Users/API Keys/Rent Šabloni links into each template's existing nav — that is the exact copy-paste drift that caused the bug and would drift again; a Jinja macro with args was also skipped in favor of the include+set idiom the codebase already uses."
-    },
-    {
       "id": "card-c85eefa5-e7a9-4120-8b77-8bc953459a3c",
       "title": "http://192.168.1.34:5000/admin/rent/templates ne radi samo vodi u krug na http://192.168.1.34:5000/login?next=/admin/",
       "status": "done",
@@ -1932,11 +1921,11 @@
     },
     {
       "id": "card-a4a4c030-389f-4aba-9f91-65e3ebd8224d",
-      "title": "Merge Dev→main + CI build + pull-deploy (posle lokalnog rebuild-a Users izmene)",
-      "rationale": "Za ovu izmenu je, po korisnikovom izboru, urađen LOKALNI docker compose build + up -d (bez Dev→main i CI). Time je live :5000 na image-u iz Dev stabla, ali GHCR :latest i dalje pokazuje na stariji main. Svaki sledeći `./deploy.sh` (pull-deploy) zamenio bi lokalni image GHCR-ovim i tiho vratio stariji kod — uključujući Admin → Users izmenu i ostale Dev popravke. Zato treba na vreme spojiti Dev→main, pustiti CI da izgradi i prođe pytest, pa jednom pull-deploy-om uskladiti sve.",
-      "rejected": "Neposredni merge Dev→main sada (posle lokalnog rebuild-a) — nije urađeno jer je korisnik za ovaj put izabrao samo lokalni rebuild; CI bi trajao duže i pokrenuo release granicu bez njegove odluke. Alternativa „ostaviti kako jeste\" odbijena jer pull-deploy kasnije vraća stariji image bez ikakvog upozorenja.",
+      "title": "Release v1.1.5: merge Dev→main + push + CI image + tag + GitHub Release",
+      "rationale": "Korisnik je tražio da se izmene (posebno Quick Update %) objave kao verzija 1.1.5 — produkcija qp.hofmann-srbija.rs radi iz GHCR image-a main@c06939c, pa je za produkciju neophodan main push + CI. Lokalna LAN instanca je već bila na novom kodu preko lokalnog rebuild-a; ovaj release usklađuje i GHCR kanal.",
+      "rejected": "Lokalni rebuild umesto main push-a — ne pomaže produkciji (odvojen server, GHCR image). Merge commit umesto fast-forwarda — main je bio direktni predak Dev-a, pa je ff push čistiji (isti sha). GitHub Release preko gh CLI — gh nije autentifikovan; upotrebljen je token iz ~/.git-credentials kroz API.",
       "sourceSessionId": "session-e7d84fff-6efb-4de5-93b4-3e58df526436",
-      "status": "todo",
+      "status": "done",
       "tags": [
         "qp-crm",
         "deploy",
@@ -1946,7 +1935,8 @@
         "user-action"
       ],
       "createdAt": 1793957433661,
-      "updatedAt": 1793957433661
+      "updatedAt": 1793960299992,
+      "summary": "Urađeno: APP_VERSION 1.1.4→1.1.5 (qp_crm/shared/config.py), commit 88a29f5; Dev pushovan; main fast-forwardovan na 88a29f5 (git push origin Dev:main, main je bio predak pa nema merge commita); anotiran tag v1.1.5 pushovan; GitHub Release v1.1.5 objavljen (https://github.com/lakisan1/QP-CRM/releases/tag/v1.1.5). CI run na main@88a29f5: pytest + coverage + image = success; GHCR ghcr.io/lakisan1/qp-crm:latest i :sha-88a29f5 su osveženi. Release sadrži tri današnje izmene: Admin → Users deaktivirani u odvojenom/zatamnjenom delu (eaead78), /api/v1 admin session bypass fix (fff758c), Quick Update procenat za nabavnu cenu (15689fc) + docs/Agent Notes. Full suite pre push-a: 568 passed / 3 skipped."
     },
     {
       "id": "card-1e93d67c-87ce-4a0c-97df-2fd0c866199a",
@@ -1986,6 +1976,24 @@
       ],
       "createdAt": 1793959857135,
       "updatedAt": 1793959857135
+    },
+    {
+      "id": "card-f14cc0bf-7d1e-44c0-a787-809a7a94e4cf",
+      "title": "Produkcija: pokrenuti ./deploy.sh na serveru za image v1.1.5 (sha-88a29f5)",
+      "rationale": "Image v1.1.5 (latest + sha-88a29f5) je u GHCR, ali produkcijski kontejner na qp.hofmann-srbija.rs treba da povuče novi image. Sa ove mašine (192.168.1.34) produkcija nije dostupna (nema SSH pristupa; domain rešava na 91.150.97.178), pa deploy mora da pokrene korisnik na serveru ili ga (ako je uključen) odradi watchtower.",
+      "rejected": "Nije urađeno sa ove mašine jer qp.hofmann-srbija.rs nije na ovom hostu (About: build commit c06939c, dev build na LAN instanci) i nema pristupa tom serveru. Alternativa „sačekaj da watchtower sam povuče\" — nije potvrđeno da watchtower postoji na produkciji.",
+      "sourceSessionId": "session-e7d84fff-6efb-4de5-93b4-3e58df526436",
+      "status": "todo",
+      "tags": [
+        "qp-crm",
+        "deploy",
+        "production",
+        "ghcr",
+        "v1.1.5",
+        "user-action"
+      ],
+      "createdAt": 1793960300023,
+      "updatedAt": 1793960300023
     }
   ]
 }

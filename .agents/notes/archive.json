@@ -660,6 +660,17 @@
       ],
       "createdAt": 1788614452661,
       "updatedAt": 1788614452661
+    },
+    {
+      "id": "card-9ca66811-c52e-4cf0-9278-a5b315ed58c4",
+      "title": "kad se ode na http://192.168.1.34:5000/admin/ u headeru imam sve opcije ali ako odem u /admin/pdf_templates ili bilo koju drugu pod stranicu header je drugaciji fale opcije poput api key, users nisu u headeru treba da bude sve isto u celoj admin aplikaciji",
+      "status": "done",
+      "tags": [],
+      "createdAt": 1788621242713,
+      "updatedAt": 1788647556449,
+      "rationale": "Why: each admin template carries its own copy-pasted nav that drifted over time (Users/API Keys/Rent Šabloni missing on some subpages), so the admin app looks broken depending on which page you are on. Root fix is one shared nav include used by every admin template so the header cannot drift again.",
+      "summary": "做了什么：created qp_crm/admin/templates/admin/_nav.html (one shared header: Dashboard, PDF Templates, Rounding Rules, Users, API Keys, Rent Šabloni + Home link, no logout) and replaced the drifted copy-pasted navs in all 7 admin templates with `{% set active = ... %}{% include 'admin/_nav.html' %}` (pdf_template_edit keeps its 'Edit: <name>' breadcrumb via nav_extra). Smoke tests assert the full identical header on every admin subpage incl. the editor.",
+      "rejected": "放弃了什么：patching the missing Users/API Keys/Rent Šabloni links into each template's existing nav — that is the exact copy-paste drift that caused the bug and would drift again; a Jinja macro with args was also skipped in favor of the include+set idiom the codebase already uses."
     }
   ]
 }
