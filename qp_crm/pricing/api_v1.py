@@ -1511,6 +1511,11 @@ def sync_add_product():
             "product_id": new_id,
             "site_id": site_id,
             "name": name,
+            # The page's "Add to CRM" button redirects here right away
+            # (user request 2026-11-06: save the product and open it in the
+            # edit form). Server-side url_for keeps the URL authoritative
+            # instead of hard-coding the route in the JS.
+            "edit_url": url_for("pricing.edit_product", product_id=new_id),
         }
     })
 

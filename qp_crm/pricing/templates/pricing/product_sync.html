@@ -544,9 +544,12 @@
             body: JSON.stringify(body)
         }).then(r => {
             if (!r.success) { showMsg('error', r.error || 'Greška pri dodavanju.'); return; }
-            showMsg('success', 'Proizvod dodat u CRM i povezan.');
+            // Save -> open the new product straight in its edit form (user
+            // request 2026-11-06); edit_url comes from the API (url_for).
             document.getElementById('add-modal').classList.remove('show');
-            loadTable();
+            const target = (r.data && r.data.edit_url)
+                || ('/pricing/products/' + r.data.product_id + '/edit');
+            window.location.href = target;
         }).catch(err => showMsg('error', 'Greška: ' + err.message));
     });
 
