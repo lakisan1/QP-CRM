@@ -122,10 +122,13 @@
         <input type="text" id="add-name">
         <label>Opis</label>
         <textarea id="add-desc"></textarea>
-        <label>Brend (opcionalno — unapred izabran samo ako ima tačno poklapanje imena)</label>
-        <select id="add-brand"><option value="">— bez brenda —</option></select>
-        <label>Kategorija (opcionalno)</label>
-        <select id="add-cat"><option value="">— bez kategorije —</option></select>
+        {# Brand and category are REQUIRED for products created from the sync
+           modal (user request 2026-11-06) — the API refuses them too, so a
+           bypassed/blocked JS cannot save an unclassified product. #}
+        <label>Brend <span style="color: var(--accent-danger, #e25555);">*</span></label>
+        <select id="add-brand" required><option value="">— izaberi brend —</option></select>
+        <label>Kategorija <span style="color: var(--accent-danger, #e25555);">*</span></label>
+        <select id="add-cat" required><option value="">— izaberi kategoriju —</option></select>
         <img id="add-img" alt="Slika proizvoda" style="display:none;">
         <div id="add-generating" style="display:none;margin-top:10px;color:var(--accent-primary,#3498db);font-weight:bold;">
             ⏳ Generišem podatke sa sajta...
@@ -473,8 +476,8 @@
         // Populate brand/category dropdowns
         const brandSel = document.getElementById('add-brand');
         const catSel = document.getElementById('add-cat');
-        brandSel.innerHTML = '<option value="">— bez brenda —</option>';
-        catSel.innerHTML = '<option value="">— bez kategorije —</option>';
+        brandSel.innerHTML = '<option value="">— izaberi brend —</option>';
+        catSel.innerHTML = '<option value="">— izaberi kategoriju —</option>';
         for (const b of brands) brandSel.insertAdjacentHTML('beforeend', '<option value="' + esc(b) + '">' + esc(b) + '</option>');
         for (const c of categories) catSel.insertAdjacentHTML('beforeend', '<option value="' + esc(c) + '">' + esc(c) + '</option>');
 
@@ -530,11 +533,17 @@
     document.getElementById('add-save').addEventListener('click', () => {
         const name = document.getElementById('add-name').value.trim();
         if (!name) { showMsg('error', 'Naziv proizvoda je obavezan.'); return; }
+        // Brand and category are mandatory here (user request 2026-11-06);
+        // the API enforces the same rule, this is just the friendly check.
+        const brand = document.getElementById('add-brand').value;
+        const category = document.getElementById('add-cat').value;
+        if (!brand) { showMsg('error', 'Brend je obavezan — izaberi ga iz liste.'); return; }
+        if (!category) { showMsg('error', 'Kategorija je obavezna — izaberi je iz liste.'); return; }
         const body = {
             name: name,
             description: document.getElementById('add-desc').value,
-            brand: document.getElementById('add-brand').value,
-            category: document.getElementById('add-cat').value,
+            brand: brand,
+            category: category,
             site_id: addSiteId,
             image_url: addImageUrl || ''
         };

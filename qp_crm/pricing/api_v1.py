@@ -1447,14 +1447,22 @@ def sync_add_product():
     site_id = data.get("site_id")
     name = (data.get("name") or "").strip()
     description = data.get("description") or ""
-    brand = data.get("brand") or ""
-    category = data.get("category") or ""
+    brand = (data.get("brand") or "").strip()
+    category = (data.get("category") or "").strip()
     image_url = (data.get("image_url") or "").strip()
 
     if not site_id:
         return jsonify({"success": False, "error": "site_id is required."}), 400
     if not name:
         return jsonify({"success": False, "error": "Product name is required."}), 400
+    # Brand and category are MANDATORY for products created from the sync
+    # dialog (user request 2026-11-06): the modal marks them required and
+    # this server check is the real guarantee — an unclassified product can
+    # never enter the catalogue through /api/v1/sync/add_product.
+    if not brand:
+        return jsonify({"success": False, "error": "Brand is required."}), 400
+    if not category:
+        return jsonify({"success": False, "error": "Category is required."}), 400
 
     conn = get_db()
     cur = conn.cursor()
