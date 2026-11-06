@@ -143,3 +143,15 @@ def test_product_sync_js_redirects_and_requires_brand_category(client):
     assert "Kategorija je obavezna" in html
     assert 'id="add-brand" required' in html
     assert 'id="add-cat" required' in html
+
+
+def test_link_modal_load_callback_passes_options_as_single_argument(client):
+    """The «Poveži» modal's TomSelect gets its options from a remote load()
+    callback. TomSelect calls `callback(options)` — the old code used the
+    jQuery-UI style `callback(null, options)`, so TomSelect fed null into
+    setupOptions and the dropdown always came up empty ("search doesn't
+    work", reported 2026-11-06; reproduced with jsdom against TomSelect
+    2.2.2: 0 rendered options vs 2 with the single-argument form)."""
+    html = client.get("/pricing/products/product_sync").data.decode()
+    assert "callback(data.map(p => ({ id: p.id, name: p.name })));" in html
+    assert "callback(null, data" not in html

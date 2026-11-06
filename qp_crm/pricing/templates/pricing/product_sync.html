@@ -392,7 +392,12 @@
                 apiFetch(url).then(r => {
                     if (!r.success) { callback(); return; }
                     const data = r.data || [];
-                    callback(null, data.map(p => ({ id: p.id, name: p.name })));
+                    // TomSelect's load callback takes the OPTIONS ARRAY as its
+                    // single argument. The old code called callback(null, opts)
+                    // (jQuery-UI style) — TomSelect passed null to setupOptions,
+                    // so the dropdown never got any option and the modal search
+                    // looked dead (fixed 2026-11-06, reproduced with jsdom).
+                    callback(data.map(p => ({ id: p.id, name: p.name })));
                 }).catch(() => callback());
             },
             labelField: 'name',
