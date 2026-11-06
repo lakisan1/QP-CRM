@@ -1956,11 +1956,11 @@
         "deploy",
         "production",
         "ghcr",
-        "v1.1.5",
+        "v1.1.7",
         "user-action"
       ],
       "createdAt": 1793960300023,
-      "updatedAt": 1793970800033
+      "updatedAt": 1793970809726
     },
     {
       "id": "card-8ddf6fe8-bcb1-4260-9802-60a5dc976b12",
