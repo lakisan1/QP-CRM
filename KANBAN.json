@@ -2,23 +2,6 @@
   "version": 1,
   "cards": [
     {
-      "id": "card-a414556c-6b98-4817-8841-6176f21b8897",
-      "title": "Landing page: login required + access-filtered app menu",
-      "description": "User follow-up: anonymous visitors must see only the login page (never the app menu), and the menu should reflect per-user app access.",
-      "summary": "Commit caba035, deployed and verified: / redirects anonymous to /login; logged-in menu built from get_user_modules (staff: granted apps + public sale/settings cards, admin: all + Admin Panel). Smoke tests: anonymous-redirect + menu-filtering tests, suite 226 passed.",
-      "rationale": "The static landing page exposed the full module menu (including Admin Panel) to anyone; inconsistent with unified auth and the new per-user app access.",
-      "rejected": "Caching the menu in the session (grants must reflect per-request DB state like the gates).",
-      "sourceSessionId": "session-4ca59a53-7afb-4d0d-85e0-276e1d187fdb",
-      "status": "done",
-      "tags": [
-        "qp-crm",
-        "auth",
-        "users"
-      ],
-      "createdAt": 1788606592414,
-      "updatedAt": 1788606592414
-    },
-    {
       "id": "card-2971e762-d3b3-4266-9017-2f19ebcaf8eb",
       "title": "Users page: one Save per user + sale joins per-user app access",
       "description": "User follow-up with screenshot: the Users page had four password fields + four buttons per row (deactivate/role/reset/access) — replace with ONE password + ONE Save per user; also make the sale app per-user controllable.",
@@ -1982,6 +1965,26 @@
       ],
       "createdAt": 1793957433661,
       "updatedAt": 1793957433661
+    },
+    {
+      "id": "card-1e93d67c-87ce-4a0c-97df-2fd0c866199a",
+      "title": "BUG · /pricing/products/product_sync: admin dobija „no pricing app access\\\"",
+      "summary": "require_api_key() session fallback: `user[\"role\"] != \"admin\" and not user_has_module(...)`; novi regresioni test sa obrisanim adminovim user_modules redovima (200 za /api/v1/products, /api/v1/sync/table i product_sync stranu), staff-bez-granta 403 ostaje. Full suite 561 passed / 3 skipped. Rebuild + restart kontejnera; live provera forged admin sesijom: product_sync 200, sync/table 200. Commit fff758c (Dev).",
+      "rationale": "Korisnik je kao admin otvarao product_sync stranu i dobijao 403 poruku iz /api/v1 session fallback-a iako web gate admina propušta. Ispravka je morala da uskladi API session proveru sa require_module pravilom „admin je superset\".",
+      "rejected": "Uklanjanje grant-provere za sve sesije (preširoko — staff bez granta bi dobio API pristup); davanje adminu user_modules reda (van modela, admin nikad ne nosi grantove); novi shared helper user_has_module_or_admin (samo jedan pozivalac, dodaje API površinu).",
+      "sourceSessionId": "session-e7d84fff-6efb-4de5-93b4-3e58df526436",
+      "status": "done",
+      "tags": [
+        "qp-crm",
+        "bug",
+        "api",
+        "auth",
+        "admin",
+        "pricing",
+        "deployed"
+      ],
+      "createdAt": 1793957808742,
+      "updatedAt": 1793957808742
     }
   ]
 }
