@@ -51,9 +51,17 @@ def list_users():
         # Contact link (2026-09-24: moved from the contacts form here --
         # it is an account property: WHICH directory entry is this login).
         u["contact_link"] = contact_service.find_by_user_id(u["id"])
+    # Deactivated accounts get their own section at the bottom of the page
+    # (user request 2026-11-06): the active table must only list who can log
+    # in right now. Deactivated rows stay fully editable there (the Active
+    # checkbox + Save reactivate them) -- accounts are NEVER deleted, so the
+    # who-did-what history is preserved (see the Users UI note).
+    active_users = [u for u in users if u["is_active"]]
+    inactive_users = [u for u in users if not u["is_active"]]
     return render_template(
         "admin/users.html",
-        users=users,
+        active_users=active_users,
+        inactive_users=inactive_users,
         module_choices=MODULE_CHOICES,
         current_user_id=session.get("user_id"),
         contact_choices=contact_service.directory_choices(include_archived=True),

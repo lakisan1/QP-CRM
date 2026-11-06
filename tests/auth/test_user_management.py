@@ -83,6 +83,85 @@ def test_users_page_admin_only():
     assert client.get("/admin/users").status_code == 403
 
 
+def test_deactivated_users_are_separate_and_dimmed(admin):
+    """Deactivated accounts leave the Active users table and land in the
+    separate dimmed 'Deactivated users' section (user request 2026-11-06:
+    sivi/tamni red ILI odvojen deo — both). Reactivating via the row's
+    Active checkbox moves the account back to the active table."""
+    import re
+
+    from qp_crm.shared.auth import create_user, set_user_active
+
+    def _drop():
+        conn = get_db()
+        conn.execute("DELETE FROM user_modules WHERE user_id IN "
+                     "(SELECT id FROM users WHERE username = 'inactive_demo');")
+        conn.execute("DELETE FROM users WHERE username = 'inactive_demo';")
+        conn.commit()
+        conn.close()
+
+    _drop()  # the temp DB persists across pytest invocations
+    ok, err = create_user("inactive_demo", "Inactive-Pass-1", "Inactive-Pass-1", "staff")
+    assert ok, err
+    uid = _uid("inactive_demo")
+    ok, err = set_user_active(_uid("admin"), uid, False)
+    assert ok, err
+    try:
+        body = admin.get("/admin/users").data.decode()
+        active_part, inactive_part = body.split('id="deactivated-users"', 1)
+        # not in the active table anymore ...
+        assert "inactive_demo" not in active_part
+        # ... but present in the deactivated section, on a dimmed row with
+        # the explicit DEACTIVATED badge.
+        assert "inactive_demo" in inactive_part
+        row = re.search(r'<tr class="user-row-inactive">(.*?)</tr>', inactive_part, re.S)
+        assert row is not None
+        assert "inactive_demo" in row.group(1)
+        assert "inactive-badge" in row.group(1)
+
+        # the row's Active checkbox + Save brings the account back
+        resp = _post(admin, f"/admin/users/{uid}/save", {
+            "modules": list(MODULE_CHOICES), "has_modules": "1",
+            "active": "1", "current_password": DEFAULT_PASSWORDS["admin"],
+        })
+        assert resp.status_code == 302
+        body = admin.get("/admin/users").data.decode()
+        active_part, inactive_part = body.split('id="deactivated-users"', 1)
+        assert "inactive_demo" in active_part
+        assert "inactive_demo" not in inactive_part
+    finally:
+        _drop()
+
+
+def test_admin_row_has_active_toggle_for_reactivation(admin):
+    """Admin rows render no app checkboxes (admins open every app) but DO
+    need the Active toggle, otherwise a deactivated second admin could
+    never be reactivated from the UI."""
+    from qp_crm.shared.auth import create_user, set_user_active
+
+    def _drop():
+        conn = get_db()
+        conn.execute("DELETE FROM user_modules WHERE user_id IN "
+                     "(SELECT id FROM users WHERE username = 'admin3');")
+        conn.execute("DELETE FROM users WHERE username = 'admin3';")
+        conn.commit()
+        conn.close()
+
+    _drop()
+    ok, err = create_user("admin3", "Admin3-Pass-1", "Admin3-Pass-1", "admin")
+    assert ok, err
+    uid = _uid("admin3")
+    try:
+        assert set_user_active(_uid("admin"), uid, False)[0]
+        body = admin.get("/admin/users").data.decode()
+        inactive_part = body.split('id="deactivated-users"', 1)[1]
+        assert "admin3" in inactive_part
+        # the admin row's Active toggle must be there to re-enable it
+        assert 'name="active"' in inactive_part
+    finally:
+        _drop()
+
+
 # ------------------------------------------------------- create (with confirm)
 
 def test_create_user_requires_admins_own_password(admin):

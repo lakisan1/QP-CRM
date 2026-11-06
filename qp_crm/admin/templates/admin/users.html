@@ -6,6 +6,27 @@
     <title>Users Management</title>
     <link rel="icon" type="image/png" href="/app_assets/favicon.png">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <style>
+        /* Deactivated accounts (user request 2026-11-06) are BOTH dimmed in
+           the row and listed in a separate section at the bottom of the
+           page, so nobody confuses an inactive account with an active one.
+           The whole row is muted; hovering restores readability for the
+           reactivation flow (tick Active -> Save). */
+        tr.user-row-inactive { opacity: .5; }
+        tr.user-row-inactive:hover { opacity: .85; }
+        tr.user-row-inactive td:first-child { border-left: 3px solid var(--text-muted); }
+        .inactive-badge {
+            display: inline-block;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: .72rem;
+            text-transform: uppercase;
+            letter-spacing: .4px;
+            background: var(--accent-danger);
+            color: #fff;
+        }
+        .section-hint { color: var(--text-muted); font-size: .85rem; margin-top: -8px; }
+    </style>
 </head>
 
 <body>
@@ -16,6 +37,7 @@
         <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: -8px;">
             One account list for the whole stack (pricing / offer / rent / admin share one login).
             Users are deactivated, never deleted. Sensitive actions require your own password.
+            Deactivated accounts are listed separately at the bottom of the page.
         </p>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -71,8 +93,22 @@
             </form>
         </div>
 
-        <div class="card">
-            <h3>All users</h3>
+        {# Two sections, ONE row markup: active accounts first (the only ones
+           that can log in), deactivated accounts in the separate dimmed
+           section below (user request 2026-11-06). Deactivated rows remain
+           fully editable there — ticking Active + Save reactivates them. #}
+        {% for section in [
+            {'id': 'active-users', 'title': 'Active users', 'rows': active_users, 'inactive': false},
+            {'id': 'deactivated-users', 'title': 'Deactivated users', 'rows': inactive_users, 'inactive': true}
+        ] %}
+        <div class="card" id="{{ section.id }}">
+            <h3>{{ section.title }} ({{ section.rows|length }})</h3>
+            {% if section.inactive %}
+            <p class="section-hint">
+                These accounts cannot log in. They are kept — never deleted — so the record of who did what is
+                preserved. Tick <strong>Active</strong> and press Save to re-enable one.
+            </p>
+            {% endif %}
             <table class="preset-table" style="width: 100%;">
                 <thead>
                     <tr>
@@ -83,10 +119,10 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for user in users %}
-                    <tr>
+                    {% for user in section.rows %}
+                    <tr {% if not user.is_active %}class="user-row-inactive"{% endif %}>
                         <td>
-                            <strong>{{ user.username }}</strong>{% if user.id == current_user_id %} <small style="color: var(--text-muted);">(you)</small>{% endif %}<br>
+                            <strong>{{ user.username }}</strong>{% if user.id == current_user_id %} <small style="color: var(--text-muted);">(you)</small>{% endif %}{% if not user.is_active %} <span class="inactive-badge">deactivated</span>{% endif %}<br>
                             <small style="color: var(--text-muted);">{{ user.role }}</small>
                             {# One form per user row (OWN ROW INCLUDED — the own-row
                                Save button + password fields in the last cell join
@@ -114,6 +150,16 @@
                                 </label>
                                 {% endfor %}
                             </div>
+                            {% endif %}
+                            {# Active + role for EVERY editable row: deactivating
+                               the last admin is guarded in the service, and
+                               reactivating a deactivated ADMIN needs this
+                               checkbox too (admin rows render no app
+                               checkboxes but still need the Active toggle).
+                               The own row never gets these controls — the
+                               service blocks self-deactivation/self-demotion
+                               anyway. #}
+                            {% if user.id != current_user_id %}
                             <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-top: 6px;">
                                 <label style="font-weight: normal;">
                                     <input type="checkbox" name="active" value="1" form="user-form-{{ user.id }}"
@@ -126,6 +172,8 @@
                                     </select>
                                 </label>
                             </div>
+                            {% endif %}
+                            {% if user.role != 'admin' %}
                             {# Kontakt u imeniku (2026-09-24: moved from the contacts
                                form — the link is an account property). Empty select
                                = unbound; the hidden carrier marks forms that manage
@@ -165,16 +213,24 @@
                             {% endif %}
                         </td>
                     </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" style="color: var(--text-muted);">
+                            {% if section.inactive %}No deactivated users.{% else %}No active users.{% endif %}
+                        </td>
+                    </tr>
                     {% endfor %}
                 </tbody>
             </table>
-            <p style="color: var(--text-muted); font-size: 0.85rem;">
-                Deactivated users lose access on their next request. The last active admin cannot be deactivated or demoted.
-                Passwords are set here directly (no forced change on next login).
-                App access: admins open every app; staff only the checked apps (re-read on every request — changes hit instantly).
-                An explicitly emptied set stays empty across reboots.
-            </p>
         </div>
+        {% endfor %}
+
+        <p style="color: var(--text-muted); font-size: 0.85rem;">
+            Deactivated users lose access on their next request. The last active admin cannot be deactivated or demoted.
+            Passwords are set here directly (no forced change on next login).
+            App access: admins open every app; staff only the checked apps (re-read on every request — changes hit instantly).
+            An explicitly emptied set stays empty across reboots.
+        </p>
     </div>
 </body>
 
