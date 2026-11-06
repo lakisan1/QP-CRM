@@ -41,7 +41,7 @@ BACKUP_DIR = os.path.join(BASE_DIR, "backups")
 # (v1.1.0 -> 1.1.0). The Admin -> About page shows this plus the build
 # commit (QP_BUILD_COMMIT, injected at image build time by CI) and the
 # running image tag (backups/last-deployed-tag, written by deploy.sh).
-APP_VERSION = "1.1.5"
+APP_VERSION = "1.1.7"
 
 # Build-time git commit — set by CI/Dockerfile as a build arg; empty in
 # bare-metal/dev runs (the About page then shows "dev build").
